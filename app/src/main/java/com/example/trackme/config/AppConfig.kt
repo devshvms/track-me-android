@@ -1,0 +1,29 @@
+package com.example.trackme.config
+
+import android.graphics.Color
+
+object AppConfig {
+    // Map Rendering Constants
+    const val MAP_LINE_COLOR = "0x0000ff"
+    const val MAP_LINE_WEIGHT = 4
+    
+    // Static Maps API Base
+    const val STATIC_MAP_BASE_URL = "https://maps.googleapis.com/maps/api/staticmap"
+
+    // High Quality Image Export Constants
+    const val HQ_IMAGE_WIDTH = 1080
+    const val HQ_IMAGE_RATIO_1_1 = 1080 // 1080x1080
+    const val HQ_IMAGE_RATIO_16_9 = 607 // 1080x607
+    const val HQ_IMAGE_SCALE = 2 // Retina scale for Maps API
+    
+    // Social Template Rendering Constants
+    const val OVERLAY_BANNER_HEIGHT_RATIO = 0.2f // Banner takes bottom 20% of image
+    const val OVERLAY_BANNER_COLOR = Color.BLACK
+    const val OVERLAY_BANNER_ALPHA = 180 // 0-255 transparency
+    const val OVERLAY_TEXT_COLOR = Color.WHITE
+    
+    // File Paths
+    const val EXPORT_DIR_NAME = "trackme_exports"
+    const val GPX_FILE_PREFIX = "TrackMe_Ride_"
+    const val IMAGE_FILE_PREFIX = "TrackMe_Share_"
+}

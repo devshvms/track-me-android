@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">TrackMe</string>
+    <!-- Add your Web Client ID from Firebase Console (Authentication -> Sign In Method -> Google -> Web SDK configuration) -->
+    <string name="default_web_client_id">126912105508-b9cborkn1inina02gkcsbvcod7hm0giu.apps.googleusercontent.com</string>
+</resources>
