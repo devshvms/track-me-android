@@ -27,7 +27,9 @@ sealed class SyncResult {
 
 class FirestoreSyncManager(
     private val rideDao: RideDao,
-    private val authManager: AuthManager
+    private val emergencyDao: com.example.trackme.data.local.dao.EmergencyDao,
+    private val authManager: AuthManager,
+    private val errorLogger: com.example.trackme.utils.logger.ErrorLogger
 ) {
     private val firestore = FirebaseFirestore.getInstance()
     private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -58,8 +60,9 @@ class FirestoreSyncManager(
 
                 _syncResult.value = SyncResult.Success(uploaded, downloaded)
             } catch (e: Exception) {
-                Log.e("FirestoreSyncManager", "Sync failed", e)
-                _syncResult.value = SyncResult.Error(e.message ?: "Unknown error")
+                errorLogger.log("Sync failed")
+                errorLogger.recordException(e)
+                _syncResult.value = SyncResult.Error(e.localizedMessage ?: "Unknown error")
             }
         }
     }
@@ -72,8 +75,9 @@ class FirestoreSyncManager(
                 val downloaded = downloadFromCloud(user.uid, limit)
                 _syncResult.value = SyncResult.Success(0, downloaded)
             } catch (e: Exception) {
-                Log.e("FirestoreSyncManager", "Sync recent failed", e)
-                _syncResult.value = SyncResult.Error(e.message ?: "Unknown error")
+                errorLogger.log("Sync recent failed")
+                errorLogger.recordException(e)
+                _syncResult.value = SyncResult.Error(e.localizedMessage ?: "Unknown error")
             }
         }
     }
@@ -145,7 +149,8 @@ class FirestoreSyncManager(
                 }
                 count++
             } catch (e: Exception) {
-                Log.e("FirestoreSyncManager", "Failed to download ride $docId", e)
+                errorLogger.log("Failed to download ride $docId")
+                errorLogger.recordException(e)
             }
         }
         return count
@@ -195,20 +200,108 @@ class FirestoreSyncManager(
             val updatedRide = rideWithPoints.ride.copy(isSynced = true, firestoreId = rideId.toString())
             rideDao.updateRide(updatedRide)
         } catch (e: Exception) {
-            Log.e("FirestoreSyncManager", "Failed to upload ride $rideId", e)
+            errorLogger.log("Failed to upload ride $rideId")
+            errorLogger.recordException(e)
         }
     }
 
-    suspend fun deleteRide(rideId: Long) {
+    suspend fun deleteRide(firestoreDocId: String) {
         val user = authManager.currentUser.value ?: throw Exception("User not logged in")
         try {
             firestore.collection("users")
                 .document(user.uid)
                 .collection("rides")
-                .document(rideId.toString())
+                .document(firestoreDocId)
                 .delete()
         } catch (e: Exception) {
-            Log.e("FirestoreSyncManager", "Failed to queue ride $rideId for deletion", e)
+            errorLogger.log("Failed to queue ride $firestoreDocId for deletion")
+            errorLogger.recordException(e)
         }
+    }
+
+    fun syncEmergencyConfigUpstream() {
+        syncScope.launch {
+            val user = authManager.currentUser.value ?: return@launch
+            try {
+                val settings = emergencyDao.getSettings() ?: return@launch
+                val contacts = emergencyDao.getContacts()
+
+                val configData = mapOf(
+                    "settings" to mapOf(
+                        "isSetupComplete" to settings.isSetupComplete,
+                        "messageTemplate" to settings.messageTemplate,
+                        "premiumToken" to settings.premiumToken,
+                        "broadcastIntervalSeconds" to settings.broadcastIntervalSeconds
+                    ),
+                    "contacts" to contacts.map { 
+                        mapOf("name" to it.name, "phoneNumber" to it.phoneNumber, "medium" to it.medium) 
+                    }
+                )
+
+                firestore.collection("users").document(user.uid)
+                    .collection("emergency_config").document("settings")
+                    .set(configData).await()
+            } catch (e: Exception) {
+                errorLogger.log("Failed to upload emergency config")
+                errorLogger.recordException(e)
+            }
+        }
+    }
+
+    suspend fun syncEmergencyConfigDownstream() {
+        val user = authManager.currentUser.value ?: return
+        try {
+            val doc = firestore.collection("users").document(user.uid)
+                .collection("emergency_config").document("settings")
+                .get().await()
+
+            if (doc.exists()) {
+                @Suppress("UNCHECKED_CAST")
+                val settingsMap = doc.get("settings") as? Map<String, Any>
+                @Suppress("UNCHECKED_CAST")
+                val contactsList = doc.get("contacts") as? List<Map<String, Any>>
+
+                if (settingsMap != null) {
+                    val settings = com.example.trackme.data.local.entity.EmergencySettingsEntity(
+                        isSetupComplete = settingsMap["isSetupComplete"] as? Boolean ?: false,
+                        messageTemplate = settingsMap["messageTemplate"] as? String ?: "EMERGENCY! I need help. My last known location is: [Location Link]",
+                        premiumToken = settingsMap["premiumToken"] as? String,
+                        broadcastIntervalSeconds = (settingsMap["broadcastIntervalSeconds"] as? Long)?.toInt() ?: 120
+                    )
+                    emergencyDao.updateSettings(settings)
+                }
+
+                if (contactsList != null) {
+                    // Replace contacts
+                    val oldContacts = emergencyDao.getContacts()
+                    oldContacts.forEach { emergencyDao.deleteContact(it) }
+
+                    contactsList.forEach { cMap ->
+                        val contact = com.example.trackme.data.local.entity.EmergencyContactEntity(
+                            name = cMap["name"] as? String ?: "Unknown",
+                            phoneNumber = cMap["phoneNumber"] as? String ?: "",
+                            medium = cMap["medium"] as? String ?: "SMS"
+                        )
+                        emergencyDao.insertContact(contact)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            errorLogger.log("Failed to download emergency config")
+            errorLogger.recordException(e)
+        }
+    }
+
+    fun logEmergencyMessage(timestamp: Long, messageText: String, recipientNumber: String, msgType: String) {
+        val user = authManager.currentUser.value ?: return
+        val logData = mapOf(
+            "timestamp" to timestamp,
+            "messageText" to messageText,
+            "recipientNumber" to recipientNumber,
+            "msgType" to msgType
+        )
+        firestore.collection("users").document(user.uid)
+            .collection("emergency_logs")
+            .add(logData)
     }
 }

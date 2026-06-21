@@ -148,9 +148,6 @@ class TrackingService : Service() {
         
         currentRideId?.let { rideId ->
             serviceScope.launch {
-                val gpsProcessor = com.example.trackme.domain.processor.DefaultGPSProcessor()
-                gpsProcessor.processRide(rideId, rideDao)
-                
                 val rideWithPoints = rideDao.getRideWithPointsById(rideId)
                 if (rideWithPoints != null) {
                     val ride = rideWithPoints.ride
@@ -161,6 +158,10 @@ class TrackingService : Service() {
                     val avgSpeed = if (durationMs > 0) (distance / (durationMs / 1000f)).toFloat() else 0f
                     val maxSpeed = points.maxOfOrNull { it.speed } ?: 0f
                     
+                    val newTitle = if (ride.title == com.example.trackme.utils.RideUtils.getDefaultTitle(ride.startTime)) {
+                        com.example.trackme.utils.RideUtils.getDefaultTitle(ride.startTime, maxSpeed * 3.6f)
+                    } else ride.title
+
                     val calc = com.example.trackme.data.local.entity.PostRideCalculation(
                         distance = distance,
                         maxSpeed = maxSpeed,
@@ -168,8 +169,19 @@ class TrackingService : Service() {
                         pauseDuration = 0L
                     )
                     
-                    val finishedRide = ride.copy(endTime = System.currentTimeMillis(), postRideCalculation = calc)
+                    val finishedRide = ride.copy(
+                        endTime = System.currentTimeMillis(), 
+                        title = newTitle,
+                        postRideCalculation = calc
+                    )
                     rideDao.updateRide(finishedRide)
+                    
+                    val prefs = getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
+                    val isPostProcessingEnabled = prefs.getBoolean("enable_gps_post_processing", false)
+                    
+                    val gpsProcessor = com.example.trackme.domain.processor.DefaultGPSProcessor()
+                    gpsProcessor.processRide(rideId, rideDao, isPostProcessingEnabled)
+
                     val app = application as TrackMeApp
                     app.firestoreSyncManager.uploadRide(rideId)
                 }

@@ -8,6 +8,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.trackme.service.TrackingManager
 import com.example.trackme.service.TrackingService
 import com.example.trackme.service.TrackingState
+import com.example.trackme.service.EmergencyManager
+import com.example.trackme.auth.AuthManager
+import com.example.trackme.data.local.dao.EmergencyDao
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -20,12 +23,19 @@ data class HomeUiState(
     val pathPoints: List<LatLng> = emptyList(),
     val distanceText: String = "0.00 km",
     val durationText: String = "00:00:00",
-    val speedText: String = "0.0 km/h"
+    val speedText: String = "0.0 km/h",
+    val isEmergencyActive: Boolean = false,
+    val isEmergencyReady: Boolean = false
 )
 
-class HomeViewModel(private val trackingManager: TrackingManager) : ViewModel() {
+class HomeViewModel(
+    private val trackingManager: TrackingManager,
+    private val emergencyManager: EmergencyManager,
+    private val authManager: AuthManager,
+    private val emergencyDao: EmergencyDao
+) : ViewModel() {
 
-    val uiState = combine(
+    private val trackingStats = combine(
         trackingManager.trackingState,
         trackingManager.pathPoints,
         trackingManager.totalDistance,
@@ -39,6 +49,21 @@ class HomeViewModel(private val trackingManager: TrackingManager) : ViewModel() 
             durationText = formatDuration(duration),
             speedText = formatSpeed(speed)
         )
+    }
+
+    private val isEmergencyReadyFlow = combine(
+        authManager.currentUser,
+        emergencyDao.getSettingsFlow()
+    ) { user, settings ->
+        user != null && settings?.isSetupComplete == true
+    }
+
+    val uiState = combine(
+        trackingStats,
+        emergencyManager.isEmergencyActive,
+        isEmergencyReadyFlow
+    ) { stats, isEmergency, isReady ->
+        stats.copy(isEmergencyActive = isEmergency, isEmergencyReady = isReady)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
 
     private fun formatDistance(distanceMeters: Float): String {
@@ -77,13 +102,26 @@ class HomeViewModel(private val trackingManager: TrackingManager) : ViewModel() 
         }
         context.startService(intent)
     }
+
+    fun triggerEmergency() {
+        emergencyManager.triggerEmergency()
+    }
+
+    fun stopEmergency() {
+        emergencyManager.stopEmergency()
+    }
 }
 
-class HomeViewModelFactory(private val trackingManager: TrackingManager) : ViewModelProvider.Factory {
+class HomeViewModelFactory(
+    private val trackingManager: TrackingManager,
+    private val emergencyManager: EmergencyManager,
+    private val authManager: AuthManager,
+    private val emergencyDao: EmergencyDao
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return HomeViewModel(trackingManager) as T
+            return HomeViewModel(trackingManager, emergencyManager, authManager, emergencyDao) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

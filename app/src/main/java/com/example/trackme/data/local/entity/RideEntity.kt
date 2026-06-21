@@ -8,7 +8,9 @@ data class PostRideCalculation(
     val maxSpeed: Float,
     val distance: Double,
     val avgSpeed: Float,
-    val pauseDuration: Long
+    val pauseDuration: Long,
+    val maxAcceleration: Float? = null,
+    val rawPointCount: Int? = null
 )
 
 @Entity(tableName = "rides")

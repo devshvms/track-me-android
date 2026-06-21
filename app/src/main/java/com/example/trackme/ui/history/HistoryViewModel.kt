@@ -16,8 +16,10 @@ import java.io.InputStream
 import com.example.trackme.domain.import.GPXParser
 
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
-    private val db = (application as com.example.trackme.TrackMeApp).database
+    private val app = application as com.example.trackme.TrackMeApp
+    private val db = app.database
     private val rideDao = db.rideDao()
+    private val errorLogger = app.errorLogger
 
     val rides: StateFlow<List<RideWithPoints>> = rideDao.getAllRidesWithPoints()
         .stateIn(
@@ -31,6 +33,11 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteRide(rideId: Long) {
         viewModelScope.launch {
+            if (app.authManager.currentUser.value != null) {
+                val ride = rideDao.getRideWithPointsById(rideId)?.ride
+                val firestoreId = ride?.firestoreId ?: rideId.toString()
+                app.firestoreSyncManager.deleteRide(firestoreId)
+            }
             rideDao.deleteRide(rideId)
         }
     }
@@ -58,11 +65,12 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                 val newPoints = parsed.rideWithPoints.points.map { it.copy(rideId = newRideId) }
                 rideDao.insertGPSPoints(newPoints)
                 
-                val app = getApplication<com.example.trackme.TrackMeApp>()
                 app.firestoreSyncManager.uploadRide(newRideId)
                 
                 _uiEvent.emit(UiEvent.Success("GPX Imported Successfully"))
             } catch (e: Exception) {
+                errorLogger.log("Failed to parse GPX")
+                errorLogger.recordException(e)
                 _uiEvent.emit(UiEvent.ShowError("Failed to parse GPX: ${e.localizedMessage}"))
             }
         }

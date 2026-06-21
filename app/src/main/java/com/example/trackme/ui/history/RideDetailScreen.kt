@@ -7,6 +7,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -80,9 +83,19 @@ fun RideDetailScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             var isEditing by remember { mutableStateOf(false) }
-            var editedTitle by remember(rideWithPoints?.ride?.title) { 
-                mutableStateOf(rideWithPoints?.ride?.title ?: "Ride Details") 
+            val displayTitle = remember(rideWithPoints) {
+                val ride = rideWithPoints?.ride
+                if (ride == null) "Ride Details"
+                else {
+                    var t = ride.title ?: "Ride Details"
+                    if (t == com.example.trackme.utils.RideUtils.getDefaultTitle(ride.startTime)) {
+                         val maxKmh = (ride.postRideCalculation?.maxSpeed ?: 0f) * 3.6f
+                         t = com.example.trackme.utils.RideUtils.getDefaultTitle(ride.startTime, maxKmh)
+                    }
+                    t
+                }
             }
+            var editedTitle by remember(displayTitle) { mutableStateOf(displayTitle) }
 
             TopAppBar(
                 title = {
@@ -94,7 +107,7 @@ fun RideDetailScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                     } else {
-                        Text(rideWithPoints?.ride?.title ?: "Ride Details")
+                        Text(displayTitle)
                     }
                 },
                 actions = {
@@ -243,10 +256,24 @@ fun RideDetailScreen(
                         Text("Stats", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            StatItem("Distance", String.format("%.2f km", (ride.postRideCalculation?.distance ?: 0.0) / 1000f))
-                            StatItem("Duration", formatDuration((ride.endTime ?: ride.startTime) - ride.startTime))
-                            StatItem("Avg Speed", String.format("%.1f m/s", ride.postRideCalculation?.avgSpeed ?: 0f))
-                            StatItem("Max Speed", String.format("%.1f m/s", ride.postRideCalculation?.maxSpeed ?: 0f))
+                            val dateFormat = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
+                            val startTimeStr = dateFormat.format(java.util.Date(ride.startTime))
+
+                            StatItem("Distance", String.format("%.2f km", (ride.postRideCalculation?.distance ?: 0.0) / 1000f), modifier = Modifier.weight(1f))
+                            StatItem("Duration", formatDuration((ride.endTime ?: ride.startTime) - ride.startTime), modifier = Modifier.weight(1f))
+                            StatItem("Points", points.size.toString(), modifier = Modifier.weight(1f))
+                            StatItem("Start Time", startTimeStr, modifier = Modifier.weight(1f))
+                        }
+                        
+                        val rawCount = ride.postRideCalculation?.rawPointCount
+                        if (rawCount != null && rawCount > points.size && points.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                val compressionPct = ((rawCount - points.size).toFloat() / rawCount * 100).toInt()
+                                StatItem("Compression", "$compressionPct%", modifier = Modifier.weight(1f))
+                                StatItem("Raw Points", rawCount.toString(), modifier = Modifier.weight(1f))
+                                StatItem("Max G-Force", String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f), modifier = Modifier.weight(1f))
+                            }
                         }
                     }
                 }
@@ -254,42 +281,7 @@ fun RideDetailScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 if (points.size > 1) {
-                    Text(
-                        text = "Speed Over Time (m/s)",
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    MetricLineChart(
-                        points = points,
-                        metricSelector = { it.speed },
-                        lineColor = Color(0xFF4CAF50),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .padding(horizontal = 16.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Text(
-                        text = "Altitude Over Time (m)",
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    MetricLineChart(
-                        points = points,
-                        metricSelector = { it.altitude.toFloat() },
-                        lineColor = Color(0xFF2196F3),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .padding(horizontal = 16.dp)
-                    )
-                    
+                    CombinedChartWithTable(points)
                     Spacer(modifier = Modifier.height(32.dp))
                 }
             }
@@ -392,30 +384,197 @@ fun RideDetailScreen(
 }
 
 @Composable
-fun StatItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+fun StatItem(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text = label, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-        Text(text = value, style = MaterialTheme.typography.titleMedium)
+        Text(text = value, style = MaterialTheme.typography.titleMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun CombinedChartWithTable(points: List<GPSPointEntity>) {
+    var showSpeed by remember { mutableStateOf(true) }
+    var showAltitude by remember { mutableStateOf(true) }
+
+    val speedColor = Color(0xFF4CAF50) // Green
+    val altColor = Color(0xFF2196F3) // Blue
+
+    // Calculate stats
+    val speeds = points.map { it.speed * 3.6f }
+    val minSpeed = speeds.minOrNull() ?: 0f
+    val maxSpeed = speeds.maxOrNull() ?: 0f
+    val meanSpeed = if (speeds.isNotEmpty()) speeds.average().toFloat() else 0f
+
+    val alts = points.map { it.altitude.toFloat() }
+    val minAlt = alts.minOrNull() ?: 0f
+    val maxAlt = alts.maxOrNull() ?: 0f
+    val meanAlt = if (alts.isNotEmpty()) alts.average().toFloat() else 0f
+
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 2 })
+
+    Column {
+        val titleText = if (pagerState.currentPage == 0) "Metrics over Time" else "Metrics over Distance"
+        Text(
+            text = titleText,
+            modifier = Modifier.padding(horizontal = 16.dp),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        androidx.compose.foundation.pager.HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth().height(200.dp).padding(horizontal = 16.dp)
+        ) { page ->
+            CombinedMetricLineChart(
+                points = points,
+                showSpeed = showSpeed,
+                showAltitude = showAltitude,
+                minSpeed = minSpeed,
+                maxSpeed = maxSpeed,
+                minAlt = minAlt,
+                maxAlt = maxAlt,
+                speedColor = speedColor,
+                altColor = altColor,
+                isDistanceAxis = (page == 1),
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            repeat(2) { iteration ->
+                val color = if (pagerState.currentPage == iteration) MaterialTheme.colorScheme.primary else Color.LightGray
+                Box(modifier = Modifier.padding(2.dp).background(color, shape = CircleShape).size(8.dp))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Table
+        Card(
+            modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Header
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Metric", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                    Text("Unit", modifier = Modifier.weight(0.8f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text("Min", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text("Mean", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text("Max", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text("Show", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+                Box(modifier = Modifier.padding(vertical = 8.dp).fillMaxWidth().height(1.dp).background(Color.LightGray.copy(alpha = 0.5f)))
+                // Speed Row
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(8.dp).background(speedColor, shape = CircleShape))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Spd", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text("km/h", modifier = Modifier.weight(0.8f), style = MaterialTheme.typography.bodySmall, color = Color.Gray, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text(String.format("%.1f", minSpeed), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text(String.format("%.1f", meanSpeed), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text(String.format("%.1f", maxSpeed), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Checkbox(
+                            checked = showSpeed, 
+                            onCheckedChange = { showSpeed = it },
+                            modifier = Modifier.height(24.dp),
+                            colors = CheckboxDefaults.colors(checkedColor = speedColor)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                // Altitude Row
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(8.dp).background(altColor, shape = CircleShape))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Alt", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text("m", modifier = Modifier.weight(0.8f), style = MaterialTheme.typography.bodySmall, color = Color.Gray, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text(String.format("%.0f", minAlt), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text(String.format("%.0f", meanAlt), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text(String.format("%.0f", maxAlt), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Checkbox(
+                            checked = showAltitude, 
+                            onCheckedChange = { showAltitude = it },
+                            modifier = Modifier.height(24.dp),
+                            colors = CheckboxDefaults.colors(checkedColor = altColor)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun MetricLineChart(
+fun CombinedMetricLineChart(
     points: List<GPSPointEntity>,
-    metricSelector: (GPSPointEntity) -> Float,
-    lineColor: Color,
+    showSpeed: Boolean,
+    showAltitude: Boolean,
+    minSpeed: Float,
+    maxSpeed: Float,
+    minAlt: Float,
+    maxAlt: Float,
+    speedColor: Color,
+    altColor: Color,
+    isDistanceAxis: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     if (points.isEmpty()) return
 
-    val minTime = points.first().timestamp
-    val maxTime = points.last().timestamp
-    val timeRange = maxTime - minTime
+    val speedRange = if (maxSpeed == minSpeed) 1f else (maxSpeed - minSpeed)
+    val altRange = if (maxAlt == minAlt) 1f else (maxAlt - minAlt)
 
-    val values = points.map(metricSelector)
-    val minValue = values.minOrNull() ?: 0f
-    val maxValue = values.maxOrNull() ?: 1f
-    val valueRange = if (maxValue == minValue) 1f else (maxValue - minValue)
+    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+    val plotData = remember(points, isDistanceAxis) {
+        val list = mutableListOf<Pair<GPSPointEntity, Float>>()
+        if (points.isEmpty()) return@remember list
+        
+        if (isDistanceAxis) {
+            var currentDist = 0f
+            list.add(points.first() to currentDist)
+            for (i in 1 until points.size) {
+                val prev = points[i-1]
+                val curr = points[i]
+                if (!prev.isPaused) {
+                    val results = FloatArray(1)
+                    android.location.Location.distanceBetween(
+                        prev.latitude, prev.longitude,
+                        curr.latitude, curr.longitude, results
+                    )
+                    currentDist += results[0]
+                }
+                list.add(curr to currentDist)
+            }
+        } else {
+            var currentTime = 0L
+            list.add(points.first() to currentTime.toFloat())
+            for (i in 1 until points.size) {
+                val prev = points[i-1]
+                val curr = points[i]
+                val dt = curr.timestamp - prev.timestamp
+                if (prev.isPaused && dt > 60000L) {
+                    currentTime += 60000L // Cap pauses to 1 minute visually
+                } else {
+                    currentTime += dt
+                }
+                list.add(curr to currentTime.toFloat())
+            }
+        }
+        list
+    }
 
     Card(
         shape = RoundedCornerShape(8.dp),
@@ -425,40 +584,132 @@ fun MetricLineChart(
         Canvas(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             val width = size.width
             val height = size.height
+            val bottomPadding = 20.dp.toPx()
+            val startPadding = 10.dp.toPx() 
+            val endPadding = 10.dp.toPx()
 
-            for (i in 0 until points.size - 1) {
-                val p1 = points[i]
-                val p2 = points[i + 1]
+            val chartWidth = width - startPadding - endPadding
+            val chartHeight = height - bottomPadding
+
+            // Draw Y-axis labels
+            val ySteps = 4
+            for (i in 0..ySteps) {
+                val speedVal = minSpeed + (speedRange * i / ySteps)
+                val altVal = minAlt + (altRange * i / ySteps)
+                val yPos = chartHeight - (chartHeight * i / ySteps)
+
+                if (showSpeed) {
+                    drawText(
+                        textMeasurer = textMeasurer,
+                        text = String.format("%.1f", speedVal),
+                        style = labelStyle.copy(color = speedColor, fontWeight = FontWeight.Bold),
+                        topLeft = Offset(startPadding + 5f, yPos - 15f)
+                    )
+                }
+                if (showAltitude) {
+                    val altText = String.format("%.0f", altVal)
+                    val style = labelStyle.copy(color = altColor, fontWeight = FontWeight.Bold)
+                    val textLayout = textMeasurer.measure(altText, style)
+                    drawText(
+                        textMeasurer = textMeasurer,
+                        text = altText,
+                        style = style,
+                        topLeft = Offset(width - endPadding - textLayout.size.width - 5f, yPos - 15f)
+                    )
+                }
+                
+                // Grid line
+                drawLine(
+                    color = Color.LightGray.copy(alpha = 0.5f),
+                    start = Offset(startPadding, yPos),
+                    end = Offset(width - endPadding, yPos),
+                    strokeWidth = 1f
+                )
+            }
+
+            val maxX = plotData.last().second.coerceAtLeast(1f)
+
+            // Draw X-axis labels
+            val xSteps = 4
+            for (i in 0..xSteps) {
+                val fraction = i.toFloat() / xSteps
+                val xPos = startPadding + (chartWidth * fraction)
+                
+                val label = if (isDistanceAxis) {
+                    val distKm = (maxX * fraction) / 1000f
+                    String.format("%.1fkm", distKm)
+                } else {
+                    val timeOffsetMillis = (maxX * fraction).toLong()
+                    val minutes = (timeOffsetMillis / 1000) / 60
+                    val seconds = (timeOffsetMillis / 1000) % 60
+                    String.format("%02d:%02d", minutes, seconds)
+                }
+                
+                drawText(
+                    textMeasurer = textMeasurer,
+                    text = label,
+                    style = labelStyle,
+                    topLeft = Offset(xPos - 15f, chartHeight + 5f)
+                )
+            }
+
+            // Draw Paused areas
+            for (i in 0 until plotData.size - 1) {
+                val (p1, xVal1) = plotData[i]
+                val (p2, xVal2) = plotData[i+1]
                 if (p1.isPaused) {
-                    val x1 = ((p1.timestamp - minTime).toFloat() / timeRange.toFloat()) * width
-                    val x2 = ((p2.timestamp - minTime).toFloat() / timeRange.toFloat()) * width
-                    
+                    val x1 = startPadding + (xVal1 / maxX) * chartWidth
+                    val x2 = startPadding + (xVal2 / maxX) * chartWidth
                     drawRect(
-                        color = Color.LightGray.copy(alpha = 0.3f),
+                        color = Color.Red.copy(alpha = 0.15f), // Red tint for pause
                         topLeft = Offset(x1, 0f),
-                        size = Size(maxOf(1f, x2 - x1), height)
+                        size = Size(maxOf(1f, x2 - x1), chartHeight)
                     )
                 }
             }
 
-            val path = Path()
-            points.forEachIndexed { index, point ->
-                val x = if (timeRange == 0L) 0f else ((point.timestamp - minTime).toFloat() / timeRange.toFloat()) * width
-                val value = metricSelector(point)
-                val y = height - (((value - minValue) / valueRange) * height)
+            // Draw Paths
+            val drawMetricPath = { isSpeed: Boolean ->
+                val path = Path()
+                val dottedPath = Path()
+                var isFirst = true
 
-                if (index == 0) {
-                    path.moveTo(x, y)
-                } else {
-                    path.lineTo(x, y)
+                for (i in 0 until plotData.size - 1) {
+                    val (p1, xVal1) = plotData[i]
+                    val (p2, xVal2) = plotData[i+1]
+                    
+                    val x1 = startPadding + (xVal1 / maxX) * chartWidth
+                    val x2 = startPadding + (xVal2 / maxX) * chartWidth
+                    
+                    val val1 = if (isSpeed) p1.speed * 3.6f else p1.altitude.toFloat()
+                    val val2 = if (isSpeed) p2.speed * 3.6f else p2.altitude.toFloat()
+                    
+                    val y1 = chartHeight - (((val1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * chartHeight)
+                    val y2 = chartHeight - (((val2 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * chartHeight)
+
+                    if (isFirst) {
+                        path.moveTo(x1, y1)
+                        dottedPath.moveTo(x1, y1)
+                        isFirst = false
+                    }
+
+                    if (p1.isPaused) {
+                        dottedPath.moveTo(x1, y1)
+                        dottedPath.lineTo(x2, y2)
+                        path.moveTo(x2, y2)
+                    } else {
+                        path.lineTo(x2, y2)
+                        dottedPath.moveTo(x2, y2)
+                    }
                 }
+                
+                val cColor = if (isSpeed) speedColor else altColor
+                drawPath(path = path, color = cColor, style = Stroke(width = 4f))
+                drawPath(path = dottedPath, color = cColor, style = Stroke(width = 4f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)))
             }
 
-            drawPath(
-                path = path,
-                color = lineColor,
-                style = Stroke(width = 4f)
-            )
+            if (showSpeed) drawMetricPath(true)
+            if (showAltitude) drawMetricPath(false)
         }
     }
 }

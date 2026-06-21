@@ -11,10 +11,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.sync.withLock
 
 class RideDetailViewModel(application: Application) : AndroidViewModel(application) {
-    private val db = (application as com.example.trackme.TrackMeApp).database
+    private val app = application as com.example.trackme.TrackMeApp
+    private val db = app.database
     private val rideDao = db.rideDao()
+    private val errorLogger = app.errorLogger
 
     private val _rideWithPoints = MutableStateFlow<RideWithPoints?>(null)
     val rideWithPoints: StateFlow<RideWithPoints?> = _rideWithPoints.asStateFlow()
@@ -25,21 +28,26 @@ class RideDetailViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    private val actionMutex = kotlinx.coroutines.sync.Mutex()
+
     fun updateTitle(rideId: Long, newTitle: String) {
         viewModelScope.launch {
-            try {
-                val rideWithPoints = rideDao.getRideWithPointsById(rideId)
-                if (rideWithPoints != null) {
-                    val updatedRide = rideWithPoints.ride.copy(title = newTitle, isSynced = false)
-                    rideDao.updateRide(updatedRide)
-                    _rideWithPoints.value = rideWithPoints.copy(ride = updatedRide)
-                    
-                    // Trigger sync
-                    val app = getApplication<com.example.trackme.TrackMeApp>()
-                    app.firestoreSyncManager.uploadRide(rideId)
+            actionMutex.withLock {
+                try {
+                    val rideWithPoints = rideDao.getRideWithPointsById(rideId)
+                    if (rideWithPoints != null) {
+                        val updatedRide = rideWithPoints.ride.copy(title = newTitle, isSynced = false)
+                        rideDao.updateRide(updatedRide)
+                        _rideWithPoints.value = rideWithPoints.copy(ride = updatedRide)
+                        
+                        // Trigger sync
+                        app.firestoreSyncManager.uploadRide(rideId)
+                    }
+                } catch (e: Exception) {
+                    errorLogger.log("Failed to update title for ride $rideId")
+                    errorLogger.recordException(e)
+                    _uiEvent.emit(UiEvent.ShowError("Failed to update title: ${e.localizedMessage}"))
                 }
-            } catch (e: Exception) {
-                _uiEvent.emit(UiEvent.ShowError("Failed to update title: ${e.localizedMessage}"))
             }
         }
     }
@@ -49,18 +57,23 @@ class RideDetailViewModel(application: Application) : AndroidViewModel(applicati
 
     fun deleteRide(rideId: Long) {
         viewModelScope.launch {
-            try {
-                val app = getApplication<com.example.trackme.TrackMeApp>()
-                val ride = rideDao.getRideWithPointsById(rideId)?.ride
-                
-                if (ride?.isSynced == true) {
-                    app.firestoreSyncManager.deleteRide(rideId)
+            actionMutex.withLock {
+                try {
+                    // Always try to delete from Firestore if user is logged in, 
+                    // to avoid orphaned data if delete happens right after an edit
+                    if (app.authManager.currentUser.value != null) {
+                        val ride = rideDao.getRideWithPointsById(rideId)?.ride
+                        val firestoreId = ride?.firestoreId ?: rideId.toString()
+                        app.firestoreSyncManager.deleteRide(firestoreId)
+                    }
+                    
+                    rideDao.deleteRide(rideId)
+                    _uiEvent.emit(UiEvent.NavigateBack)
+                } catch (e: Exception) {
+                    errorLogger.log("Failed to delete ride $rideId")
+                    errorLogger.recordException(e)
+                    _uiEvent.emit(UiEvent.ShowError("Failed to delete: ${e.localizedMessage}"))
                 }
-                
-                rideDao.deleteRide(rideId)
-                _uiEvent.emit(UiEvent.NavigateBack)
-            } catch (e: Exception) {
-                _uiEvent.emit(UiEvent.ShowError("Failed to delete: ${e.localizedMessage}"))
             }
         }
     }

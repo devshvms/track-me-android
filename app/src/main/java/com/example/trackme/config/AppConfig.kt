@@ -26,4 +26,20 @@ object AppConfig {
     const val EXPORT_DIR_NAME = "trackme_exports"
     const val GPX_FILE_PREFIX = "TrackMe_Ride_"
     const val IMAGE_FILE_PREFIX = "TrackMe_Share_"
+
+    // --- Emergency Configuration ---
+    // SOS countdown duration in seconds before broadcasting
+    const val SOS_COUNTDOWN_SECONDS = 5
+
+    // Maximum number of broadcast ticks to vibrate for
+    const val MAX_HAPTIC_MESSAGES = 5
+
+    // Vibration duration in milliseconds for each broadcast tick
+    const val HAPTIC_VIBRATION_DURATION_MS = 1000L
+
+    // --- Post Processing Configuration ---
+    const val MAX_ACCELERATION_G = 2.0f
+    
+    // Speed boundary between Walk/Run and Bike (km/h)
+    const val WALKING_MAX_SPEED_KMH = 15.0f
 }

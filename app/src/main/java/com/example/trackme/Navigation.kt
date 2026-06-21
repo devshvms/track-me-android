@@ -52,7 +52,12 @@ fun MainNavigation() {
                 val id = backStackEntry.arguments?.getString("rideId")?.toLongOrNull() ?: return@composable
                 RideDetailScreen(rideId = id, navController = navController)
             }
-            composable("settings") { SettingsScreen() }
+            composable("settings") { SettingsScreen(navController = navController) }
+            composable("emergency_setup") { 
+                com.example.trackme.ui.settings.EmergencySetupScreen(
+                    navController = navController
+                )
+            }
         }
     }
 }

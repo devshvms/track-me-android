@@ -2,6 +2,8 @@ package com.example.trackme.ui.settings
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -9,12 +11,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import com.example.trackme.TrackMeApp
 import com.example.trackme.data.remote.SyncResult
 import kotlinx.coroutines.launch
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 
 @Composable
 fun SettingsScreen(
+    navController: NavController? = null,
     viewModel: SettingsViewModel = viewModel(
         factory = SettingsViewModelFactory((LocalContext.current.applicationContext as TrackMeApp))
     )
@@ -27,6 +38,7 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -71,6 +83,127 @@ fun SettingsScreen(
                 }
             }
             Spacer(modifier = Modifier.height(32.dp))
+
+            // Emergency Setup Card
+            val app = LocalContext.current.applicationContext as TrackMeApp
+            val emergencyDao = remember { app.database.emergencyDao() }
+            val emergencySettings by emergencyDao.getSettingsFlow().collectAsState(initial = null)
+            val isSetupComplete = emergencySettings?.isSetupComplete == true
+            var showHowItWorks by remember { mutableStateOf(false) }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            if (isSetupComplete) "Emergency Broadcast is Active" else "Emergency Broadcast", 
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (isSetupComplete) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                        if (isSetupComplete) {
+                            IconButton(onClick = { showHowItWorks = true }) {
+                                Icon(Icons.Default.Info, contentDescription = "How it Works")
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (isSetupComplete) "Your safety protocols are configured." else "Configure emergency contacts and broadcast messages for when you need help.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = {
+                            navController?.navigate("emergency_setup")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (isSetupComplete) "Manage Safety Protocols" else "Setup Emergency Broadcast")
+                    }
+                }
+            }
+            
+            if (showHowItWorks) {
+                AlertDialog(
+                    onDismissRequest = { showHowItWorks = false },
+                    title = { Text("How it Works") },
+                    text = { Text("During an emergency, your phone will broadcast your location to your contacts every 2 minutes for the first 10 minutes, then every 10 minutes for the next 1 hour, and then every 1 hour for the next 24 hours. A persistent notification will remain active until you stop the broadcast.") },
+                    confirmButton = {
+                        TextButton(onClick = { showHowItWorks = false }) {
+                            Text("Got it")
+                        }
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Advanced Settings Card
+            val prefs = context.getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
+            var isPostProcessingEnabled by remember { 
+                mutableStateOf(prefs.getBoolean("enable_gps_post_processing", false)) 
+            }
+            var showGpsInfo by remember { mutableStateOf(false) }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Advanced Settings", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("GPS Post-Processing", style = MaterialTheme.typography.bodyLarge)
+                                IconButton(onClick = { showGpsInfo = true }, modifier = Modifier.size(24.dp).padding(start = 4.dp)) {
+                                    Icon(Icons.Default.Info, contentDescription = "Info", modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            Text(
+                                "Filters anomalies, smooths altitude, and compresses ride data after saving.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isPostProcessingEnabled,
+                            onCheckedChange = { checked ->
+                                isPostProcessingEnabled = checked
+                                prefs.edit().putBoolean("enable_gps_post_processing", checked).apply()
+                            }
+                        )
+                    }
+                }
+            }
+
+            if (showGpsInfo) {
+                AlertDialog(
+                    onDismissRequest = { showGpsInfo = false },
+                    title = { Text("GPS Post-Processing") },
+                    text = { 
+                        Text("This feature uses advanced algorithms to clean up your raw GPS data immediately after a ride finishes.\n\n" +
+                             "• Filters out GPS 'teleportation' glitches.\n" +
+                             "• Smooths out noisy altitude and speed readings.\n" +
+                             "• Detects when you were stopped and retroactively pauses the ride.\n" +
+                             "• Compresses the total amount of data to save storage space and speed up cloud syncing, without losing the shape of your route on the map.") 
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showGpsInfo = false }) {
+                            Text("Got it")
+                        }
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Sync Card
             Card(modifier = Modifier.fillMaxWidth()) {

@@ -43,6 +43,9 @@ interface RideDao {
     @Query("DELETE FROM rides WHERE id = :rideId")
     suspend fun deleteRide(rideId: Long): Int
 
+    @Query("DELETE FROM gps_points WHERE rideId = :rideId")
+    suspend fun deletePointsForRide(rideId: Long): Int
+
     @Query("DELETE FROM gps_points WHERE rideId IN (SELECT id FROM rides WHERE isSynced = 1)")
     suspend fun deleteSyncedPoints(): Int
 

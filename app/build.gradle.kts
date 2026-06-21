@@ -1,21 +1,30 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.google.services)
   alias(libs.plugins.ksp)
+  alias(libs.plugins.crashlytics)
 }
 
 android {
     namespace = "com.example.trackme"
     compileSdk = 36
     
-    val localProperties = java.util.Properties()
+    val localProperties = Properties()
     val localPropertiesFile = rootProject.file("local.properties")
     if (localPropertiesFile.exists()) {
-        localPropertiesFile.inputStream().use { localProperties.load(it) }
+        FileInputStream(localPropertiesFile).use { stream -> 
+            localProperties.load(stream) 
+        }
     }
     val mapsApiKey = localProperties.getProperty("MAPS_API_KEY") ?: ""
+    val keystorePassword = System.getenv("KEYSTORE_PASSWORD") ?: localProperties.getProperty("KEYSTORE_PASSWORD") ?: ""
+    val keyAlias = System.getenv("KEY_ALIAS") ?: localProperties.getProperty("KEY_ALIAS") ?: ""
+    val keyPassword = System.getenv("KEY_PASSWORD") ?: localProperties.getProperty("KEY_PASSWORD") ?: ""
 
     defaultConfig {
         applicationId = "com.example.trackme"
@@ -27,10 +36,20 @@ android {
         resValue("string", "google_maps_key", mapsApiKey)
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("release.keystore")
+            storePassword = keystorePassword
+            this.keyAlias = keyAlias
+            this.keyPassword = keyPassword
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -42,6 +61,7 @@ android {
       aidl = false
       buildConfig = false
       shaders = false
+      resValues = true
     }
 
     packaging {
@@ -121,4 +141,5 @@ dependencies {
   implementation(platform(libs.firebase.bom))
   implementation(libs.firebase.auth)
   implementation(libs.firebase.firestore)
+  implementation(libs.firebase.crashlytics)
 }
