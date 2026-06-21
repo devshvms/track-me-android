@@ -256,24 +256,22 @@ fun RideDetailScreen(
                         Text("Stats", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            val dateFormat = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
-                            val startTimeStr = dateFormat.format(java.util.Date(ride.startTime))
-
                             StatItem("Distance", String.format("%.2f km", (ride.postRideCalculation?.distance ?: 0.0) / 1000f), modifier = Modifier.weight(1f))
                             StatItem("Duration", formatDuration((ride.endTime ?: ride.startTime) - ride.startTime), modifier = Modifier.weight(1f))
-                            StatItem("Points", points.size.toString(), modifier = Modifier.weight(1f))
-                            StatItem("Start Time", startTimeStr, modifier = Modifier.weight(1f))
+                            StatItem("GPS Tag", points.size.toString(), modifier = Modifier.weight(1f))
                         }
                         
-                        val rawCount = ride.postRideCalculation?.rawPointCount
-                        if (rawCount != null && rawCount > points.size && points.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                val compressionPct = ((rawCount - points.size).toFloat() / rawCount * 100).toInt()
-                                StatItem("Compression", "$compressionPct%", modifier = Modifier.weight(1f))
-                                StatItem("Raw Points", rawCount.toString(), modifier = Modifier.weight(1f))
-                                StatItem("Max G-Force", String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f), modifier = Modifier.weight(1f))
-                            }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            val dateFormat = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
+                            val startTimeStr = dateFormat.format(java.util.Date(ride.startTime))
+                            StatItem("Start Time", startTimeStr, modifier = Modifier.weight(1f))
+                            
+                            StatItem("Max G-Force", String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f), modifier = Modifier.weight(1f))
+
+                            val rawCount = ride.postRideCalculation?.rawPointCount ?: points.size
+                            val compressionPct = if (rawCount > points.size && rawCount > 0) ((rawCount - points.size).toFloat() / rawCount * 100).toInt() else 0
+                            StatItem("Compression", "$compressionPct%", modifier = Modifier.weight(1f))
                         }
                     }
                 }

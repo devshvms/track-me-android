@@ -42,8 +42,7 @@ fun SettingsScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Settings", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(32.dp))
+        // Header removed
 
         if (user == null) {
             Spacer(modifier = Modifier.height(16.dp))
@@ -181,6 +180,58 @@ fun SettingsScreen(
                             }
                         )
                     }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                            Text("Cloud Sync", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "Sync your local rides to the cloud.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            AnimatedVisibility(visible = syncResult !is SyncResult.Idle) {
+                                Column(modifier = Modifier.padding(top = 4.dp)) {
+                                    when (val result = syncResult) {
+                                        is SyncResult.Syncing -> {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("Syncing...", style = MaterialTheme.typography.bodySmall)
+                                            }
+                                        }
+                                        is SyncResult.Success -> {
+                                            Text(
+                                                text = "✓ Synced",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                        is SyncResult.Error -> {
+                                            Text(
+                                                text = "✗ Error",
+                                                color = MaterialTheme.colorScheme.error,
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                        else -> {}
+                                    }
+                                }
+                            }
+                        }
+                        Button(
+                            onClick = { viewModel.syncData() },
+                            enabled = syncResult !is SyncResult.Syncing,
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(if (syncResult is SyncResult.Syncing) "..." else "Sync")
+                        }
+                    }
                 }
             }
 
@@ -205,65 +256,34 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Sync Card
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Cloud Sync", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Sync your local rides to the cloud and download any rides saved from other devices.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Sync status indicator
-                    AnimatedVisibility(visible = syncResult !is SyncResult.Idle) {
-                        Column {
-                            when (val result = syncResult) {
-                                is SyncResult.Syncing -> {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Syncing...", style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
-                                is SyncResult.Success -> {
-                                    Text(
-                                        text = "✓ Done! Uploaded: ${result.uploaded}, Downloaded: ${result.downloaded}",
-                                        color = MaterialTheme.colorScheme.primary,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                                is SyncResult.Error -> {
-                                    Text(
-                                        text = "✗ Error: ${result.message}",
-                                        color = MaterialTheme.colorScheme.error,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                                else -> {}
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
-                    }
-
-                    Button(
-                        onClick = { viewModel.syncData() },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = syncResult !is SyncResult.Syncing
-                    ) {
-                        Text(if (syncResult is SyncResult.Syncing) "Syncing..." else "Sync Now ↕")
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
+            var showSignOutWarning by remember { mutableStateOf(false) }
 
             OutlinedButton(
-                onClick = { viewModel.signOut() },
+                onClick = { showSignOutWarning = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Sign Out")
+            }
+
+            if (showSignOutWarning) {
+                AlertDialog(
+                    onDismissRequest = { showSignOutWarning = false },
+                    title = { Text("Sign Out Warning") },
+                    text = { Text("Signing out will clear all your synced rides from this phone's local history. They will remain safely in the cloud, and any new rides will be saved locally. Are you sure you want to sign out?") },
+                    confirmButton = {
+                        TextButton(onClick = { 
+                            showSignOutWarning = false
+                            viewModel.signOut() 
+                        }) {
+                            Text("Sign Out", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showSignOutWarning = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
     }
