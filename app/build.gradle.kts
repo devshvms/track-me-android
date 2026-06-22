@@ -11,7 +11,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.trackme"
+    namespace = "in.shvms.trackme"
     compileSdk = 36
     
     val localProperties = Properties()
@@ -27,7 +27,7 @@ android {
     val keyPassword = System.getenv("KEY_PASSWORD") ?: localProperties.getProperty("KEY_PASSWORD") ?: ""
 
     defaultConfig {
-        applicationId = "com.example.trackme"
+        applicationId = "in.shvms.trackme"
         minSdk = 24
         targetSdk = 36
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
