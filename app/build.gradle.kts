@@ -30,8 +30,8 @@ android {
         applicationId = "com.example.trackme"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+        versionName = "1.0.${System.getenv("GITHUB_RUN_NUMBER") ?: "0"}"
         
         resValue("string", "google_maps_key", mapsApiKey)
     }
