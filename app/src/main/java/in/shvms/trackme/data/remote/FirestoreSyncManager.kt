@@ -304,4 +304,47 @@ class FirestoreSyncManager(
             .collection("emergency_logs")
             .add(logData)
     }
+
+    suspend fun deleteAllCloudData(): Result<Unit> {
+        return try {
+            val user = authManager.currentUser.value ?: throw Exception("Not signed in")
+            val uid = user.uid
+            
+            // Delete rides and their subcollections
+            val ridesRef = firestore.collection("users").document(uid).collection("rides")
+            val ridesSnapshot = ridesRef.get().await()
+            for (rideDoc in ridesSnapshot) {
+                // Delete all points in the subcollection
+                val pointsSnapshot = rideDoc.reference.collection("points").get().await()
+                for (pointDoc in pointsSnapshot) {
+                    pointDoc.reference.delete().await()
+                }
+                // Delete the ride document
+                rideDoc.reference.delete().await()
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            errorLogger.log("Delete all cloud data failed")
+            errorLogger.recordException(e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun submitFeedback(text: String, type: String): Result<Unit> {
+        return try {
+            val user = authManager.currentUser.value
+            val data = hashMapOf(
+                "text" to text,
+                "type" to type,
+                "timestamp" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                "uid" to (user?.uid ?: "anonymous")
+            )
+            firestore.collection("feedbacks").add(data).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            errorLogger.log("Submit feedback failed")
+            errorLogger.recordException(e)
+            Result.failure(e)
+        }
+    }
 }

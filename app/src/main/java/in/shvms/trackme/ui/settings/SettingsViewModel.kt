@@ -61,6 +61,38 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
     fun syncData() {
         app.firestoreSyncManager.syncAll()
     }
+
+    suspend fun deleteCloudData(): Result<Unit> {
+        val result = app.firestoreSyncManager.deleteAllCloudData()
+        if (result.isSuccess) {
+            // Mark all local rides as unsynced
+            app.database.rideDao().markAllAsUnsynced()
+        }
+        return result
+    }
+
+    suspend fun deleteAccountAndData(feedbackText: String): Result<Unit> {
+        // 1. Submit feedback
+        app.firestoreSyncManager.submitFeedback(feedbackText, "account_deletion")
+        
+        // 2. Delete cloud data
+        app.firestoreSyncManager.deleteAllCloudData()
+        
+        // 3. Delete Firebase Auth Account
+        val deleteAuthResult = app.authManager.deleteAccount()
+        if (deleteAuthResult.isSuccess) {
+            // 4. Wipe local data
+            app.database.rideDao().deleteAllPoints()
+            app.database.rideDao().deleteAllRides()
+            app.database.emergencyDao().deleteSettings()
+            app.database.emergencyDao().deleteAllContacts()
+            app.emergencyManager.stopEmergency()
+            app.authManager.signOut()
+            return Result.success(Unit)
+        }
+        
+        return deleteAuthResult
+    }
 }
 
 class SettingsViewModelFactory(private val app: TrackMeApp) : ViewModelProvider.Factory {

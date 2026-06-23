@@ -51,4 +51,13 @@ interface RideDao {
 
     @Query("DELETE FROM rides WHERE isSynced = 1")
     suspend fun deleteSyncedRides(): Int
+
+    @Query("UPDATE rides SET isSynced = 0, firestoreId = NULL")
+    suspend fun markAllAsUnsynced(): Int
+
+    @Query("DELETE FROM gps_points")
+    suspend fun deleteAllPoints(): Int
+
+    @Query("DELETE FROM rides")
+    suspend fun deleteAllRides(): Int
 }

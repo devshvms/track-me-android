@@ -257,12 +257,44 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             var showSignOutWarning by remember { mutableStateOf(false) }
+            var showDeleteCloudWarning by remember { mutableStateOf(false) }
+            var showDeleteAccountWarning by remember { mutableStateOf(false) }
 
-            OutlinedButton(
-                onClick = { showSignOutWarning = true },
-                modifier = Modifier.fillMaxWidth()
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f))
             ) {
-                Text("Sign Out")
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Danger Zone", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    OutlinedButton(
+                        onClick = { showSignOutWarning = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Sign Out")
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    OutlinedButton(
+                        onClick = { showDeleteCloudWarning = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Delete Cloud Data")
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Button(
+                        onClick = { showDeleteAccountWarning = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Delete Account & Data")
+                    }
+                }
             }
 
             if (showSignOutWarning) {
@@ -280,6 +312,100 @@ fun SettingsScreen(
                     },
                     dismissButton = {
                         TextButton(onClick = { showSignOutWarning = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
+            if (showDeleteCloudWarning) {
+                var isDeletingCloud by remember { mutableStateOf(false) }
+                AlertDialog(
+                    onDismissRequest = { if (!isDeletingCloud) showDeleteCloudWarning = false },
+                    title = { Text("Delete Cloud Data") },
+                    text = { Text("This will permanently delete all your tracked rides from our servers. Your local rides on this phone will be preserved but marked as unsynced. Do you want to proceed?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = { 
+                                isDeletingCloud = true
+                                scope.launch {
+                                    val result = viewModel.deleteCloudData()
+                                    isDeletingCloud = false
+                                    showDeleteCloudWarning = false
+                                    if (result.isSuccess) {
+                                        android.widget.Toast.makeText(context, "Cloud data deleted", android.widget.Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        android.widget.Toast.makeText(context, "Failed to delete: ${result.exceptionOrNull()?.message}", android.widget.Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+                            enabled = !isDeletingCloud
+                        ) {
+                            if (isDeletingCloud) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            else Text("Delete", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteCloudWarning = false }, enabled = !isDeletingCloud) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+            
+            if (showDeleteAccountWarning) {
+                var isDeletingAccount by remember { mutableStateOf(false) }
+                var feedbackText by remember { mutableStateOf("") }
+                var confirmText by remember { mutableStateOf("") }
+                
+                AlertDialog(
+                    onDismissRequest = { if (!isDeletingAccount) showDeleteAccountWarning = false },
+                    title = { Text("Delete Account") },
+                    text = { 
+                        Column {
+                            Text("This will permanently delete your account, wipe all your cloud data, and clear all local ride history on this device. This action CANNOT be undone.")
+                            Spacer(modifier = Modifier.height(16.dp))
+                            OutlinedTextField(
+                                value = feedbackText,
+                                onValueChange = { feedbackText = it },
+                                label = { Text("Why are you leaving? (Optional)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !isDeletingAccount
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("To confirm, type DELETE below:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            OutlinedTextField(
+                                value = confirmText,
+                                onValueChange = { confirmText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                enabled = !isDeletingAccount
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = { 
+                                isDeletingAccount = true
+                                scope.launch {
+                                    val result = viewModel.deleteAccountAndData(feedbackText)
+                                    isDeletingAccount = false
+                                    showDeleteAccountWarning = false
+                                    if (result.isSuccess) {
+                                        android.widget.Toast.makeText(context, "Account deleted", android.widget.Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        android.widget.Toast.makeText(context, "Failed: You may need to sign out and sign back in to verify your identity. Error: ${result.exceptionOrNull()?.message}", android.widget.Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+                            enabled = !isDeletingAccount && confirmText == "DELETE"
+                        ) {
+                            if (isDeletingAccount) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            else Text("Delete Permanently", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteAccountWarning = false }, enabled = !isDeletingAccount) {
                             Text("Cancel")
                         }
                     }

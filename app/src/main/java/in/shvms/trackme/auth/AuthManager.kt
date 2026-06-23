@@ -72,4 +72,15 @@ class AuthManager {
     fun signOut() {
         auth.signOut()
     }
+
+    suspend fun deleteAccount(): Result<Unit> {
+        return try {
+            val user = auth.currentUser ?: throw Exception("Not signed in")
+            user.delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("AuthManager", "Delete Account Failed", e)
+            Result.failure(e)
+        }
+    }
 }
