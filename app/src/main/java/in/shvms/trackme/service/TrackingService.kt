@@ -218,12 +218,20 @@ class TrackingService : Service() {
     }
 
     private fun getNotification(): Notification {
+        val intent = android.content.Intent(this, `in`.shvms.trackme.MainActivity::class.java).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            this, 0, intent, android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setAutoCancel(false)
             .setOngoing(true)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle("TrackMe is recording your ride")
             .setContentText("Ongoing Ride")
+            .setContentIntent(pendingIntent)
             .build()
     }
 

@@ -52,7 +52,15 @@ fun SettingsScreen(
             Button(onClick = {
                 scope.launch {
                     val result = viewModel.signInWithGoogle(context)
-                    // Error is shown inline via snackbar or toast if needed
+                    if (result.isFailure) {
+                        val e = result.exceptionOrNull()
+                        val msg = if (e?.javaClass?.simpleName == "NoCredentialException" || e?.message?.contains("NoCredential") == true) {
+                            "Sign In Error: App Signing Key fingerprint (SHA-1) is missing in Firebase."
+                        } else {
+                            e?.message ?: "Sign in failed"
+                        }
+                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                    }
                 }
             }) {
                 Text("Sign in with Google")
@@ -411,6 +419,26 @@ fun SettingsScreen(
                     }
                 )
             }
+        }
+        
+        Spacer(modifier = Modifier.weight(1f))
+        
+        val packageInfo = remember { 
+            try { context.packageManager.getPackageInfo(context.packageName, 0) } catch(e: Exception) { null } 
+        }
+        packageInfo?.let {
+            @Suppress("DEPRECATION")
+            val vCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                it.longVersionCode.toString()
+            } else {
+                it.versionCode.toString()
+            }
+            Text(
+                text = "Version ${it.versionName} ($vCode)",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+            )
         }
     }
 }

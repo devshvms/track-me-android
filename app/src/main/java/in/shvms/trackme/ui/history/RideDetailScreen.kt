@@ -131,7 +131,7 @@ fun RideDetailScreen(
             )
         },
         bottomBar = {
-            if (rideWithPoints != null) {
+            if (rideWithPoints != null && rideWithPoints!!.ride.endTime != null) {
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 3.dp,
