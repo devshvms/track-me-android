@@ -14,6 +14,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.remote.SyncResult
 import kotlinx.coroutines.launch
@@ -34,10 +36,12 @@ fun SettingsScreen(
     val syncResult by viewModel.syncResult.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars)
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -59,7 +63,7 @@ fun SettingsScreen(
                         } else {
                             e?.message ?: "Sign in failed"
                         }
-                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                        snackbarHostState.showSnackbar(msg)
                     }
                 }
             }) {
@@ -82,11 +86,12 @@ fun SettingsScreen(
                     Text("Total Rides", style = MaterialTheme.typography.bodySmall)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    val timeStr = if (syncTime == 0L) "Never" else {
-                        java.text.SimpleDateFormat("MMM dd, h:mm a", java.util.Locale.getDefault()).format(java.util.Date(syncTime))
+                    val joinTime = user?.metadata?.creationTimestamp ?: 0L
+                    val timeStr = if (joinTime == 0L) "Unknown" else {
+                        java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(joinTime))
                     }
                     Text(timeStr, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                    Text("Last Synced", style = MaterialTheme.typography.bodySmall)
+                    Text("Joined", style = MaterialTheme.typography.bodySmall)
                 }
             }
             Spacer(modifier = Modifier.height(32.dp))
@@ -152,8 +157,8 @@ fun SettingsScreen(
 
             // Advanced Settings Card
             val prefs = context.getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
-            var isPostProcessingEnabled by remember { 
-                mutableStateOf(prefs.getBoolean("enable_gps_post_processing", false)) 
+            var disablePostProcessing by remember { 
+                mutableStateOf(prefs.getBoolean("disable_gps_post_processing", false)) 
             }
             var showGpsInfo by remember { mutableStateOf(false) }
 
@@ -169,22 +174,22 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("GPS Post-Processing", style = MaterialTheme.typography.bodyLarge)
+                                Text("Disable GPS Post-Processing", style = MaterialTheme.typography.bodyLarge)
                                 IconButton(onClick = { showGpsInfo = true }, modifier = Modifier.size(24.dp).padding(start = 4.dp)) {
                                     Icon(Icons.Default.Info, contentDescription = "Info", modifier = Modifier.size(16.dp))
                                 }
                             }
                             Text(
-                                "Filters anomalies, smooths altitude, and compresses ride data after saving.",
+                                "Turn on to save raw, uncompressed data. Skipping processing increases storage and keeps glitches.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Switch(
-                            checked = isPostProcessingEnabled,
+                            checked = disablePostProcessing,
                             onCheckedChange = { checked ->
-                                isPostProcessingEnabled = checked
-                                prefs.edit().putBoolean("enable_gps_post_processing", checked).apply()
+                                disablePostProcessing = checked
+                                prefs.edit().putBoolean("disable_gps_post_processing", checked).apply()
                             }
                         )
                     }
@@ -203,6 +208,11 @@ fun SettingsScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            val syncTimeStr = if (syncTime == 0L) "Never synced" else {
+                                "Last synced: " + java.text.SimpleDateFormat("MMM dd, h:mm a", java.util.Locale.getDefault()).format(java.util.Date(syncTime))
+                            }
+                            Text(syncTimeStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                             AnimatedVisibility(visible = syncResult !is SyncResult.Idle) {
                                 Column(modifier = Modifier.padding(top = 4.dp)) {
                                     when (val result = syncResult) {
@@ -268,39 +278,54 @@ fun SettingsScreen(
             var showDeleteCloudWarning by remember { mutableStateOf(false) }
             var showDeleteAccountWarning by remember { mutableStateOf(false) }
 
+            var isDangerZoneExpanded by remember { mutableStateOf(false) }
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f))
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Danger Zone", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    OutlinedButton(
-                        onClick = { showSignOutWarning = true },
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Sign Out")
+                        OutlinedButton(
+                            onClick = { showSignOutWarning = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Sign Out")
+                        }
+                        IconButton(onClick = { isDangerZoneExpanded = !isDangerZoneExpanded }) {
+                            Icon(
+                                if (isDangerZoneExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = "More Options",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                     
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    OutlinedButton(
-                        onClick = { showDeleteCloudWarning = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text("Delete Cloud Data")
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Button(
-                        onClick = { showDeleteAccountWarning = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text("Delete Account & Data")
+                    AnimatedVisibility(visible = isDangerZoneExpanded) {
+                        Column {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            OutlinedButton(
+                                onClick = { showDeleteCloudWarning = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Delete Cloud Data")
+                            }
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Button(
+                                onClick = { showDeleteAccountWarning = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Delete Account & Data")
+                            }
+                        }
                     }
                 }
             }
@@ -341,9 +366,9 @@ fun SettingsScreen(
                                     isDeletingCloud = false
                                     showDeleteCloudWarning = false
                                     if (result.isSuccess) {
-                                        android.widget.Toast.makeText(context, "Cloud data deleted", android.widget.Toast.LENGTH_SHORT).show()
+                                        snackbarHostState.showSnackbar("Data deleted from cloud")
                                     } else {
-                                        android.widget.Toast.makeText(context, "Failed to delete: ${result.exceptionOrNull()?.message}", android.widget.Toast.LENGTH_LONG).show()
+                                        snackbarHostState.showSnackbar("Failed to delete data")
                                     }
                                 }
                             },
@@ -400,9 +425,9 @@ fun SettingsScreen(
                                     isDeletingAccount = false
                                     showDeleteAccountWarning = false
                                     if (result.isSuccess) {
-                                        android.widget.Toast.makeText(context, "Account deleted", android.widget.Toast.LENGTH_SHORT).show()
+                                        snackbarHostState.showSnackbar("Account deleted")
                                     } else {
-                                        android.widget.Toast.makeText(context, "Failed: You may need to sign out and sign back in to verify your identity. Error: ${result.exceptionOrNull()?.message}", android.widget.Toast.LENGTH_LONG).show()
+                                        snackbarHostState.showSnackbar("Failed to delete account. Please sign in again.")
                                     }
                                 }
                             },

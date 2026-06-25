@@ -2,7 +2,6 @@ package `in`.shvms.trackme.ui.history
 
 import android.content.Intent
 import android.provider.MediaStore
-import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -24,26 +23,53 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.DrawableCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.domain.export.GPXExporterImpl
 import `in`.shvms.trackme.domain.export.GoogleStaticApiImageExporterImpl
 import `in`.shvms.trackme.domain.export.NativeSnapshotImageExporterImpl
+import `in`.shvms.trackme.config.AppConfig
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.BitmapDescriptor
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.*
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Delete
 
-@OptIn(ExperimentalMaterial3Api::class)
+fun formatDistance(meters: Double): String {
+    if (meters < 1000) return String.format("%.0f m", meters)
+    return String.format("%.2f km", meters / 1000)
+}
+
+fun vectorToBitmap(context: android.content.Context, id: Int, color: Int): BitmapDescriptor {
+    val vectorDrawable = ContextCompat.getDrawable(context, id)!!
+    val bitmap = android.graphics.Bitmap.createBitmap(
+        vectorDrawable.intrinsicWidth * 2,
+        vectorDrawable.intrinsicHeight * 2,
+        android.graphics.Bitmap.Config.ARGB_8888
+    )
+    val canvas = android.graphics.Canvas(bitmap)
+    vectorDrawable.setBounds(0, 0, canvas.width, canvas.height)
+    DrawableCompat.setTint(vectorDrawable, color)
+    vectorDrawable.draw(canvas)
+    return BitmapDescriptorFactory.fromBitmap(bitmap)
+}
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun RideDetailScreen(
     rideId: Long,
@@ -53,8 +79,10 @@ fun RideDetailScreen(
     val rideWithPoints by viewModel.rideWithPoints.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
+    var previewMapInstance by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
+    
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
     var exportShowStats by remember { mutableStateOf(true) }
@@ -69,7 +97,9 @@ fun RideDetailScreen(
         viewModel.uiEvent.collect { event ->
             when (event) {
                 is RideDetailViewModel.UiEvent.NavigateBack -> {
-                    Toast.makeText(context, "Ride deleted successfully", Toast.LENGTH_SHORT).show()
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("Ride deleted")
+                    }
                     navController?.popBackStack()
                 }
                 is RideDetailViewModel.UiEvent.ShowError -> {
@@ -80,7 +110,6 @@ fun RideDetailScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             var isEditing by remember { mutableStateOf(false) }
             val displayTitle = remember(rideWithPoints) {
@@ -130,15 +159,273 @@ fun RideDetailScreen(
                 }
             )
         },
-        bottomBar = {
-            if (rideWithPoints != null && rideWithPoints!!.ride.endTime != null) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 3.dp,
-                    shadowElevation = 8.dp
+    ) { padding ->
+        if (rideWithPoints == null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            val points = rideWithPoints!!.points
+            val ride = rideWithPoints!!.ride
+            var scrubIndex by remember { mutableStateOf<Int?>(null) }
+            
+            var columnScrollEnabled by remember { mutableStateOf(true) }
+            val scrollState = rememberScrollState()
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(scrollState, enabled = columnScrollEnabled)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(240.dp)
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                    val isTouched: Boolean = event.changes.any { change -> change.pressed }
+                                    if (isTouched) {
+                                        columnScrollEnabled = false
+                                    } else {
+                                        columnScrollEnabled = true
+                                    }
+                                }
+                            }
+                        }
                 ) {
+                    if (points.isNotEmpty()) {
+                        val latLngs = points.map { LatLng(it.latitude, it.longitude) }
+                        val bounds = remember(latLngs) {
+                            val builder = LatLngBounds.Builder()
+                            latLngs.forEach { builder.include(it) }
+                            builder.build()
+                        }
+                        
+                        val cameraPositionState = rememberCameraPositionState()
+                        
+                        val pointerIcon = remember {
+                            val size = 40
+                            val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+                            val canvas = android.graphics.Canvas(bitmap)
+                            val paint = android.graphics.Paint().apply {
+                                isAntiAlias = true
+                                color = android.graphics.Color.parseColor("#2196F3")
+                                style = android.graphics.Paint.Style.FILL
+                            }
+                            canvas.drawCircle(size / 2f, size / 2f, size / 2f - 4f, paint)
+                            paint.color = android.graphics.Color.WHITE
+                            paint.style = android.graphics.Paint.Style.STROKE
+                            paint.strokeWidth = 4f
+                            canvas.drawCircle(size / 2f, size / 2f, size / 2f - 4f, paint)
+                            BitmapDescriptorFactory.fromBitmap(bitmap)
+                        }
+
+                        var mapType by remember { mutableStateOf(MapType.NORMAL) }
+                        var isTrafficEnabled by remember { mutableStateOf(false) }
+
+                        GoogleMap(
+                            modifier = Modifier.fillMaxSize(),
+                            cameraPositionState = cameraPositionState,
+                            properties = MapProperties(mapType = mapType, isTrafficEnabled = isTrafficEnabled),
+                            uiSettings = MapUiSettings(zoomControlsEnabled = false)
+                        ) {
+                            MapEffect { map ->
+                                mapInstance = map
+                            }
+                            Polyline(
+                                points = latLngs,
+                                color = Color(0xFF1565C0),
+                                width = 10f
+                            )
+                            Marker(
+                                state = MarkerState(position = latLngs.last()),
+                                title = "Finish",
+                                snippet = "End of Ride"
+                            )
+                            
+                            if (scrubIndex != null && scrubIndex!! in points.indices) {
+                                val p = points[scrubIndex!!]
+                                Marker(
+                                    state = MarkerState(position = LatLng(p.latitude, p.longitude)),
+                                    title = "Scrub",
+                                    snippet = "Speed: ${String.format("%.1f", p.speed * 3.6f)} km/h",
+                                    icon = pointerIcon,
+                                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
+                                )
+                            }
+                            
+                            val pausedGroups = remember(points) {
+                                val groups = mutableListOf<List<GPSPointEntity>>()
+                                var currentGroup = mutableListOf<GPSPointEntity>()
+                                for (p in points) {
+                                    if (p.isPaused) currentGroup.add(p)
+                                    else if (currentGroup.isNotEmpty()) {
+                                        groups.add(currentGroup)
+                                        currentGroup = mutableListOf()
+                                    }
+                                }
+                                if (currentGroup.isNotEmpty()) groups.add(currentGroup)
+                                groups
+                            }
+                            
+                            pausedGroups.forEach { group ->
+                                val duration = group.last().timestamp - group.first().timestamp
+                                val alpha = (0.4f + (duration / 60000f) * 0.4f).coerceIn(0.4f, 1.0f)
+                                val center = group[group.size / 2]
+                                Circle(
+                                    center = LatLng(center.latitude, center.longitude),
+                                    radius = 5.0,
+                                    fillColor = Color.Red.copy(alpha = alpha),
+                                    strokeColor = Color.Red,
+                                    strokeWidth = 2f
+                                )
+                            }
+                        }
+
+                        LaunchedEffect(bounds) {
+                            cameraPositionState.animate(
+                                update = CameraUpdateFactory.newLatLngBounds(bounds, 100),
+                                durationMs = 1000
+                            )
+                        }
+                        
+                        var showMapOptions by remember { mutableStateOf(false) }
+                        Box(modifier = Modifier.align(Alignment.TopEnd).padding(top = 16.dp, end = 12.dp)) {
+                            FloatingActionButton(
+                                onClick = { showMapOptions = true },
+                                modifier = Modifier.size(40.dp),
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ) {
+                                Icon(Icons.Default.Map, contentDescription = "Map Layers", modifier = Modifier.size(20.dp))
+                            }
+                            
+                            DropdownMenu(
+                                expanded = showMapOptions,
+                                onDismissRequest = { showMapOptions = false }
+                            ) {
+                                DropdownMenuItem(text = { Text("Normal") }, onClick = { mapType = MapType.NORMAL; showMapOptions = false })
+                                DropdownMenuItem(text = { Text("Satellite") }, onClick = { mapType = MapType.SATELLITE; showMapOptions = false })
+                                DropdownMenuItem(text = { Text("Terrain") }, onClick = { mapType = MapType.TERRAIN; showMapOptions = false })
+                                DropdownMenuItem(text = { Text("Hybrid") }, onClick = { mapType = MapType.HYBRID; showMapOptions = false })
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text(if (isTrafficEnabled) "Hide Traffic" else "Show Traffic") },
+                                    onClick = { isTrafficEnabled = !isTrafficEnabled; showMapOptions = false }
+                                )
+                            }
+                        }
+                    } else {
+                        Text("No GPS data available", modifier = Modifier.align(Alignment.Center))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (points.size > 1) {
+                    val speeds = points.map { it.speed * 3.6f }
+                    val rawMinSpeed = speeds.minOrNull() ?: 0f
+                    val rawMaxSpeed = speeds.maxOrNull() ?: 0f
+                    val speedRange = if (rawMaxSpeed > rawMinSpeed) rawMaxSpeed - rawMinSpeed else 1f
+                    val minSpeed = rawMinSpeed - speedRange * 0.1f
+                    val maxSpeed = rawMaxSpeed + speedRange * 0.1f
+
+                    val alts = points.map { it.altitude.toFloat() }
+                    val rawMinAlt = alts.minOrNull() ?: 0f
+                    val rawMaxAlt = alts.maxOrNull() ?: 0f
+                    val altRange = if (rawMaxAlt > rawMinAlt) rawMaxAlt - rawMinAlt else 1f
+                    val minAlt = rawMinAlt - altRange * 0.1f
+                    val maxAlt = rawMaxAlt + altRange * 0.1f
+
+                    val cumulativeDistances = remember(points) {
+                        val distances = FloatArray(points.size)
+                        var totalDist = 0f
+                        for (i in 1 until points.size) {
+                            val prev = points[i - 1]
+                            val curr = points[i]
+                            val result = FloatArray(1)
+                            android.location.Location.distanceBetween(prev.latitude, prev.longitude, curr.latitude, curr.longitude, result)
+                            totalDist += result[0]
+                            distances[i] = totalDist
+                        }
+                        distances
+                    }
+
+                    CombinedMetricLineChart(
+                        points = points,
+                        minSpeed = minSpeed,
+                        maxSpeed = maxSpeed,
+                        minAlt = minAlt,
+                        maxAlt = maxAlt,
+                        speedColor = Color(0xFF4CAF50),
+                        altColor = Color(0xFFFFC107),
+                        scrubIndex = scrubIndex,
+                        modifier = Modifier.fillMaxWidth().height(160.dp).padding(horizontal = 16.dp)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    val indexToShow = scrubIndex ?: (points.size - 1)
+                    val elapsedMs = points[indexToShow].timestamp - ride.startTime
+                    val elapsedFormatted = formatDuration(elapsedMs)
+                    val distKm = cumulativeDistances[indexToShow] / 1000f
+                    
+                    Text(
+                        text = "Time: $elapsedFormatted  |  Dist: ${String.format(java.util.Locale.getDefault(), "%.2f", distKm)} km",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    
+                    Slider(
+                        value = scrubIndex?.toFloat() ?: 0f,
+                        onValueChange = { scrubIndex = it.toInt() },
+                        valueRange = 0f..(points.size - 1).toFloat(),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+                
+                Card(
+                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Ride Stats", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            StatItem("Distance", String.format("%.2f km", (ride.postRideCalculation?.distance ?: 0.0) / 1000f), modifier = Modifier.weight(1f))
+                            StatItem("Duration", formatDuration((ride.endTime ?: ride.startTime) - ride.startTime), modifier = Modifier.weight(1f))
+                            StatItem("GPS Tag", points.size.toString(), modifier = Modifier.weight(1f))
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            val dateFormat = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
+                            val startTimeStr = dateFormat.format(java.util.Date(ride.startTime))
+                            StatItem("Start Time", startTimeStr, modifier = Modifier.weight(1f))
+                            
+                            StatItem("Max G-Force", String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f), modifier = Modifier.weight(1f))
+
+                            val distanceKm = (ride.postRideCalculation?.distance ?: 0.0) / 1000.0
+                            val durationHours = ((ride.endTime ?: ride.startTime) - ride.startTime) / 3600000.0
+                            val avgSpeed = if (durationHours > 0) (distanceKm / durationHours).toFloat() else 0f
+                            StatItem("Avg Speed", String.format("%.1f km/h", avgSpeed), modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Action Buttons
+                if (rideWithPoints != null && rideWithPoints!!.ride.endTime != null) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         TextButton(onClick = { showExportDialog = true }) {
@@ -164,12 +451,12 @@ fun RideDetailScreen(
                                             gpxFile.inputStream().use { input -> input.copyTo(out) }
                                         }
                                         withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "GPX saved to Downloads", Toast.LENGTH_SHORT).show()
+                                            coroutineScope.launch { snackbarHostState.showSnackbar("Saved to Downloads") }
                                         }
                                     }
                                 } catch (e: Exception) {
                                     withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Error saving GPX: ${e.message}", Toast.LENGTH_LONG).show()
+                                        coroutineScope.launch { snackbarHostState.showSnackbar("Error saving GPX: ${e.message}") }
                                     }
                                 }
                             }
@@ -186,102 +473,8 @@ fun RideDetailScreen(
                         }
                     }
                 }
-            }
-        }
-    ) { padding ->
-        if (rideWithPoints == null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else {
-            val points = rideWithPoints!!.points
-            val ride = rideWithPoints!!.ride
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp)
-                ) {
-                    if (points.isNotEmpty()) {
-                        val latLngs = points.map { LatLng(it.latitude, it.longitude) }
-                        val bounds = remember(latLngs) {
-                            val builder = LatLngBounds.Builder()
-                            latLngs.forEach { builder.include(it) }
-                            builder.build()
-                        }
-                        
-                        val cameraPositionState = rememberCameraPositionState()
-
-                        GoogleMap(
-                            modifier = Modifier.fillMaxSize(),
-                            cameraPositionState = cameraPositionState,
-                            uiSettings = MapUiSettings(zoomControlsEnabled = false)
-                        ) {
-                            MapEffect { map ->
-                                mapInstance = map
-                            }
-                            Polyline(
-                                points = latLngs,
-                                color = Color(0xFF1565C0), // Darker primary
-                                width = 10f
-                            )
-                            Marker(
-                                state = MarkerState(position = latLngs.last()),
-                                title = "Finish",
-                                snippet = "End of Ride"
-                            )
-                        }
-
-                        LaunchedEffect(bounds) {
-                            cameraPositionState.animate(
-                                update = CameraUpdateFactory.newLatLngBounds(bounds, 100),
-                                durationMs = 1000
-                            )
-                        }
-                    } else {
-                        Text("No GPS data available", modifier = Modifier.align(Alignment.Center))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Card(modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Stats", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            StatItem("Distance", String.format("%.2f km", (ride.postRideCalculation?.distance ?: 0.0) / 1000f), modifier = Modifier.weight(1f))
-                            StatItem("Duration", formatDuration((ride.endTime ?: ride.startTime) - ride.startTime), modifier = Modifier.weight(1f))
-                            StatItem("GPS Tag", points.size.toString(), modifier = Modifier.weight(1f))
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            val dateFormat = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
-                            val startTimeStr = dateFormat.format(java.util.Date(ride.startTime))
-                            StatItem("Start Time", startTimeStr, modifier = Modifier.weight(1f))
-                            
-                            StatItem("Max G-Force", String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f), modifier = Modifier.weight(1f))
-
-                            val rawCount = ride.postRideCalculation?.rawPointCount ?: points.size
-                            val compressionPct = if (rawCount > points.size && rawCount > 0) ((rawCount - points.size).toFloat() / rawCount * 100).toInt() else 0
-                            StatItem("Compression", "$compressionPct%", modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (points.size > 1) {
-                    CombinedChartWithTable(points)
-                    Spacer(modifier = Modifier.height(32.dp))
-                }
+                
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
@@ -308,76 +501,159 @@ fun RideDetailScreen(
     }
 
     if (showExportDialog) {
-        AlertDialog(
+        androidx.compose.ui.window.Dialog(
             onDismissRequest = { showExportDialog = false },
-            title = { Text("Export Settings") },
-            text = {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = exportShowStats, onCheckedChange = { exportShowStats = it })
-                        Text("Include stats overlay")
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Select Aspect Ratio:")
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        FilterChip(
-                            selected = exportRatio == Pair(1, 1),
-                            onClick = { exportRatio = Pair(1, 1) },
-                            label = { Text("1:1 (Recommended)") }
-                        )
-                        FilterChip(
-                            selected = exportRatio == Pair(4, 3),
-                            onClick = { exportRatio = Pair(4, 3) },
-                            label = { Text("4:3") }
-                        )
-                        FilterChip(
-                            selected = exportRatio == Pair(16, 9),
-                            onClick = { exportRatio = Pair(16, 9) },
-                            label = { Text("16:9") }
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    showExportDialog = false
-                    mapInstance?.snapshot { bitmap ->
-                        if (bitmap != null) {
-                            coroutineScope.launch(Dispatchers.IO) {
-                                try {
-                                    val exporter = NativeSnapshotImageExporterImpl()
-                                    val imageFile = exporter.export(rideWithPoints!!, exportRatio.first, exportRatio.second, context, bitmap, exportShowStats)
-                                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", imageFile)
-                                    val intent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "image/png"
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    TopAppBar(
+                        title = { Text("Export Preview") },
+                        navigationIcon = {
+                            IconButton(onClick = { showExportDialog = false }) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                            }
+                        },
+                        actions = {
+                            TextButton(onClick = {
+                                previewMapInstance?.snapshot { bitmap ->
+                                    if (bitmap != null) {
+                                        coroutineScope.launch(Dispatchers.IO) {
+                                            try {
+                                                val exporter = `in`.shvms.trackme.domain.export.NativeSnapshotImageExporterImpl()
+                                                val imageFile = exporter.export(rideWithPoints!!, exportRatio.first, exportRatio.second, context, bitmap, exportShowStats)
+                                                val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", imageFile)
+                                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                                    type = "image/png"
+                                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                }
+                                                withContext(Dispatchers.Main) {
+                                                    context.startActivity(Intent.createChooser(intent, "Share Image"))
+                                                    showExportDialog = false
+                                                }
+                                            } catch (e: Exception) {
+                                                withContext(Dispatchers.Main) {
+                                                    coroutineScope.launch { snackbarHostState.showSnackbar("Error sharing: ${e.message}") }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        coroutineScope.launch { snackbarHostState.showSnackbar("Could not capture map") }
                                     }
-                                    withContext(Dispatchers.Main) {
-                                        context.startActivity(Intent.createChooser(intent, "Share Image"))
-                                    }
-                                } catch (e: Exception) {
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Error sharing: ${e.message}", Toast.LENGTH_LONG).show()
+                                } ?: run {
+                                    coroutineScope.launch { snackbarHostState.showSnackbar("Map not ready") }
+                                }
+                            }) {
+                                Text("Share")
+                            }
+                        }
+                    )
+                    
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        val ratioFloat = exportRatio.first.toFloat() / exportRatio.second.toFloat()
+                        
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(ratioFloat)
+                                .padding(4.dp)
+                        ) {
+                            val latLngs = rideWithPoints!!.points.map { LatLng(it.latitude, it.longitude) }
+                            val bounds = remember(latLngs) {
+                                val builder = LatLngBounds.Builder()
+                                latLngs.forEach { builder.include(it) }
+                                builder.build()
+                            }
+                            
+                            val cameraPositionState = rememberCameraPositionState()
+                            LaunchedEffect(bounds, ratioFloat) {
+                                // Wait for layout to be ready, then move camera
+                                kotlinx.coroutines.delay(200)
+                                cameraPositionState.move(com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, 80))
+                            }
+                            
+                            GoogleMap(
+                                modifier = Modifier.fillMaxSize(),
+                                cameraPositionState = cameraPositionState,
+                                properties = MapProperties(mapType = MapType.NORMAL, isTrafficEnabled = false),
+                                uiSettings = MapUiSettings(zoomControlsEnabled = false, compassEnabled = false)
+                            ) {
+                                MapEffect { map ->
+                                    previewMapInstance = map
+                                }
+                                Polyline(
+                                    points = latLngs,
+                                    color = Color(0xFF1565C0),
+                                    width = 10f
+                                )
+                                Marker(
+                                    state = MarkerState(position = latLngs.last()),
+                                    title = "Finish"
+                                )
+                            }
+                            
+                            if (exportShowStats) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .fillMaxHeight(AppConfig.OVERLAY_BANNER_HEIGHT_RATIO)
+                                        .align(Alignment.BottomCenter)
+                                        .background(Color(AppConfig.OVERLAY_BANNER_COLOR).copy(alpha = AppConfig.OVERLAY_BANNER_ALPHA / 255f))
+                                        .padding(start = 16.dp, end = 16.dp),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    Column {
+                                        val distanceKm = (rideWithPoints!!.ride.postRideCalculation?.distance ?: 0.0) / 1000.0
+                                        val distanceStr = String.format(java.util.Locale.getDefault(), "%.2f km", distanceKm)
+                                        val durationMillis = (rideWithPoints!!.ride.endTime ?: rideWithPoints!!.ride.startTime) - rideWithPoints!!.ride.startTime
+                                        val seconds = durationMillis / 1000
+                                        val durationStr = String.format(java.util.Locale.getDefault(), "%02d:%02d:%02d", seconds / 3600, (seconds % 3600) / 60, seconds % 60)
+                                        val dateStr = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date(rideWithPoints!!.ride.startTime))
+                                        
+                                        Text("TrackMe Ride", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                        Text("$dateStr • $durationStr • $distanceStr", color = Color.White, style = MaterialTheme.typography.bodyMedium)
                                     }
                                 }
                             }
-                        } else {
-                            Toast.makeText(context, "Could not capture map image", Toast.LENGTH_SHORT).show()
                         }
-                    } ?: run {
-                        Toast.makeText(context, "Map not ready", Toast.LENGTH_SHORT).show()
                     }
-                }) {
-                    Text("Share")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showExportDialog = false }) {
-                    Text("Cancel")
+
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = exportShowStats, onCheckedChange = { exportShowStats = it })
+                            Text("Include stats overlay")
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Select Aspect Ratio:", fontWeight = FontWeight.SemiBold)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            FilterChip(
+                                selected = exportRatio == Pair(1, 1),
+                                onClick = { exportRatio = Pair(1, 1) },
+                                label = { Text("1:1 (Recommended)") }
+                            )
+                            FilterChip(
+                                selected = exportRatio == Pair(4, 3),
+                                onClick = { exportRatio = Pair(4, 3) },
+                                label = { Text("4:3") }
+                            )
+                            FilterChip(
+                                selected = exportRatio == Pair(16, 9),
+                                onClick = { exportRatio = Pair(16, 9) },
+                                label = { Text("16:9") }
+                            )
+                        }
+                    }
                 }
             }
-        )
+        }
     }
 }
 
@@ -389,187 +665,42 @@ fun StatItem(label: String, value: String, modifier: Modifier = Modifier) {
     }
 }
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-@Composable
-fun CombinedChartWithTable(points: List<GPSPointEntity>) {
-    var showSpeed by remember { mutableStateOf(true) }
-    var showAltitude by remember { mutableStateOf(true) }
-
-    val speedColor = Color(0xFF4CAF50) // Green
-    val altColor = Color(0xFF2196F3) // Blue
-
-    // Calculate stats
-    val speeds = points.map { it.speed * 3.6f }
-    val minSpeed = speeds.minOrNull() ?: 0f
-    val maxSpeed = speeds.maxOrNull() ?: 0f
-    val meanSpeed = if (speeds.isNotEmpty()) speeds.average().toFloat() else 0f
-
-    val alts = points.map { it.altitude.toFloat() }
-    val minAlt = alts.minOrNull() ?: 0f
-    val maxAlt = alts.maxOrNull() ?: 0f
-    val meanAlt = if (alts.isNotEmpty()) alts.average().toFloat() else 0f
-
-    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 2 })
-
-    Column {
-        val titleText = if (pagerState.currentPage == 0) "Metrics over Time" else "Metrics over Distance"
-        Text(
-            text = titleText,
-            modifier = Modifier.padding(horizontal = 16.dp),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        androidx.compose.foundation.pager.HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxWidth().height(200.dp).padding(horizontal = 16.dp)
-        ) { page ->
-            CombinedMetricLineChart(
-                points = points,
-                showSpeed = showSpeed,
-                showAltitude = showAltitude,
-                minSpeed = minSpeed,
-                maxSpeed = maxSpeed,
-                minAlt = minAlt,
-                maxAlt = maxAlt,
-                speedColor = speedColor,
-                altColor = altColor,
-                isDistanceAxis = (page == 1),
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            repeat(2) { iteration ->
-                val color = if (pagerState.currentPage == iteration) MaterialTheme.colorScheme.primary else Color.LightGray
-                Box(modifier = Modifier.padding(2.dp).background(color, shape = CircleShape).size(8.dp))
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Table
-        Card(
-            modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Header
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Metric", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                    Text("Unit", modifier = Modifier.weight(0.8f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text("Min", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text("Mean", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text("Max", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text("Show", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                }
-                Box(modifier = Modifier.padding(vertical = 8.dp).fillMaxWidth().height(1.dp).background(Color.LightGray.copy(alpha = 0.5f)))
-                // Speed Row
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(8.dp).background(speedColor, shape = CircleShape))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Spd", style = MaterialTheme.typography.bodySmall)
-                    }
-                    Text("km/h", modifier = Modifier.weight(0.8f), style = MaterialTheme.typography.bodySmall, color = Color.Gray, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text(String.format("%.1f", minSpeed), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text(String.format("%.1f", meanSpeed), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text(String.format("%.1f", maxSpeed), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        Checkbox(
-                            checked = showSpeed, 
-                            onCheckedChange = { showSpeed = it },
-                            modifier = Modifier.height(24.dp),
-                            colors = CheckboxDefaults.colors(checkedColor = speedColor)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                // Altitude Row
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(8.dp).background(altColor, shape = CircleShape))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Alt", style = MaterialTheme.typography.bodySmall)
-                    }
-                    Text("m", modifier = Modifier.weight(0.8f), style = MaterialTheme.typography.bodySmall, color = Color.Gray, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text(String.format("%.0f", minAlt), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text(String.format("%.0f", meanAlt), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text(String.format("%.0f", maxAlt), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        Checkbox(
-                            checked = showAltitude, 
-                            onCheckedChange = { showAltitude = it },
-                            modifier = Modifier.height(24.dp),
-                            colors = CheckboxDefaults.colors(checkedColor = altColor)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
 @Composable
 fun CombinedMetricLineChart(
     points: List<GPSPointEntity>,
-    showSpeed: Boolean,
-    showAltitude: Boolean,
     minSpeed: Float,
     maxSpeed: Float,
     minAlt: Float,
     maxAlt: Float,
     speedColor: Color,
     altColor: Color,
-    isDistanceAxis: Boolean = false,
+    scrubIndex: Int? = null,
     modifier: Modifier = Modifier
 ) {
     if (points.isEmpty()) return
 
     val speedRange = if (maxSpeed == minSpeed) 1f else (maxSpeed - minSpeed)
     val altRange = if (maxAlt == minAlt) 1f else (maxAlt - minAlt)
-
+    val scrubLineColor = MaterialTheme.colorScheme.onSurface
     val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
-    val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
 
-    val plotData = remember(points, isDistanceAxis) {
+    val plotData = remember(points) {
         val list = mutableListOf<Pair<GPSPointEntity, Float>>()
         if (points.isEmpty()) return@remember list
         
-        if (isDistanceAxis) {
-            var currentDist = 0f
-            list.add(points.first() to currentDist)
-            for (i in 1 until points.size) {
-                val prev = points[i-1]
-                val curr = points[i]
-                if (!prev.isPaused) {
-                    val results = FloatArray(1)
-                    android.location.Location.distanceBetween(
-                        prev.latitude, prev.longitude,
-                        curr.latitude, curr.longitude, results
-                    )
-                    currentDist += results[0]
-                }
-                list.add(curr to currentDist)
+        var currentTime = 0L
+        list.add(points.first() to currentTime.toFloat())
+        for (i in 1 until points.size) {
+            val prev = points[i-1]
+            val curr = points[i]
+            val dt = curr.timestamp - prev.timestamp
+            if (prev.isPaused && dt > 60000L) {
+                currentTime += 60000L // Cap pauses to 1 minute visually
+            } else {
+                currentTime += dt
             }
-        } else {
-            var currentTime = 0L
-            list.add(points.first() to currentTime.toFloat())
-            for (i in 1 until points.size) {
-                val prev = points[i-1]
-                val curr = points[i]
-                val dt = curr.timestamp - prev.timestamp
-                if (prev.isPaused && dt > 60000L) {
-                    currentTime += 60000L // Cap pauses to 1 minute visually
-                } else {
-                    currentTime += dt
-                }
-                list.add(curr to currentTime.toFloat())
-            }
+            list.add(curr to currentTime.toFloat())
         }
         list
     }
@@ -579,92 +710,11 @@ fun CombinedMetricLineChart(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Canvas(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
             val width = size.width
             val height = size.height
-            val bottomPadding = 20.dp.toPx()
-            val startPadding = 10.dp.toPx() 
-            val endPadding = 10.dp.toPx()
-
-            val chartWidth = width - startPadding - endPadding
-            val chartHeight = height - bottomPadding
-
-            // Draw Y-axis labels
-            val ySteps = 4
-            for (i in 0..ySteps) {
-                val speedVal = minSpeed + (speedRange * i / ySteps)
-                val altVal = minAlt + (altRange * i / ySteps)
-                val yPos = chartHeight - (chartHeight * i / ySteps)
-
-                if (showSpeed) {
-                    drawText(
-                        textMeasurer = textMeasurer,
-                        text = String.format("%.1f", speedVal),
-                        style = labelStyle.copy(color = speedColor, fontWeight = FontWeight.Bold),
-                        topLeft = Offset(startPadding + 5f, yPos - 15f)
-                    )
-                }
-                if (showAltitude) {
-                    val altText = String.format("%.0f", altVal)
-                    val style = labelStyle.copy(color = altColor, fontWeight = FontWeight.Bold)
-                    val textLayout = textMeasurer.measure(altText, style)
-                    drawText(
-                        textMeasurer = textMeasurer,
-                        text = altText,
-                        style = style,
-                        topLeft = Offset(width - endPadding - textLayout.size.width - 5f, yPos - 15f)
-                    )
-                }
-                
-                // Grid line
-                drawLine(
-                    color = Color.LightGray.copy(alpha = 0.5f),
-                    start = Offset(startPadding, yPos),
-                    end = Offset(width - endPadding, yPos),
-                    strokeWidth = 1f
-                )
-            }
 
             val maxX = plotData.last().second.coerceAtLeast(1f)
-
-            // Draw X-axis labels
-            val xSteps = 4
-            for (i in 0..xSteps) {
-                val fraction = i.toFloat() / xSteps
-                val xPos = startPadding + (chartWidth * fraction)
-                
-                val label = if (isDistanceAxis) {
-                    val distKm = (maxX * fraction) / 1000f
-                    String.format("%.1fkm", distKm)
-                } else {
-                    val timeOffsetMillis = (maxX * fraction).toLong()
-                    val minutes = (timeOffsetMillis / 1000) / 60
-                    val seconds = (timeOffsetMillis / 1000) % 60
-                    String.format("%02d:%02d", minutes, seconds)
-                }
-                
-                drawText(
-                    textMeasurer = textMeasurer,
-                    text = label,
-                    style = labelStyle,
-                    topLeft = Offset(xPos - 15f, chartHeight + 5f)
-                )
-            }
-
-            // Draw Paused areas
-            for (i in 0 until plotData.size - 1) {
-                val (p1, xVal1) = plotData[i]
-                val (p2, xVal2) = plotData[i+1]
-                if (p1.isPaused) {
-                    val x1 = startPadding + (xVal1 / maxX) * chartWidth
-                    val x2 = startPadding + (xVal2 / maxX) * chartWidth
-                    drawRect(
-                        color = Color.Red.copy(alpha = 0.15f), // Red tint for pause
-                        topLeft = Offset(x1, 0f),
-                        size = Size(maxOf(1f, x2 - x1), chartHeight)
-                    )
-                }
-            }
 
             // Draw Paths
             val drawMetricPath = { isSpeed: Boolean ->
@@ -676,28 +726,33 @@ fun CombinedMetricLineChart(
                     val (p1, xVal1) = plotData[i]
                     val (p2, xVal2) = plotData[i+1]
                     
-                    val x1 = startPadding + (xVal1 / maxX) * chartWidth
-                    val x2 = startPadding + (xVal2 / maxX) * chartWidth
+                    val x1 = (xVal1 / maxX) * width
+                    val x2 = (xVal2 / maxX) * width
                     
                     val val1 = if (isSpeed) p1.speed * 3.6f else p1.altitude.toFloat()
                     val val2 = if (isSpeed) p2.speed * 3.6f else p2.altitude.toFloat()
                     
-                    val y1 = chartHeight - (((val1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * chartHeight)
-                    val y2 = chartHeight - (((val2 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * chartHeight)
+                    val y1 = height - (((val1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * height)
+                    val y2 = height - (((val2 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * height)
 
                     if (isFirst) {
                         path.moveTo(x1, y1)
                         dottedPath.moveTo(x1, y1)
                         isFirst = false
-                    }
-
-                    if (p1.isPaused) {
-                        dottedPath.moveTo(x1, y1)
-                        dottedPath.lineTo(x2, y2)
-                        path.moveTo(x2, y2)
                     } else {
-                        path.lineTo(x2, y2)
-                        dottedPath.moveTo(x2, y2)
+                        val prevX = (plotData[i-1].second / maxX) * width
+                        val prevVal1 = if (isSpeed) plotData[i-1].first.speed * 3.6f else plotData[i-1].first.altitude.toFloat()
+                        val prevY = height - (((prevVal1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * height)
+                        
+                        val cpX = (prevX + x1) / 2
+                        
+                        if (p1.isPaused) {
+                            dottedPath.cubicTo(cpX, prevY, cpX, y1, x1, y1)
+                            path.moveTo(x1, y1) // Break solid path
+                        } else {
+                            path.cubicTo(cpX, prevY, cpX, y1, x1, y1)
+                            dottedPath.moveTo(x1, y1) // Move dotted path along
+                        }
                     }
                 }
                 
@@ -706,8 +761,60 @@ fun CombinedMetricLineChart(
                 drawPath(path = dottedPath, color = cColor, style = Stroke(width = 4f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)))
             }
 
-            if (showSpeed) drawMetricPath(true)
-            if (showAltitude) drawMetricPath(false)
+            drawMetricPath(true)
+            drawMetricPath(false)
+            
+            // Draw Scrub Line
+            if (scrubIndex != null && scrubIndex in plotData.indices) {
+                val scrubX = (plotData[scrubIndex].second / maxX) * width
+                drawLine(
+                    color = scrubLineColor,
+                    start = Offset(scrubX, 0f),
+                    end = Offset(scrubX, height),
+                    strokeWidth = 4f
+                )
+                
+                val p = plotData[scrubIndex].first
+                val sVal = p.speed * 3.6f
+                val aVal = p.altitude.toFloat()
+                
+                val sY = height - (((sVal - minSpeed) / speedRange) * height)
+                val aY = height - (((aVal - minAlt) / altRange) * height)
+                
+                // Draw Speed Intersection
+                drawCircle(color = speedColor, radius = 8f, center = Offset(scrubX, sY))
+                drawCircle(color = Color.White, radius = 4f, center = Offset(scrubX, sY))
+                
+                val sText = String.format("%.1f km/h", sVal)
+                val sTextLayout = textMeasurer.measure(sText, style = labelStyle.copy(color = Color.White))
+                drawRoundRect(
+                    color = speedColor.copy(alpha = 0.8f),
+                    topLeft = Offset(scrubX + 12f - 8f, sY - 24f - 4f),
+                    size = Size(sTextLayout.size.width + 16f, sTextLayout.size.height + 8f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                )
+                drawText(
+                    textLayoutResult = sTextLayout,
+                    topLeft = Offset(scrubX + 12f, sY - 24f)
+                )
+
+                // Draw Altitude Intersection
+                drawCircle(color = altColor, radius = 8f, center = Offset(scrubX, aY))
+                drawCircle(color = Color.White, radius = 4f, center = Offset(scrubX, aY))
+                
+                val aText = String.format("%.0f m", aVal)
+                val aTextLayout = textMeasurer.measure(aText, style = labelStyle.copy(color = Color.White))
+                drawRoundRect(
+                    color = altColor.copy(alpha = 0.8f),
+                    topLeft = Offset(scrubX + 12f - 8f, aY - 24f - 4f),
+                    size = Size(aTextLayout.size.width + 16f, aTextLayout.size.height + 8f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                )
+                drawText(
+                    textLayoutResult = aTextLayout,
+                    topLeft = Offset(scrubX + 12f, aY - 24f)
+                )
+            }
         }
     }
 }

@@ -12,7 +12,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import android.widget.Toast
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -47,7 +48,8 @@ fun HistoryScreen(
 ) {
     val rides by viewModel.rides.collectAsState()
     val context = LocalContext.current
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
+    val coroutineScope = rememberCoroutineScope()
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -56,7 +58,9 @@ fun HistoryScreen(
                     viewModel.importGPX(inputStream)
                 }
             } catch (e: Exception) {
-                Toast.makeText(context, "Error opening file: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Error opening file")
+                }
             }
         }
     }
@@ -68,14 +72,13 @@ fun HistoryScreen(
                     snackbarHostState.showSnackbar(event.message)
                 }
                 is HistoryViewModel.UiEvent.Success -> {
-                    Toast.makeText(context, event.message, Toast.LENGTH_LONG).show()
+                    snackbarHostState.showSnackbar(event.message)
                 }
             }
         }
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Ride History") },

@@ -21,6 +21,7 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 
 enum class TrackingState {
     IDLE, TRACKING, PAUSED, GPS_LOST
@@ -41,6 +42,7 @@ class TrackingService : Service() {
     private var isTimerEnabled = false
     private var timeStarted = 0L
     private var rideDuration = 0L
+    private var currentPointCount = 0
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -74,6 +76,12 @@ class TrackingService : Service() {
                                 isPaused = false
                             )
                         )
+                        currentPointCount++
+                        if (currentPointCount == 8000) {
+                            showPointLimitWarning()
+                        } else if (currentPointCount >= 9000) {
+                            splitRide()
+                        }
                     }
                 }
             }
@@ -112,6 +120,7 @@ class TrackingService : Service() {
         startForeground(NOTIFICATION_ID, getNotification())
         
         updateState(TrackingState.TRACKING)
+        currentPointCount = 0
         
         serviceScope.launch {
             val startTime = System.currentTimeMillis()
@@ -135,6 +144,11 @@ class TrackingService : Service() {
 
     private fun resumeTracking() {
         updateState(TrackingState.TRACKING)
+        currentRideId?.let { rideId ->
+            serviceScope.launch {
+                currentPointCount = rideDao.getPointsForRide(rideId).firstOrNull()?.size ?: 0
+            }
+        }
         startTimer()
     }
 
@@ -145,48 +159,7 @@ class TrackingService : Service() {
         
         val finalDistance = trackingManager.totalDistance.value.toDouble()
         val finalDuration = rideDuration
-        
-        currentRideId?.let { rideId ->
-            serviceScope.launch {
-                val rideWithPoints = rideDao.getRideWithPointsById(rideId)
-                if (rideWithPoints != null) {
-                    val ride = rideWithPoints.ride
-                    val points = rideWithPoints.points
-                    
-                    val distance = finalDistance
-                    val durationMs = finalDuration
-                    val avgSpeed = if (durationMs > 0) (distance / (durationMs / 1000f)).toFloat() else 0f
-                    val maxSpeed = points.maxOfOrNull { it.speed } ?: 0f
-                    
-                    val newTitle = if (ride.title == `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime)) {
-                        `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime, maxSpeed * 3.6f)
-                    } else ride.title
-
-                    val calc = `in`.shvms.trackme.data.local.entity.PostRideCalculation(
-                        distance = distance,
-                        maxSpeed = maxSpeed,
-                        avgSpeed = avgSpeed,
-                        pauseDuration = 0L
-                    )
-                    
-                    val finishedRide = ride.copy(
-                        endTime = System.currentTimeMillis(), 
-                        title = newTitle,
-                        postRideCalculation = calc
-                    )
-                    rideDao.updateRide(finishedRide)
-                    
-                    val prefs = getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
-                    val isPostProcessingEnabled = prefs.getBoolean("enable_gps_post_processing", false)
-                    
-                    val gpsProcessor = `in`.shvms.trackme.domain.processor.DefaultGPSProcessor()
-                    gpsProcessor.processRide(rideId, rideDao, isPostProcessingEnabled)
-
-                    val app = application as TrackMeApp
-                    app.firestoreSyncManager.uploadRide(rideId)
-                }
-            }
-        }
+        val rideToProcess = currentRideId
         
         trackingManager.reset()
         rideDuration = 0L
@@ -194,8 +167,14 @@ class TrackingService : Service() {
         currentRideId = null
         
         stopForeground(STOP_FOREGROUND_REMOVE)
-        if (wakeLock.isHeld) wakeLock.release()
-        stopSelf()
+        
+        serviceScope.launch {
+            rideToProcess?.let { rideId ->
+                finalizeRide(rideId, finalDistance, finalDuration)
+            }
+            if (wakeLock.isHeld) wakeLock.release()
+            stopSelf()
+        }
     }
 
     private fun updateState(newState: TrackingState) {
@@ -205,12 +184,13 @@ class TrackingService : Service() {
 
     private fun startTimer() {
         isTimerEnabled = true
-        timeStarted = System.currentTimeMillis()
+        timeStarted = android.os.SystemClock.elapsedRealtime()
         serviceScope.launch {
             while (isTimerEnabled) {
-                val lapTime = System.currentTimeMillis() - timeStarted
+                val currentTime = android.os.SystemClock.elapsedRealtime()
+                val lapTime = currentTime - timeStarted
                 rideDuration += lapTime
-                timeStarted = System.currentTimeMillis()
+                timeStarted = currentTime
                 trackingManager.updateDuration(rideDuration)
                 delay(1000L)
             }
@@ -248,6 +228,95 @@ class TrackingService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private suspend fun finalizeRide(rideId: Long, finalDistance: Double, finalDuration: Long) {
+        val rideWithPoints = rideDao.getRideWithPointsById(rideId)
+        if (rideWithPoints != null) {
+            val ride = rideWithPoints.ride
+            val points = rideWithPoints.points
+            
+            val distance = finalDistance
+            val durationMs = finalDuration
+            val avgSpeed = if (durationMs > 0) (distance / (durationMs / 1000f)).toFloat() else 0f
+            val maxSpeed = points.maxOfOrNull { it.speed } ?: 0f
+            
+            val newTitle = if (ride.title == `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime)) {
+                `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime, maxSpeed * 3.6f)
+            } else ride.title
+
+            val calc = `in`.shvms.trackme.data.local.entity.PostRideCalculation(
+                distance = distance,
+                maxSpeed = maxSpeed,
+                avgSpeed = avgSpeed,
+                pauseDuration = 0L
+            )
+            
+            val finishedRide = ride.copy(
+                endTime = System.currentTimeMillis(), 
+                title = newTitle,
+                postRideCalculation = calc
+            )
+            rideDao.updateRide(finishedRide)
+            
+            val prefs = getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
+            val disablePostProcessing = prefs.getBoolean("disable_gps_post_processing", false)
+            
+            val gpsProcessor = `in`.shvms.trackme.domain.processor.DefaultGPSProcessor()
+            gpsProcessor.processRide(rideId, rideDao, !disablePostProcessing)
+
+            val app = application as TrackMeApp
+            app.firestoreSyncManager.uploadRide(rideId)
+            
+            val bcastIntent = Intent("in.shvms.trackme.RIDE_SAVED")
+            sendBroadcast(bcastIntent)
+        }
+    }
+
+    private fun splitRide() {
+        val oldRideId = currentRideId
+        val finalDistance = trackingManager.totalDistance.value.toDouble()
+        val finalDuration = rideDuration
+        
+        currentPointCount = 0
+        rideDuration = 0L
+        timeStarted = android.os.SystemClock.elapsedRealtime()
+        trackingManager.reset()
+        
+        serviceScope.launch {
+            oldRideId?.let { rideId ->
+                finalizeRide(rideId, finalDistance, finalDuration)
+            }
+            
+            val startTime = System.currentTimeMillis()
+            val rideId = rideDao.insertRide(
+                RideEntity(
+                    startTime = startTime,
+                    title = RideUtils.getDefaultTitle(startTime) + " (Part 2)"
+                )
+            )
+            currentRideId = rideId
+            
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val splitNotification = NotificationCompat.Builder(this@TrackingService, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                .setContentTitle("Ride Auto-Split")
+                .setContentText("Your ride reached 9,000 points and was split automatically.")
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .build()
+            notificationManager.notify(3, splitNotification)
+        }
+    }
+    
+    private fun showPointLimitWarning() {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val warningNotification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("Long Ride Warning")
+            .setContentText("Approaching limit. Ride will auto-split at 9,000 points.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+        notificationManager.notify(2, warningNotification)
+    }
 
     companion object {
         const val ACTION_START_OR_RESUME_SERVICE = "ACTION_START_OR_RESUME_SERVICE"

@@ -123,50 +123,26 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
             throw IllegalArgumentException("mapSnapshot cannot be null for NativeSnapshotImageExporterImpl")
         }
 
-        // We want a square-ish or specified ratio aspect, but the snapshot might be the screen's ratio.
-        // Let's create a final bitmap based on the snapshot's width, maintaining the desired ratio if needed.
-        // For simplicity, we just use the snapshot's dimensions and add a banner at the bottom.
-        val reqW = mapSnapshot.width
-        // calculate banner height
-        val bannerHeight = if (showStats) (reqW * AppConfig.OVERLAY_BANNER_HEIGHT_RATIO).toInt() else 0
-        val uncroppedH = mapSnapshot.height + bannerHeight
+        val finalW = mapSnapshot.width
+        val finalH = mapSnapshot.height
 
-        // Target ratio = ratioWidth / ratioHeight
-        // Raw ratio = reqW / uncroppedH
-        val targetRatio = ratioWidth.toFloat() / ratioHeight.toFloat()
-        val rawRatio = reqW.toFloat() / uncroppedH.toFloat()
-
-        var finalW = reqW
-        var finalH = uncroppedH
-        var cropX = 0
-        var cropY = 0
-
-        if (rawRatio > targetRatio) {
-            // Raw is wider than target -> crop width
-            finalW = (uncroppedH * targetRatio).toInt()
-            cropX = (reqW - finalW) / 2
-        } else if (rawRatio < targetRatio) {
-            // Raw is taller than target -> crop height from map top
-            finalH = (reqW / targetRatio).toInt()
-            // we crop from the top (which is just map, not banner)
-            cropY = uncroppedH - finalH
-        }
-
-        val tempBitmap = Bitmap.createBitmap(reqW, uncroppedH, Bitmap.Config.ARGB_8888)
-        val tempCanvas = Canvas(tempBitmap)
+        val finalBitmap = Bitmap.createBitmap(finalW, finalH, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(finalBitmap)
         
         // Draw the map
-        tempCanvas.drawBitmap(mapSnapshot, 0f, 0f, null)
+        canvas.drawBitmap(mapSnapshot, 0f, 0f, null)
         
         if (showStats) {
+            val bannerHeight = (finalW * AppConfig.OVERLAY_BANNER_HEIGHT_RATIO).toInt()
+            val bannerTop = (finalH - bannerHeight).toFloat()
+            
             // Draw the banner
-            val bannerTop = mapSnapshot.height.toFloat()
             val paint = Paint().apply {
                 color = AppConfig.OVERLAY_BANNER_COLOR
                 alpha = AppConfig.OVERLAY_BANNER_ALPHA
                 style = Paint.Style.FILL
             }
-            tempCanvas.drawRect(0f, bannerTop, reqW.toFloat(), uncroppedH.toFloat(), paint)
+            canvas.drawRect(0f, bannerTop, finalW.toFloat(), finalH.toFloat(), paint)
             
             // Draw Text
             val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -184,16 +160,13 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
             
             val dateStr = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(rideWithPoints.ride.startTime))
             
-            val padding = reqW * 0.05f
+            val padding = finalW * 0.05f
             
-            tempCanvas.drawText("TrackMe Ride", padding, bannerTop + bannerHeight * 0.4f, textPaint)
+            canvas.drawText("TrackMe Ride", padding, bannerTop + bannerHeight * 0.4f, textPaint)
             
             textPaint.textSize = bannerHeight * 0.15f
-            tempCanvas.drawText("$dateStr • $durationStr • $distanceStr", padding, bannerTop + bannerHeight * 0.7f, textPaint)
+            canvas.drawText("$dateStr • $durationStr • $distanceStr", padding, bannerTop + bannerHeight * 0.7f, textPaint)
         }
-
-        // Now crop to final dimensions
-        val finalBitmap = Bitmap.createBitmap(tempBitmap, cropX, cropY, finalW, finalH)
         
         val exportsDir = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME)
         if (!exportsDir.exists()) exportsDir.mkdirs()
@@ -202,9 +175,6 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
             finalBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
         
-        if (finalBitmap != tempBitmap) {
-            tempBitmap.recycle()
-        }
         finalBitmap.recycle()
         // We do not recycle mapSnapshot here because it might be used by the framework or caller
         

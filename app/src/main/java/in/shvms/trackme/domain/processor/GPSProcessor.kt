@@ -125,18 +125,17 @@ class DefaultGPSProcessor : GPSProcessor {
             }
         }
         
-        // Calculate pause duration accurately based on time between first and last points vs active time
-        val activeTimeMs = compressedPoints.filter { !it.isPaused }.let { activePoints ->
-            if (activePoints.size > 1) {
-                var activeT = 0L
-                for(i in 1 until activePoints.size) {
-                    activeT += (activePoints[i].timestamp - activePoints[i-1].timestamp)
-                }
-                activeT
-            } else 0L
+        // Calculate accurate active time from smoothed/auto-paused points before compression
+        var activeTimeMs = 0L
+        for (i in 1 until autoPausedPoints.size) {
+            val curr = autoPausedPoints[i]
+            val prev = autoPausedPoints[i-1]
+            if (!curr.isPaused && !prev.isPaused) {
+                activeTimeMs += (curr.timestamp - prev.timestamp)
+            }
         }
-        val totalTimeMs = compressedPoints.last().timestamp - compressedPoints.first().timestamp
-        pauseDurationMs = totalTimeMs - activeTimeMs
+        val totalTimeMs = autoPausedPoints.last().timestamp - autoPausedPoints.first().timestamp
+        pauseDurationMs = max(0L, totalTimeMs - activeTimeMs)
         
         val avgSpeed = if (activeTimeMs > 0) (totalDistance / (activeTimeMs / 1000f)).toFloat() else 0f
 

@@ -7,24 +7,44 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.History
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.dp
 import `in`.shvms.trackme.ui.home.HomeScreen
 import `in`.shvms.trackme.ui.history.HistoryScreen
 import `in`.shvms.trackme.ui.history.RideDetailScreen
 import `in`.shvms.trackme.ui.settings.SettingsScreen
 
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+
+val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> {
+    error("No SnackbarHostState provided")
+}
+
 @Composable
 fun MainNavigation() {
     val navController = rememberNavController()
+    val snackbarHostState = remember { SnackbarHostState() }
     var selectedItem by remember { mutableIntStateOf(0) }
     val items = listOf("Home", "History", "Settings")
+    val icons = listOf(Icons.Default.Home, Icons.Default.History, Icons.Default.Settings)
 
-    Scaffold(
-        bottomBar = {
-            NavigationBar {
+    CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            bottomBar = {
+                NavigationBar {
                 items.forEachIndexed { index, item ->
                     NavigationBarItem(
-                        icon = { },
-                        label = { Text(item) },
+                        icon = { Icon(icons[index], contentDescription = item) },
+                        alwaysShowLabel = false,
                         selected = selectedItem == index,
                         onClick = {
                             selectedItem = index
@@ -42,7 +62,7 @@ fun MainNavigation() {
         NavHost(
             navController = navController,
             startDestination = "home",
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
         ) {
             composable("home") { HomeScreen() }
             composable("history") { 
@@ -60,4 +80,5 @@ fun MainNavigation() {
             }
         }
     }
+}
 }
