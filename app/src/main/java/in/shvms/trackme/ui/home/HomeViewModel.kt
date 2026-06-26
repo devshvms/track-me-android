@@ -25,7 +25,8 @@ data class HomeUiState(
     val durationText: String = "00:00:00",
     val speedText: String = "0.0 km/h",
     val isEmergencyActive: Boolean = false,
-    val isEmergencyReady: Boolean = false
+    val isEmergencyReady: Boolean = false,
+    val timeSinceLastGps: Long = 0L
 )
 
 class HomeViewModel(
@@ -35,19 +36,30 @@ class HomeViewModel(
     private val emergencyDao: EmergencyDao
 ) : ViewModel() {
 
-    private val trackingStats = combine(
+    private val trackingStatsGroup1 = combine(
         trackingManager.trackingState,
         trackingManager.pathPoints,
-        trackingManager.totalDistance,
+        trackingManager.totalDistance
+    ) { state, points, distance ->
+        Triple(state, points, distance)
+    }
+
+    private val trackingStatsGroup2 = combine(
         trackingManager.rideDurationInMillis,
-        trackingManager.currentSpeed
-    ) { state, points, distance, duration, speed ->
+        trackingManager.currentSpeed,
+        trackingManager.timeSinceLastGps
+    ) { duration, speed, timeSinceLastGps ->
+        Triple(duration, speed, timeSinceLastGps)
+    }
+
+    private val trackingStats = combine(trackingStatsGroup1, trackingStatsGroup2) { g1, g2 ->
         HomeUiState(
-            trackingState = state,
-            pathPoints = points,
-            distanceText = formatDistance(distance),
-            durationText = formatDuration(duration),
-            speedText = formatSpeed(speed)
+            trackingState = g1.first,
+            pathPoints = g1.second,
+            distanceText = formatDistance(g1.third),
+            durationText = formatDuration(g2.first),
+            speedText = formatSpeed(g2.second),
+            timeSinceLastGps = g2.third
         )
     }
 

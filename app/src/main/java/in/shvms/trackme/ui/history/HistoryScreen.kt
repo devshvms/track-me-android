@@ -34,7 +34,7 @@ import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.android.gms.maps.CameraUpdateFactory
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Download
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -54,12 +54,29 @@ fun HistoryScreen(
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             try {
+                var name = ""
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        if (nameIndex != -1) {
+                            name = cursor.getString(nameIndex)
+                        }
+                    }
+                }
+                
+                if (name.isNotEmpty() && !name.lowercase(Locale.ROOT).endsWith(".gpx")) {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("Please select a valid .gpx file.")
+                    }
+                    return@rememberLauncherForActivityResult
+                }
+
                 context.contentResolver.openInputStream(uri)?.use { inputStream ->
                     viewModel.importGPX(inputStream)
                 }
             } catch (e: Exception) {
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Error opening file")
+                    snackbarHostState.showSnackbar("Error opening file. Please ensure it's a valid GPX format.")
                 }
             }
         }
@@ -83,8 +100,10 @@ fun HistoryScreen(
             TopAppBar(
                 title = { Text("Ride History") },
                 actions = {
-                    IconButton(onClick = { launcher.launch("*/*") }) {
-                        Icon(Icons.Default.Add, contentDescription = "Import GPX")
+                    TextButton(onClick = { launcher.launch("*/*") }) {
+                        Icon(Icons.Default.Download, contentDescription = "Import GPX", tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Import GPX", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             )

@@ -43,6 +43,7 @@ class TrackingService : Service() {
     private var timeStarted = 0L
     private var rideDuration = 0L
     private var currentPointCount = 0
+    private var lastGpsTimeMs = 0L
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -50,6 +51,7 @@ class TrackingService : Service() {
             val location = result.lastLocation ?: return
 
             if (currentState == TrackingState.TRACKING) {
+                lastGpsTimeMs = System.currentTimeMillis()
                 val speed = if (location.hasSpeed()) location.speed else 0f
                 trackingManager.updateSpeed(speed)
 
@@ -121,6 +123,7 @@ class TrackingService : Service() {
         
         updateState(TrackingState.TRACKING)
         currentPointCount = 0
+        lastGpsTimeMs = System.currentTimeMillis()
         
         serviceScope.launch {
             val startTime = System.currentTimeMillis()
@@ -149,7 +152,8 @@ class TrackingService : Service() {
                 currentPointCount = rideDao.getPointsForRide(rideId).firstOrNull()?.size ?: 0
             }
         }
-        startTimer()
+        lastGpsTimeMs = System.currentTimeMillis()
+        locationHelper.startLocationTracking(locationCallback)
     }
 
     private fun stopTracking() {
@@ -192,6 +196,13 @@ class TrackingService : Service() {
                 rideDuration += lapTime
                 timeStarted = currentTime
                 trackingManager.updateDuration(rideDuration)
+                
+                if (currentState == TrackingState.TRACKING && lastGpsTimeMs > 0) {
+                    trackingManager.updateTimeSinceLastGps(System.currentTimeMillis() - lastGpsTimeMs)
+                } else {
+                    trackingManager.updateTimeSinceLastGps(0L)
+                }
+                
                 delay(1000L)
             }
         }
@@ -234,6 +245,15 @@ class TrackingService : Service() {
         if (rideWithPoints != null) {
             val ride = rideWithPoints.ride
             val points = rideWithPoints.points
+            
+            if (points.isEmpty()) {
+                rideDao.deletePointsForRide(rideId)
+                rideDao.deleteRide(rideId)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    android.widget.Toast.makeText(applicationContext, "Ride was too short to save (no GPS data).", android.widget.Toast.LENGTH_LONG).show()
+                }
+                return
+            }
             
             val distance = finalDistance
             val durationMs = finalDuration

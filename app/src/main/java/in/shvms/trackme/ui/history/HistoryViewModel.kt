@@ -71,7 +71,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
             } catch (e: Exception) {
                 errorLogger.log("Failed to parse GPX")
                 errorLogger.recordException(e)
-                _uiEvent.emit(UiEvent.ShowError("Failed to parse GPX: ${e.localizedMessage}"))
+                _uiEvent.emit(UiEvent.ShowError("Failed to import. Please ensure the file is a valid GPX format."))
             }
         }
     }

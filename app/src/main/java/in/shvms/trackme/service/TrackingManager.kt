@@ -21,6 +21,9 @@ class TrackingManager {
     private val _rideDurationInMillis = MutableStateFlow(0L)
     val rideDurationInMillis: StateFlow<Long> = _rideDurationInMillis.asStateFlow()
 
+    private val _timeSinceLastGps = MutableStateFlow(0L)
+    val timeSinceLastGps: StateFlow<Long> = _timeSinceLastGps.asStateFlow()
+
     fun updateState(state: TrackingState) {
         _trackingState.value = state
     }
@@ -40,6 +43,10 @@ class TrackingManager {
     fun updateDuration(duration: Long) {
         _rideDurationInMillis.value = duration
     }
+
+    fun updateTimeSinceLastGps(time: Long) {
+        _timeSinceLastGps.value = time
+    }
     
     fun reset() {
         _trackingState.value = TrackingState.IDLE
@@ -47,5 +54,6 @@ class TrackingManager {
         _currentSpeed.value = 0f
         _totalDistance.value = 0f
         _rideDurationInMillis.value = 0L
+        _timeSinceLastGps.value = 0L
     }
 }
