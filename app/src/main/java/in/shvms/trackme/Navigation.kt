@@ -73,6 +73,9 @@ fun MainNavigation() {
                 RideDetailScreen(rideId = id, navController = navController)
             }
             composable("settings") { SettingsScreen(navController = navController) }
+            composable("account_management") {
+                `in`.shvms.trackme.ui.settings.AccountManagementScreen(navController = navController)
+            }
             composable("emergency_setup") { 
                 `in`.shvms.trackme.ui.settings.EmergencySetupScreen(
                     navController = navController

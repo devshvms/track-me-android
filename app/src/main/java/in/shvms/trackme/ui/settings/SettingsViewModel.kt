@@ -20,6 +20,10 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
     val syncedRidesCount = app.database.rideDao().getAllRidesWithPoints().map { rides ->
         rides.count { it.ride.isSynced }
     }.stateIn(viewModelScope, SharingStarted.Lazily, 0)
+    
+    val totalRidesCount = app.database.rideDao().getAllRidesWithPoints().map { rides ->
+        rides.size
+    }.stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
     init {
         viewModelScope.launch {

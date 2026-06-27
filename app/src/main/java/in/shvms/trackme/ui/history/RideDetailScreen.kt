@@ -1,7 +1,10 @@
 package `in`.shvms.trackme.ui.history
 
+import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.provider.MediaStore
+import java.io.FileInputStream
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -36,6 +39,14 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MapStyleOptions
+import `in`.shvms.trackme.domain.export.ExportOptions
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.material3.Switch
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.Button
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.*
 import androidx.compose.material.icons.filled.Map
@@ -49,6 +60,12 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 fun formatDistance(meters: Double): String {
     if (meters < 1000) return String.format("%.0f m", meters)
@@ -87,6 +104,15 @@ fun RideDetailScreen(
     var showExportDialog by remember { mutableStateOf(false) }
     var exportShowStats by remember { mutableStateOf(true) }
     var exportRatio by remember { mutableStateOf(Pair(1, 1)) }
+    
+    var exportMapType by remember { mutableStateOf(MapType.NORMAL) }
+    var exportHidePOIs by remember { mutableStateOf(false) }
+    var exportRouteColor by remember { mutableStateOf(Color(0xFF1565C0)) }
+    var exportShowMarkers by remember { mutableStateOf(true) }
+    var exportOverlayDarkTheme by remember { mutableStateOf(true) }
+    var exportShowDate by remember { mutableStateOf(true) }
+    var exportShowDuration by remember { mutableStateOf(true) }
+    var exportShowDistance by remember { mutableStateOf(true) }
     var mapInstance by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
 
     LaunchedEffect(rideId) {
@@ -501,6 +527,47 @@ fun RideDetailScreen(
     }
 
     if (showExportDialog) {
+        val handleExport = { isShare: Boolean ->
+            previewMapInstance?.snapshot { bitmap ->
+                if (bitmap != null) {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            val exporter = `in`.shvms.trackme.domain.export.NativeSnapshotImageExporterImpl()
+                            val options = ExportOptions(exportShowStats, exportOverlayDarkTheme, exportShowDistance, exportShowDuration, exportShowDate)
+                            val imageFile = exporter.export(rideWithPoints!!, exportRatio.first, exportRatio.second, context, bitmap, options)
+                            val rideTitle = rideWithPoints!!.ride.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride"
+                            if (isShare) {
+                                val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", imageFile)
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "image/png"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                withContext(Dispatchers.Main) {
+                                    context.startActivity(Intent.createChooser(intent, "Share Image"))
+                                    showExportDialog = false
+                                }
+                            } else {
+                                saveImageToGallery(context, imageFile, rideTitle)
+                                withContext(Dispatchers.Main) {
+                                    coroutineScope.launch { snackbarHostState.showSnackbar("Saved to gallery") }
+                                    showExportDialog = false
+                                }
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                coroutineScope.launch { snackbarHostState.showSnackbar("Error: ${e.message}") }
+                            }
+                        }
+                    }
+                } else {
+                    coroutineScope.launch { snackbarHostState.showSnackbar("Could not capture map") }
+                }
+            } ?: run {
+                coroutineScope.launch { snackbarHostState.showSnackbar("Map not ready") }
+            }
+        }
+        
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { showExportDialog = false },
             properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
@@ -512,40 +579,6 @@ fun RideDetailScreen(
                         navigationIcon = {
                             IconButton(onClick = { showExportDialog = false }) {
                                 Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                            }
-                        },
-                        actions = {
-                            TextButton(onClick = {
-                                previewMapInstance?.snapshot { bitmap ->
-                                    if (bitmap != null) {
-                                        coroutineScope.launch(Dispatchers.IO) {
-                                            try {
-                                                val exporter = `in`.shvms.trackme.domain.export.NativeSnapshotImageExporterImpl()
-                                                val imageFile = exporter.export(rideWithPoints!!, exportRatio.first, exportRatio.second, context, bitmap, exportShowStats)
-                                                val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", imageFile)
-                                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                                    type = "image/png"
-                                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                                }
-                                                withContext(Dispatchers.Main) {
-                                                    context.startActivity(Intent.createChooser(intent, "Share Image"))
-                                                    showExportDialog = false
-                                                }
-                                            } catch (e: Exception) {
-                                                withContext(Dispatchers.Main) {
-                                                    coroutineScope.launch { snackbarHostState.showSnackbar("Error sharing: ${e.message}") }
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        coroutineScope.launch { snackbarHostState.showSnackbar("Could not capture map") }
-                                    }
-                                } ?: run {
-                                    coroutineScope.launch { snackbarHostState.showSnackbar("Map not ready") }
-                                }
-                            }) {
-                                Text("Share")
                             }
                         }
                     )
@@ -583,7 +616,11 @@ fun RideDetailScreen(
                             GoogleMap(
                                 modifier = Modifier.fillMaxSize(),
                                 cameraPositionState = cameraPositionState,
-                                properties = MapProperties(mapType = MapType.NORMAL, isTrafficEnabled = false),
+                                properties = MapProperties(
+                                    mapType = exportMapType,
+                                    isTrafficEnabled = false,
+                                    mapStyleOptions = if (exportHidePOIs) MapStyleOptions("[{\"featureType\":\"poi\",\"stylers\":[{\"visibility\":\"off\"}]},{\"featureType\":\"transit\",\"elementType\":\"labels.icon\",\"stylers\":[{\"visibility\":\"off\"}]}]") else null
+                                ),
                                 uiSettings = MapUiSettings(zoomControlsEnabled = false, compassEnabled = false)
                             ) {
                                 MapEffect { map ->
@@ -591,13 +628,21 @@ fun RideDetailScreen(
                                 }
                                 Polyline(
                                     points = latLngs,
-                                    color = Color(0xFF1565C0),
+                                    color = exportRouteColor,
                                     width = 10f
                                 )
-                                Marker(
-                                    state = MarkerState(position = latLngs.last()),
-                                    title = "Finish"
-                                )
+                                if (exportShowMarkers) {
+                                    Marker(
+                                        state = MarkerState(position = latLngs.first()),
+                                        title = "Start",
+                                        icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
+                                    )
+                                    Marker(
+                                        state = MarkerState(position = latLngs.last()),
+                                        title = "Finish",
+                                        icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
+                                    )
+                                }
                             }
                             
                             if (exportShowStats) {
@@ -606,7 +651,10 @@ fun RideDetailScreen(
                                         .fillMaxWidth()
                                         .fillMaxHeight(AppConfig.OVERLAY_BANNER_HEIGHT_RATIO)
                                         .align(Alignment.BottomCenter)
-                                        .background(Color(AppConfig.OVERLAY_BANNER_COLOR).copy(alpha = AppConfig.OVERLAY_BANNER_ALPHA / 255f))
+                                        .background(
+                                            if (exportOverlayDarkTheme) Color(AppConfig.OVERLAY_BANNER_COLOR).copy(alpha = AppConfig.OVERLAY_BANNER_ALPHA / 255f)
+                                            else Color.White.copy(alpha = 0.85f)
+                                        )
                                         .padding(start = 16.dp, end = 16.dp),
                                     contentAlignment = Alignment.CenterStart
                                 ) {
@@ -618,37 +666,121 @@ fun RideDetailScreen(
                                         val durationStr = String.format(java.util.Locale.getDefault(), "%02d:%02d:%02d", seconds / 3600, (seconds % 3600) / 60, seconds % 60)
                                         val dateStr = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date(rideWithPoints!!.ride.startTime))
                                         
-                                        Text("TrackMe Ride", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                        Text("$dateStr • $durationStr • $distanceStr", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                                        val textColor = if (exportOverlayDarkTheme) Color.White else Color.Black
+                                        
+                                        val rideTitle = rideWithPoints!!.ride.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride"
+                                        Text(rideTitle, color = textColor, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                        
+                                        val statsList = mutableListOf<String>()
+                                        if (exportShowDate) statsList.add(dateStr)
+                                        if (exportShowDuration) statsList.add(durationStr)
+                                        if (exportShowDistance) statsList.add(distanceStr)
+                                        
+                                        Text(statsList.joinToString(" • "), color = textColor, style = MaterialTheme.typography.bodyMedium)
                                     }
                                 }
                             }
                         }
                     }
 
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = exportShowStats, onCheckedChange = { exportShowStats = it })
-                            Text("Include stats overlay")
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Aspect Ratio:", fontWeight = FontWeight.SemiBold)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(selected = exportRatio == Pair(1, 1), onClick = { exportRatio = Pair(1, 1) }, label = { Text("1:1") })
+                                FilterChip(selected = exportRatio == Pair(4, 3), onClick = { exportRatio = Pair(4, 3) }, label = { Text("4:3") })
+                                FilterChip(selected = exportRatio == Pair(16, 9), onClick = { exportRatio = Pair(16, 9) }, label = { Text("16:9") })
+                            }
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Select Aspect Ratio:", fontWeight = FontWeight.SemiBold)
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            FilterChip(
-                                selected = exportRatio == Pair(1, 1),
-                                onClick = { exportRatio = Pair(1, 1) },
-                                label = { Text("1:1 (Recommended)") }
-                            )
-                            FilterChip(
-                                selected = exportRatio == Pair(4, 3),
-                                onClick = { exportRatio = Pair(4, 3) },
-                                label = { Text("4:3") }
-                            )
-                            FilterChip(
-                                selected = exportRatio == Pair(16, 9),
-                                onClick = { exportRatio = Pair(16, 9) },
-                                label = { Text("16:9") }
-                            )
+                        
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Map Style:", fontWeight = FontWeight.SemiBold)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(selected = exportMapType == MapType.NORMAL, onClick = { exportMapType = MapType.NORMAL }, label = { Text("Normal") })
+                                FilterChip(selected = exportMapType == MapType.SATELLITE, onClick = { exportMapType = MapType.SATELLITE }, label = { Text("Sat") })
+                                FilterChip(selected = exportMapType == MapType.TERRAIN, onClick = { exportMapType = MapType.TERRAIN }, label = { Text("Terrain") })
+                            }
+                        }
+                        
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = exportHidePOIs, onCheckedChange = { exportHidePOIs = it }, enabled = exportMapType == MapType.NORMAL)
+                                Text("Hide Places", color = if(exportMapType == MapType.NORMAL) Color.Unspecified else Color.Gray)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = exportShowMarkers, onCheckedChange = { exportShowMarkers = it })
+                                Text("Show Markers")
+                            }
+                        }
+                        
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Route Color:", fontWeight = FontWeight.SemiBold)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(
+                                    Color(0xFF1565C0), Color(0xFFD32F2F), Color(0xFF388E3C), Color(0xFFF57C00), Color(0xFF7B1FA2), Color.Black
+                                ).forEach { color ->
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .background(color, shape = androidx.compose.foundation.shape.CircleShape)
+                                            .border(
+                                                width = if (exportRouteColor == color) 2.dp else 0.dp,
+                                                color = if (exportRouteColor == color) MaterialTheme.colorScheme.onSurface else Color.Transparent,
+                                                shape = androidx.compose.foundation.shape.CircleShape
+                                            )
+                                            .clickable { exportRouteColor = color }
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Stats Overlay:", fontWeight = FontWeight.SemiBold)
+                            Switch(checked = exportShowStats, onCheckedChange = { exportShowStats = it })
+                        }
+                        
+                        if (exportShowStats) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = exportOverlayDarkTheme, onCheckedChange = { exportOverlayDarkTheme = it })
+                                    Text("Dark Theme")
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    FilterChip(selected = exportShowDistance, onClick = { exportShowDistance = !exportShowDistance }, label = { Text("Dist") })
+                                    FilterChip(selected = exportShowDuration, onClick = { exportShowDuration = !exportShowDuration }, label = { Text("Dur") })
+                                    FilterChip(selected = exportShowDate, onClick = { exportShowDate = !exportShowDate }, label = { Text("Date") })
+                                }
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { handleExport(true) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = "Share", modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Share")
+                        }
+                        Button(
+                            onClick = { handleExport(false) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = "Save", modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Save")
                         }
                     }
                 }
@@ -826,4 +958,20 @@ private fun formatDuration(durationMillis: Long): String {
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
     return String.format(java.util.Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
+}
+
+fun saveImageToGallery(context: Context, imageFile: java.io.File, rideTitle: String) {
+    val values = ContentValues().apply {
+        put(MediaStore.Images.Media.DISPLAY_NAME, "TrackMe_${rideTitle}_${System.currentTimeMillis()}.png")
+        put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+        put(MediaStore.Images.Media.DATE_ADDED, System.currentTimeMillis() / 1000)
+    }
+    val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+    if (uri != null) {
+        context.contentResolver.openOutputStream(uri)?.use { out ->
+            FileInputStream(imageFile).use { input ->
+                input.copyTo(out)
+            }
+        }
+    }
 }

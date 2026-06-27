@@ -19,8 +19,16 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+data class ExportOptions(
+    val showStats: Boolean = true,
+    val isDarkTheme: Boolean = true,
+    val showDistance: Boolean = true,
+    val showDuration: Boolean = true,
+    val showDate: Boolean = true
+)
+
 interface ImageExporter {
-    suspend fun export(rideWithPoints: RideWithPoints, ratioWidth: Int, ratioHeight: Int, context: Context, mapSnapshot: Bitmap? = null, showStats: Boolean = true): File
+    suspend fun export(rideWithPoints: RideWithPoints, ratioWidth: Int, ratioHeight: Int, context: Context, mapSnapshot: Bitmap? = null, options: ExportOptions = ExportOptions()): File
 }
 
 /**
@@ -30,7 +38,7 @@ interface ImageExporter {
  * Kept here in case the native snapshot method has issues on certain devices.
  */
 class GoogleStaticApiImageExporterImpl : ImageExporter {
-    override suspend fun export(rideWithPoints: RideWithPoints, ratioWidth: Int, ratioHeight: Int, context: Context, mapSnapshot: Bitmap?, showStats: Boolean): File = withContext(Dispatchers.IO) {
+    override suspend fun export(rideWithPoints: RideWithPoints, ratioWidth: Int, ratioHeight: Int, context: Context, mapSnapshot: Bitmap?, options: ExportOptions): File = withContext(Dispatchers.IO) {
         val points = rideWithPoints.points
         val step = maxOf(1, points.size / 300)
         val sampledPoints = points.filterIndexed { index, _ -> index % step == 0 }
@@ -66,18 +74,18 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
         val canvas = Canvas(finalBitmap)
         canvas.drawBitmap(mapBitmap, 0f, 0f, null)
         
-        if (showStats) {
+        if (options.showStats) {
             val bannerHeight = realH * AppConfig.OVERLAY_BANNER_HEIGHT_RATIO
             val bannerTop = realH - bannerHeight
             val paint = Paint().apply {
-                color = AppConfig.OVERLAY_BANNER_COLOR
-                alpha = AppConfig.OVERLAY_BANNER_ALPHA
+                color = if (options.isDarkTheme) AppConfig.OVERLAY_BANNER_COLOR else android.graphics.Color.WHITE
+                alpha = if (options.isDarkTheme) AppConfig.OVERLAY_BANNER_ALPHA else 220
                 style = Paint.Style.FILL
             }
             canvas.drawRect(0f, bannerTop, realW.toFloat(), realH.toFloat(), paint)
             
             val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = AppConfig.OVERLAY_TEXT_COLOR
+                color = if (options.isDarkTheme) AppConfig.OVERLAY_TEXT_COLOR else android.graphics.Color.BLACK
                 textSize = bannerHeight * 0.25f
                 textAlign = Paint.Align.LEFT
             }
@@ -93,10 +101,16 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
             
             val padding = realW * 0.05f
             
-            canvas.drawText("TrackMe Ride", padding, bannerTop + bannerHeight * 0.4f, textPaint)
+            val rideTitle = rideWithPoints.ride.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride"
+            canvas.drawText(rideTitle, padding, bannerTop + bannerHeight * 0.4f, textPaint)
             
             textPaint.textSize = bannerHeight * 0.15f
-            canvas.drawText("$dateStr • $durationStr • $distanceStr", padding, bannerTop + bannerHeight * 0.7f, textPaint)
+            val statsList = mutableListOf<String>()
+            if (options.showDate) statsList.add(dateStr)
+            if (options.showDuration) statsList.add(durationStr)
+            if (options.showDistance) statsList.add(distanceStr)
+            
+            canvas.drawText(statsList.joinToString(" • "), padding, bannerTop + bannerHeight * 0.7f, textPaint)
         }
         
         val exportsDir = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME)
@@ -118,7 +132,7 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
  * This is 100% free and does not require network calls or billing accounts.
  */
 class NativeSnapshotImageExporterImpl : ImageExporter {
-    override suspend fun export(rideWithPoints: RideWithPoints, ratioWidth: Int, ratioHeight: Int, context: Context, mapSnapshot: Bitmap?, showStats: Boolean): File = withContext(Dispatchers.IO) {
+    override suspend fun export(rideWithPoints: RideWithPoints, ratioWidth: Int, ratioHeight: Int, context: Context, mapSnapshot: Bitmap?, options: ExportOptions): File = withContext(Dispatchers.IO) {
         if (mapSnapshot == null) {
             throw IllegalArgumentException("mapSnapshot cannot be null for NativeSnapshotImageExporterImpl")
         }
@@ -132,21 +146,21 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
         // Draw the map
         canvas.drawBitmap(mapSnapshot, 0f, 0f, null)
         
-        if (showStats) {
+        if (options.showStats) {
             val bannerHeight = (finalW * AppConfig.OVERLAY_BANNER_HEIGHT_RATIO).toInt()
             val bannerTop = (finalH - bannerHeight).toFloat()
             
             // Draw the banner
             val paint = Paint().apply {
-                color = AppConfig.OVERLAY_BANNER_COLOR
-                alpha = AppConfig.OVERLAY_BANNER_ALPHA
+                color = if (options.isDarkTheme) AppConfig.OVERLAY_BANNER_COLOR else android.graphics.Color.WHITE
+                alpha = if (options.isDarkTheme) AppConfig.OVERLAY_BANNER_ALPHA else 220
                 style = Paint.Style.FILL
             }
             canvas.drawRect(0f, bannerTop, finalW.toFloat(), finalH.toFloat(), paint)
             
             // Draw Text
             val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = AppConfig.OVERLAY_TEXT_COLOR
+                color = if (options.isDarkTheme) AppConfig.OVERLAY_TEXT_COLOR else android.graphics.Color.BLACK
                 textSize = bannerHeight * 0.25f
                 textAlign = Paint.Align.LEFT
             }
@@ -162,10 +176,16 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
             
             val padding = finalW * 0.05f
             
-            canvas.drawText("TrackMe Ride", padding, bannerTop + bannerHeight * 0.4f, textPaint)
+            val rideTitle = rideWithPoints.ride.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride"
+            canvas.drawText(rideTitle, padding, bannerTop + bannerHeight * 0.4f, textPaint)
             
             textPaint.textSize = bannerHeight * 0.15f
-            canvas.drawText("$dateStr • $durationStr • $distanceStr", padding, bannerTop + bannerHeight * 0.7f, textPaint)
+            val statsList = mutableListOf<String>()
+            if (options.showDate) statsList.add(dateStr)
+            if (options.showDuration) statsList.add(durationStr)
+            if (options.showDistance) statsList.add(distanceStr)
+            
+            canvas.drawText(statsList.joinToString(" • "), padding, bannerTop + bannerHeight * 0.7f, textPaint)
         }
         
         val exportsDir = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME)
