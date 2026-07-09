@@ -55,7 +55,7 @@ jobs:
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCqJujEhlyIbHil-AgoGrsda0NYchgnORQ"
+          "current_key": "dummy_api_key_for_ci_build_validation"
         }
       ],
       "services": {
