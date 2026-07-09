@@ -50,8 +50,9 @@ class AppUpdateChecker(private val context: Context) {
         }
     }
 
-    suspend fun checkForUpdate(forceCheck: Boolean = false) {
-        withContext(Dispatchers.IO) {
+    suspend fun checkForUpdate(forceCheck: Boolean = false): Boolean {
+        return withContext(Dispatchers.IO) {
+            val playStoreUrl = "https://play.google.com/store/apps/details?id=in.shvms.trackme"
             try {
                 val currentCode = getCurrentVersionCode()
                 val currentName = getCurrentVersionName()
@@ -63,17 +64,17 @@ class AppUpdateChecker(private val context: Context) {
                     val latestName = doc.getString("latestVersionName") ?: currentName
                     val notes = doc.getString("releaseNotes") ?: "We've added new features and performance improvements!"
                     val force = doc.getBoolean("isForceUpdate") ?: false
-                    val url = doc.getString("updateUrl") ?: "https://play.google.com/store/apps/details?id=in.shvms.trackme"
+                    val url = doc.getString("updateUrl") ?: playStoreUrl
 
                     if (latestCode > currentCode) {
                         if (forceCheck || force || shouldShowPrompt(latestCode)) {
                             _updateInfo.value = AppUpdateInfo(latestCode, latestName, notes, force, url)
                         }
-                        return@withContext
+                        return@withContext true
                     }
                 }
 
-                // 2. Fallback check: GitHub Releases API
+                // 2. Fallback check: GitHub Releases API (always redirect to Play Store)
                 val githubReleaseUrl = "https://api.github.com/repos/devshvms/track-me-android/releases/latest"
                 val conn = (URL(githubReleaseUrl).openConnection() as HttpURLConnection).apply {
                     connectTimeout = 5000
@@ -85,7 +86,6 @@ class AppUpdateChecker(private val context: Context) {
                     val json = JSONObject(response)
                     val tagName = json.optString("tag_name", "").removePrefix("v")
                     val bodyNotes = json.optString("body", "Bug fixes and UI enhancements.")
-                    val htmlUrl = json.optString("html_url", "https://github.com/devshvms/track-me-android/releases")
 
                     if (isNewerVersion(tagName, currentName)) {
                         val syntheticCode = currentCode + 1
@@ -95,13 +95,15 @@ class AppUpdateChecker(private val context: Context) {
                                 latestVersionName = tagName,
                                 releaseNotes = bodyNotes,
                                 isForceUpdate = false,
-                                updateUrl = htmlUrl
+                                updateUrl = playStoreUrl
                             )
                         }
+                        return@withContext true
                     }
                 }
+                false
             } catch (e: Exception) {
-                // Silently ignore update check errors when offline
+                false
             }
         }
     }
