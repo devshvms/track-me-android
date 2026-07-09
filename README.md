@@ -1,4 +1,4 @@
-# TrackMe 🚵‍♂️🗺️ (v1.2.0)
+# TrackMe 🚵‍♂️🗺️ (v1.2.1)
 
 ![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
@@ -6,8 +6,9 @@
 
 > **Product Vision:** TrackMe is designed to be the ultimate companion for cyclists, runners, and explorers. We believe in privacy-first tracking that seamlessly works offline, but elegantly syncs to the cloud when you want it to. Track your journey, analyze your performance, and share your adventures.
 
-## 🌟 Key Features (v1.2.0)
+## 🌟 Key Features (v1.2.1)
 
+*   **In-App Auto-Update Notifications:** Automatic non-blocking version checks on app launch against Firestore remote configuration (`config/app_release`) and GitHub Releases API, with an interactive Material 3 release notes popup and manual update check button on the Settings screen.
 *   **Real-Time Tracking:** Highly accurate GPS tracking using `FusedLocationProviderClient` with smart filtering to eliminate anomalous data points.
 *   **Live Ride Sharing:** Share your real-time ride progress with friends or family via a secure live-tracking link directly from the Home Screen before or during your ride.
 *   **Emergency SOS & Safety Beacon:** Configure emergency contacts and broadcast immediate emergency alerts with real-time location tracking directly from the app.
