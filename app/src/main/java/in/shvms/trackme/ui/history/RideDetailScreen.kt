@@ -66,6 +66,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
 fun formatDistance(meters: Double): String {
     if (meters < 1000) return String.format("%.0f m", meters)
@@ -81,7 +82,7 @@ fun vectorToBitmap(context: android.content.Context, id: Int, color: Int): Bitma
     )
     val canvas = android.graphics.Canvas(bitmap)
     vectorDrawable.setBounds(0, 0, canvas.width, canvas.height)
-    DrawableCompat.setTint(vectorDrawable, color)
+    androidx.core.graphics.drawable.DrawableCompat.setTint(vectorDrawable, color)
     vectorDrawable.draw(canvas)
     return BitmapDescriptorFactory.fromBitmap(bitmap)
 }
@@ -93,6 +94,7 @@ fun RideDetailScreen(
     viewModel: RideDetailViewModel = viewModel(),
     navController: NavController? = null
 ) {
+    val strings = LocalAppStrings.current
     val rideWithPoints by viewModel.rideWithPoints.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -173,13 +175,13 @@ fun RideDetailScreen(
                                 viewModel.updateTitle(rideId, editedTitle)
                             }
                         }) {
-                            Text("Done")
+                            Text(strings.done)
                         }
                     } else {
                         TextButton(onClick = { isEditing = true }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Edit, contentDescription = strings.edit, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Edit")
+                            Text(strings.edit)
                         }
                     }
                 }
@@ -232,7 +234,7 @@ fun RideDetailScreen(
                         
                         val cameraPositionState = rememberCameraPositionState()
                         
-                        val pointerIcon = remember {
+                        val pointerBitmap = remember {
                             val size = 40
                             val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
                             val canvas = android.graphics.Canvas(bitmap)
@@ -246,7 +248,7 @@ fun RideDetailScreen(
                             paint.style = android.graphics.Paint.Style.STROKE
                             paint.strokeWidth = 4f
                             canvas.drawCircle(size / 2f, size / 2f, size / 2f - 4f, paint)
-                            BitmapDescriptorFactory.fromBitmap(bitmap)
+                            bitmap
                         }
 
                         var mapType by remember { mutableStateOf(MapType.NORMAL) }
@@ -274,11 +276,18 @@ fun RideDetailScreen(
                             
                             if (scrubIndex != null && scrubIndex!! in points.indices) {
                                 val p = points[scrubIndex!!]
+                                val scrubIcon = remember(pointerBitmap) {
+                                    try {
+                                        BitmapDescriptorFactory.fromBitmap(pointerBitmap)
+                                    } catch (e: Exception) {
+                                        null
+                                    }
+                                }
                                 Marker(
                                     state = MarkerState(position = LatLng(p.latitude, p.longitude)),
                                     title = "Scrub",
                                     snippet = "Speed: ${String.format("%.1f", p.speed * 3.6f)} km/h",
-                                    icon = pointerIcon,
+                                    icon = scrubIcon,
                                     anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
                                 )
                             }
@@ -422,11 +431,11 @@ fun RideDetailScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Ride Stats", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(strings.rideStats, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(16.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            StatItem("Distance", String.format("%.2f km", (ride.postRideCalculation?.distance ?: 0.0) / 1000f), modifier = Modifier.weight(1f))
-                            StatItem("Duration", formatDuration((ride.endTime ?: ride.startTime) - ride.startTime), modifier = Modifier.weight(1f))
+                            StatItem(strings.distance, String.format("%.2f km", (ride.postRideCalculation?.distance ?: 0.0) / 1000f), modifier = Modifier.weight(1f))
+                            StatItem(strings.duration, formatDuration((ride.endTime ?: ride.startTime) - ride.startTime), modifier = Modifier.weight(1f))
                             StatItem("GPS Tag", points.size.toString(), modifier = Modifier.weight(1f))
                         }
                         
@@ -441,7 +450,7 @@ fun RideDetailScreen(
                             val distanceKm = (ride.postRideCalculation?.distance ?: 0.0) / 1000.0
                             val durationHours = ((ride.endTime ?: ride.startTime) - ride.startTime) / 3600000.0
                             val avgSpeed = if (durationHours > 0) (distanceKm / durationHours).toFloat() else 0f
-                            StatItem("Avg Speed", String.format("%.1f km/h", avgSpeed), modifier = Modifier.weight(1f))
+                            StatItem(strings.avgSpeed, String.format("%.1f km/h", avgSpeed), modifier = Modifier.weight(1f))
                         }
                     }
                 }
@@ -455,9 +464,9 @@ fun RideDetailScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         TextButton(onClick = { showExportDialog = true }) {
-                            Icon(Icons.Default.Share, contentDescription = "Share", modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Share, contentDescription = strings.share, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Share")
+                            Text(strings.share)
                         }
 
                         TextButton(onClick = {
@@ -487,15 +496,15 @@ fun RideDetailScreen(
                                 }
                             }
                         }) {
-                            Icon(Icons.Default.Download, contentDescription = "GPX", modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Download, contentDescription = strings.exportGpx, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("GPX")
+                            Text(strings.exportGpx)
                         }
 
                         TextButton(onClick = { showDeleteDialog = true }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Default.Delete, contentDescription = strings.delete, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Delete", color = MaterialTheme.colorScheme.error)
+                            Text(strings.delete, color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
@@ -508,19 +517,19 @@ fun RideDetailScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Ride") },
+            title = { Text(strings.deleteRide) },
             text = { Text("Are you sure you want to delete this ride? This action cannot be undone and will delete it from cloud if synced.") },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
                     viewModel.deleteRide(rideId)
                 }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text(strings.delete, color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -692,7 +701,7 @@ fun RideDetailScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Aspect Ratio:", fontWeight = FontWeight.SemiBold)
+                            Text(strings.aspectRatio, fontWeight = FontWeight.SemiBold)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 FilterChip(selected = exportRatio == Pair(1, 1), onClick = { exportRatio = Pair(1, 1) }, label = { Text("1:1") })
                                 FilterChip(selected = exportRatio == Pair(4, 3), onClick = { exportRatio = Pair(4, 3) }, label = { Text("4:3") })
@@ -701,11 +710,11 @@ fun RideDetailScreen(
                         }
                         
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Map Style:", fontWeight = FontWeight.SemiBold)
+                            Text(strings.mapStyle, fontWeight = FontWeight.SemiBold)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                FilterChip(selected = exportMapType == MapType.NORMAL, onClick = { exportMapType = MapType.NORMAL }, label = { Text("Normal") })
-                                FilterChip(selected = exportMapType == MapType.SATELLITE, onClick = { exportMapType = MapType.SATELLITE }, label = { Text("Sat") })
-                                FilterChip(selected = exportMapType == MapType.TERRAIN, onClick = { exportMapType = MapType.TERRAIN }, label = { Text("Terrain") })
+                                FilterChip(selected = exportMapType == MapType.NORMAL, onClick = { exportMapType = MapType.NORMAL }, label = { Text(strings.mapNormal) })
+                                FilterChip(selected = exportMapType == MapType.SATELLITE, onClick = { exportMapType = MapType.SATELLITE }, label = { Text(strings.mapSatellite) })
+                                FilterChip(selected = exportMapType == MapType.TERRAIN, onClick = { exportMapType = MapType.TERRAIN }, label = { Text(strings.mapTerrain) })
                             }
                         }
                         
@@ -721,7 +730,7 @@ fun RideDetailScreen(
                         }
                         
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Route Color:", fontWeight = FontWeight.SemiBold)
+                            Text(strings.routeColor, fontWeight = FontWeight.SemiBold)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 listOf(
                                     Color(0xFF1565C0), Color(0xFFD32F2F), Color(0xFF388E3C), Color(0xFFF57C00), Color(0xFF7B1FA2), Color.Black

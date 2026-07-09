@@ -18,6 +18,7 @@ import `in`.shvms.trackme.ui.home.HomeScreen
 import `in`.shvms.trackme.ui.history.HistoryScreen
 import `in`.shvms.trackme.ui.history.RideDetailScreen
 import `in`.shvms.trackme.ui.settings.SettingsScreen
+import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -33,7 +34,9 @@ fun MainNavigation() {
     val navController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedItem by remember { mutableIntStateOf(0) }
-    val items = listOf("Home", "History", "Settings")
+    val strings = LocalAppStrings.current
+    val items = listOf(strings.navHome, strings.navHistory, strings.navSettings)
+    val routes = listOf("home", "history", "settings")
     val icons = listOf(Icons.Default.Home, Icons.Default.History, Icons.Default.Settings)
 
     CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
@@ -44,11 +47,12 @@ fun MainNavigation() {
                 items.forEachIndexed { index, item ->
                     NavigationBarItem(
                         icon = { Icon(icons[index], contentDescription = item) },
-                        alwaysShowLabel = false,
+                        label = { Text(item) },
+                        alwaysShowLabel = true,
                         selected = selectedItem == index,
                         onClick = {
                             selectedItem = index
-                            val route = item.lowercase()
+                            val route = routes[index]
                             navController.navigate(route) {
                                 launchSingleTop = true
                                 popUpTo("home")

@@ -42,4 +42,11 @@ object AppConfig {
     
     // Speed boundary between Walk/Run and Bike (km/h)
     const val WALKING_MAX_SPEED_KMH = 15.0f
+
+    // --- Live Share Configuration ---
+    const val LIVE_SHARE_BASE_URL = "https://trackme.shvms.in"
+    const val LIVE_SHARE_API_PATH = "/api/track"
+    const val LIVE_SHARE_START_ENDPOINT = "$LIVE_SHARE_API_PATH/start"
+    const val LIVE_SHARE_LOCATION_ENDPOINT_TEMPLATE = "$LIVE_SHARE_API_PATH/%s/location"
+    const val LIVE_SHARE_STOP_ENDPOINT_TEMPLATE = "$LIVE_SHARE_API_PATH/%s/stop"
 }

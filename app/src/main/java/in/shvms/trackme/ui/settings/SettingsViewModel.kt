@@ -21,17 +21,28 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
         rides.count { it.ride.isSynced }
     }.stateIn(viewModelScope, SharingStarted.Lazily, 0)
     
-    val totalRidesCount = app.database.rideDao().getAllRidesWithPoints().map { rides ->
-        rides.size
+    val totalRidesCount = combine(
+        app.database.rideDao().getAllRidesWithPoints(),
+        app.firestoreSyncManager.totalCloudRidesCount
+    ) { rides, cloudCount ->
+        val unsyncedLocalCount = rides.count { !it.ride.isSynced }
+        if (app.authManager.currentUser.value != null && cloudCount > 0) {
+            maxOf(rides.size, cloudCount + unsyncedLocalCount)
+        } else {
+            rides.size
+        }
     }.stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
     init {
+        _lastSyncTime.value = prefs.getLong("last_sync_time", 0L)
+        app.firestoreSyncManager.refreshCloudCount()
         viewModelScope.launch {
             syncResult.collect { result ->
                 if (result is `in`.shvms.trackme.data.remote.SyncResult.Success) {
                     val time = System.currentTimeMillis()
                     prefs.edit().putLong("last_sync_time", time).apply()
                     _lastSyncTime.value = time
+                    app.firestoreSyncManager.refreshCloudCount()
                 }
             }
         }
@@ -41,6 +52,7 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
         val result = app.authManager.signInWithGoogle(context)
         if (result.isSuccess) {
             app.firestoreSyncManager.syncRecent(10)
+            app.firestoreSyncManager.refreshCloudCount()
         }
         return result
     }

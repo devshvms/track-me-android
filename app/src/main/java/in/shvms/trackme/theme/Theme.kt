@@ -31,18 +31,24 @@ private val LightColorScheme =
 
 @Composable
 fun TrackMeTheme(
+  themeMode: Int = 0,
   darkTheme: Boolean = isSystemInDarkTheme(),
   // Dynamic color is available on Android 12+
   dynamicColor: Boolean = true,
   content: @Composable () -> Unit,
 ) {
+  val isDark = when (themeMode) {
+      1 -> false
+      2 -> true
+      else -> darkTheme
+  }
   val colorScheme =
     when {
       dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
         val context = LocalContext.current
-        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
       }
-      darkTheme -> DarkColorScheme
+      isDark -> DarkColorScheme
       else -> LightColorScheme
     }
 

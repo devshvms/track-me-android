@@ -147,8 +147,9 @@ fun SwipeToTriggerSlider(
             ) {
                 Icon(Icons.Default.Close, contentDescription = "Cancel SOS", tint = Color.White, modifier = Modifier.size(32.dp))
                 Spacer(modifier = Modifier.width(8.dp))
+                val strings = `in`.shvms.trackme.ui.localization.LocalAppStrings.current
                 Text(
-                    text = "Cancel ($timeLeft)",
+                    text = "${strings.cancel} ($timeLeft)",
                     color = Color.White,
                     style = MaterialTheme.typography.titleMedium
                 )

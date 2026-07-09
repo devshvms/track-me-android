@@ -37,6 +37,35 @@ class FirestoreSyncManager(
     private val _syncResult = MutableStateFlow<SyncResult>(SyncResult.Idle)
     val syncResult: StateFlow<SyncResult> = _syncResult.asStateFlow()
 
+    val totalCloudRidesCount = MutableStateFlow(0)
+
+    init {
+        syncScope.launch {
+            authManager.currentUser.collect { user ->
+                refreshCloudCount()
+            }
+        }
+    }
+
+    fun refreshCloudCount() {
+        val user = authManager.currentUser.value ?: run {
+            totalCloudRidesCount.value = 0
+            return
+        }
+        syncScope.launch {
+            try {
+                val aggregateQuery = firestore.collection("users")
+                    .document(user.uid)
+                    .collection("rides")
+                    .count()
+                val snapshot = aggregateQuery.get(com.google.firebase.firestore.AggregateSource.SERVER).await()
+                totalCloudRidesCount.value = snapshot.count.toInt()
+            } catch (e: Exception) {
+                errorLogger.log("Failed to refresh cloud count")
+            }
+        }
+    }
+
     fun syncAll() {
         syncScope.launch {
             val user = authManager.currentUser.value ?: run {
@@ -55,12 +84,39 @@ class FirestoreSyncManager(
                     uploaded++
                 }
 
-                // --- DOWNSTREAM: Cloud → Local ---
-                downloaded = downloadFromCloud(user.uid)
-
+                // --- DOWNSTREAM: Cloud → Local (Full Sync All) ---
+                downloaded = downloadFromCloud(user.uid, null)
+                refreshCloudCount()
                 _syncResult.value = SyncResult.Success(uploaded, downloaded)
             } catch (e: Exception) {
                 errorLogger.log("Sync failed")
+                errorLogger.recordException(e)
+                _syncResult.value = SyncResult.Error(e.localizedMessage ?: "Unknown error")
+            }
+        }
+    }
+
+    fun syncPeriodic() {
+        syncScope.launch {
+            val user = authManager.currentUser.value ?: return@launch
+            _syncResult.value = SyncResult.Syncing
+            var uploaded = 0
+            var downloaded = 0
+            try {
+                // --- UPSTREAM: Local → Cloud ---
+                val allRides = rideDao.getAllRidesWithPoints().first()
+                val unsyncedRides = allRides.filter { !it.ride.isSynced }
+                for (rideWithPoints in unsyncedRides) {
+                    uploadRideInternal(rideWithPoints.ride.id)
+                    uploaded++
+                }
+
+                // --- DOWNSTREAM: Cloud → Local (Lazy Load Top 10 for Periodic Sync) ---
+                downloaded = downloadFromCloud(user.uid, 10)
+                refreshCloudCount()
+                _syncResult.value = SyncResult.Success(uploaded, downloaded)
+            } catch (e: Exception) {
+                errorLogger.log("Periodic sync failed")
                 errorLogger.recordException(e)
                 _syncResult.value = SyncResult.Error(e.localizedMessage ?: "Unknown error")
             }
@@ -73,6 +129,7 @@ class FirestoreSyncManager(
             _syncResult.value = SyncResult.Syncing
             try {
                 val downloaded = downloadFromCloud(user.uid, limit)
+                refreshCloudCount()
                 _syncResult.value = SyncResult.Success(0, downloaded)
             } catch (e: Exception) {
                 errorLogger.log("Sync recent failed")
@@ -100,60 +157,94 @@ class FirestoreSyncManager(
         val snapshot = query.get().await()
 
         for (doc in snapshot.documents) {
-            val docId = doc.id
-            // Skip rides already present locally
-            if (existingFirestoreIds.contains(docId)) continue
-
-            try {
-                val startTime = doc.getLong("startTime") ?: continue
-                val endTime = doc.getLong("endTime")
-                val sourceInfo = doc.getString("sourceInfo") ?: "Cloud Sync"
-                val title = doc.getString("title") ?: RideUtils.getDefaultTitle(startTime)
-
-                // Reconstruct PostRideCalculation if present
-                val maxSpeed = (doc.getDouble("maxSpeed") ?: 0.0).toFloat()
-                val distance = doc.getDouble("distance") ?: 0.0
-                val avgSpeed = (doc.getDouble("avgSpeed") ?: 0.0).toFloat()
-                val pauseDuration = doc.getLong("pauseDuration") ?: 0L
-
-                val calc = PostRideCalculation(maxSpeed, distance, avgSpeed, pauseDuration)
-
-                val newRide = RideEntity(
-                    startTime = startTime,
-                    endTime = endTime,
-                    sourceInfo = sourceInfo,
-                    isSynced = true,
-                    firestoreId = docId,
-                    title = title,
-                    postRideCalculation = calc
-                )
-                val rideId = rideDao.insertRide(newRide)
-
-                // Insert GPS points
-                @Suppress("UNCHECKED_CAST")
-                val pointsList = doc.get("points") as? List<Map<String, Any>> ?: emptyList()
-                val gpsPoints = pointsList.mapIndexed { index, map ->
-                    GPSPointEntity(
-                        rideId = rideId,
-                        latitude = (map["lat"] as? Double) ?: 0.0,
-                        longitude = (map["lng"] as? Double) ?: 0.0,
-                        altitude = (map["altitude"] as? Double) ?: 0.0,
-                        accuracy = ((map["accuracy"] as? Double) ?: 0.0).toFloat(),
-                        speed = ((map["speed"] as? Double) ?: 0.0).toFloat(),
-                        timestamp = (map["timestamp"] as? Long) ?: (startTime + index * 1000L),
-                        isPaused = (map["isPaused"] as? Boolean) ?: false
-                    )
-                }
-                if (gpsPoints.isNotEmpty()) {
-                    rideDao.insertGPSPoints(gpsPoints)
-                }
+            if (existingFirestoreIds.contains(doc.id)) continue
+            if (insertRideDocument(doc)) {
                 count++
-            } catch (e: Exception) {
-                errorLogger.log("Failed to download ride $docId")
-                errorLogger.recordException(e)
             }
         }
         return count
+    }
+
+    suspend fun downloadNextBatch(uid: String, batchSize: Int = 10): Int {
+        val existingFirestoreIds = rideDao.getAllRidesWithPoints().first()
+            .mapNotNull { it.ride.firestoreId }
+            .toSet()
+
+        val existingSyncedRides = rideDao.getAllRidesWithPoints().first()
+            .map { it.ride }
+            .filter { it.firestoreId != null }
+
+        val oldestStartTime = existingSyncedRides.minOfOrNull { it.startTime }
+
+        var query: com.google.firebase.firestore.Query = firestore.collection("users")
+            .document(uid)
+            .collection("rides")
+
+        query = if (oldestStartTime != null) {
+            query.orderBy("startTime", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .whereLessThan("startTime", oldestStartTime)
+        } else {
+            query.orderBy("startTime", com.google.firebase.firestore.Query.Direction.DESCENDING)
+        }
+
+        val snapshot = query.limit(batchSize.toLong()).get().await()
+
+        for (doc in snapshot.documents) {
+            if (existingFirestoreIds.contains(doc.id)) continue
+            insertRideDocument(doc)
+        }
+        return snapshot.documents.size
+    }
+
+    private suspend fun insertRideDocument(doc: com.google.firebase.firestore.DocumentSnapshot): Boolean {
+        return try {
+            val docId = doc.id
+            val startTime = doc.getLong("startTime") ?: return false
+            val endTime = doc.getLong("endTime")
+            val sourceInfo = doc.getString("sourceInfo") ?: "Cloud Sync"
+            val title = doc.getString("title") ?: RideUtils.getDefaultTitle(startTime)
+
+            val maxSpeed = (doc.getDouble("maxSpeed") ?: 0.0).toFloat()
+            val distance = doc.getDouble("distance") ?: 0.0
+            val avgSpeed = (doc.getDouble("avgSpeed") ?: 0.0).toFloat()
+            val pauseDuration = doc.getLong("pauseDuration") ?: 0L
+
+            val calc = PostRideCalculation(maxSpeed, distance, avgSpeed, pauseDuration)
+
+            val newRide = RideEntity(
+                startTime = startTime,
+                endTime = endTime,
+                sourceInfo = sourceInfo,
+                isSynced = true,
+                firestoreId = docId,
+                title = title,
+                postRideCalculation = calc
+            )
+            val rideId = rideDao.insertRide(newRide)
+
+            @Suppress("UNCHECKED_CAST")
+            val pointsList = doc.get("points") as? List<Map<String, Any>> ?: emptyList()
+            val gpsPoints = pointsList.mapIndexed { index, map ->
+                GPSPointEntity(
+                    rideId = rideId,
+                    latitude = (map["lat"] as? Double) ?: 0.0,
+                    longitude = (map["lng"] as? Double) ?: 0.0,
+                    altitude = (map["altitude"] as? Double) ?: 0.0,
+                    accuracy = ((map["accuracy"] as? Double) ?: 0.0).toFloat(),
+                    speed = ((map["speed"] as? Double) ?: 0.0).toFloat(),
+                    timestamp = (map["timestamp"] as? Long) ?: (startTime + index * 1000L),
+                    isPaused = (map["isPaused"] as? Boolean) ?: false
+                )
+            }
+            if (gpsPoints.isNotEmpty()) {
+                rideDao.insertGPSPoints(gpsPoints)
+            }
+            true
+        } catch (e: Exception) {
+            errorLogger.log("Failed to download ride ${doc.id}")
+            errorLogger.recordException(e)
+            false
+        }
     }
 
     fun uploadRide(rideId: Long) {

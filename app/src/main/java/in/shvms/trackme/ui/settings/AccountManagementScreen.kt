@@ -23,6 +23,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import `in`.shvms.trackme.TrackMeApp
+import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,6 +34,7 @@ fun AccountManagementScreen(
         factory = SettingsViewModelFactory((LocalContext.current.applicationContext as TrackMeApp))
     )
 ) {
+    val strings = LocalAppStrings.current
     val user by viewModel.currentUser.collectAsState()
     var isPrivacyExpanded by remember { mutableStateOf(false) }
     var showSignOutWarning by remember { mutableStateOf(false) }
@@ -51,10 +53,10 @@ fun AccountManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Account Management") },
+                title = { Text(strings.accountManagement) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = strings.back)
                     }
                 }
             )
@@ -87,7 +89,7 @@ fun AccountManagementScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(user?.displayName ?: "User", style = MaterialTheme.typography.titleLarge)
+                Text(user?.displayName ?: strings.guest, style = MaterialTheme.typography.titleLarge)
                 Text(user?.email ?: "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             
@@ -97,7 +99,7 @@ fun AccountManagementScreen(
                 onClick = { navController.navigate("emergency_setup") },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Configure Emergency Setup")
+                Text(strings.configureEmergencySetup)
             }
             
             Spacer(modifier = Modifier.height(12.dp))
@@ -106,7 +108,7 @@ fun AccountManagementScreen(
                 onClick = { showSignOutWarning = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Sign Out")
+                Text(strings.signOut)
             }
             
             Spacer(modifier = Modifier.height(32.dp))
@@ -123,7 +125,7 @@ fun AccountManagementScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Privacy and Security", style = MaterialTheme.typography.titleMedium)
+                        Text(strings.privacyAndSecurity, style = MaterialTheme.typography.titleMedium)
                         Icon(
                             if (isPrivacyExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                             contentDescription = "Expand"
@@ -139,7 +141,7 @@ fun AccountManagementScreen(
                                     .heightIn(max = 200.dp)
                             ) {
                                 Text(
-                                    text = "Privacy Policy\n\nYour data is completely under your control. We only store data locally by default. If you enable Cloud Sync, your rides are securely stored on our servers. You can permanently delete your synced data or your entire account at any time using the options below. Deleted data cannot be recovered.",
+                                    text = strings.privacyPolicyText,
                                     style = MaterialTheme.typography.bodySmall,
                                     modifier = Modifier.verticalScroll(rememberScrollState())
                                 )
@@ -152,7 +154,7 @@ fun AccountManagementScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                             ) {
-                                Text("Delete Cloud Data")
+                                Text(strings.deleteCloudData)
                             }
                             
                             Spacer(modifier = Modifier.height(8.dp))
@@ -162,7 +164,7 @@ fun AccountManagementScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                             ) {
-                                Text("Delete Account & Data")
+                                Text(strings.deleteAccountAndData)
                             }
                         }
                     }
@@ -174,19 +176,19 @@ fun AccountManagementScreen(
     if (showSignOutWarning) {
         AlertDialog(
             onDismissRequest = { showSignOutWarning = false },
-            title = { Text("Sign Out Warning") },
-            text = { Text("Signing out will clear all your synced rides from this phone's local history. They will remain safely in the cloud, and any new rides will be saved locally. Are you sure you want to sign out?") },
+            title = { Text(strings.signOutWarningTitle) },
+            text = { Text(strings.signOutWarningText) },
             confirmButton = {
                 TextButton(onClick = { 
                     showSignOutWarning = false
                     viewModel.signOut()
                 }) {
-                    Text("Sign Out")
+                    Text(strings.signOut)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSignOutWarning = false }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -195,26 +197,26 @@ fun AccountManagementScreen(
     if (showDeleteDataWarning) {
         AlertDialog(
             onDismissRequest = { showDeleteDataWarning = false },
-            title = { Text("Delete Cloud Data") },
-            text = { Text("Are you sure you want to delete all your synced rides from the cloud? This action cannot be undone.") },
+            title = { Text(strings.deleteCloudDataTitle) },
+            text = { Text(strings.deleteCloudDataWarningText) },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDataWarning = false
                     scope.launch {
                         val result = viewModel.deleteCloudData()
                         if (result.isSuccess) {
-                            snackbarHostState.showSnackbar("Cloud data deleted successfully")
+                            snackbarHostState.showSnackbar(strings.cloudDataDeletedSuccess)
                         } else {
-                            snackbarHostState.showSnackbar("Failed to delete cloud data")
+                            snackbarHostState.showSnackbar(strings.cloudDataDeletedFailed)
                         }
                     }
                 }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text(strings.delete, color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDataWarning = false }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -227,20 +229,20 @@ fun AccountManagementScreen(
 
         AlertDialog(
             onDismissRequest = { if (!isDeleting) showDeleteAccountWarning = false },
-            title = { Text("Delete Account") },
+            title = { Text(strings.deleteAccountTitle) },
             text = {
                 Column {
-                    Text("This is a permanent action. Your account and all cloud data will be deleted forever.", color = MaterialTheme.colorScheme.error)
+                    Text(strings.deleteAccountWarningText, color = MaterialTheme.colorScheme.error)
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedTextField(
                         value = feedbackText,
                         onValueChange = { feedbackText = it },
-                        label = { Text("Why are you leaving? (Optional)") },
+                        label = { Text(strings.whyLeavingOptional) },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isDeleting
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("To confirm, type DELETE below:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Text(strings.confirmTypeDelete, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                     OutlinedTextField(
                         value = confirmText,
                         onValueChange = { confirmText = it },
@@ -259,10 +261,10 @@ fun AccountManagementScreen(
                             isDeleting = false
                             showDeleteAccountWarning = false
                             if (result.isSuccess) {
-                                snackbarHostState.showSnackbar("Account deleted successfully")
+                                snackbarHostState.showSnackbar(strings.accountDeletedSuccess)
                             } else {
-                                val err = result.exceptionOrNull()?.message ?: "Unknown error"
-                                snackbarHostState.showSnackbar("Failed to delete account: $err")
+                                val err = result.exceptionOrNull()?.message ?: strings.unknown
+                                snackbarHostState.showSnackbar("${strings.accountDeletedFailed}$err")
                             }
                         }
                     },
@@ -271,13 +273,13 @@ fun AccountManagementScreen(
                     if (isDeleting) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                     } else {
-                        Text("Delete Everything", color = MaterialTheme.colorScheme.error)
+                        Text(strings.deleteEverything, color = MaterialTheme.colorScheme.error)
                     }
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteAccountWarning = false }, enabled = !isDeleting) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
