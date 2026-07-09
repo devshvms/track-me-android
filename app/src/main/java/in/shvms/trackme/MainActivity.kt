@@ -37,9 +37,20 @@ class MainActivity : ComponentActivity() {
       val themeMode by app.preferencesManager.themeMode.collectAsState()
       val appLanguage by app.preferencesManager.appLanguage.collectAsState()
       val appStrings = remember(appLanguage) { getAppStrings(appLanguage) }
+      val updateInfo by app.appUpdateChecker.updateInfo.collectAsState()
 
       CompositionLocalProvider(LocalAppStrings provides appStrings) {
-        TrackMeTheme(themeMode = themeMode) { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
+        TrackMeTheme(themeMode = themeMode) {
+          Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            MainNavigation()
+            updateInfo?.let { info ->
+              `in`.shvms.trackme.ui.update.AppUpdateDialog(
+                updateInfo = info,
+                onDismiss = { app.appUpdateChecker.dismissUpdate(info.latestVersionCode) }
+              )
+            }
+          }
+        }
       }
     }
   }

@@ -29,6 +29,7 @@ import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.draw.clip
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import android.widget.Toast
 
 @Composable
 fun SettingsScreen(
@@ -459,12 +460,34 @@ fun SettingsScreen(
             } else {
                 it.versionCode.toString()
             }
-            Text(
-                text = "Version ${it.versionName} ($vCode)",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp, bottom = 8.dp)
+            ) {
+                Text(
+                    text = "Version ${it.versionName} ($vCode)",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                TextButton(
+                    onClick = {
+                        val app = context.applicationContext as? TrackMeApp
+                        app?.let { trackMeApp ->
+                            Toast.makeText(context, "Checking for updates...", Toast.LENGTH_SHORT).show()
+                            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                trackMeApp.appUpdateChecker.checkForUpdate(forceCheck = true)
+                            }
+                        }
+                    },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text("Check for Updates", style = MaterialTheme.typography.labelSmall)
+                }
+            }
         }
     }
 }

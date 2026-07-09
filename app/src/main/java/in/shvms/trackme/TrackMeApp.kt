@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class TrackMeApp : Application() {
     lateinit var database: AppDatabase
@@ -38,6 +39,9 @@ class TrackMeApp : Application() {
         private set
 
     lateinit var preferencesManager: AppPreferencesManager
+        private set
+
+    lateinit var appUpdateChecker: `in`.shvms.trackme.ui.update.AppUpdateChecker
         private set
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -70,8 +74,13 @@ class TrackMeApp : Application() {
         }.launchIn(applicationScope)
 
         firestoreSyncManager = FirestoreSyncManager(database.rideDao(), database.emergencyDao(), authManager, errorLogger)
+        appUpdateChecker = `in`.shvms.trackme.ui.update.AppUpdateChecker(this)
         `in`.shvms.trackme.data.remote.SyncWorker.schedulePeriodicSync(this)
         emergencyBroadcastWorker = EmergencyBroadcastWorker(this, database.emergencyDao(), trackingManager, emergencyManager, firestoreSyncManager, errorLogger)
         emergencyBroadcastWorker.start()
+
+        applicationScope.launch(Dispatchers.IO) {
+            appUpdateChecker.checkForUpdate()
+        }
     }
 }
