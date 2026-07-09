@@ -1,4 +1,4 @@
-# TrackMe 🚵‍♂️🗺️
+# TrackMe 🚵‍♂️🗺️ (v1.2.0)
 
 ![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
@@ -6,19 +6,18 @@
 
 > **Product Vision:** TrackMe is designed to be the ultimate companion for cyclists, runners, and explorers. We believe in privacy-first tracking that seamlessly works offline, but elegantly syncs to the cloud when you want it to. Track your journey, analyze your performance, and share your adventures.
 
-## 🌟 Key Features
+## 🌟 Key Features (v1.2.0)
 
 *   **Real-Time Tracking:** Highly accurate GPS tracking using `FusedLocationProviderClient` with smart filtering to eliminate anomalous data points.
+*   **Live Ride Sharing:** Share your real-time ride progress with friends or family via a secure live-tracking link directly from the Home Screen before or during your ride.
+*   **Emergency SOS & Safety Beacon:** Configure emergency contacts and broadcast immediate emergency alerts with real-time location tracking directly from the app.
 *   **Offline-First Architecture:** Rides are saved locally to a robust Room Database. No internet required to track a ride—even in the most remote locations.
-*   **Cloud Synchronization:** Seamless, non-blocking background syncing with Firebase Firestore when online.
-*   **Rich History & Analytics:** View past rides with an interactive UI. See detailed statistics including distance, duration, and average speed.
+*   **Smart Cloud Synchronization (`WorkManager`):** Automated daily periodic background syncing (`SyncWorker`) with lightweight downstream lazy-loading (`syncPeriodic`), plus manual full cloud sync (`syncAll`) with a sleek `CloudSync` button.
+*   **Ride History Overhaul:** High-density compact list design with native sticky section headers (`stickyHeader`), vector route thumbnails (`RoutePreviewThumbnail`), and quick Sync & Distance filters.
+*   **Global Multi-Language Localization:** Built-in dynamic locale support for 7 languages (`en`, `es`, `fr`, `de`, `hi`, `ja`, `zh`) across all application screens.
 *   **Import & Export (GPX):** Break free from data lock-in. Export your routes to GPX format for use in other tools (like Strava or Garmin), or import GPX files to analyze past adventures.
 *   **Social Sharing:** Generate beautiful, high-quality images of your routes using the Google Maps Static API to share directly on social media.
 *   **Modern Declarative UI:** Built entirely with Jetpack Compose for a buttery-smooth, reactive user experience following Material 3 design guidelines.
-
-## 📸 Screenshots
-
-*(Add screenshots here showing the Home Screen, Active Tracking Notification, Ride Details, and Exported Share Image)*
 
 ## 🛠️ Technology Stack
 
@@ -26,17 +25,18 @@
 *   **UI Toolkit:** Jetpack Compose, Material Design 3
 *   **Architecture:** MVVM (Model-View-ViewModel) with Clean Architecture principles
 *   **Asynchronous Programming:** Kotlin Coroutines & `StateFlow`
+*   **Background Tasks:** Android Jetpack `WorkManager` (`SyncWorker`)
 *   **Local Storage:** Room Database (SQLite)
 *   **Backend & Auth:** Firebase Authentication (Google Sign-In) & Cloud Firestore
 *   **Location & Maps:** Google Play Services Location APIs, Google Static Maps API
 
-## 🚀 Getting Started (For New Joiners)
+## 🚀 Getting Started
 
 ### Prerequisites
 *   Android Studio Iguana (or newer)
 *   JDK 17
-*   Minimum SDK: 26 (Android 8.0)
-*   Target SDK: 34 (Android 14)
+*   Minimum SDK: 24 (Android 7.0)
+*   Target SDK: 36 (Android 16)
 
 ### Setup Instructions
 

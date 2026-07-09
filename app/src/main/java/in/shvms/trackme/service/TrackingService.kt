@@ -15,6 +15,8 @@ import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.dao.RideDao
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.RideEntity
+import `in`.shvms.trackme.data.remote.LiveShareManager
+import `in`.shvms.trackme.data.remote.LiveShareStatus
 import `in`.shvms.trackme.utils.RideUtils
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationResult
@@ -32,6 +34,7 @@ class TrackingService : Service() {
     private lateinit var locationHelper: LocationHelper
     private lateinit var rideDao: RideDao
     private lateinit var trackingManager: TrackingManager
+    private lateinit var liveShareManager: LiveShareManager
     private lateinit var wakeLock: PowerManager.WakeLock
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -44,6 +47,7 @@ class TrackingService : Service() {
     private var rideDuration = 0L
     private var currentPointCount = 0
     private var lastGpsTimeMs = 0L
+    private var lastLiveShareTimeMs = 0L
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -86,6 +90,31 @@ class TrackingService : Service() {
                         }
                     }
                 }
+                
+                val liveShareState = liveShareManager.state.value
+                if (liveShareState.status == LiveShareStatus.ACTIVE) {
+                    val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
+                    val freqSec = prefs.getInt("live_share_frequency_sec", 5)
+                    val now = System.currentTimeMillis()
+                    
+                    if (now - lastLiveShareTimeMs >= freqSec * 1000L) {
+                        lastLiveShareTimeMs = now
+                        
+                        val manager = getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager
+                        val batteryLevel = manager.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                        val heading = if (location.hasBearing()) location.bearing else null
+                        
+                        serviceScope.launch {
+                            liveShareManager.pushLocation(
+                                lat = location.latitude,
+                                lon = location.longitude,
+                                batteryLevel = batteryLevel,
+                                speed = if (location.hasSpeed()) location.speed else null,
+                                heading = heading
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -96,6 +125,7 @@ class TrackingService : Service() {
         val app = application as TrackMeApp
         rideDao = app.database.rideDao()
         trackingManager = app.trackingManager
+        liveShareManager = app.liveShareManager
         
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TrackMe::TrackingWakeLock")
@@ -154,6 +184,9 @@ class TrackingService : Service() {
         }
         lastGpsTimeMs = System.currentTimeMillis()
         locationHelper.startLocationTracking(locationCallback)
+        if (!isTimerEnabled) {
+            startTimer()
+        }
     }
 
     private fun stopTracking() {
@@ -173,6 +206,9 @@ class TrackingService : Service() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         
         serviceScope.launch {
+            if (liveShareManager.state.value.stopOnRideEnd) {
+                liveShareManager.stopSession("Ride ended by user.")
+            }
             rideToProcess?.let { rideId ->
                 finalizeRide(rideId, finalDistance, finalDuration)
             }

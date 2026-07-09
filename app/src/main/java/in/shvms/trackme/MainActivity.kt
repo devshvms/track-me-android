@@ -9,6 +9,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import `in`.shvms.trackme.theme.TrackMeTheme
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.CompositionLocalProvider
+import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.ui.localization.getAppStrings
 
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -28,7 +34,13 @@ class MainActivity : ComponentActivity() {
 
     enableEdgeToEdge()
     setContent {
-      TrackMeTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
+      val themeMode by app.preferencesManager.themeMode.collectAsState()
+      val appLanguage by app.preferencesManager.appLanguage.collectAsState()
+      val appStrings = remember(appLanguage) { getAppStrings(appLanguage) }
+
+      CompositionLocalProvider(LocalAppStrings provides appStrings) {
+        TrackMeTheme(themeMode = themeMode) { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
+      }
     }
   }
 

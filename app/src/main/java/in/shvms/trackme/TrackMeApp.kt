@@ -6,7 +6,9 @@ import `in`.shvms.trackme.data.local.AppDatabase
 import `in`.shvms.trackme.service.TrackingManager
 
 import `in`.shvms.trackme.auth.AuthManager
+import `in`.shvms.trackme.data.local.AppPreferencesManager
 import `in`.shvms.trackme.data.remote.FirestoreSyncManager
+import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.service.EmergencyManager
 import `in`.shvms.trackme.service.EmergencyBroadcastWorker
 
@@ -26,10 +28,16 @@ class TrackMeApp : Application() {
     lateinit var firestoreSyncManager: FirestoreSyncManager
         private set
 
+    lateinit var liveShareManager: LiveShareManager
+        private set
+
     lateinit var authManager: AuthManager
         private set
 
     lateinit var errorLogger: ErrorLogger
+        private set
+
+    lateinit var preferencesManager: AppPreferencesManager
         private set
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -39,6 +47,8 @@ class TrackMeApp : Application() {
         
         errorLogger = CrashlyticsErrorLogger()
         errorLogger.init()
+
+        preferencesManager = AppPreferencesManager(this)
 
         database = Room.databaseBuilder(
             this,
@@ -52,6 +62,7 @@ class TrackMeApp : Application() {
         trackingManager = TrackingManager()
         emergencyManager = EmergencyManager()
         authManager = AuthManager()
+        liveShareManager = LiveShareManager()
 
         // Wire up AuthManager state changes to ErrorLogger
         authManager.currentUser.onEach { user ->
@@ -59,6 +70,7 @@ class TrackMeApp : Application() {
         }.launchIn(applicationScope)
 
         firestoreSyncManager = FirestoreSyncManager(database.rideDao(), database.emergencyDao(), authManager, errorLogger)
+        `in`.shvms.trackme.data.remote.SyncWorker.schedulePeriodicSync(this)
         emergencyBroadcastWorker = EmergencyBroadcastWorker(this, database.emergencyDao(), trackingManager, emergencyManager, firestoreSyncManager, errorLogger)
         emergencyBroadcastWorker.start()
     }

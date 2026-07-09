@@ -30,8 +30,8 @@ android {
         applicationId = "in.shvms.trackme"
         minSdk = 24
         targetSdk = 36
-        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "6").toInt()
-        versionName = "1.1.0-rc.5"
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "7").toInt()
+        versionName = "1.2.0"
         
         resValue("string", "google_maps_key", mapsApiKey)
     }
@@ -142,4 +142,7 @@ dependencies {
   implementation(libs.firebase.auth)
   implementation(libs.firebase.firestore)
   implementation(libs.firebase.crashlytics)
+
+  // WorkManager (Background Scheduled Sync)
+  implementation("androidx.work:work-runtime-ktx:2.9.1")
 }

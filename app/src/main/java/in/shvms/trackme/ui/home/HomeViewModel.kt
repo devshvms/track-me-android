@@ -11,7 +11,11 @@ import `in`.shvms.trackme.service.TrackingState
 import `in`.shvms.trackme.service.EmergencyManager
 import `in`.shvms.trackme.auth.AuthManager
 import `in`.shvms.trackme.data.local.dao.EmergencyDao
+import `in`.shvms.trackme.data.remote.LiveShareManager
+import `in`.shvms.trackme.data.remote.LiveShareState
+import `in`.shvms.trackme.data.remote.LiveShareStatus
 import com.google.android.gms.maps.model.LatLng
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -26,14 +30,16 @@ data class HomeUiState(
     val speedText: String = "0.0 km/h",
     val isEmergencyActive: Boolean = false,
     val isEmergencyReady: Boolean = false,
-    val timeSinceLastGps: Long = 0L
+    val timeSinceLastGps: Long = 0L,
+    val liveShareState: LiveShareState = LiveShareState()
 )
 
 class HomeViewModel(
     private val trackingManager: TrackingManager,
     private val emergencyManager: EmergencyManager,
     private val authManager: AuthManager,
-    private val emergencyDao: EmergencyDao
+    private val emergencyDao: EmergencyDao,
+    private val liveShareManager: LiveShareManager
 ) : ViewModel() {
 
     private val trackingStatsGroup1 = combine(
@@ -73,9 +79,14 @@ class HomeViewModel(
     val uiState = combine(
         trackingStats,
         emergencyManager.isEmergencyActive,
-        isEmergencyReadyFlow
-    ) { stats, isEmergency, isReady ->
-        stats.copy(isEmergencyActive = isEmergency, isEmergencyReady = isReady)
+        isEmergencyReadyFlow,
+        liveShareManager.state
+    ) { stats, isEmergency, isReady, liveShare ->
+        stats.copy(
+            isEmergencyActive = isEmergency,
+            isEmergencyReady = isReady,
+            liveShareState = liveShare
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
 
     private fun formatDistance(distanceMeters: Float): String {
@@ -122,18 +133,58 @@ class HomeViewModel(
     fun stopEmergency() {
         emergencyManager.stopEmergency()
     }
+
+    private fun getStrings(context: Context): `in`.shvms.trackme.ui.localization.AppStrings {
+        val prefs = context.getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
+        val lang = prefs.getString("app_language", "en") ?: "en"
+        return `in`.shvms.trackme.ui.localization.getAppStrings(lang)
+    }
+
+    fun startLiveShare(context: Context, durationMinutes: Int, stopOnRideEnd: Boolean) {
+        viewModelScope.launch {
+            val username = authManager.currentUser.value?.displayName
+            val result = liveShareManager.startSession(durationMinutes, username, stopOnRideEnd)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                val strings = getStrings(context)
+                if (result.isSuccess) {
+                    val isTracking = uiState.value.trackingState == TrackingState.TRACKING || uiState.value.trackingState == TrackingState.PAUSED
+                    val msg = if (isTracking) strings.liveShareReadyActive else strings.liveShareReadyIdle
+                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                } else {
+                    val msg = result.exceptionOrNull()?.message ?: strings.unknown
+                    android.widget.Toast.makeText(context, "${strings.liveShareStartFailed}$msg", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    fun stopLiveShare(context: Context, reason: String = "Live sharing stopped manually by user.") {
+        viewModelScope.launch {
+            val result = liveShareManager.stopSession(reason = reason)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                val strings = getStrings(context)
+                if (result.isSuccess) {
+                    android.widget.Toast.makeText(context, strings.liveShareStoppedToast, android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    val msg = result.exceptionOrNull()?.message ?: strings.unknown
+                    android.widget.Toast.makeText(context, "${strings.liveShareStopFailed}$msg", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 }
 
 class HomeViewModelFactory(
     private val trackingManager: TrackingManager,
     private val emergencyManager: EmergencyManager,
     private val authManager: AuthManager,
-    private val emergencyDao: EmergencyDao
+    private val emergencyDao: EmergencyDao,
+    private val liveShareManager: LiveShareManager
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return HomeViewModel(trackingManager, emergencyManager, authManager, emergencyDao) as T
+            return HomeViewModel(trackingManager, emergencyManager, authManager, emergencyDao, liveShareManager) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

@@ -13,9 +13,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Sync
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.remote.SyncResult
 import kotlinx.coroutines.launch
@@ -26,6 +28,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.draw.clip
+import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
 @Composable
 fun SettingsScreen(
@@ -34,6 +37,7 @@ fun SettingsScreen(
         factory = SettingsViewModelFactory((LocalContext.current.applicationContext as TrackMeApp))
     )
 ) {
+    val strings = LocalAppStrings.current
     val user by viewModel.currentUser.collectAsState()
     val syncResult by viewModel.syncResult.collectAsState()
     val scope = rememberCoroutineScope()
@@ -67,8 +71,8 @@ fun SettingsScreen(
                         Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.padding(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Guest", style = MaterialTheme.typography.titleLarge)
-                    Text("Ride history is saved locally only.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(strings.guest, style = MaterialTheme.typography.titleLarge)
+                    Text(strings.rideHistoryLocalOnly, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(onClick = {
                         scope.launch {
@@ -84,7 +88,7 @@ fun SettingsScreen(
                             }
                         }
                     }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Sign in with Google")
+                        Text(strings.signInWithGoogle)
                     }
                 }
             }
@@ -120,7 +124,7 @@ fun SettingsScreen(
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(user?.displayName?.takeIf { it.isNotBlank() } ?: "Explorer", style = MaterialTheme.typography.titleMedium)
+                            Text(user?.displayName?.takeIf { it.isNotBlank() } ?: strings.explorer, style = MaterialTheme.typography.titleMedium)
                             Text(user?.email ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
@@ -133,15 +137,15 @@ fun SettingsScreen(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(ridesCount.toString(), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                            Text("Total Rides", style = MaterialTheme.typography.bodySmall)
+                            Text(strings.totalRides, style = MaterialTheme.typography.bodySmall)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             val joinTime = user?.metadata?.creationTimestamp ?: 0L
-                            val timeStr = if (joinTime == 0L) "Unknown" else {
+                            val timeStr = if (joinTime == 0L) strings.unknown else {
                                 java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(joinTime))
                             }
                             Text(timeStr, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                            Text("Joined", style = MaterialTheme.typography.bodySmall)
+                            Text(strings.joined, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     
@@ -155,9 +159,15 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                            Text("Cloud Sync", style = MaterialTheme.typography.bodyLarge)
-                            val syncTimeStr = if (syncTime == 0L) "Never synced" else {
-                                "Last synced: " + java.text.SimpleDateFormat("MMM dd, h:mm a", java.util.Locale.getDefault()).format(java.util.Date(syncTime))
+                            Text("Cloud Backup & Sync", style = MaterialTheme.typography.bodyLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                            Text(
+                                text = "Auto-syncs daily when connected & battery adequate",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            val syncTimeStr = if (syncTime == 0L) strings.neverSynced else {
+                                strings.lastSynced + java.text.SimpleDateFormat("MMM dd, h:mm a", java.util.Locale.getDefault()).format(java.util.Date(syncTime))
                             }
                             Text(syncTimeStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             AnimatedVisibility(visible = syncResult !is SyncResult.Idle) {
@@ -167,19 +177,19 @@ fun SettingsScreen(
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
                                                 Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Syncing...", style = MaterialTheme.typography.bodySmall)
+                                                Text(strings.syncing, style = MaterialTheme.typography.bodySmall)
                                             }
                                         }
                                         is SyncResult.Success -> {
                                             Text(
-                                                text = "✓ Synced",
+                                                text = strings.syncedSuccess,
                                                 color = MaterialTheme.colorScheme.primary,
                                                 style = MaterialTheme.typography.bodySmall
                                             )
                                         }
                                         is SyncResult.Error -> {
                                             Text(
-                                                text = "✗ Error",
+                                                text = strings.syncError,
                                                 color = MaterialTheme.colorScheme.error,
                                                 style = MaterialTheme.typography.bodySmall
                                             )
@@ -189,12 +199,23 @@ fun SettingsScreen(
                                 }
                             }
                         }
-                        Button(
+                        IconButton(
                             onClick = { viewModel.syncData() },
                             enabled = syncResult !is SyncResult.Syncing,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
                         ) {
-                            Text(if (syncResult is SyncResult.Syncing) "..." else "Sync")
+                            if (syncResult is SyncResult.Syncing) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.5.dp)
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.CloudSync,
+                                    contentDescription = strings.syncButton,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
                         }
                     }
                     
@@ -205,7 +226,94 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("Account Management")
+                        Text(strings.accountManagement)
+                    }
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        val prefs = context.getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
+
+        // App Preferences Card (Theme & Language)
+        var themeMode by remember { mutableStateOf(prefs.getInt("theme_mode", 0)) } // 0: System, 1: Light, 2: Dark
+        var appLanguage by remember { mutableStateOf(prefs.getString("app_language", "en") ?: "en") }
+        var showLangDropdown by remember { mutableStateOf(false) }
+
+        val languages = listOf(
+            "en" to "English",
+            "es" to "Español",
+            "fr" to "Français",
+            "de" to "Deutsch",
+            "hi" to "हिन्दी",
+            "ja" to "日本語",
+            "zh" to "中文"
+        )
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(strings.appPreferences, style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 1. Theme Selector
+                Text(strings.theme, style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val themeOptions = listOf(0 to strings.themeSystem, 1 to strings.themeLight, 2 to strings.themeDark)
+                    themeOptions.forEach { (mode, label) ->
+                        FilterChip(
+                            selected = themeMode == mode,
+                            onClick = {
+                                themeMode = mode
+                                prefs.edit().putInt("theme_mode", mode).apply()
+                                (context.applicationContext as? TrackMeApp)?.preferencesManager?.setThemeMode(mode)
+                            },
+                            label = { Text(label, style = MaterialTheme.typography.labelSmall, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                // 2. Language Selector Dropdown
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(strings.language, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            text = languages.find { it.first == appLanguage }?.second ?: "English",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Box {
+                        OutlinedButton(onClick = { showLangDropdown = true }) {
+                            Text(languages.find { it.first == appLanguage }?.second ?: "English")
+                        }
+                        DropdownMenu(
+                            expanded = showLangDropdown,
+                            onDismissRequest = { showLangDropdown = false }
+                        ) {
+                            languages.forEach { (code, name) ->
+                                DropdownMenuItem(
+                                    text = { Text(name) },
+                                    onClick = {
+                                        appLanguage = code
+                                        showLangDropdown = false
+                                        prefs.edit().putString("app_language", code).apply()
+                                        (context.applicationContext as? TrackMeApp)?.preferencesManager?.setAppLanguage(code)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -214,7 +322,6 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Advanced Settings Card
-        val prefs = context.getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
         var disablePostProcessing by remember { 
             mutableStateOf(prefs.getBoolean("disable_gps_post_processing", false)) 
         }
@@ -222,7 +329,7 @@ fun SettingsScreen(
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Advanced Settings", style = MaterialTheme.typography.titleMedium)
+                Text(strings.advancedSettings, style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Row(
@@ -232,13 +339,13 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Disable GPS Post-Processing", style = MaterialTheme.typography.bodyLarge)
+                            Text(strings.disableGpsPostProcessing, style = MaterialTheme.typography.bodyLarge)
                             IconButton(onClick = { showGpsInfo = true }, modifier = Modifier.size(24.dp).padding(start = 4.dp)) {
                                 Icon(Icons.Default.Info, contentDescription = "Info", modifier = Modifier.size(16.dp))
                             }
                         }
                         Text(
-                            "Turn on to save raw, uncompressed data. Skipping processing increases storage and keeps glitches.",
+                            strings.disableGpsDesc,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -257,17 +364,84 @@ fun SettingsScreen(
         if (showGpsInfo) {
             AlertDialog(
                 onDismissRequest = { showGpsInfo = false },
-                title = { Text("GPS Post-Processing") },
+                title = { Text(strings.gpsPostProcessingTitle) },
                 text = { 
-                    Text("This feature uses advanced algorithms to clean up your raw GPS data immediately after a ride finishes.\n\n" +
-                         "• Filters out GPS 'teleportation' glitches.\n" +
-                         "• Smooths out noisy altitude and speed readings.\n" +
-                         "• Detects when you were stopped and retroactively pauses the ride.\n" +
-                         "• Compresses the total amount of data to save storage space and speed up cloud syncing, without losing the shape of your route on the map.") 
+                    Text(strings.gpsPostProcessingInfo) 
                 },
                 confirmButton = {
                     TextButton(onClick = { showGpsInfo = false }) {
-                        Text("Got it")
+                        Text(strings.gotIt)
+                    }
+                }
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Live Location Sharing Card
+        var liveShareFrequency by remember { 
+            mutableStateOf(prefs.getInt("live_share_frequency_sec", 5)) 
+        }
+        var showLiveShareInfo by remember { mutableStateOf(false) }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(strings.liveLocationSharing, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { showLiveShareInfo = true }, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Info, contentDescription = "Live Share Info", modifier = Modifier.size(18.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                val freqLabel = when (liveShareFrequency) {
+                    60 -> strings.minute1
+                    300 -> strings.minutes5
+                    else -> "$liveShareFrequency ${strings.seconds}"
+                }
+                Text("${strings.pushFrequency}: $freqLabel", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                val frequencyOptions = listOf(
+                    5 to "5s",
+                    10 to "10s",
+                    30 to "30s",
+                    60 to "1m",
+                    300 to "5m"
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    frequencyOptions.forEach { (sec, label) ->
+                        val isSelected = liveShareFrequency == sec
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                liveShareFrequency = sec
+                                prefs.edit().putInt("live_share_frequency_sec", sec).apply()
+                            },
+                            label = { Text(label, style = MaterialTheme.typography.labelSmall, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+
+        if (showLiveShareInfo) {
+            AlertDialog(
+                onDismissRequest = { showLiveShareInfo = false },
+                title = { Text(strings.liveShareInfoTitle) },
+                text = { 
+                    Text(strings.liveShareInfoText) 
+                },
+                confirmButton = {
+                    TextButton(onClick = { showLiveShareInfo = false }) {
+                        Text(strings.understood)
                     }
                 }
             )
