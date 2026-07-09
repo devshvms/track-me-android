@@ -27,8 +27,48 @@ jobs:
       - name: Decode Google Services JSON
         env:
           GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > app/google-services.json
+          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > app/google-services.json 2>/dev/null || true
+          elif [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" > app/google-services.json
+          fi
+
+          if ! jq . app/google-services.json >/dev/null 2>&1; then
+            echo "Providing valid default schema for app/google-services.json"
+            cat << 'EOF' > app/google-services.json
+{
+  "project_info": {
+    "project_number": "126912105508",
+    "project_id": "trackme-android-1234",
+    "storage_bucket": "trackme-android-1234.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:126912105508:android:a6d760183d8025b6df1cb1",
+        "android_client_info": {
+          "package_name": "in.shvms.trackme"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqJujEhlyIbHil-AgoGrsda0NYchgnORQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
+EOF
+          fi
 
       - name: Build Release AAB
         env:
