@@ -290,53 +290,18 @@ fun RideDetailScreen(
                             MapEffect { map ->
                                 mapInstance = map
                             }
-                            val activeSegments = remember(points) {
-                                val segs = mutableListOf<List<LatLng>>()
-                                var currSeg = mutableListOf<LatLng>()
-                                for (p in points) {
-                                    if (!p.isPaused) {
-                                        currSeg.add(LatLng(p.latitude, p.longitude))
-                                    } else {
-                                        if (currSeg.size > 1) segs.add(currSeg)
-                                        currSeg = mutableListOf()
-                                    }
-                                }
-                                if (currSeg.size > 1) segs.add(currSeg)
-                                segs
-                            }
+                            Polyline(
+                                points = latLngs,
+                                color = Color(0xFF1565C0),
+                                width = 10f
+                            )
 
-                            activeSegments.forEach { seg ->
-                                Polyline(
-                                    points = seg,
-                                    color = Color(0xFF1565C0),
-                                    width = 10f
-                                )
-                            }
-
-                            val pausedGroups = remember(points) {
-                                val groups = mutableListOf<List<GPSPointEntity>>()
-                                var currentGroup = mutableListOf<GPSPointEntity>()
-                                for (p in points) {
-                                    if (p.isPaused) currentGroup.add(p)
-                                    else if (currentGroup.isNotEmpty()) {
-                                        groups.add(currentGroup)
-                                        currentGroup = mutableListOf()
-                                    }
-                                }
-                                if (currentGroup.isNotEmpty()) groups.add(currentGroup)
-                                groups
-                            }
-
-                            for (i in 0 until activeSegments.size - 1) {
-                                val endPrev = activeSegments[i].last()
-                                val startNext = activeSegments[i + 1].first()
-                                Polyline(
-                                    points = listOf(endPrev, startNext),
-                                    color = Color(0xFFFFA000),
-                                    width = 8f,
-                                    pattern = listOf(Dot(), Gap(18f))
-                                )
-                            }
+                            Marker(
+                                state = MarkerState(position = latLngs.first()),
+                                title = "Start",
+                                snippet = "Start of Ride",
+                                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
+                            )
 
                             Marker(
                                 state = MarkerState(position = latLngs.last()),
@@ -345,7 +310,7 @@ fun RideDetailScreen(
                                 icon = finishFlagIcon,
                                 anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
                             )
-                            
+
                             if (scrubIndex != null && scrubIndex!! in points.indices) {
                                 val p = points[scrubIndex!!]
                                 val scrubIcon = remember(pointerBitmap) {
@@ -358,41 +323,9 @@ fun RideDetailScreen(
                                 Marker(
                                     state = MarkerState(position = LatLng(p.latitude, p.longitude)),
                                     title = "Scrub",
-                                    snippet = "Speed: ${String.format(java.util.Locale.getDefault(), "%.1f", (if (p.isPaused) 0f else p.speed) * 3.6f)} km/h",
+                                    snippet = "Speed: ${String.format(java.util.Locale.getDefault(), "%.1f", p.speed * 3.6f)} km/h",
                                     icon = scrubIcon,
                                     anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
-                                )
-                            }
-
-                            val consolidatedPauses = remember(pausedGroups) {
-                                val merged = mutableListOf<List<GPSPointEntity>>()
-                                for (group in pausedGroups) {
-                                    if (merged.isEmpty()) {
-                                        merged.add(group)
-                                    } else {
-                                        val lastGroup = merged.last()
-                                        val timeDiff = group.first().timestamp - lastGroup.last().timestamp
-                                        if (timeDiff < 60_000L) {
-                                            merged[merged.lastIndex] = lastGroup + group
-                                        } else {
-                                            merged.add(group)
-                                        }
-                                    }
-                                }
-                                merged
-                            }
-
-                            consolidatedPauses.forEach { group ->
-                                val avgLat = group.map { it.latitude }.average()
-                                val avgLng = group.map { it.longitude }.average()
-                                val center = LatLng(avgLat, avgLng)
-
-                                Circle(
-                                    center = center,
-                                    radius = 4.5,
-                                    fillColor = Color(0xFFE53935).copy(alpha = 0.85f),
-                                    strokeColor = Color.White,
-                                    strokeWidth = 3f
                                 )
                             }
                         }
@@ -980,73 +913,33 @@ fun CombinedMetricLineChart(
 
             val maxX = plotData.last().second.coerceAtLeast(1f)
 
-            // Draw GPS Signal Loss Vertical Stripes for gaps > 15 seconds
-            for (i in 0 until plotData.size - 1) {
-                val (p1, xVal1) = plotData[i]
-                val (p2, xVal2) = plotData[i + 1]
-                val gapMs = p2.timestamp - p1.timestamp
-                if (gapMs > 15_000L) {
-                    val xStart = (xVal1 / maxX) * width
-                    val xEnd = (xVal2 / maxX) * width
-                    var stripeX = xStart
-                    while (stripeX <= xEnd) {
-                        drawLine(
-                            color = Color.Red.copy(alpha = 0.45f),
-                            start = Offset(stripeX, 0f),
-                            end = Offset(stripeX, height),
-                            strokeWidth = 1.5f,
-                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
-                        )
-                        stripeX += 10f
-                    }
-                }
-            }
-
             // Draw clean, smoothed cubic curve paths
             val drawMetricPath = { isSpeed: Boolean ->
                 val path = Path()
-                val dottedPath = Path()
                 var isFirst = true
 
                 val values = if (isSpeed) smoothedSeries.first else smoothedSeries.second
 
                 for (i in 0 until plotData.size - 1) {
                     val xVal1 = plotData[i].second
-                    val xVal2 = plotData[i + 1].second
-                    
                     val x1 = (xVal1 / maxX) * width
-                    val x2 = (xVal2 / maxX) * width
-                    
                     val val1 = values[i]
-                    val val2 = values[i + 1]
-                    
                     val y1 = height - (((val1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * height)
 
                     if (isFirst) {
                         path.moveTo(x1, y1)
-                        dottedPath.moveTo(x1, y1)
                         isFirst = false
                     } else {
                         val prevX = (plotData[i - 1].second / maxX) * width
                         val prevVal1 = values[i - 1]
                         val prevY = height - (((prevVal1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * height)
-                        
                         val cpX = (prevX + x1) / 2f
-                        val gapMs = plotData[i].first.timestamp - plotData[i - 1].first.timestamp
-                        
-                        if (gapMs > 15_000L) {
-                            dottedPath.cubicTo(cpX, prevY, cpX, y1, x1, y1)
-                            path.moveTo(x1, y1)
-                        } else {
-                            path.cubicTo(cpX, prevY, cpX, y1, x1, y1)
-                            dottedPath.moveTo(x1, y1)
-                        }
+                        path.cubicTo(cpX, prevY, cpX, y1, x1, y1)
                     }
                 }
                 
                 val cColor = if (isSpeed) speedColor else altColor
                 drawPath(path = path, color = cColor, style = Stroke(width = 3.5f))
-                drawPath(path = dottedPath, color = cColor, style = Stroke(width = 3f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)))
             }
 
             drawMetricPath(true)
