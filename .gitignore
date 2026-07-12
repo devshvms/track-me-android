@@ -16,3 +16,5 @@ local.properties
 test.py
 *.keystore
 google-services.json
+.agents/
+

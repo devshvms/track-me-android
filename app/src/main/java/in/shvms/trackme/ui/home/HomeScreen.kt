@@ -218,7 +218,49 @@ fun HomeScreen(
 
             val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
             
-
+            val isOffline = rememberIsOffline()
+            androidx.compose.animation.AnimatedVisibility(
+                visible = isOffline,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { -it }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { -it }),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = topPadding + 12.dp, start = 16.dp, end = 16.dp)
+            ) {
+                val isTracking = uiState.trackingState != TrackingState.IDLE
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color(0xFF0F172A).copy(alpha = 0.94f),
+                    border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.7f)),
+                    shadowElevation = 8.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.VerifiedUser,
+                            contentDescription = "Offline Tracking Shield",
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column {
+                            Text(
+                                text = if (isTracking) "Offline Tracking Shield Active" else "Offline Tracking Shield Ready",
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = if (isTracking) "Map paused • High-precision GPS saved to local vault"
+                                       else "No internet needed • All GPS points record securely to vault",
+                                color = Color(0xFF94A3B8),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+            }
 
             Column(
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = topPadding + 80.dp, end = 12.dp),
@@ -418,5 +460,48 @@ fun HomeScreen(
         }
     }
 }
+}
+
+@Composable
+fun rememberIsOffline(): Boolean {
+    val context = LocalContext.current
+    var isOffline by remember { mutableStateOf(false) }
+    DisposableEffect(context) {
+        val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        fun checkOffline(): Boolean {
+            val network = connectivityManager?.activeNetwork ?: return true
+            val caps = connectivityManager.getNetworkCapabilities(network) ?: return true
+            return !(caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED))
+        }
+        isOffline = checkOffline()
+
+        val callback = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) {
+                isOffline = false
+            }
+            override fun onLost(network: android.net.Network) {
+                isOffline = true
+            }
+            override fun onCapabilitiesChanged(
+                network: android.net.Network,
+                networkCapabilities: android.net.NetworkCapabilities
+            ) {
+                val hasInternet = networkCapabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                        networkCapabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                isOffline = !hasInternet
+            }
+        }
+        try {
+            connectivityManager?.registerDefaultNetworkCallback(callback)
+        } catch (_: Exception) {}
+
+        onDispose {
+            try {
+                connectivityManager?.unregisterNetworkCallback(callback)
+            } catch (_: Exception) {}
+        }
+    }
+    return isOffline
 }
 
