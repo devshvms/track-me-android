@@ -31,7 +31,7 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "9").toInt()
-        versionName = "1.3.0"
+        versionName = "1.4.0"
         
         resValue("string", "google_maps_key", mapsApiKey)
     }

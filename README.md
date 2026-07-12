@@ -1,4 +1,4 @@
-# TrackMe 🚵‍♂️🗺️ (v1.2.1)
+# TrackMe 🚵‍♂️🗺️ (v1.4.0)
 
 ![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
@@ -6,18 +6,16 @@
 
 > **Product Vision:** TrackMe is designed to be the ultimate companion for cyclists, runners, and explorers. We believe in privacy-first tracking that seamlessly works offline, but elegantly syncs to the cloud when you want it to. Track your journey, analyze your performance, and share your adventures.
 
-## 🌟 Key Features (v1.2.1)
+## 🌟 Key Features (v1.4.0)
 
-*   **In-App Auto-Update Notifications:** Automatic non-blocking version checks on app launch against Firestore remote configuration (`config/app_release`) and GitHub Releases API, with an interactive Material 3 release notes popup and manual update check button on the Settings screen.
-*   **Real-Time Tracking:** Highly accurate GPS tracking using `FusedLocationProviderClient` with smart filtering to eliminate anomalous data points.
-*   **Live Ride Sharing:** Share your real-time ride progress with friends or family via a secure live-tracking link directly from the Home Screen before or during your ride.
-*   **Emergency SOS & Safety Beacon:** Configure emergency contacts and broadcast immediate emergency alerts with real-time location tracking directly from the app.
+*   **Complete Data Ownership & Cloud Export:** Download your entire tracking history from the cloud in a secure, streamlined asynchronous flow to prevent vendor lock-in.
+*   **Live Ride Sharing with Notifications:** Share your real-time ride progress with friends or family via a secure live-tracking link, complete with interactive red-dot UI notifications and personalized SMS templates.
+*   **Emergency SOS & Safety Beacon:** Configure emergency contacts and broadcast immediate emergency alerts with a streamlined push-button action directly from the HUD.
 *   **Offline-First Architecture:** Rides are saved locally to a robust Room Database. No internet required to track a ride—even in the most remote locations.
 *   **Smart Cloud Synchronization (`WorkManager`):** Automated daily periodic background syncing (`SyncWorker`) with lightweight downstream lazy-loading (`syncPeriodic`), plus manual full cloud sync (`syncAll`) with a sleek `CloudSync` button.
-*   **Ride History Overhaul:** High-density compact list design with native sticky section headers (`stickyHeader`), vector route thumbnails (`RoutePreviewThumbnail`), and quick Sync & Distance filters.
+*   **Ride History Overhaul:** High-density compact list design with native sticky section headers (`stickyHeader`), vector route thumbnails (`RoutePreviewThumbnail`), and quick Sync & Distance filters. Includes intelligent graph axis labeling that prevents edge clipping.
 *   **Global Multi-Language Localization:** Built-in dynamic locale support for 7 languages (`en`, `es`, `fr`, `de`, `hi`, `ja`, `zh`) across all application screens.
-*   **Import & Export (GPX):** Break free from data lock-in. Export your routes to GPX format for use in other tools (like Strava or Garmin), or import GPX files to analyze past adventures.
-*   **Social Sharing:** Generate beautiful, high-quality images of your routes using the Google Maps Static API to share directly on social media.
+*   **In-App Auto-Update Notifications:** Automatic non-blocking version checks on app launch against Firestore remote configuration (`config/app_release`) and GitHub Releases API.
 *   **Modern Declarative UI:** Built entirely with Jetpack Compose for a buttery-smooth, reactive user experience following Material 3 design guidelines.
 
 ## 🛠️ Technology Stack
