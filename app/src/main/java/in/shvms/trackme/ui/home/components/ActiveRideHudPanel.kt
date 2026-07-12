@@ -68,7 +68,9 @@ fun ActiveRideHudPanel(
     isEmergencyReady: Boolean,
     isEmergencyActive: Boolean,
     liveShareState: LiveShareState,
+    isOffline: Boolean = false,
     onPauseToggle: () -> Unit,
+
     onStopRide: () -> Unit,
     onTriggerSos: () -> Unit,
     onStopSos: () -> Unit,
@@ -156,7 +158,26 @@ fun ActiveRideHudPanel(
                     )
                 }
             }
+
+            // Offline Shield Pill
+            if (isOffline) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFF69F0AE),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                ) {
+                    Text(
+                        text = "🛡 Offline Shield Active",
+                        color = Color.Black,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
         }
+
 
         Spacer(modifier = Modifier.height(6.dp))
 

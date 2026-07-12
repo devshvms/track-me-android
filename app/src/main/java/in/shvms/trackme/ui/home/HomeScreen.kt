@@ -217,52 +217,10 @@ fun HomeScreen(
             }
 
             val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-            
             val isOffline = rememberIsOffline()
-            androidx.compose.animation.AnimatedVisibility(
-                visible = isOffline,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { -it }),
-                exit = fadeOut() + slideOutVertically(targetOffsetY = { -it }),
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = topPadding + 12.dp, start = 16.dp, end = 16.dp)
-            ) {
-                val isTracking = uiState.trackingState != TrackingState.IDLE
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = Color(0xFF0F172A).copy(alpha = 0.94f),
-                    border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.7f)),
-                    shadowElevation = 8.dp
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.VerifiedUser,
-                            contentDescription = "Offline Tracking Shield",
-                            tint = Color(0xFF10B981),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Column {
-                            Text(
-                                text = if (isTracking) "Offline Tracking Shield Active" else "Offline Tracking Shield Ready",
-                                color = Color.White,
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                text = if (isTracking) "Map paused • High-precision GPS saved to local vault"
-                                       else "No internet needed • All GPS points record securely to vault",
-                                color = Color(0xFF94A3B8),
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-                    }
-                }
-            }
 
             Column(
+
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = topPadding + 80.dp, end = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.End
@@ -336,14 +294,34 @@ fun HomeScreen(
 
             // Idle State: Radial Persona Start Button
             if (uiState.trackingState == TrackingState.IDLE) {
-                RadialStartRideButton(
-                    onStartRide = { persona ->
-                        viewModel.startTracking(context, persona)
-                    },
+                Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 8.dp)
-                )
+                        .padding(bottom = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (isOffline) {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0xFF69F0AE),
+                            shadowElevation = 2.dp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Text(
+                                text = "🛡 Offline Shield Ready",
+                                color = Color.Black,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                    RadialStartRideButton(
+                        onStartRide = { persona ->
+                            viewModel.startTracking(context, persona)
+                        }
+                    )
+                }
 
                 // Only show active sharing indicator if a live share session is actively running while idle
                 if (uiState.liveShareState.status == LiveShareStatus.ACTIVE) {
@@ -393,6 +371,7 @@ fun HomeScreen(
                     isEmergencyReady = uiState.isEmergencyReady,
                     isEmergencyActive = uiState.isEmergencyActive,
                     liveShareState = uiState.liveShareState,
+                    isOffline = isOffline,
                     onPauseToggle = {
                         if (uiState.trackingState == TrackingState.TRACKING) {
                             viewModel.pauseTracking(context)
