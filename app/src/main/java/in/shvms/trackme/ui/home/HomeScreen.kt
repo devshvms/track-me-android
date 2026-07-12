@@ -379,7 +379,8 @@ fun HomeScreen(
                             val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                                 type = "text/plain"
                                 putExtra(android.content.Intent.EXTRA_SUBJECT, strings.liveShareButton)
-                                putExtra(android.content.Intent.EXTRA_TEXT, "${strings.liveShareReadyActive}: $shareLink")
+                                val message = "Hey, you can track my live ride until it ends here: $shareLink\n\nThanks, ${uiState.userName ?: "Track Me User"}"
+                                putExtra(android.content.Intent.EXTRA_TEXT, message)
                             }
                             context.startActivity(android.content.Intent.createChooser(sendIntent, strings.liveShareButton))
                         }

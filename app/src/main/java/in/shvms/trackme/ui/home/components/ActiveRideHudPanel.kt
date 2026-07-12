@@ -2,7 +2,9 @@ package `in`.shvms.trackme.ui.home.components
 
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import `in`.shvms.trackme.ui.components.HapticFeedbackUtils.triggerPhysicalVibrate
@@ -220,8 +222,8 @@ fun ActiveRideHudPanel(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // SOS Button (Hold 4 sec) - 52.dp circle
-                    SosButtonWithHold(
+                    // SOS Button - 52.dp circle
+                    SosButton(
                         isReady = isEmergencyReady,
                         isActive = isEmergencyActive,
                         onTrigger = onTriggerSos,
@@ -275,83 +277,61 @@ private fun StatItem(label: String, value: String) {
 }
 
 @Composable
-private fun SosButtonWithHold(
+private fun SosButton(
     isReady: Boolean,
     isActive: Boolean,
     onTrigger: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var holdProgress by remember { mutableFloatStateOf(0f) }
-    var isHolding by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val buttonScale = remember { Animatable(1f) }
+    val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(isHolding) {
-        if (isHolding) {
-            val totalSteps = 40 // 4 seconds total (100ms * 40)
-            for (step in 1..totalSteps) {
-                delay(100)
-                holdProgress = step / totalSteps.toFloat()
-            }
-            isHolding = false
-            holdProgress = 0f
-            onTrigger()
-        } else {
-            holdProgress = 0f
-        }
-    }
+    val inactiveBgColor = Color(0xFFB0BEC5)
+    val readyBgColor = Color(0xFFD32F2F)
+    val activeBgColor = Color(0xFFEF4444)
+
+    val animatedBgColor by animateColorAsState(
+        targetValue = when {
+            !isReady -> inactiveBgColor
+            isActive -> activeBgColor
+            else -> readyBgColor
+        },
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        label = "sosBgColor"
+    )
 
     Box(
         contentAlignment = Alignment.Center,
-        modifier = modifier.size(52.dp)
-    ) {
-        if (holdProgress > 0f) {
-            CircularProgressIndicator(
-                progress = { holdProgress },
-                modifier = Modifier.fillMaxSize(),
-                color = Color.White,
-                trackColor = Color.Red.copy(alpha = 0.3f),
-                strokeWidth = 3.dp
-            )
-        }
-
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(
-                    color = when {
-                        !isReady -> Color.DarkGray
-                        isActive -> Color.Red
-                        else -> Color(0xFFD32F2F)
-                    }
-                )
-                .pointerInput(isReady, isActive) {
-                    if (!isReady) return@pointerInput
-                    detectTapGestures(
-                        onPress = {
-                            if (isActive) {
-                                tryAwaitRelease()
-                                onStop()
-                            } else {
-                                isHolding = true
-                                try {
-                                    tryAwaitRelease()
-                                } finally {
-                                    isHolding = false
-                                }
-                            }
-                        }
-                    )
+        modifier = modifier
+            .size(52.dp)
+            .scale(buttonScale.value)
+            .clip(CircleShape)
+            .background(color = animatedBgColor)
+            .clickable(enabled = isReady) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                triggerPhysicalVibrate(context, 45L)
+                
+                coroutineScope.launch {
+                    buttonScale.animateTo(1.15f, tween(120))
+                    buttonScale.animateTo(1.0f, tween(150))
                 }
-        ) {
-            Text(
-                text = "SOS",
-                color = if (isReady) Color.White else Color.LightGray,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.ExtraBold
-            )
-        }
+
+                if (isActive) {
+                    onStop()
+                } else {
+                    onTrigger()
+                }
+            }
+    ) {
+        Text(
+            text = "SOS",
+            color = if (isReady) Color.White else Color.Black.copy(alpha = 0.4f),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.ExtraBold
+        )
     }
 }
 

@@ -34,7 +34,8 @@ data class HomeUiState(
     val liveShareState: LiveShareState = LiveShareState(),
     val isAutoPaused: Boolean = false,
     val inferredActivityType: `in`.shvms.trackme.domain.processor.InferredActivityType = `in`.shvms.trackme.domain.processor.InferredActivityType.RUN_OR_TREK,
-    val selectedPersona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO
+    val selectedPersona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO,
+    val userName: String? = null
 )
 
 class HomeViewModel(
@@ -98,12 +99,14 @@ class HomeViewModel(
         trackingStats,
         emergencyManager.isEmergencyActive,
         isEmergencyReadyFlow,
-        liveShareManager.state
-    ) { stats, isEmergency, isReady, liveShare ->
+        liveShareManager.state,
+        authManager.currentUser
+    ) { stats, isEmergency, isReady, liveShare, user ->
         stats.copy(
             isEmergencyActive = isEmergency,
             isEmergencyReady = isReady,
-            liveShareState = liveShare
+            liveShareState = liveShare,
+            userName = user?.displayName
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
 
