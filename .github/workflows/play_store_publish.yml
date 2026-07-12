@@ -37,37 +37,7 @@ jobs:
 
           if ! jq . app/google-services.json >/dev/null 2>&1; then
             echo "Providing valid default schema for app/google-services.json"
-            cat << 'EOF' > app/google-services.json
-{
-  "project_info": {
-    "project_number": "126912105508",
-    "project_id": "trackme-android-1234",
-    "storage_bucket": "trackme-android-1234.firebasestorage.app"
-  },
-  "client": [
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:126912105508:android:a6d760183d8025b6df1cb1",
-        "android_client_info": {
-          "package_name": "in.shvms.trackme"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "dummy_api_key_for_ci_build_validation"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    }
-  ],
-  "configuration_version": "1"
-}
-EOF
+            echo '{"project_info":{"project_number":"126912105508","project_id":"trackme-android-1234","storage_bucket":"trackme-android-1234.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:126912105508:android:a6d760183d8025b6df1cb1","android_client_info":{"package_name":"in.shvms.trackme"}},"oauth_client":[],"api_key":[{"current_key":"dummy_api_key_for_ci_build_validation"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}' > app/google-services.json
           fi
 
       - name: Build Release AAB
