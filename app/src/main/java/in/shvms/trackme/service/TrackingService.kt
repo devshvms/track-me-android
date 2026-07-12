@@ -79,25 +79,29 @@ class TrackingService : Service() {
                 val currentlyPaused = trackingManager.isAutoPaused.value
 
                 val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
+                val autoPauseEnabled = prefs.getBoolean("intelligent_auto_pause", true)
                 val currentPersona = trackingManager.selectedPersona.value
                 val thresholds = adaptiveAutoPauseEngine.getThresholdsForPersona(currentPersona)
 
                 val rawSpeed = if (location.hasSpeed()) location.speed else 0f
-                val minDistM = thresholds.distanceVariationM
-                val effectiveSpeed = if (isHardwareStill || distance < minDistM || (currentlyPaused && distance < minDistM * 1.5f)) 0f else rawSpeed
+                val isStationaryDrift = rawSpeed < 0.6f && distance < 2.5f
 
-                trackingManager.updateSpeed(effectiveSpeed)
+                val isPointPaused: Boolean
+                val effectiveSpeed: Float
 
-                val autoPauseEnabled = prefs.getBoolean("intelligent_auto_pause", true)
-                val isPointPaused = if (autoPauseEnabled) {
-                    if (isHardwareStill || (currentlyPaused && distance < minDistM * 1.5f)) {
-                        true // Hold Auto-Paused against GPS multipath reflections & post-dropout jumps!
+                if (autoPauseEnabled) {
+                    effectiveSpeed = if (isHardwareStill || isStationaryDrift) 0f else rawSpeed
+                    isPointPaused = if (isHardwareStill || isStationaryDrift) {
+                        true
                     } else {
                         adaptiveAutoPauseEngine.evaluateAutoPause(effectiveSpeed, currentlyPaused, location.time, currentPersona)
                     }
                 } else {
-                    false
+                    effectiveSpeed = if (isStationaryDrift) 0f else rawSpeed
+                    isPointPaused = false
                 }
+
+                trackingManager.updateSpeed(effectiveSpeed)
                 trackingManager.setAutoPaused(isPointPaused)
                 if (autoPauseEnabled) {
                     trackingManager.setInferredActivityType(adaptiveAutoPauseEngine.updateActivityProfile(effectiveSpeed))
@@ -106,7 +110,7 @@ class TrackingService : Service() {
                 val latLng = LatLng(location.latitude, location.longitude)
                 trackingManager.addPathPoint(latLng)
 
-                if (!isPointPaused && !isHardwareStill && distance >= 3.5f && effectiveSpeed > 0.5f) {
+                if (!isPointPaused && distance >= 1.5f && effectiveSpeed > 0.3f) {
                     trackingManager.addDistance(distance)
                 }
                 lastLocation = location
@@ -120,7 +124,7 @@ class TrackingService : Service() {
                                 longitude = location.longitude,
                                 altitude = location.altitude,
                                 accuracy = location.accuracy,
-                                speed = if (isPointPaused) 0f else effectiveSpeed,
+                                speed = effectiveSpeed,
                                 timestamp = location.time,
                                 isPaused = isPointPaused
                             )
