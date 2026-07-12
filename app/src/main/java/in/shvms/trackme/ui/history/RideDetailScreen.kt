@@ -1034,15 +1034,19 @@ fun CombinedMetricLineChart(
                 
                 val sText = String.format("%.1f km/h", sVal)
                 val sTextLayout = textMeasurer.measure(sText, style = labelStyle.copy(color = Color.White))
+                val sLabelW = sTextLayout.size.width + 16f
+                val sLabelH = sTextLayout.size.height + 8f
+                val sDrawRight = scrubX + 12f + sLabelW < size.width
+                val sLabelX = if (sDrawRight) scrubX + 12f else scrubX - 12f - sLabelW
                 drawRoundRect(
                     color = speedColor.copy(alpha = 0.8f),
-                    topLeft = Offset(scrubX + 12f - 8f, sY - 24f - 4f),
-                    size = Size(sTextLayout.size.width + 16f, sTextLayout.size.height + 8f),
+                    topLeft = Offset(sLabelX - 8f, sY - 24f - 4f),
+                    size = Size(sLabelW, sLabelH),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
                 )
                 drawText(
                     textLayoutResult = sTextLayout,
-                    topLeft = Offset(scrubX + 12f, sY - 24f)
+                    topLeft = Offset(sLabelX, sY - 24f)
                 )
 
                 // Draw Altitude Intersection
@@ -1051,16 +1055,21 @@ fun CombinedMetricLineChart(
                 
                 val aText = String.format("%.0f m", aVal)
                 val aTextLayout = textMeasurer.measure(aText, style = labelStyle.copy(color = Color.White))
+                val aLabelW = aTextLayout.size.width + 16f
+                val aLabelH = aTextLayout.size.height + 8f
+                val aDrawRight = scrubX + 12f + aLabelW < size.width
+                val aLabelX = if (aDrawRight) scrubX + 12f else scrubX - 12f - aLabelW
                 drawRoundRect(
                     color = altColor.copy(alpha = 0.8f),
-                    topLeft = Offset(scrubX + 12f - 8f, aY - 24f - 4f),
-                    size = Size(aTextLayout.size.width + 16f, aTextLayout.size.height + 8f),
+                    topLeft = Offset(aLabelX - 8f, aY - 24f - 4f),
+                    size = Size(aLabelW, aLabelH),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
                 )
                 drawText(
                     textLayoutResult = aTextLayout,
-                    topLeft = Offset(scrubX + 12f, aY - 24f)
+                    topLeft = Offset(aLabelX, aY - 24f)
                 )
+
             }
         }
     }
