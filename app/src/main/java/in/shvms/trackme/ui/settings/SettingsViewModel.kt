@@ -91,15 +91,41 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
         app.firestoreSyncManager.syncAll()
     }
 
-    suspend fun requestCompleteDataExport(): Result<String> {
+    sealed class ExportRequestResult {
+        data class Queued(val email: String, val isExisting: Boolean, val message: String) : ExportRequestResult()
+        data class Completed(val downloadUrl: String, val email: String) : ExportRequestResult()
+    }
+
+    suspend fun requestCompleteDataExport(): Result<ExportRequestResult> {
         val user = currentUser.value ?: return Result.failure(Exception("You must be logged in to request a complete cloud export."))
         val email = user.email ?: return Result.failure(Exception("No verified email address associated with your account."))
 
         return try {
             val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-            val requestId = java.util.UUID.randomUUID().toString()
+            val docRef = db.collection("users")
+                .document(user.uid)
+                .collection("data_export_requests")
+                .document("active_export_request")
+
+            val snapshot = docRef.get().await()
+            if (snapshot.exists()) {
+                val status = snapshot.getString("status") ?: "QUEUED"
+                val downloadUrl = snapshot.getString("downloadUrl")
+                if (status == "COMPLETED" && !downloadUrl.isNullOrEmpty()) {
+                    return Result.success(ExportRequestResult.Completed(downloadUrl, email))
+                } else if (status == "QUEUED" || status == "PROCESSING") {
+                    return Result.success(
+                        ExportRequestResult.Queued(
+                            email = email,
+                            isExisting = true,
+                            message = "Your data export request is already queued for low-traffic batch processing (paced at 1 request every 4 hours)."
+                        )
+                    )
+                }
+            }
+
             val requestData = hashMapOf<String, Any>(
-                "requestId" to requestId,
+                "requestId" to "active_export_request",
                 "userId" to user.uid,
                 "userEmail" to email,
                 "status" to "QUEUED",
@@ -107,18 +133,20 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
                 "clientOS" to "Android",
                 "exportFormats" to listOf("GPX", "JSON_ARCHIVE")
             )
-            db.collection("users")
-                .document(user.uid)
-                .collection("data_export_requests")
-                .document(requestId)
-                .set(requestData)
-                .await()
+            docRef.set(requestData).await()
 
-            Result.success(email)
+            Result.success(
+                ExportRequestResult.Queued(
+                    email = email,
+                    isExisting = false,
+                    message = "Your data export request is queued for low-traffic batch processing. You will receive an email once your archive is ready."
+                )
+            )
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+
 
     suspend fun exportAllMyData(context: Context): Result<File> {
 

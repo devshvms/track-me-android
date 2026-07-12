@@ -45,7 +45,10 @@ fun AccountManagementScreen(
     var showDeleteAccountWarning by remember { mutableStateOf(false) }
     var isExporting by remember { mutableStateOf(false) }
     var showExportScheduledDialog by remember { mutableStateOf(false) }
-    var scheduledExportEmail by remember { mutableStateOf("") }
+    var exportDialogTitle by remember { mutableStateOf("") }
+    var exportDialogMessage by remember { mutableStateOf("") }
+    var exportDownloadUrl by remember { mutableStateOf<String?>(null) }
+
 
     
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
@@ -163,10 +166,23 @@ fun AccountManagementScreen(
                                         scope.launch {
                                             val result = viewModel.requestCompleteDataExport()
                                             isExporting = false
-                                            if (result.isSuccess) {
-                                                scheduledExportEmail = result.getOrNull() ?: ""
-                                                showExportScheduledDialog = true
+                                            if (result.isSuccess && result.getOrNull() != null) {
+                                                when (val statusRes = result.getOrNull()!!) {
+                                                    is SettingsViewModel.ExportRequestResult.Completed -> {
+                                                        exportDialogTitle = "Archive Ready for Download 📦"
+                                                        exportDialogMessage = "Your complete data archive has been processed and is ready for download."
+                                                        exportDownloadUrl = statusRes.downloadUrl
+                                                        showExportScheduledDialog = true
+                                                    }
+                                                    is SettingsViewModel.ExportRequestResult.Queued -> {
+                                                        exportDialogTitle = if (statusRes.isExisting) "Archive Request Active 📦" else "Archive Export Scheduled 📦"
+                                                        exportDialogMessage = "${statusRes.message}\n\nDelivery Email:\n✉️ ${statusRes.email}"
+                                                        exportDownloadUrl = null
+                                                        showExportScheduledDialog = true
+                                                    }
+                                                }
                                             } else {
+
                                                 android.widget.Toast.makeText(
                                                     context,
                                                     result.exceptionOrNull()?.message ?: strings.dataExportFailed,
@@ -331,20 +347,43 @@ fun AccountManagementScreen(
     if (showExportScheduledDialog) {
         AlertDialog(
             onDismissRequest = { showExportScheduledDialog = false },
-            title = { Text("Archive Export Scheduled 📦") },
-            text = {
-                Text(
-                    "Your request for a complete cloud & local data archive (all GPX tracks & JSON history) has been scheduled.\n\n" +
-                    "To ensure comprehensive data extraction without timeouts, our backend processes complete archives during low-traffic off-peak hours and will deliver a secure download link directly to your registered email:\n\n" +
-                    "✉️ $scheduledExportEmail"
-                )
-            },
+            title = { Text(exportDialogTitle) },
+            text = { Text(exportDialogMessage) },
             confirmButton = {
-                Button(onClick = { showExportScheduledDialog = false }) {
-                    Text(strings.ok)
+                if (exportDownloadUrl != null) {
+                    Button(onClick = {
+                        showExportScheduledDialog = false
+                        try {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(exportDownloadUrl)
+                            )
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "Could not open browser for download",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }) {
+                        Text("Download .zip")
+                    }
+                } else {
+                    Button(onClick = { showExportScheduledDialog = false }) {
+                        Text(strings.ok)
+                    }
+                }
+            },
+            dismissButton = {
+                if (exportDownloadUrl != null) {
+                    TextButton(onClick = { showExportScheduledDialog = false }) {
+                        Text(strings.cancel)
+                    }
                 }
             }
         )
     }
 }
+
 
