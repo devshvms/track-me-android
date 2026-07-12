@@ -139,6 +139,54 @@ fun RideDetailScreen(
         }
     }
 
+    val pauseCircleIcon = remember {
+        try {
+            val size = 40
+            val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bitmap)
+            val paint = android.graphics.Paint().apply {
+                isAntiAlias = true
+                style = android.graphics.Paint.Style.FILL
+                color = android.graphics.Color.parseColor("#D32F2F")
+            }
+            canvas.drawCircle(size / 2f, size / 2f, size / 2f - 3f, paint)
+            paint.style = android.graphics.Paint.Style.STROKE
+            paint.color = android.graphics.Color.WHITE
+            paint.strokeWidth = 3f
+            canvas.drawCircle(size / 2f, size / 2f, size / 2f - 3f, paint)
+            BitmapDescriptorFactory.fromBitmap(bitmap)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    val pausedLocations = remember(rideWithPoints?.points) {
+        val pts = rideWithPoints?.points ?: emptyList()
+        val result = mutableListOf<LatLng>()
+        var lastAdded: LatLng? = null
+        for (p in pts) {
+            if (p.isPaused || p.speed <= 0.1f) {
+                val ll = LatLng(p.latitude, p.longitude)
+                if (lastAdded == null) {
+                    result.add(ll)
+                    lastAdded = ll
+                } else {
+                    val dist = FloatArray(1)
+                    android.location.Location.distanceBetween(
+                        lastAdded.latitude, lastAdded.longitude,
+                        ll.latitude, ll.longitude,
+                        dist
+                    )
+                    if (dist[0] > 15f) {
+                        result.add(ll)
+                        lastAdded = ll
+                    }
+                }
+            }
+        }
+        result
+    }
+
     Scaffold(
         topBar = {
             var isEditing by remember { mutableStateOf(false) }
@@ -278,6 +326,7 @@ fun RideDetailScreen(
                             }
                         }
 
+
                         var mapType by remember { mutableStateOf(MapType.NORMAL) }
                         var isTrafficEnabled by remember { mutableStateOf(false) }
 
@@ -295,6 +344,16 @@ fun RideDetailScreen(
                                 color = Color(0xFF1565C0),
                                 width = 10f
                             )
+
+                            pausedLocations.forEach { ll ->
+                                Marker(
+                                    state = MarkerState(position = ll),
+                                    title = "Paused / Stop",
+                                    snippet = "Speed was 0 km/h",
+                                    icon = pauseCircleIcon,
+                                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
+                                )
+                            }
 
                             Marker(
                                 state = MarkerState(position = latLngs.last()),
@@ -659,6 +718,13 @@ fun RideDetailScreen(
                                     width = 10f
                                 )
                                 if (exportShowMarkers) {
+                                    pausedLocations.forEach { ll ->
+                                        Marker(
+                                            state = MarkerState(position = ll),
+                                            icon = pauseCircleIcon,
+                                            anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
+                                        )
+                                    }
                                     Marker(
                                         state = MarkerState(position = latLngs.last()),
                                         title = "Finish",
