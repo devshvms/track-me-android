@@ -294,34 +294,15 @@ fun HomeScreen(
 
             // Idle State: Radial Persona Start Button
             if (uiState.trackingState == TrackingState.IDLE) {
-                Column(
+                RadialStartRideButton(
+                    onStartRide = { persona ->
+                        viewModel.startTracking(context, persona)
+                    },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    if (isOffline) {
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = Color(0xFF69F0AE),
-                            shadowElevation = 2.dp,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        ) {
-                            Text(
-                                text = "🛡 Offline Shield Ready",
-                                color = Color.Black,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                    RadialStartRideButton(
-                        onStartRide = { persona ->
-                            viewModel.startTracking(context, persona)
-                        }
-                    )
-                }
+                        .padding(bottom = 8.dp)
+                )
+
 
                 // Only show active sharing indicator if a live share session is actively running while idle
                 if (uiState.liveShareState.status == LiveShareStatus.ACTIVE) {
