@@ -199,7 +199,30 @@ fun InteractiveShareLocationButton(
             }
         }
 
+        // Red notification dot when share link is ready and drawer is closed
+        if (isActive && liveShareState.shareLink != null && !isDrawerOpen) {
+            val dotPulse by infiniteTransition.animateFloat(
+                initialValue = 0.85f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(600, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "dotPulse"
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-2).dp, y = 2.dp)
+                    .size(12.dp)
+                    .scale(dotPulse)
+                    .clip(CircleShape)
+                    .background(Color(0xFFEF4444))
+            )
+        }
+
         // Upward Circular Drawer (s2 / s5)
+
         if (isDrawerOpen) {
             val popupOffsetY = remember(density) {
                 with(density) { -60.dp.roundToPx() }
