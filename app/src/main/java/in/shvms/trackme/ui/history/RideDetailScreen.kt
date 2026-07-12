@@ -141,19 +141,19 @@ fun RideDetailScreen(
 
     val pauseCircleIcon = remember {
         try {
-            val size = 40
+            val size = 24
             val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = android.graphics.Canvas(bitmap)
             val paint = android.graphics.Paint().apply {
                 isAntiAlias = true
                 style = android.graphics.Paint.Style.FILL
-                color = android.graphics.Color.parseColor("#D32F2F")
+                color = android.graphics.Color.argb(51, 211, 47, 47)
             }
-            canvas.drawCircle(size / 2f, size / 2f, size / 2f - 3f, paint)
+            canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2f, paint)
             paint.style = android.graphics.Paint.Style.STROKE
-            paint.color = android.graphics.Color.WHITE
-            paint.strokeWidth = 3f
-            canvas.drawCircle(size / 2f, size / 2f, size / 2f - 3f, paint)
+            paint.color = android.graphics.Color.argb(180, 255, 255, 255)
+            paint.strokeWidth = 2f
+            canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2f, paint)
             BitmapDescriptorFactory.fromBitmap(bitmap)
         } catch (e: Exception) {
             null
