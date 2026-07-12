@@ -913,6 +913,28 @@ fun CombinedMetricLineChart(
 
             val maxX = plotData.last().second.coerceAtLeast(1f)
 
+            // Draw subtle vertical red dotted lines for GPS signal gaps > 25 seconds
+            for (i in 0 until plotData.size - 1) {
+                val (p1, xVal1) = plotData[i]
+                val (p2, xVal2) = plotData[i + 1]
+                val gapMs = p2.timestamp - p1.timestamp
+                if (gapMs > 25_000L) {
+                    val xStart = (xVal1 / maxX) * width
+                    val xEnd = (xVal2 / maxX) * width
+                    var stripeX = xStart
+                    while (stripeX <= xEnd) {
+                        drawLine(
+                            color = Color.Red.copy(alpha = 0.35f),
+                            start = Offset(stripeX, 0f),
+                            end = Offset(stripeX, height),
+                            strokeWidth = 1.5f,
+                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(5f, 5f), 0f)
+                        )
+                        stripeX += 14f
+                    }
+                }
+            }
+
             // Draw clean, smoothed cubic curve paths
             val drawMetricPath = { isSpeed: Boolean ->
                 val path = Path()
