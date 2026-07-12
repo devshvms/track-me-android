@@ -44,6 +44,8 @@ fun AccountManagementScreen(
     var showDeleteDataWarning by remember { mutableStateOf(false) }
     var showDeleteAccountWarning by remember { mutableStateOf(false) }
     var isExporting by remember { mutableStateOf(false) }
+    var showExportScheduledDialog by remember { mutableStateOf(false) }
+    var scheduledExportEmail by remember { mutableStateOf("") }
 
     
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
@@ -159,31 +161,22 @@ fun AccountManagementScreen(
                                     if (!isExporting) {
                                         isExporting = true
                                         scope.launch {
-                                            val result = viewModel.exportAllMyData(context)
+                                            val result = viewModel.requestCompleteDataExport()
                                             isExporting = false
-                                            if (result.isSuccess && result.getOrNull() != null) {
-                                                val file = result.getOrNull()!!
-                                                try {
-                                                    val uri = androidx.core.content.FileProvider.getUriForFile(
-                                                        context,
-                                                        "${context.packageName}.provider",
-                                                        file
-                                                    )
-                                                    val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                                        type = "application/zip"
-                                                        putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                                    }
-                                                    context.startActivity(android.content.Intent.createChooser(shareIntent, strings.downloadAllMyData))
-                                                } catch (e: Exception) {
-                                                    android.widget.Toast.makeText(context, strings.dataExportFailed, android.widget.Toast.LENGTH_SHORT).show()
-                                                }
+                                            if (result.isSuccess) {
+                                                scheduledExportEmail = result.getOrNull() ?: ""
+                                                showExportScheduledDialog = true
                                             } else {
-                                                android.widget.Toast.makeText(context, strings.dataExportFailed, android.widget.Toast.LENGTH_SHORT).show()
+                                                android.widget.Toast.makeText(
+                                                    context,
+                                                    result.exceptionOrNull()?.message ?: strings.dataExportFailed,
+                                                    android.widget.Toast.LENGTH_LONG
+                                                ).show()
                                             }
                                         }
                                     }
                                 },
+
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = !isExporting
                             ) {
@@ -334,4 +327,24 @@ fun AccountManagementScreen(
             }
         )
     }
+
+    if (showExportScheduledDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportScheduledDialog = false },
+            title = { Text("Archive Export Scheduled 📦") },
+            text = {
+                Text(
+                    "Your request for a complete cloud & local data archive (all GPX tracks & JSON history) has been scheduled.\n\n" +
+                    "To ensure comprehensive data extraction without timeouts, our backend processes complete archives during low-traffic off-peak hours and will deliver a secure download link directly to your registered email:\n\n" +
+                    "✉️ $scheduledExportEmail"
+                )
+            },
+            confirmButton = {
+                Button(onClick = { showExportScheduledDialog = false }) {
+                    Text(strings.ok)
+                }
+            }
+        )
+    }
 }
+

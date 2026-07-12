@@ -18,6 +18,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+
 
 
 class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
@@ -89,7 +91,37 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
         app.firestoreSyncManager.syncAll()
     }
 
+    suspend fun requestCompleteDataExport(): Result<String> {
+        val user = currentUser.value ?: return Result.failure(Exception("You must be logged in to request a complete cloud export."))
+        val email = user.email ?: return Result.failure(Exception("No verified email address associated with your account."))
+
+        return try {
+            val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            val requestId = java.util.UUID.randomUUID().toString()
+            val requestData = hashMapOf<String, Any>(
+                "requestId" to requestId,
+                "userId" to user.uid,
+                "userEmail" to email,
+                "status" to "QUEUED",
+                "requestedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                "clientOS" to "Android",
+                "exportFormats" to listOf("GPX", "JSON_ARCHIVE")
+            )
+            db.collection("users")
+                .document(user.uid)
+                .collection("data_export_requests")
+                .document(requestId)
+                .set(requestData)
+                .await()
+
+            Result.success(email)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun exportAllMyData(context: Context): Result<File> {
+
         return try {
             val exportsDir = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME)
             if (!exportsDir.exists()) exportsDir.mkdirs()
