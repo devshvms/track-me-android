@@ -30,7 +30,7 @@ android {
         applicationId = "in.shvms.trackme"
         minSdk = 24
         targetSdk = 36
-        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "9").toInt()
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "10").toInt()
         versionName = "1.4.0"
         
         resValue("string", "google_maps_key", mapsApiKey)
