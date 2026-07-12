@@ -5,9 +5,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import `in`.shvms.trackme.TrackMeApp
+
 import com.google.firebase.auth.FirebaseUser
+import `in`.shvms.trackme.config.AppConfig
+
+import `in`.shvms.trackme.domain.export.GPXExporterImpl
+import java.io.File
+import java.io.FileOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+
 
 class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
     val currentUser = app.authManager.currentUser
@@ -78,7 +89,75 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
         app.firestoreSyncManager.syncAll()
     }
 
+    suspend fun exportAllMyData(context: Context): Result<File> {
+        return try {
+            val exportsDir = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME)
+            if (!exportsDir.exists()) exportsDir.mkdirs()
+
+            val timestamp = System.currentTimeMillis()
+            val zipFile = File(exportsDir, "TrackMe_Archive_$timestamp.zip")
+
+            val ridesWithPoints = app.database.rideDao().getAllRidesWithPointsSync()
+            val gpxExporter = GPXExporterImpl()
+
+            val jsonArray = JSONArray()
+            FileOutputStream(zipFile).use { fos ->
+                ZipOutputStream(fos).use { zos ->
+                    for (rideWithPoints in ridesWithPoints) {
+                        try {
+                            val gpxFile = gpxExporter.export(rideWithPoints, context)
+                            val entryName = "gpx/Ride_${rideWithPoints.ride.id}.gpx"
+                            zos.putNextEntry(ZipEntry(entryName))
+                            gpxFile.inputStream().use { input ->
+                                input.copyTo(zos)
+                            }
+                            zos.closeEntry()
+                        } catch (e: Exception) {
+                            // Continue archiving remaining rides
+                        }
+
+                        val rideJson = JSONObject().apply {
+                            put("id", rideWithPoints.ride.id)
+                            put("startTime", rideWithPoints.ride.startTime)
+                            put("endTime", rideWithPoints.ride.endTime)
+                            put("distanceMeters", rideWithPoints.ride.postRideCalculation?.distance ?: 0.0)
+
+                            put("isSynced", rideWithPoints.ride.isSynced)
+                            val pointsArray = JSONArray()
+                            for (point in rideWithPoints.points) {
+                                val pObj = JSONObject().apply {
+                                    put("latitude", point.latitude)
+                                    put("longitude", point.longitude)
+                                    put("altitude", point.altitude)
+                                    put("speed", point.speed)
+                                    put("timestamp", point.timestamp)
+                                }
+                                pointsArray.put(pObj)
+                            }
+                            put("points", pointsArray)
+                        }
+                        jsonArray.put(rideJson)
+                    }
+
+                    val archiveIndex = JSONObject().apply {
+                        put("exportTimestamp", timestamp)
+                        put("userEmail", currentUser.value?.email ?: "anonymous")
+                        put("totalRides", ridesWithPoints.size)
+                        put("rides", jsonArray)
+                    }
+                    zos.putNextEntry(ZipEntry("trackme_data_archive.json"))
+                    zos.write(archiveIndex.toString(2).toByteArray(Charsets.UTF_8))
+                    zos.closeEntry()
+                }
+            }
+            Result.success(zipFile)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun deleteCloudData(): Result<Unit> {
+
         val result = app.firestoreSyncManager.deleteAllCloudData()
         if (result.isSuccess) {
             // Mark all local rides as unsynced

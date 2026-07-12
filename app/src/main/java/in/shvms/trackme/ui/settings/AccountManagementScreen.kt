@@ -9,9 +9,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Person
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +43,8 @@ fun AccountManagementScreen(
     var showSignOutWarning by remember { mutableStateOf(false) }
     var showDeleteDataWarning by remember { mutableStateOf(false) }
     var showDeleteAccountWarning by remember { mutableStateOf(false) }
+    var isExporting by remember { mutableStateOf(false) }
+
     
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
     val scope = rememberCoroutineScope()
@@ -149,6 +153,51 @@ fun AccountManagementScreen(
                             }
                             
                             Spacer(modifier = Modifier.height(24.dp))
+                            
+                            OutlinedButton(
+                                onClick = {
+                                    if (!isExporting) {
+                                        isExporting = true
+                                        scope.launch {
+                                            val result = viewModel.exportAllMyData(context)
+                                            isExporting = false
+                                            if (result.isSuccess && result.getOrNull() != null) {
+                                                val file = result.getOrNull()!!
+                                                try {
+                                                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                                                        context,
+                                                        "${context.packageName}.provider",
+                                                        file
+                                                    )
+                                                    val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                                        type = "application/zip"
+                                                        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    }
+                                                    context.startActivity(android.content.Intent.createChooser(shareIntent, strings.downloadAllMyData))
+                                                } catch (e: Exception) {
+                                                    android.widget.Toast.makeText(context, strings.dataExportFailed, android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            } else {
+                                                android.widget.Toast.makeText(context, strings.dataExportFailed, android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !isExporting
+                            ) {
+                                if (isExporting) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                } else {
+                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+                                Text(strings.downloadAllMyData)
+                            }
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
                             
                             OutlinedButton(
                                 onClick = { showDeleteDataWarning = true },

@@ -31,6 +31,11 @@ interface RideDao {
     fun getAllRidesWithPoints(): Flow<List<RideWithPoints>>
 
     @Transaction
+    @Query("SELECT * FROM rides ORDER BY startTime DESC")
+    suspend fun getAllRidesWithPointsSync(): List<RideWithPoints>
+
+
+    @Transaction
     @Query("SELECT * FROM rides WHERE endTime IS NOT NULL AND endTime > 0 ORDER BY startTime DESC")
     fun getAllCompletedRidesWithPoints(): Flow<List<RideWithPoints>>
 
