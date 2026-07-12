@@ -118,7 +118,7 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
                         ExportRequestResult.Queued(
                             email = email,
                             isExisting = true,
-                            message = "Your data export request is already queued for low-traffic batch processing (paced at 1 request every 4 hours)."
+                            message = "Your data export request is currently being processed in our low-traffic batch queue (paced at 1 request every 4 hours).\n\nTap 'Download All My Data' again later—once completed, your direct download link will appear right here!"
                         )
                     )
                 }
@@ -139,9 +139,10 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
                 ExportRequestResult.Queued(
                     email = email,
                     isExisting = false,
-                    message = "Your data export request is queued for low-traffic batch processing. You will receive an email once your archive is ready."
+                    message = "Your data export request has been queued for low-traffic batch processing (paced at 1 request every 4 hours).\n\nTap 'Download All My Data' again later once processing completes to download your archive directly!"
                 )
             )
+
         } catch (e: Exception) {
             Result.failure(e)
         }

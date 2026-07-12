@@ -175,11 +175,12 @@ fun AccountManagementScreen(
                                                         showExportScheduledDialog = true
                                                     }
                                                     is SettingsViewModel.ExportRequestResult.Queued -> {
-                                                        exportDialogTitle = if (statusRes.isExisting) "Archive Request Active 📦" else "Archive Export Scheduled 📦"
-                                                        exportDialogMessage = "${statusRes.message}\n\nDelivery Email:\n✉️ ${statusRes.email}"
+                                                        exportDialogTitle = if (statusRes.isExisting) "Archive Request Processing ⏳" else "Archive Export Scheduled ⏳"
+                                                        exportDialogMessage = statusRes.message
                                                         exportDownloadUrl = null
                                                         showExportScheduledDialog = true
                                                     }
+
                                                 }
                                             } else {
 
