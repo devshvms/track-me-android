@@ -22,9 +22,9 @@ android {
         }
     }
     val mapsApiKey = localProperties.getProperty("MAPS_API_KEY") ?: ""
-    val keystorePassword = System.getenv("KEYSTORE_PASSWORD") ?: localProperties.getProperty("KEYSTORE_PASSWORD") ?: ""
-    val keyAlias = System.getenv("KEY_ALIAS") ?: localProperties.getProperty("KEY_ALIAS") ?: ""
-    val keyPassword = System.getenv("KEY_PASSWORD") ?: localProperties.getProperty("KEY_PASSWORD") ?: ""
+    val keystorePassword = System.getenv("KEYSTORE_PASSWORD").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("KEYSTORE_PASSWORD").takeIf { !it.isNullOrBlank() } ?: "trackme123"
+    val keyAlias = System.getenv("KEY_ALIAS").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("KEY_ALIAS").takeIf { !it.isNullOrBlank() } ?: "trackme"
+    val keyPassword = System.getenv("KEY_PASSWORD").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("KEY_PASSWORD").takeIf { !it.isNullOrBlank() } ?: "trackme123"
 
     defaultConfig {
         applicationId = "in.shvms.trackme"
