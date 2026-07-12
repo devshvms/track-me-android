@@ -141,7 +141,7 @@ fun RideDetailScreen(
 
     val pauseCircleIcon = remember {
         try {
-            val size = 24
+            val size = 64
             val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = android.graphics.Canvas(bitmap)
             val paint = android.graphics.Paint().apply {
@@ -152,7 +152,7 @@ fun RideDetailScreen(
             canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2f, paint)
             paint.style = android.graphics.Paint.Style.STROKE
             paint.color = android.graphics.Color.argb(180, 255, 255, 255)
-            paint.strokeWidth = 2f
+            paint.strokeWidth = 2.5f
             canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2f, paint)
             BitmapDescriptorFactory.fromBitmap(bitmap)
         } catch (e: Exception) {
@@ -163,26 +163,38 @@ fun RideDetailScreen(
     val pausedLocations = remember(rideWithPoints?.points) {
         val pts = rideWithPoints?.points ?: emptyList()
         val result = mutableListOf<LatLng>()
-        var lastAdded: LatLng? = null
+        val currentCluster = mutableListOf<GPSPointEntity>()
+
         for (p in pts) {
             if (p.isPaused || p.speed <= 0.1f) {
-                val ll = LatLng(p.latitude, p.longitude)
-                if (lastAdded == null) {
-                    result.add(ll)
-                    lastAdded = ll
+                if (currentCluster.isEmpty()) {
+                    currentCluster.add(p)
                 } else {
+                    val first = currentCluster.first()
                     val dist = FloatArray(1)
                     android.location.Location.distanceBetween(
-                        lastAdded.latitude, lastAdded.longitude,
-                        ll.latitude, ll.longitude,
+                        first.latitude, first.longitude,
+                        p.latitude, p.longitude,
                         dist
                     )
-                    if (dist[0] > 15f) {
-                        result.add(ll)
-                        lastAdded = ll
+                    if (dist[0] <= 10f) {
+                        currentCluster.add(p)
+                    } else {
+                        if (currentCluster.size >= 3) {
+                            val avgLat = currentCluster.map { it.latitude }.average()
+                            val avgLng = currentCluster.map { it.longitude }.average()
+                            result.add(LatLng(avgLat, avgLng))
+                        }
+                        currentCluster.clear()
+                        currentCluster.add(p)
                     }
                 }
             }
+        }
+        if (currentCluster.size >= 3) {
+            val avgLat = currentCluster.map { it.latitude }.average()
+            val avgLng = currentCluster.map { it.longitude }.average()
+            result.add(LatLng(avgLat, avgLng))
         }
         result
     }
