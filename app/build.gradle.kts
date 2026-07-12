@@ -30,8 +30,8 @@ android {
         applicationId = "in.shvms.trackme"
         minSdk = 24
         targetSdk = 36
-        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "8").toInt()
-        versionName = "1.2.1"
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "9").toInt()
+        versionName = "1.3.0"
         
         resValue("string", "google_maps_key", mapsApiKey)
     }
@@ -53,6 +53,7 @@ android {
         }
     }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -76,6 +77,7 @@ kotlin {
 }
 
 dependencies {
+  coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
   val composeBom = platform(libs.androidx.compose.bom)
   implementation(composeBom)
   androidTestImplementation(composeBom)

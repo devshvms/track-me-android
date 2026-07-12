@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.drawText
+import `in`.shvms.trackme.domain.model.RidePersona
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -34,10 +35,13 @@ import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.domain.export.GPXExporterImpl
 import `in`.shvms.trackme.domain.export.GoogleStaticApiImageExporterImpl
 import `in`.shvms.trackme.domain.export.NativeSnapshotImageExporterImpl
+import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.config.AppConfig
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.Dot
+import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MapStyleOptions
 import `in`.shvms.trackme.domain.export.ExportOptions
@@ -55,7 +59,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Download
@@ -125,13 +129,11 @@ fun RideDetailScreen(
         viewModel.uiEvent.collect { event ->
             when (event) {
                 is RideDetailViewModel.UiEvent.NavigateBack -> {
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar("Ride deleted")
-                    }
+                    android.widget.Toast.makeText(context, "Ride deleted", android.widget.Toast.LENGTH_SHORT).show()
                     navController?.popBackStack()
                 }
                 is RideDetailViewModel.UiEvent.ShowError -> {
-                    snackbarHostState.showSnackbar(event.message)
+                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -251,6 +253,31 @@ fun RideDetailScreen(
                             bitmap
                         }
 
+                        val finishFlagIcon = remember {
+                            try {
+                                val size = 64
+                                val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+                                val canvas = android.graphics.Canvas(bitmap)
+                                val paint = android.graphics.Paint().apply {
+                                    isAntiAlias = true
+                                    style = android.graphics.Paint.Style.FILL
+                                }
+                                paint.color = android.graphics.Color.BLACK
+                                canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+                                paint.color = android.graphics.Color.WHITE
+                                canvas.drawCircle(size / 2f, size / 2f, size / 2f - 5f, paint)
+                                paint.color = android.graphics.Color.BLACK
+                                val cs = 14f
+                                val cx = size / 2f
+                                val cy = size / 2f
+                                canvas.drawRect(cx - cs, cy - cs, cx, cy, paint)
+                                canvas.drawRect(cx, cy, cx + cs, cy + cs, paint)
+                                BitmapDescriptorFactory.fromBitmap(bitmap)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+
                         var mapType by remember { mutableStateOf(MapType.NORMAL) }
                         var isTrafficEnabled by remember { mutableStateOf(false) }
 
@@ -263,15 +290,60 @@ fun RideDetailScreen(
                             MapEffect { map ->
                                 mapInstance = map
                             }
-                            Polyline(
-                                points = latLngs,
-                                color = Color(0xFF1565C0),
-                                width = 10f
-                            )
+                            val activeSegments = remember(points) {
+                                val segs = mutableListOf<List<LatLng>>()
+                                var currSeg = mutableListOf<LatLng>()
+                                for (p in points) {
+                                    if (!p.isPaused) {
+                                        currSeg.add(LatLng(p.latitude, p.longitude))
+                                    } else {
+                                        if (currSeg.size > 1) segs.add(currSeg)
+                                        currSeg = mutableListOf()
+                                    }
+                                }
+                                if (currSeg.size > 1) segs.add(currSeg)
+                                segs
+                            }
+
+                            activeSegments.forEach { seg ->
+                                Polyline(
+                                    points = seg,
+                                    color = Color(0xFF1565C0),
+                                    width = 10f
+                                )
+                            }
+
+                            val pausedGroups = remember(points) {
+                                val groups = mutableListOf<List<GPSPointEntity>>()
+                                var currentGroup = mutableListOf<GPSPointEntity>()
+                                for (p in points) {
+                                    if (p.isPaused) currentGroup.add(p)
+                                    else if (currentGroup.isNotEmpty()) {
+                                        groups.add(currentGroup)
+                                        currentGroup = mutableListOf()
+                                    }
+                                }
+                                if (currentGroup.isNotEmpty()) groups.add(currentGroup)
+                                groups
+                            }
+
+                            for (i in 0 until activeSegments.size - 1) {
+                                val endPrev = activeSegments[i].last()
+                                val startNext = activeSegments[i + 1].first()
+                                Polyline(
+                                    points = listOf(endPrev, startNext),
+                                    color = Color(0xFFFFA000),
+                                    width = 8f,
+                                    pattern = listOf(Dot(), Gap(18f))
+                                )
+                            }
+
                             Marker(
                                 state = MarkerState(position = latLngs.last()),
                                 title = "Finish",
-                                snippet = "End of Ride"
+                                snippet = "End of Ride",
+                                icon = finishFlagIcon,
+                                anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
                             )
                             
                             if (scrubIndex != null && scrubIndex!! in points.indices) {
@@ -286,36 +358,41 @@ fun RideDetailScreen(
                                 Marker(
                                     state = MarkerState(position = LatLng(p.latitude, p.longitude)),
                                     title = "Scrub",
-                                    snippet = "Speed: ${String.format("%.1f", p.speed * 3.6f)} km/h",
+                                    snippet = "Speed: ${String.format(java.util.Locale.getDefault(), "%.1f", (if (p.isPaused) 0f else p.speed) * 3.6f)} km/h",
                                     icon = scrubIcon,
                                     anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
                                 )
                             }
-                            
-                            val pausedGroups = remember(points) {
-                                val groups = mutableListOf<List<GPSPointEntity>>()
-                                var currentGroup = mutableListOf<GPSPointEntity>()
-                                for (p in points) {
-                                    if (p.isPaused) currentGroup.add(p)
-                                    else if (currentGroup.isNotEmpty()) {
-                                        groups.add(currentGroup)
-                                        currentGroup = mutableListOf()
+
+                            val consolidatedPauses = remember(pausedGroups) {
+                                val merged = mutableListOf<List<GPSPointEntity>>()
+                                for (group in pausedGroups) {
+                                    if (merged.isEmpty()) {
+                                        merged.add(group)
+                                    } else {
+                                        val lastGroup = merged.last()
+                                        val timeDiff = group.first().timestamp - lastGroup.last().timestamp
+                                        if (timeDiff < 60_000L) {
+                                            merged[merged.lastIndex] = lastGroup + group
+                                        } else {
+                                            merged.add(group)
+                                        }
                                     }
                                 }
-                                if (currentGroup.isNotEmpty()) groups.add(currentGroup)
-                                groups
+                                merged
                             }
-                            
-                            pausedGroups.forEach { group ->
-                                val duration = group.last().timestamp - group.first().timestamp
-                                val alpha = (0.4f + (duration / 60000f) * 0.4f).coerceIn(0.4f, 1.0f)
-                                val center = group[group.size / 2]
+
+                            consolidatedPauses.forEach { group ->
+                                val avgLat = group.map { it.latitude }.average()
+                                val avgLng = group.map { it.longitude }.average()
+                                val center = LatLng(avgLat, avgLng)
+
                                 Circle(
-                                    center = LatLng(center.latitude, center.longitude),
-                                    radius = 5.0,
-                                    fillColor = Color.Red.copy(alpha = alpha),
-                                    strokeColor = Color.Red,
-                                    strokeWidth = 2f
+                                    center = center,
+                                    radius = 4.5,
+                                    fillColor = Color(0xFFE53935).copy(alpha = 0.85f),
+                                    strokeColor = Color.White,
+                                    strokeWidth = 3f
                                 )
                             }
                         }
@@ -327,30 +404,13 @@ fun RideDetailScreen(
                             )
                         }
                         
-                        var showMapOptions by remember { mutableStateOf(false) }
                         Box(modifier = Modifier.align(Alignment.TopEnd).padding(top = 16.dp, end = 12.dp)) {
-                            FloatingActionButton(
-                                onClick = { showMapOptions = true },
-                                modifier = Modifier.size(40.dp),
-                                containerColor = MaterialTheme.colorScheme.surface
-                            ) {
-                                Icon(Icons.Default.Map, contentDescription = "Map Layers", modifier = Modifier.size(20.dp))
-                            }
-                            
-                            DropdownMenu(
-                                expanded = showMapOptions,
-                                onDismissRequest = { showMapOptions = false }
-                            ) {
-                                DropdownMenuItem(text = { Text("Normal") }, onClick = { mapType = MapType.NORMAL; showMapOptions = false })
-                                DropdownMenuItem(text = { Text("Satellite") }, onClick = { mapType = MapType.SATELLITE; showMapOptions = false })
-                                DropdownMenuItem(text = { Text("Terrain") }, onClick = { mapType = MapType.TERRAIN; showMapOptions = false })
-                                DropdownMenuItem(text = { Text("Hybrid") }, onClick = { mapType = MapType.HYBRID; showMapOptions = false })
-                                HorizontalDivider()
-                                DropdownMenuItem(
-                                    text = { Text(if (isTrafficEnabled) "Hide Traffic" else "Show Traffic") },
-                                    onClick = { isTrafficEnabled = !isTrafficEnabled; showMapOptions = false }
-                                )
-                            }
+                            MapLayerHorizontalDrawerButton(
+                                currentMapType = mapType,
+                                onMapTypeSelected = { mapType = it },
+                                isTrafficEnabled = isTrafficEnabled,
+                                onTrafficToggle = { isTrafficEnabled = !isTrafficEnabled }
+                            )
                         }
                     } else {
                         Text("No GPS data available", modifier = Modifier.align(Alignment.Center))
@@ -380,9 +440,13 @@ fun RideDetailScreen(
                         for (i in 1 until points.size) {
                             val prev = points[i - 1]
                             val curr = points[i]
-                            val result = FloatArray(1)
-                            android.location.Location.distanceBetween(prev.latitude, prev.longitude, curr.latitude, curr.longitude, result)
-                            totalDist += result[0]
+                            if (!curr.isPaused) {
+                                val result = FloatArray(1)
+                                android.location.Location.distanceBetween(prev.latitude, prev.longitude, curr.latitude, curr.longitude, result)
+                                if (result[0] >= 3.5f) {
+                                    totalDist += result[0]
+                                }
+                            }
                             distances[i] = totalDist
                         }
                         distances
@@ -405,7 +469,13 @@ fun RideDetailScreen(
                     val indexToShow = scrubIndex ?: (points.size - 1)
                     val elapsedMs = points[indexToShow].timestamp - ride.startTime
                     val elapsedFormatted = formatDuration(elapsedMs)
-                    val distKm = cumulativeDistances[indexToShow] / 1000f
+                    val authoritativeDistKm = ((ride.postRideCalculation?.distance ?: 0.0) / 1000.0).toFloat()
+                    val lastCumDist = cumulativeDistances.lastOrNull()?.takeIf { it > 0.01f } ?: 1f
+                    val distKm = if (scrubIndex == null || scrubIndex == points.size - 1) {
+                        authoritativeDistKm
+                    } else {
+                        (cumulativeDistances[indexToShow] / lastCumDist) * authoritativeDistKm
+                    }
                     
                     Text(
                         text = "Time: $elapsedFormatted  |  Dist: ${String.format(java.util.Locale.getDefault(), "%.2f", distKm)} km",
@@ -431,7 +501,27 @@ fun RideDetailScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(strings.rideStats, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        val ridePersona = remember(ride.persona) {
+                            runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(strings.rideStats, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    text = "${ridePersona.emoji} ${ridePersona.displayName}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
                         Spacer(modifier = Modifier.height(16.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             StatItem(strings.distance, String.format("%.2f km", (ride.postRideCalculation?.distance ?: 0.0) / 1000f), modifier = Modifier.weight(1f))
@@ -458,47 +548,49 @@ fun RideDetailScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Action Buttons
-                if (rideWithPoints != null && rideWithPoints!!.ride.endTime != null) {
+                if (rideWithPoints != null) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        TextButton(onClick = { showExportDialog = true }) {
-                            Icon(Icons.Default.Share, contentDescription = strings.share, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(strings.share)
-                        }
+                        if (points.isNotEmpty()) {
+                            TextButton(onClick = { showExportDialog = true }) {
+                                Icon(Icons.Default.Share, contentDescription = strings.share, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(strings.share)
+                            }
 
-                        TextButton(onClick = {
-                            coroutineScope.launch(Dispatchers.IO) {
-                                try {
-                                    val exporter = GPXExporterImpl()
-                                    val gpxFile = exporter.export(rideWithPoints!!, context)
-                                    val values = android.content.ContentValues().apply {
-                                        put(MediaStore.MediaColumns.DISPLAY_NAME, gpxFile.name)
-                                        put(MediaStore.MediaColumns.MIME_TYPE, "application/gpx+xml")
-                                        put(MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
-                                    }
-                                    val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                                    if (uri != null) {
-                                        val outputStream = context.contentResolver.openOutputStream(uri)
-                                        outputStream?.use { out ->
-                                            gpxFile.inputStream().use { input -> input.copyTo(out) }
+                            TextButton(onClick = {
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    try {
+                                        val exporter = GPXExporterImpl()
+                                        val gpxFile = exporter.export(rideWithPoints!!, context)
+                                        val values = android.content.ContentValues().apply {
+                                            put(MediaStore.MediaColumns.DISPLAY_NAME, gpxFile.name)
+                                            put(MediaStore.MediaColumns.MIME_TYPE, "application/gpx+xml")
+                                            put(MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
                                         }
+                                        val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                                        if (uri != null) {
+                                            val outputStream = context.contentResolver.openOutputStream(uri)
+                                            outputStream?.use { out ->
+                                                gpxFile.inputStream().use { input -> input.copyTo(out) }
+                                            }
+                                            withContext(Dispatchers.Main) {
+                                                android.widget.Toast.makeText(context, "Saved to Downloads", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
-                                            coroutineScope.launch { snackbarHostState.showSnackbar("Saved to Downloads") }
+                                            android.widget.Toast.makeText(context, "Error saving GPX: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
                                         }
-                                    }
-                                } catch (e: Exception) {
-                                    withContext(Dispatchers.Main) {
-                                        coroutineScope.launch { snackbarHostState.showSnackbar("Error saving GPX: ${e.message}") }
                                     }
                                 }
+                            }) {
+                                Icon(Icons.Default.Download, contentDescription = strings.exportGpx, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(strings.exportGpx)
                             }
-                        }) {
-                            Icon(Icons.Default.Download, contentDescription = strings.exportGpx, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(strings.exportGpx)
                         }
 
                         TextButton(onClick = { showDeleteDialog = true }) {
@@ -559,21 +651,21 @@ fun RideDetailScreen(
                             } else {
                                 saveImageToGallery(context, imageFile, rideTitle)
                                 withContext(Dispatchers.Main) {
-                                    coroutineScope.launch { snackbarHostState.showSnackbar("Saved to gallery") }
+                                    android.widget.Toast.makeText(context, "Saved to gallery", android.widget.Toast.LENGTH_SHORT).show()
                                     showExportDialog = false
                                 }
                             }
                         } catch (e: Exception) {
                             withContext(Dispatchers.Main) {
-                                coroutineScope.launch { snackbarHostState.showSnackbar("Error: ${e.message}") }
+                                android.widget.Toast.makeText(context, "Error: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
                 } else {
-                    coroutineScope.launch { snackbarHostState.showSnackbar("Could not capture map") }
+                    android.widget.Toast.makeText(context, "Could not capture map", android.widget.Toast.LENGTH_SHORT).show()
                 }
             } ?: run {
-                coroutineScope.launch { snackbarHostState.showSnackbar("Map not ready") }
+                android.widget.Toast.makeText(context, "Map not ready", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
         
@@ -587,7 +679,7 @@ fun RideDetailScreen(
                         title = { Text("Export Preview") },
                         navigationIcon = {
                             IconButton(onClick = { showExportDialog = false }) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                             }
                         }
                     )
@@ -770,7 +862,7 @@ fun RideDetailScreen(
                         }
                     }
                     
-                    Divider()
+                    HorizontalDivider()
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -846,6 +938,37 @@ fun CombinedMetricLineChart(
         list
     }
 
+    // Adaptive visual smoothing window so long rides stay uniform and elegant without spiky noise,
+    // while zero underlying data is lost for scrubber inspection.
+    val smoothedSeries = remember(plotData) {
+        val n = plotData.size
+        val radius = when {
+            n < 30 -> 1
+            n < 150 -> 2
+            n < 400 -> 4
+            else -> (n / 65).coerceIn(4, 18)
+        }
+        val sSpeeds = FloatArray(n)
+        val sAlts = FloatArray(n)
+        for (i in 0 until n) {
+            var sumSpeed = 0f
+            var sumAlt = 0f
+            var weightSum = 0f
+            for (j in (i - radius)..(i + radius)) {
+                if (j in 0 until n) {
+                    val dist = kotlin.math.abs(j - i)
+                    val w = 1f / (1f + dist * 0.8f)
+                    sumSpeed += plotData[j].first.speed * 3.6f * w
+                    sumAlt += plotData[j].first.altitude.toFloat() * w
+                    weightSum += w
+                }
+            }
+            sSpeeds[i] = sumSpeed / weightSum
+            sAlts[i] = sumAlt / weightSum
+        }
+        sSpeeds to sAlts
+    }
+
     Card(
         shape = RoundedCornerShape(8.dp),
         modifier = modifier,
@@ -857,49 +980,73 @@ fun CombinedMetricLineChart(
 
             val maxX = plotData.last().second.coerceAtLeast(1f)
 
-            // Draw Paths
+            // Draw GPS Signal Loss Vertical Stripes for gaps > 15 seconds
+            for (i in 0 until plotData.size - 1) {
+                val (p1, xVal1) = plotData[i]
+                val (p2, xVal2) = plotData[i + 1]
+                val gapMs = p2.timestamp - p1.timestamp
+                if (gapMs > 15_000L) {
+                    val xStart = (xVal1 / maxX) * width
+                    val xEnd = (xVal2 / maxX) * width
+                    var stripeX = xStart
+                    while (stripeX <= xEnd) {
+                        drawLine(
+                            color = Color.Red.copy(alpha = 0.45f),
+                            start = Offset(stripeX, 0f),
+                            end = Offset(stripeX, height),
+                            strokeWidth = 1.5f,
+                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
+                        )
+                        stripeX += 10f
+                    }
+                }
+            }
+
+            // Draw clean, smoothed cubic curve paths
             val drawMetricPath = { isSpeed: Boolean ->
                 val path = Path()
                 val dottedPath = Path()
                 var isFirst = true
 
+                val values = if (isSpeed) smoothedSeries.first else smoothedSeries.second
+
                 for (i in 0 until plotData.size - 1) {
-                    val (p1, xVal1) = plotData[i]
-                    val (p2, xVal2) = plotData[i+1]
+                    val xVal1 = plotData[i].second
+                    val xVal2 = plotData[i + 1].second
                     
                     val x1 = (xVal1 / maxX) * width
                     val x2 = (xVal2 / maxX) * width
                     
-                    val val1 = if (isSpeed) p1.speed * 3.6f else p1.altitude.toFloat()
-                    val val2 = if (isSpeed) p2.speed * 3.6f else p2.altitude.toFloat()
+                    val val1 = values[i]
+                    val val2 = values[i + 1]
                     
                     val y1 = height - (((val1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * height)
-                    val y2 = height - (((val2 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * height)
 
                     if (isFirst) {
                         path.moveTo(x1, y1)
                         dottedPath.moveTo(x1, y1)
                         isFirst = false
                     } else {
-                        val prevX = (plotData[i-1].second / maxX) * width
-                        val prevVal1 = if (isSpeed) plotData[i-1].first.speed * 3.6f else plotData[i-1].first.altitude.toFloat()
+                        val prevX = (plotData[i - 1].second / maxX) * width
+                        val prevVal1 = values[i - 1]
                         val prevY = height - (((prevVal1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * height)
                         
-                        val cpX = (prevX + x1) / 2
+                        val cpX = (prevX + x1) / 2f
+                        val gapMs = plotData[i].first.timestamp - plotData[i - 1].first.timestamp
                         
-                        if (p1.isPaused) {
+                        if (gapMs > 15_000L) {
                             dottedPath.cubicTo(cpX, prevY, cpX, y1, x1, y1)
-                            path.moveTo(x1, y1) // Break solid path
+                            path.moveTo(x1, y1)
                         } else {
                             path.cubicTo(cpX, prevY, cpX, y1, x1, y1)
-                            dottedPath.moveTo(x1, y1) // Move dotted path along
+                            dottedPath.moveTo(x1, y1)
                         }
                     }
                 }
                 
                 val cColor = if (isSpeed) speedColor else altColor
-                drawPath(path = path, color = cColor, style = Stroke(width = 4f))
-                drawPath(path = dottedPath, color = cColor, style = Stroke(width = 4f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)))
+                drawPath(path = path, color = cColor, style = Stroke(width = 3.5f))
+                drawPath(path = dottedPath, color = cColor, style = Stroke(width = 3f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)))
             }
 
             drawMetricPath(true)

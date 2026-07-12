@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Sync
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.remote.SyncResult
@@ -326,11 +325,40 @@ fun SettingsScreen(
         var disablePostProcessing by remember { 
             mutableStateOf(prefs.getBoolean("disable_gps_post_processing", false)) 
         }
+        var intelligentAutoPause by remember {
+            mutableStateOf(prefs.getBoolean("intelligent_auto_pause", true))
+        }
         var showGpsInfo by remember { mutableStateOf(false) }
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(strings.advancedSettings, style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                        Text("Intelligent Auto-Pause", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Dynamically pauses moving timer at traffic signals or stops based on vehicle/activity speed profile",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = intelligentAutoPause,
+                        onCheckedChange = { checked ->
+                            intelligentAutoPause = checked
+                            prefs.edit().putBoolean("intelligent_auto_pause", checked).apply()
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Row(

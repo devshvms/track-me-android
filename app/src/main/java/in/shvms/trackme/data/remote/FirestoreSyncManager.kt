@@ -211,6 +211,7 @@ class FirestoreSyncManager(
 
             val calc = PostRideCalculation(maxSpeed, distance, avgSpeed, pauseDuration)
 
+            val persona = doc.getString("persona") ?: "AUTO"
             val newRide = RideEntity(
                 startTime = startTime,
                 endTime = endTime,
@@ -218,6 +219,7 @@ class FirestoreSyncManager(
                 isSynced = true,
                 firestoreId = docId,
                 title = title,
+                persona = persona,
                 postRideCalculation = calc
             )
             val rideId = rideDao.insertRide(newRide)
@@ -270,6 +272,7 @@ class FirestoreSyncManager(
                 "endTime" to rideWithPoints.ride.endTime,
                 "sourceInfo" to rideWithPoints.ride.sourceInfo,
                 "title" to (rideWithPoints.ride.title ?: RideUtils.getDefaultTitle(rideWithPoints.ride.startTime)),
+                "persona" to rideWithPoints.ride.persona,
                 "maxSpeed" to (calc?.maxSpeed ?: 0f),
                 "distance" to (calc?.distance ?: 0.0),
                 "avgSpeed" to (calc?.avgSpeed ?: 0f),

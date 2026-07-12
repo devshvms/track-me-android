@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import `in`.shvms.trackme.domain.model.RidePersona
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.*
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -83,9 +84,7 @@ fun HistoryScreen(
                 }
 
                 if (name.isNotEmpty() && !name.lowercase(Locale.ROOT).endsWith(".gpx")) {
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar("Please select a valid .gpx file.")
-                    }
+                    android.widget.Toast.makeText(context, "Please select a valid .gpx file.", android.widget.Toast.LENGTH_SHORT).show()
                     return@rememberLauncherForActivityResult
                 }
 
@@ -93,9 +92,7 @@ fun HistoryScreen(
                     viewModel.importGPX(inputStream)
                 }
             } catch (e: Exception) {
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Error opening file. Please ensure it's a valid GPX format.")
-                }
+                android.widget.Toast.makeText(context, "Error opening file. Please ensure it's a valid GPX format.", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -103,8 +100,8 @@ fun HistoryScreen(
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
             when (event) {
-                is HistoryViewModel.UiEvent.ShowError -> snackbarHostState.showSnackbar(event.message)
-                is HistoryViewModel.UiEvent.Success -> snackbarHostState.showSnackbar(event.message)
+                is HistoryViewModel.UiEvent.ShowError -> android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                is HistoryViewModel.UiEvent.Success -> android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -374,8 +371,11 @@ fun RideHistoryCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val personaObj = remember(ride.persona) {
+                        runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
+                    }
                     Text(
-                        text = ride.title ?: formatDateTime(ride.startTime),
+                        text = "${personaObj.emoji} " + (ride.title ?: formatDateTime(ride.startTime)),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,

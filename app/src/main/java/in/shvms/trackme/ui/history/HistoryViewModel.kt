@@ -23,12 +23,25 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     private val rideDao = db.rideDao()
     private val errorLogger = app.errorLogger
 
-    val rides: StateFlow<List<RideWithPoints>> = rideDao.getAllRidesWithPoints()
+    val rides: StateFlow<List<RideWithPoints>> = rideDao.getAllCompletedRidesWithPoints()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+    init {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                `in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.recoverOrphanedRides(
+                    rideDao,
+                    `in`.shvms.trackme.service.TrackingService.activeRideId
+                )
+            } catch (e: Exception) {
+                errorLogger.recordException(e)
+            }
+        }
+    }
 
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
@@ -59,8 +72,14 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteRide(rideId: Long) {
         viewModelScope.launch {
+            val rideWithPoints = rideDao.getRideWithPointsById(rideId)
+            val ride = rideWithPoints?.ride
+            if (ride != null && (ride.endTime == null || ride.endTime <= 0L || `in`.shvms.trackme.service.TrackingService.activeRideId == rideId)) {
+                _uiEvent.emit(UiEvent.ShowError("Cannot delete an ongoing ride."))
+                return@launch
+            }
+
             if (app.authManager.currentUser.value != null) {
-                val ride = rideDao.getRideWithPointsById(rideId)?.ride
                 val firestoreId = ride?.firestoreId ?: rideId.toString()
                 app.firestoreSyncManager.deleteRide(firestoreId)
             }

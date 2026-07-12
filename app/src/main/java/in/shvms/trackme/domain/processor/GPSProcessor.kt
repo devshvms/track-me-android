@@ -83,21 +83,38 @@ class DefaultGPSProcessor : GPSProcessor {
             )
         }
 
-        // Step C: Retroactive Auto-Pause Detection (15s sliding window, < 2.5km/h)
-        val pauseThresholdMs = 2.5f / 3.6f // 2.5 km/h in m/s
-        val timeWindowMs = 15000L
-        
-        val autoPausedPoints = smoothedPoints.map { point ->
-            // Find points within 15s window around this point
-            val windowPoints = smoothedPoints.filter { kotlin.math.abs(it.timestamp - point.timestamp) <= timeWindowMs / 2 }
-            val avgSpeed = if (windowPoints.isNotEmpty()) windowPoints.map { it.speed }.average().toFloat() else point.speed
-            
-            point.copy(isPaused = avgSpeed < pauseThresholdMs)
-        }
+        // Step C: Preserve Real-Time Hardware/Adaptive Auto-Pause State
+        val autoPausedPoints = smoothedPoints
 
-        // Step D: 4D RDP Compression
+        // Step D: Segment by GPS Signal Loss (> 15 seconds gap) and run 4D RDP Compression
         val epsilon = 2.0 // Configurable threshold for deviation
-        val compressedPoints = douglasPeucker(autoPausedPoints, epsilon)
+        val maxGapMs = 15_000L
+        val chunks = mutableListOf<List<GPSPointEntity>>()
+        var currentChunk = mutableListOf<GPSPointEntity>()
+        for (pt in autoPausedPoints) {
+            if (currentChunk.isEmpty()) {
+                currentChunk.add(pt)
+            } else {
+                if (pt.timestamp - currentChunk.last().timestamp > maxGapMs) {
+                    chunks.add(currentChunk)
+                    currentChunk = mutableListOf(pt)
+                } else {
+                    currentChunk.add(pt)
+                }
+            }
+        }
+        if (currentChunk.isNotEmpty()) chunks.add(currentChunk)
+
+        val compressedPoints = mutableListOf<GPSPointEntity>()
+        for (chunk in chunks) {
+            val compressedChunk = douglasPeucker(chunk, epsilon, maxGapMs)
+            if (compressedPoints.isNotEmpty() && compressedChunk.isNotEmpty() &&
+                compressedPoints.last().timestamp == compressedChunk.first().timestamp) {
+                compressedPoints.addAll(compressedChunk.drop(1))
+            } else {
+                compressedPoints.addAll(compressedChunk)
+            }
+        }
 
         // Step E: Database Finalization
         val rideWithPoints = rideDao.getRideWithPointsById(rideId) ?: return
@@ -159,7 +176,7 @@ class DefaultGPSProcessor : GPSProcessor {
         rideDao.updateRide(updatedRide)
     }
 
-    private fun douglasPeucker(points: List<GPSPointEntity>, epsilon: Double): List<GPSPointEntity> {
+    private fun douglasPeucker(points: List<GPSPointEntity>, epsilon: Double, maxSpanMs: Long = 15_000L): List<GPSPointEntity> {
         if (points.size <= 2) return points
 
         var dmax = 0.0
@@ -174,9 +191,11 @@ class DefaultGPSProcessor : GPSProcessor {
             }
         }
 
-        return if (dmax > epsilon) {
-            val recResults1 = douglasPeucker(points.subList(0, index + 1), epsilon)
-            val recResults2 = douglasPeucker(points.subList(index, points.size), epsilon)
+        val timeSpan = points[end].timestamp - points[0].timestamp
+        return if (dmax > epsilon || timeSpan > maxSpanMs) {
+            val splitIndex = if (index > 0) index else points.size / 2
+            val recResults1 = douglasPeucker(points.subList(0, splitIndex + 1), epsilon, maxSpanMs)
+            val recResults2 = douglasPeucker(points.subList(splitIndex, points.size), epsilon, maxSpanMs)
             
             val result = mutableListOf<GPSPointEntity>()
             result.addAll(recResults1.dropLast(1))

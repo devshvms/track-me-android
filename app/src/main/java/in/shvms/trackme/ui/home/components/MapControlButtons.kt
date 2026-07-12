@@ -1,0 +1,289 @@
+package `in`.shvms.trackme.ui.home.components
+
+import android.content.Context
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
+import `in`.shvms.trackme.ui.components.HapticFeedbackUtils.triggerPhysicalVibrate
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import com.google.maps.android.compose.MapType
+
+/**
+ * Modular 52.dp circular map control button with tactile haptics and spring bounce animation.
+ *
+ * @param icon The [ImageVector] displayed inside the circular button.
+ * @param contentDescription Accessibility description for screen readers.
+ * @param onClick Action invoked when the button is tapped.
+ * @param modifier Optional layout modifier.
+ * @param iconTint Color tint applied to [icon].
+ */
+@Composable
+fun MapControlCircleButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    iconTint: Color = MaterialTheme.colorScheme.onSurface
+) {
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val buttonScale = remember { Animatable(1f) }
+
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 3.dp,
+        modifier = modifier
+            .size(52.dp)
+            .scale(buttonScale.value)
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                triggerPhysicalVibrate(context, 35L)
+                onClick()
+            }
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = iconTint,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Interactive Map Layer selector button with smooth morphing close icon and horizontal options drawer.
+ *
+ * Expands horizontally from right to left (matching Live Share button theme and 52.dp circular size)
+ * displaying icon-only options: Normal, Satellite, Terrain, and Traffic toggle.
+ *
+ * @param currentMapType Currently selected [MapType].
+ * @param onMapTypeSelected Callback when a new [MapType] is chosen.
+ * @param isTrafficEnabled Whether live traffic layer is active.
+ * @param onTrafficToggle Callback to toggle live traffic overlay.
+ * @param modifier Optional layout modifier.
+ */
+@Composable
+fun MapLayerHorizontalDrawerButton(
+    currentMapType: MapType,
+    onMapTypeSelected: (MapType) -> Unit,
+    isTrafficEnabled: Boolean,
+    onTrafficToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isDrawerOpen by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val density = LocalDensity.current
+
+    val layersAlpha by animateFloatAsState(
+        targetValue = if (isDrawerOpen) 0f else 1f,
+        animationSpec = tween(180, easing = FastOutSlowInEasing),
+        label = "layersAlpha"
+    )
+    val layersScale by animateFloatAsState(
+        targetValue = if (isDrawerOpen) 0.65f else 1f,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "layersScale"
+    )
+    val crossAlpha by animateFloatAsState(
+        targetValue = if (isDrawerOpen) 1f else 0f,
+        animationSpec = tween(200, easing = FastOutSlowInEasing),
+        label = "crossAlpha"
+    )
+    val crossScale by animateFloatAsState(
+        targetValue = if (isDrawerOpen) 1f else 0.65f,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "crossScale"
+    )
+    val crossRotation by animateFloatAsState(
+        targetValue = if (isDrawerOpen) 90f else -45f,
+        animationSpec = tween(240, easing = FastOutSlowInEasing),
+        label = "crossRotation"
+    )
+
+    val animatedBgColor by animateColorAsState(
+        targetValue = if (isDrawerOpen) Color(0xFFE0E0E0) else MaterialTheme.colorScheme.surface,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "mapLayerBgColor"
+    )
+
+    Box(contentAlignment = Alignment.Center, modifier = modifier) {
+        // Main 52dp circular button
+        Surface(
+            shape = CircleShape,
+            color = animatedBgColor,
+            shadowElevation = 3.dp,
+            modifier = Modifier
+                .size(52.dp)
+                .clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    isDrawerOpen = !isDrawerOpen
+                }
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                if (layersAlpha > 0.01f) {
+                    Icon(
+                        imageVector = Icons.Default.Layers,
+                        contentDescription = "Map Layers",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .graphicsLayer {
+                                alpha = layersAlpha
+                                scaleX = layersScale
+                                scaleY = layersScale
+                            }
+                    )
+                }
+                if (crossAlpha > 0.01f) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color.Black.copy(alpha = 0.85f),
+                        modifier = Modifier
+                            .size(26.dp)
+                            .graphicsLayer {
+                                alpha = crossAlpha
+                                scaleX = crossScale
+                                scaleY = crossScale
+                                rotationZ = crossRotation
+                            }
+                    )
+                }
+            }
+        }
+
+        // Horizontal pill drawer opening left-to-right next to the button
+        if (isDrawerOpen) {
+            val popupOffsetX = remember(density) {
+                with(density) { -62.dp.roundToPx() }
+            }
+            Popup(
+                alignment = Alignment.CenterEnd,
+                offset = IntOffset(popupOffsetX, 0),
+                onDismissRequest = { isDrawerOpen = false },
+                properties = PopupProperties(focusable = true)
+            ) {
+                // 90% transparent background container hugging the circular 52dp option buttons horizontally
+                Surface(
+                    shape = RoundedCornerShape(32.dp),
+                    color = Color(0xFFCFD8DC).copy(alpha = 0.10f),
+                    shadowElevation = 0.dp
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                    ) {
+                        MapLayerOptionButton(
+                            icon = Icons.Default.Map,
+                            contentDescription = "Normal Map",
+                            isActive = currentMapType == MapType.NORMAL,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onMapTypeSelected(MapType.NORMAL)
+                                isDrawerOpen = false
+                            }
+                        )
+                        MapLayerOptionButton(
+                            icon = Icons.Default.Public,
+                            contentDescription = "Satellite Map",
+                            isActive = currentMapType == MapType.SATELLITE,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onMapTypeSelected(MapType.SATELLITE)
+                                isDrawerOpen = false
+                            }
+                        )
+                        MapLayerOptionButton(
+                            icon = Icons.Default.Terrain,
+                            contentDescription = "Terrain Map",
+                            isActive = currentMapType == MapType.TERRAIN,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onMapTypeSelected(MapType.TERRAIN)
+                                isDrawerOpen = false
+                            }
+                        )
+                        MapLayerOptionButton(
+                            icon = Icons.Default.Layers,
+                            contentDescription = "Hybrid Map",
+                            isActive = currentMapType == MapType.HYBRID,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onMapTypeSelected(MapType.HYBRID)
+                                isDrawerOpen = false
+                            }
+                        )
+                        MapLayerOptionButton(
+                            icon = Icons.Default.Traffic,
+                            contentDescription = "Traffic Toggle",
+                            isActive = isTrafficEnabled,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onTrafficToggle()
+                                isDrawerOpen = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MapLayerOptionButton(
+    icon: ImageVector,
+    contentDescription: String,
+    isActive: Boolean,
+    onClick: () -> Unit
+) {
+    val bgColor = if (isActive) Color(0xFF1E88E5) else MaterialTheme.colorScheme.surface
+    val iconColor = if (isActive) Color.White else MaterialTheme.colorScheme.onSurface
+
+    Surface(
+        shape = CircleShape,
+        color = bgColor,
+        shadowElevation = 2.dp,
+        modifier = Modifier
+            .size(52.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = iconColor,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+

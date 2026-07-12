@@ -15,8 +15,10 @@ import java.time.format.DateTimeFormatter
 
 enum class LiveShareStatus {
     IDLE,
+    STARTING,
     ACTIVE,
-    EXPIRED
+    EXPIRED,
+    ERROR
 }
 
 data class LiveShareState(
@@ -32,6 +34,7 @@ class LiveShareManager {
     val state: StateFlow<LiveShareState> = _state.asStateFlow()
 
     suspend fun startSession(durationMinutes: Int, username: String? = null, stopOnRideEnd: Boolean = false): Result<LiveShareState> = withContext(Dispatchers.IO) {
+        _state.value = _state.value.copy(status = LiveShareStatus.STARTING)
         try {
             val url = URL(AppConfig.LIVE_SHARE_BASE_URL + AppConfig.LIVE_SHARE_START_ENDPOINT)
             val conn = url.openConnection() as HttpURLConnection
@@ -70,10 +73,12 @@ class LiveShareManager {
                 _state.value = newState
                 Result.success(newState)
             } else {
-                Result.failure(Exception("Failed to start session: ${conn.responseCode}"))
+                _state.value = LiveShareState(status = LiveShareStatus.IDLE)
+                Result.failure(Exception("Live sharing service is temporarily unavailable (Error ${conn.responseCode}). Please try again later."))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            _state.value = LiveShareState(status = LiveShareStatus.IDLE)
+            Result.failure(Exception(formatGracefulError(e)))
         }
     }
 
@@ -157,7 +162,33 @@ class LiveShareManager {
             }
         } catch (e: Exception) {
             _state.value = LiveShareState(status = LiveShareStatus.IDLE)
-            Result.failure(e)
+            Result.failure(Exception(formatGracefulError(e)))
+        }
+    }
+
+    companion object {
+        fun formatGracefulError(e: Throwable?): String {
+            val msg = e?.message ?: return "Live share service is temporarily unreachable. Please try again."
+            return when {
+                msg.contains("Unable to resolve host", ignoreCase = true) ||
+                msg.contains("No address associated with hostname", ignoreCase = true) ||
+                msg.contains("UnknownHostException", ignoreCase = true) ||
+                msg.contains("shvms.in", ignoreCase = true) ->
+                    "Unable to reach live share server. Please verify your internet connection and try again."
+                msg.contains("ConnectException", ignoreCase = true) ||
+                msg.contains("SocketTimeoutException", ignoreCase = true) ||
+                msg.contains("Failed to connect", ignoreCase = true) ||
+                msg.contains("timeout", ignoreCase = true) ||
+                msg.contains("Connection refused", ignoreCase = true) ->
+                    "Connection timed out. Please check your internet connection and try again."
+                msg.contains("SSLException", ignoreCase = true) ||
+                msg.contains("SSLHandshakeException", ignoreCase = true) ->
+                    "Secure connection to live sharing server failed. Please try again."
+                msg.contains("Failed to start session", ignoreCase = true) ||
+                msg.contains("500") || msg.contains("502") || msg.contains("503") || msg.contains("404") ->
+                    "Live sharing service is temporarily unavailable. Please try again later."
+                else -> "Unable to connect to live share service. Please check your network connection."
+            }
         }
     }
 }

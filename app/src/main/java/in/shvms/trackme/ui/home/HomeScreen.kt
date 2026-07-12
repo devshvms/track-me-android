@@ -26,6 +26,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.service.TrackingState
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.maps.android.compose.*
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.ContentCopy
@@ -38,6 +40,11 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import kotlinx.coroutines.launch
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.ui.home.components.RadialStartRideButton
+import `in`.shvms.trackme.ui.home.components.ActiveRideHudPanel
+import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
+import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
+import `in`.shvms.trackme.domain.model.RidePersona
 
 @Composable
 fun HomeScreen(
@@ -61,9 +68,7 @@ fun HomeScreen(
     val receiver = remember {
         object : android.content.BroadcastReceiver() {
             override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar(strings.rideSaved)
-                }
+                android.widget.Toast.makeText(context, strings.rideSaved, android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -99,7 +104,24 @@ fun HomeScreen(
     }
 
     val cameraPositionState = rememberCameraPositionState()
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     
+    LaunchedEffect(hasLocationPermission) {
+        if (hasLocationPermission && uiState.pathPoints.isEmpty()) {
+            try {
+                fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                    if (loc != null) {
+                        coroutineScope.launch {
+                            cameraPositionState.animate(
+                                CameraUpdateFactory.newLatLngZoom(com.google.android.gms.maps.model.LatLng(loc.latitude, loc.longitude), 17f)
+                            )
+                        }
+                    }
+                }
+            } catch (_: SecurityException) {}
+        }
+    }
+
     LaunchedEffect(uiState.pathPoints) {
         if (uiState.trackingState == TrackingState.TRACKING && uiState.pathPoints.isNotEmpty()) {
             val lastPoint = uiState.pathPoints.last()
@@ -107,8 +129,6 @@ fun HomeScreen(
         }
     }
 
-    var showStartShareDialog by remember { mutableStateOf(false) }
-    var showActiveShareDialog by remember { mutableStateOf(false) }
     var countdownText by remember { mutableStateOf("") }
     
     LaunchedEffect(uiState.liveShareState) {
@@ -198,124 +218,183 @@ fun HomeScreen(
 
             val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
             
-            if (uiState.trackingState == TrackingState.TRACKING && uiState.timeSinceLastGps > 10000L) {
-                val seconds = uiState.timeSinceLastGps / 1000L
-                val timeString = if (seconds > 60) "${seconds / 60}m ${seconds % 60}s" else "${seconds}s"
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = topPadding + 16.dp, start = 16.dp, end = 16.dp)
-                        .background(MaterialTheme.colorScheme.errorContainer, shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = "No GPS signal for $timeString",
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+
+
+            Column(
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = topPadding + 80.dp, end = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                MapLayerHorizontalDrawerButton(
+                    currentMapType = mapType,
+                    onMapTypeSelected = { mapType = it },
+                    isTrafficEnabled = isTrafficEnabled,
+                    onTrafficToggle = { isTrafficEnabled = !isTrafficEnabled }
+                )
+
+                MapControlCircleButton(
+                    icon = Icons.Default.MyLocation,
+                    contentDescription = "Recenter",
+                    onClick = {
+                        val target = uiState.pathPoints.lastOrNull()
+                        if (target != null) {
+                            coroutineScope.launch {
+                                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(target, 17f))
+                            }
+                        } else if (hasLocationPermission) {
+                            try {
+                                fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                                    .addOnSuccessListener { loc ->
+                                        if (loc != null) {
+                                            coroutineScope.launch {
+                                                cameraPositionState.animate(
+                                                    CameraUpdateFactory.newLatLngZoom(
+                                                        com.google.android.gms.maps.model.LatLng(loc.latitude, loc.longitude),
+                                                        17f
+                                                    )
+                                                )
+                                            }
+                                        } else {
+                                            fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+                                                if (lastLoc != null) {
+                                                    coroutineScope.launch {
+                                                        cameraPositionState.animate(
+                                                            CameraUpdateFactory.newLatLngZoom(
+                                                                com.google.android.gms.maps.model.LatLng(lastLoc.latitude, lastLoc.longitude),
+                                                                17f
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                            } catch (_: SecurityException) {}
+                        }
+                    }
+                )
+
+                MapControlCircleButton(
+                    icon = Icons.Default.Explore,
+                    contentDescription = "Compass North",
+                    onClick = {
+                        coroutineScope.launch {
+                            cameraPositionState.animate(
+                                CameraUpdateFactory.newCameraPosition(
+                                    com.google.android.gms.maps.model.CameraPosition.Builder(cameraPositionState.position)
+                                        .bearing(0f)
+                                        .tilt(0f)
+                                        .build()
+                                )
+                            )
+                        }
+                    }
+                )
             }
 
-            var showMapOptions by remember { mutableStateOf(false) }
-            Box(modifier = Modifier.align(Alignment.TopEnd).padding(top = topPadding + 80.dp, end = 12.dp)) {
-                FloatingActionButton(
-                    onClick = { showMapOptions = true },
-                    modifier = Modifier.size(40.dp),
-                    containerColor = MaterialTheme.colorScheme.surface
-                ) {
-                    Icon(Icons.Default.Map, contentDescription = strings.mapLayers, modifier = Modifier.size(20.dp))
-                }
-                
-                DropdownMenu(
-                    expanded = showMapOptions,
-                    onDismissRequest = { showMapOptions = false }
-                ) {
-                    DropdownMenuItem(text = { Text(strings.mapNormal) }, onClick = { mapType = MapType.NORMAL; showMapOptions = false })
-                    DropdownMenuItem(text = { Text(strings.mapSatellite) }, onClick = { mapType = MapType.SATELLITE; showMapOptions = false })
-                    DropdownMenuItem(text = { Text(strings.mapTerrain) }, onClick = { mapType = MapType.TERRAIN; showMapOptions = false })
-                    DropdownMenuItem(text = { Text(strings.mapHybrid) }, onClick = { mapType = MapType.HYBRID; showMapOptions = false })
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = { Text(if (isTrafficEnabled) strings.hideTraffic else strings.showTraffic) },
-                        onClick = { isTrafficEnabled = !isTrafficEnabled; showMapOptions = false }
-                    )
-                }
-            }
-
-            // Emergency Trigger
-            if (uiState.trackingState != TrackingState.IDLE) {
-                Row(
+            // Idle State: Radial Persona Start Button
+            if (uiState.trackingState == TrackingState.IDLE) {
+                RadialStartRideButton(
+                    onStartRide = { persona ->
+                        viewModel.startTracking(context, persona)
+                    },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 16.dp, start = 16.dp, end = 16.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        if (uiState.isEmergencyReady) {
-                            if (uiState.isEmergencyActive) {
-                                Button(
-                                    onClick = { viewModel.stopEmergency() },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.Red,
-                                        contentColor = Color.White
-                                    ),
-                                    modifier = Modifier.height(56.dp).fillMaxWidth()
-                                ) {
-                                    Text(strings.stopEmergencyBroadcast, style = MaterialTheme.typography.labelLarge)
-                                }
-                            } else {
-                                SwipeToTriggerSlider(
-                                    onTriggered = { viewModel.triggerEmergency() }
-                                )
+                        .padding(bottom = 8.dp)
+                )
+
+                // Only show active sharing indicator if a live share session is actively running while idle
+                if (uiState.liveShareState.status == LiveShareStatus.ACTIVE) {
+                    val infiniteTransition = rememberInfiniteTransition(label = "shareBlink")
+                    val blinkAlpha by infiniteTransition.animateFloat(
+                        initialValue = 1f,
+                        targetValue = 0.3f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(800, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "blinkAlpha"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(bottom = 80.dp, end = 16.dp)
+                    ) {
+                        FloatingActionButton(
+                            onClick = {
+                                viewModel.stopLiveShare(context)
+                                android.widget.Toast.makeText(context, "Live Location Sharing Stopped", android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.alpha(blinkAlpha),
+                            containerColor = Color(0xFF4CAF50),
+                            contentColor = Color.White,
+                            shape = androidx.compose.foundation.shape.CircleShape
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(4.dp)) {
+                                Icon(Icons.Default.Share, contentDescription = strings.liveShareButton, modifier = Modifier.size(16.dp))
+                                Text(countdownText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
-            }
-
-            // Live Share Button
-            val infiniteTransition = rememberInfiniteTransition(label = "shareBlink")
-            val blinkAlpha by infiniteTransition.animateFloat(
-                initialValue = 1f,
-                targetValue = 0.3f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(800, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "blinkAlpha"
-            )
-            val isShareActiveWithoutTracking = uiState.liveShareState.status == LiveShareStatus.ACTIVE && uiState.trackingState == TrackingState.IDLE
-
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 88.dp, end = 16.dp)
-            ) {
-                FloatingActionButton(
-                    onClick = {
-                        if (uiState.liveShareState.status == LiveShareStatus.ACTIVE) {
-                            showActiveShareDialog = true
+            } else {
+                // Active Recording / Non-Ideal State HUD Panel
+                ActiveRideHudPanel(
+                    trackingState = uiState.trackingState,
+                    distanceText = uiState.distanceText,
+                    durationText = uiState.durationText,
+                    speedText = uiState.speedText,
+                    selectedPersona = uiState.selectedPersona,
+                    isAutoPaused = uiState.isAutoPaused,
+                    timeSinceLastGps = uiState.timeSinceLastGps,
+                    isEmergencyReady = uiState.isEmergencyReady,
+                    isEmergencyActive = uiState.isEmergencyActive,
+                    liveShareState = uiState.liveShareState,
+                    onPauseToggle = {
+                        if (uiState.trackingState == TrackingState.TRACKING) {
+                            viewModel.pauseTracking(context)
                         } else {
-                            showStartShareDialog = true
+                            viewModel.startTracking(context, uiState.selectedPersona)
                         }
                     },
-                    modifier = Modifier.alpha(if (isShareActiveWithoutTracking) blinkAlpha else 1f),
-                    containerColor = if (uiState.liveShareState.status == LiveShareStatus.ACTIVE) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = if (uiState.liveShareState.status == LiveShareStatus.ACTIVE) Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
-                    shape = androidx.compose.foundation.shape.CircleShape
-                ) {
-                    if (uiState.liveShareState.status == LiveShareStatus.ACTIVE) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(4.dp)) {
-                            Icon(Icons.Default.Share, contentDescription = strings.liveShareButton, modifier = Modifier.size(16.dp))
-                            Text(countdownText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    onStopRide = {
+                        viewModel.stopTracking(context)
+                        android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    onTriggerSos = { viewModel.triggerEmergency() },
+                    onStopSos = { viewModel.stopEmergency() },
+                    onStartShare = {
+                        viewModel.startLiveShare(context, durationMinutes = 1440, stopOnRideEnd = true)
+                    },
+                    onStopShare = {
+                        viewModel.stopLiveShare(context)
+                        android.widget.Toast.makeText(context, "Live Location Sharing Stopped", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    onSendShare = {
+                        val shareLink = uiState.liveShareState.shareLink
+                        if (shareLink != null) {
+                            val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(android.content.Intent.EXTRA_SUBJECT, strings.liveShareButton)
+                                putExtra(android.content.Intent.EXTRA_TEXT, "${strings.liveShareReadyActive}: $shareLink")
+                            }
+                            context.startActivity(android.content.Intent.createChooser(sendIntent, strings.liveShareButton))
                         }
-                    } else {
-                        Icon(Icons.Default.Share, contentDescription = strings.liveShareButton)
-                    }
-                }
+                    },
+                    onCopyShare = {
+                        val shareLink = uiState.liveShareState.shareLink
+                        if (shareLink != null) {
+                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            val clip = android.content.ClipData.newPlainText("Live Share Link", shareLink)
+                            clipboard.setPrimaryClip(clip)
+                            android.widget.Toast.makeText(context, "Shareable link copied!", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 8.dp)
+                )
             }
 
             if (uiState.isEmergencyActive) {
@@ -337,353 +416,7 @@ fun HomeScreen(
                 }
             }
         }
-        
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(strings.rideStats, style = MaterialTheme.typography.titleLarge)
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
-                Text(uiState.distanceText, style = MaterialTheme.typography.titleMedium)
-                Text(uiState.durationText, style = MaterialTheme.typography.titleMedium)
-                Text(uiState.speedText, style = MaterialTheme.typography.titleMedium)
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            AnimatedContent(
-                targetState = uiState.trackingState,
-                transitionSpec = {
-                    fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
-                },
-                label = "TrackingStateAnimation"
-            ) { state ->
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    when (state) {
-                        TrackingState.IDLE -> {
-                            FilledIconButton(
-                                onClick = { viewModel.startTracking(context) },
-                                modifier = Modifier.size(64.dp)
-                            ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = strings.startTracking, modifier = Modifier.size(32.dp))
-                            }
-                        }
-                        TrackingState.TRACKING -> {
-                            FilledIconButton(
-                                onClick = { viewModel.pauseTracking(context) },
-                                modifier = Modifier.size(64.dp)
-                            ) {
-                                Icon(Icons.Default.Pause, contentDescription = strings.pauseTracking, modifier = Modifier.size(32.dp))
-                            }
-                        }
-                        TrackingState.PAUSED, TrackingState.GPS_LOST -> {
-                            FilledIconButton(
-                                onClick = { viewModel.startTracking(context) },
-                                modifier = Modifier.size(64.dp)
-                            ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = strings.resumeTracking, modifier = Modifier.size(32.dp))
-                            }
-                            FilledIconButton(
-                                onClick = { 
-                                    viewModel.stopTracking(context)
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(strings.savingRide)
-                                    }
-                                },
-                                modifier = Modifier.size(64.dp),
-                                colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.error)
-                            ) {
-                                Icon(Icons.Default.Stop, contentDescription = strings.stopTracking, modifier = Modifier.size(32.dp))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (showStartShareDialog) {
-        var shareStopMode by remember { mutableStateOf(0) } // 0 = time, 1 = ride stop
-        var selectedHours by remember { mutableStateOf(0f) }
-        var selectedMinutes by remember { mutableStateOf(45f) }
-        
-        val totalMinutes = (selectedHours.toInt() * 60) + selectedMinutes.toInt()
-        val summaryText = when {
-            shareStopMode == 1 -> strings.activeUntilRideEnds
-            totalMinutes == 0 -> strings.selectDurationWarn
-            selectedHours.toInt() > 0 && selectedMinutes.toInt() > 0 -> "${strings.activeForPrefix}: ${selectedHours.toInt()}h ${selectedMinutes.toInt()}m"
-            selectedHours.toInt() > 0 -> "${strings.activeForPrefix}: ${selectedHours.toInt()} hr"
-            else -> "${strings.activeForPrefix}: ${selectedMinutes.toInt()} mins"
-        }
-        val isDurationValid = shareStopMode == 1 || totalMinutes > 0
-
-        AlertDialog(
-            onDismissRequest = { showStartShareDialog = false },
-            title = {
-                Text(
-                    text = strings.startLiveShareTitle,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Highlighted Summary Banner
-                    Surface(
-                        color = if (isDurationValid) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
-                                .fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = summaryText,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (isDurationValid) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-
-                    Text(
-                        text = strings.selectExpirationMode,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    // Mode 0: Custom Time Card
-                    Card(
-                        onClick = { shareStopMode = 0 },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (shareStopMode == 0) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        ),
-                        border = BorderStroke(
-                            width = if (shareStopMode == 0) 2.dp else 1.dp,
-                            color = if (shareStopMode == 0) MaterialTheme.colorScheme.primary else Color.Transparent
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                RadioButton(
-                                    selected = shareStopMode == 0,
-                                    onClick = { shareStopMode = 0 },
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = strings.afterSpecificTime,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (shareStopMode == 0) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
-
-                            if (shareStopMode == 0) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Column(
-                                    modifier = Modifier
-                                        .padding(start = 28.dp, end = 4.dp)
-                                        .fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    // Hours Slider Compact
-                                    Column {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(strings.hours, style = MaterialTheme.typography.labelMedium)
-                                            Text(
-                                                text = "${selectedHours.toInt()} h",
-                                                style = MaterialTheme.typography.labelLarge,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                        Slider(
-                                            value = selectedHours,
-                                            onValueChange = { selectedHours = it },
-                                            valueRange = 0f..23f,
-                                            steps = 22,
-                                            modifier = Modifier.height(32.dp)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    // Minutes Slider Compact (5 min interval)
-                                    Column {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(strings.minutes, style = MaterialTheme.typography.labelMedium)
-                                            Text(
-                                                text = "${selectedMinutes.toInt()} m",
-                                                style = MaterialTheme.typography.labelLarge,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                        Slider(
-                                            value = selectedMinutes,
-                                            onValueChange = { selectedMinutes = it },
-                                            valueRange = 0f..55f,
-                                            steps = 10,
-                                            modifier = Modifier.height(32.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Mode 1: When Ride Ends Card
-                    Card(
-                        onClick = { shareStopMode = 1 },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (shareStopMode == 1) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        ),
-                        border = BorderStroke(
-                            width = if (shareStopMode == 1) 2.dp else 1.dp,
-                            color = if (shareStopMode == 1) MaterialTheme.colorScheme.primary else Color.Transparent
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .padding(12.dp)
-                                .fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = shareStopMode == 1,
-                                onClick = { shareStopMode = 1 },
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text(
-                                    text = strings.whenRideEnds,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (shareStopMode == 1) FontWeight.Bold else FontWeight.Normal
-                                )
-                                Text(
-                                    text = strings.autoStopWhenRideEnds,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val duration = if (shareStopMode == 0) {
-                            (selectedHours.toInt() * 60) + selectedMinutes.toInt()
-                        } else {
-                            1440 // 24 hours fallback max
-                        }
-                        val stopOnRideEnd = shareStopMode == 1
-                        
-                        val finalDuration = duration.coerceAtLeast(1)
-                        viewModel.startLiveShare(context, finalDuration, stopOnRideEnd)
-                        showStartShareDialog = false
-                    },
-                    enabled = isDurationValid
-                ) {
-                    Text(strings.startSharing)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showStartShareDialog = false }) {
-                    Text(strings.cancel)
-                }
-            }
-        )
-    }
-
-    if (showActiveShareDialog) {
-        AlertDialog(
-            onDismissRequest = { showActiveShareDialog = false },
-            title = { Text(strings.liveLocationActive) },
-            text = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(strings.expiresIn, style = MaterialTheme.typography.bodyMedium)
-                    Text(countdownText, style = MaterialTheme.typography.displaySmall, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            uiState.liveShareState.shareLink?.let { link ->
-                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Share Link", link))
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(strings.linkCopied)
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(strings.copyLink)
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = {
-                            uiState.liveShareState.shareLink?.let { link ->
-                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(android.content.Intent.EXTRA_SUBJECT, strings.shareRideSubject)
-                                    putExtra(android.content.Intent.EXTRA_TEXT, "${strings.shareRideText}: $link")
-                                }
-                                context.startActivity(android.content.Intent.createChooser(intent, strings.shareVia))
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(strings.shareLink)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showActiveShareDialog = false }) {
-                    Text(strings.close)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.stopLiveShare(context)
-                        showActiveShareDialog = false
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
-                ) {
-                    Text(strings.stopSharing)
-                }
-            }
-        )
     }
 }
 }
+

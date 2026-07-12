@@ -31,7 +31,10 @@ data class HomeUiState(
     val isEmergencyActive: Boolean = false,
     val isEmergencyReady: Boolean = false,
     val timeSinceLastGps: Long = 0L,
-    val liveShareState: LiveShareState = LiveShareState()
+    val liveShareState: LiveShareState = LiveShareState(),
+    val isAutoPaused: Boolean = false,
+    val inferredActivityType: `in`.shvms.trackme.domain.processor.InferredActivityType = `in`.shvms.trackme.domain.processor.InferredActivityType.RUN_OR_TREK,
+    val selectedPersona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO
 )
 
 class HomeViewModel(
@@ -58,14 +61,29 @@ class HomeViewModel(
         Triple(duration, speed, timeSinceLastGps)
     }
 
-    private val trackingStats = combine(trackingStatsGroup1, trackingStatsGroup2) { g1, g2 ->
+    private val trackingStatsGroup3 = combine(
+        trackingManager.isAutoPaused,
+        trackingManager.inferredActivityType,
+        trackingManager.selectedPersona
+    ) { isAutoPaused, inferredActivityType, selectedPersona ->
+        Triple(isAutoPaused, inferredActivityType, selectedPersona)
+    }
+
+    private val trackingStats = combine(
+        trackingStatsGroup1,
+        trackingStatsGroup2,
+        trackingStatsGroup3
+    ) { g1, g2, g3 ->
         HomeUiState(
             trackingState = g1.first,
             pathPoints = g1.second,
             distanceText = formatDistance(g1.third),
             durationText = formatDuration(g2.first),
             speedText = formatSpeed(g2.second),
-            timeSinceLastGps = g2.third
+            timeSinceLastGps = g2.third,
+            isAutoPaused = g3.first,
+            inferredActivityType = g3.second,
+            selectedPersona = g3.third
         )
     }
 
@@ -107,7 +125,8 @@ class HomeViewModel(
         return String.format(Locale.getDefault(), "%.1f km/h", speedMps * 3.6f)
     }
 
-    fun startTracking(context: Context) {
+    fun startTracking(context: Context, persona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO) {
+        trackingManager.setSelectedPersona(persona)
         sendCommandToService(context, TrackingService.ACTION_START_OR_RESUME_SERVICE)
     }
 
@@ -151,8 +170,8 @@ class HomeViewModel(
                     val msg = if (isTracking) strings.liveShareReadyActive else strings.liveShareReadyIdle
                     android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                 } else {
-                    val msg = result.exceptionOrNull()?.message ?: strings.unknown
-                    android.widget.Toast.makeText(context, "${strings.liveShareStartFailed}$msg", android.widget.Toast.LENGTH_LONG).show()
+                    val msg = LiveShareManager.formatGracefulError(result.exceptionOrNull())
+                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -166,8 +185,8 @@ class HomeViewModel(
                 if (result.isSuccess) {
                     android.widget.Toast.makeText(context, strings.liveShareStoppedToast, android.widget.Toast.LENGTH_SHORT).show()
                 } else {
-                    val msg = result.exceptionOrNull()?.message ?: strings.unknown
-                    android.widget.Toast.makeText(context, "${strings.liveShareStopFailed}$msg", android.widget.Toast.LENGTH_LONG).show()
+                    val msg = LiveShareManager.formatGracefulError(result.exceptionOrNull())
+                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                 }
             }
         }

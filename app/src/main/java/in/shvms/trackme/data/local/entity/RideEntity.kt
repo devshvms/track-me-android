@@ -24,6 +24,7 @@ data class RideEntity(
     val isSynced: Boolean = false,
     val firestoreId: String? = null,
     val title: String? = null,
+    val persona: String = "AUTO",
     @Embedded
     val postRideCalculation: PostRideCalculation? = null
 )

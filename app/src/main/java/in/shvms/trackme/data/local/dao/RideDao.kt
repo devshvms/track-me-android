@@ -31,6 +31,13 @@ interface RideDao {
     fun getAllRidesWithPoints(): Flow<List<RideWithPoints>>
 
     @Transaction
+    @Query("SELECT * FROM rides WHERE endTime IS NOT NULL AND endTime > 0 ORDER BY startTime DESC")
+    fun getAllCompletedRidesWithPoints(): Flow<List<RideWithPoints>>
+
+    @Query("SELECT * FROM rides WHERE endTime IS NULL OR endTime <= 0")
+    suspend fun getUncompletedRides(): List<RideEntity>
+
+    @Transaction
     @Query("SELECT * FROM rides WHERE id = :rideId")
     suspend fun getRideWithPointsById(rideId: Long): RideWithPoints?
 
@@ -39,6 +46,9 @@ interface RideDao {
     
     @Query("SELECT * FROM gps_points WHERE rideId = :rideId ORDER BY timestamp ASC")
     fun getPointsForRide(rideId: Long): Flow<List<GPSPointEntity>>
+
+    @Query("SELECT * FROM gps_points WHERE rideId = :rideId ORDER BY timestamp ASC")
+    suspend fun getPointsForRideSync(rideId: Long): List<GPSPointEntity>
 
     @Query("DELETE FROM rides WHERE id = :rideId")
     suspend fun deleteRide(rideId: Long): Int

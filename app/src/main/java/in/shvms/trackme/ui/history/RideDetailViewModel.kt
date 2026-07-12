@@ -59,10 +59,15 @@ class RideDetailViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             actionMutex.withLock {
                 try {
+                    val ride = rideDao.getRideWithPointsById(rideId)?.ride
+                    if (ride != null && (ride.endTime == null || ride.endTime <= 0L || `in`.shvms.trackme.service.TrackingService.activeRideId == rideId)) {
+                        _uiEvent.emit(UiEvent.ShowError("Cannot delete an ongoing ride."))
+                        return@withLock
+                    }
+
                     // Always try to delete from Firestore if user is logged in, 
                     // to avoid orphaned data if delete happens right after an edit
                     if (app.authManager.currentUser.value != null) {
-                        val ride = rideDao.getRideWithPointsById(rideId)?.ride
                         val firestoreId = ride?.firestoreId ?: rideId.toString()
                         app.firestoreSyncManager.deleteRide(firestoreId)
                     }

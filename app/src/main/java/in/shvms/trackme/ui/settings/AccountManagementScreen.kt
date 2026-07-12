@@ -35,6 +35,7 @@ fun AccountManagementScreen(
     )
 ) {
     val strings = LocalAppStrings.current
+    val context = LocalContext.current
     val user by viewModel.currentUser.collectAsState()
     var isPrivacyExpanded by remember { mutableStateOf(false) }
     var showSignOutWarning by remember { mutableStateOf(false) }
@@ -205,9 +206,9 @@ fun AccountManagementScreen(
                     scope.launch {
                         val result = viewModel.deleteCloudData()
                         if (result.isSuccess) {
-                            snackbarHostState.showSnackbar(strings.cloudDataDeletedSuccess)
+                            android.widget.Toast.makeText(context, strings.cloudDataDeletedSuccess, android.widget.Toast.LENGTH_SHORT).show()
                         } else {
-                            snackbarHostState.showSnackbar(strings.cloudDataDeletedFailed)
+                            android.widget.Toast.makeText(context, strings.cloudDataDeletedFailed, android.widget.Toast.LENGTH_SHORT).show()
                         }
                     }
                 }) {
@@ -261,10 +262,10 @@ fun AccountManagementScreen(
                             isDeleting = false
                             showDeleteAccountWarning = false
                             if (result.isSuccess) {
-                                snackbarHostState.showSnackbar(strings.accountDeletedSuccess)
+                                android.widget.Toast.makeText(context, strings.accountDeletedSuccess, android.widget.Toast.LENGTH_SHORT).show()
                             } else {
                                 val err = result.exceptionOrNull()?.message ?: strings.unknown
-                                snackbarHostState.showSnackbar("${strings.accountDeletedFailed}$err")
+                                android.widget.Toast.makeText(context, "${strings.accountDeletedFailed}$err", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     },

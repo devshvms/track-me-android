@@ -1,3 +1,6 @@
 /build
-/google-services.json*.keystore
+/release
+*.aab
+*.apk
+*.keystore
 google-services.json

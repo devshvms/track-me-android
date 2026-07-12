@@ -45,25 +45,68 @@ class TrackingService : Service() {
     private var isTimerEnabled = false
     private var timeStarted = 0L
     private var rideDuration = 0L
+    private var elapsedWallClockDuration = 0L
     private var currentPointCount = 0
     private var lastGpsTimeMs = 0L
     private var lastLiveShareTimeMs = 0L
+
+    private val adaptiveAutoPauseEngine = `in`.shvms.trackme.domain.processor.AdaptiveAutoPauseEngine()
+    private lateinit var motionSensorManager: MotionSensorManager
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
             super.onLocationResult(result)
             val location = result.lastLocation ?: return
 
+            // 1. Strict GPS Accuracy Filter: discard indoor/multipath bounce (> 22 meters inaccuracy)
+            if (location.hasAccuracy() && location.accuracy > 22.0f) {
+                return
+            }
+
             if (currentState == TrackingState.TRACKING) {
                 lastGpsTimeMs = System.currentTimeMillis()
-                val speed = if (location.hasSpeed()) location.speed else 0f
-                trackingManager.updateSpeed(speed)
+
+                // 2. Compute true displacement and time delta
+                var distance = 0f
+                var timeDeltaMs = 0L
+                lastLocation?.let { prevLocation ->
+                    distance = prevLocation.distanceTo(location)
+                    timeDeltaMs = location.time - prevLocation.time
+                }
+
+                // 3. Hardware IMU Sensor Fusion: Check linear accelerometer stillness
+                val isHardwareStill = motionSensorManager.isDeviceStationary()
+                val currentlyPaused = trackingManager.isAutoPaused.value
+
+                val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
+                val currentPersona = trackingManager.selectedPersona.value
+                val thresholds = adaptiveAutoPauseEngine.getThresholdsForPersona(currentPersona)
+
+                val rawSpeed = if (location.hasSpeed()) location.speed else 0f
+                val minDistM = thresholds.distanceVariationM
+                val effectiveSpeed = if (isHardwareStill || distance < minDistM || (currentlyPaused && distance < minDistM * 1.5f)) 0f else rawSpeed
+
+                trackingManager.updateSpeed(effectiveSpeed)
+
+                val autoPauseEnabled = prefs.getBoolean("intelligent_auto_pause", true)
+                val isPointPaused = if (autoPauseEnabled) {
+                    if (isHardwareStill || (currentlyPaused && distance < minDistM * 1.5f)) {
+                        true // Hold Auto-Paused against GPS multipath reflections & post-dropout jumps!
+                    } else {
+                        adaptiveAutoPauseEngine.evaluateAutoPause(effectiveSpeed, currentlyPaused, location.time, currentPersona)
+                    }
+                } else {
+                    false
+                }
+                trackingManager.setAutoPaused(isPointPaused)
+                if (autoPauseEnabled) {
+                    trackingManager.setInferredActivityType(adaptiveAutoPauseEngine.updateActivityProfile(effectiveSpeed))
+                }
 
                 val latLng = LatLng(location.latitude, location.longitude)
                 trackingManager.addPathPoint(latLng)
 
-                lastLocation?.let { prevLocation ->
-                    val distance = prevLocation.distanceTo(location)
+                if (!isPointPaused && !isHardwareStill && distance >= 3.5f && effectiveSpeed > 0.5f) {
                     trackingManager.addDistance(distance)
                 }
                 lastLocation = location
@@ -77,9 +120,9 @@ class TrackingService : Service() {
                                 longitude = location.longitude,
                                 altitude = location.altitude,
                                 accuracy = location.accuracy,
-                                speed = speed,
+                                speed = if (isPointPaused) 0f else effectiveSpeed,
                                 timestamp = location.time,
-                                isPaused = false
+                                isPaused = isPointPaused
                             )
                         )
                         currentPointCount++
@@ -122,6 +165,7 @@ class TrackingService : Service() {
     override fun onCreate() {
         super.onCreate()
         locationHelper = LocationHelper(this)
+        motionSensorManager = MotionSensorManager(this)
         val app = application as TrackMeApp
         rideDao = app.database.rideDao()
         trackingManager = app.trackingManager
@@ -154,16 +198,19 @@ class TrackingService : Service() {
         updateState(TrackingState.TRACKING)
         currentPointCount = 0
         lastGpsTimeMs = System.currentTimeMillis()
+        motionSensorManager.startListening()
         
         serviceScope.launch {
             val startTime = System.currentTimeMillis()
             val rideId = rideDao.insertRide(
                 RideEntity(
                     startTime = startTime,
-                    title = RideUtils.getDefaultTitle(startTime)
+                    title = RideUtils.getDefaultTitle(startTime),
+                    persona = trackingManager.selectedPersona.value.name
                 )
             )
             currentRideId = rideId
+            activeRideId = rideId
             locationHelper.startLocationTracking(locationCallback)
         }
         startTimer()
@@ -172,11 +219,13 @@ class TrackingService : Service() {
     private fun pauseTracking() {
         updateState(TrackingState.PAUSED)
         isTimerEnabled = false
+        motionSensorManager.stopListening()
         lastLocation = null // prevent distance jumping when resumed
     }
 
     private fun resumeTracking() {
         updateState(TrackingState.TRACKING)
+        motionSensorManager.startListening()
         currentRideId?.let { rideId ->
             serviceScope.launch {
                 currentPointCount = rideDao.getPointsForRide(rideId).firstOrNull()?.size ?: 0
@@ -192,6 +241,7 @@ class TrackingService : Service() {
     private fun stopTracking() {
         updateState(TrackingState.IDLE)
         isTimerEnabled = false
+        motionSensorManager.stopListening()
         locationHelper.stopLocationTracking(locationCallback)
         
         val finalDistance = trackingManager.totalDistance.value.toDouble()
@@ -202,11 +252,12 @@ class TrackingService : Service() {
         rideDuration = 0L
         lastLocation = null
         currentRideId = null
+        activeRideId = null
         
         stopForeground(STOP_FOREGROUND_REMOVE)
         
         serviceScope.launch {
-            if (liveShareManager.state.value.stopOnRideEnd) {
+            if (liveShareManager.state.value.status == LiveShareStatus.ACTIVE || liveShareManager.state.value.stopOnRideEnd) {
                 liveShareManager.stopSession("Ride ended by user.")
             }
             rideToProcess?.let { rideId ->
@@ -229,9 +280,13 @@ class TrackingService : Service() {
             while (isTimerEnabled) {
                 val currentTime = android.os.SystemClock.elapsedRealtime()
                 val lapTime = currentTime - timeStarted
-                rideDuration += lapTime
+                elapsedWallClockDuration += lapTime
+                if (!trackingManager.isAutoPaused.value) {
+                    rideDuration += lapTime
+                }
                 timeStarted = currentTime
                 trackingManager.updateDuration(rideDuration)
+                trackingManager.updateElapsedDuration(elapsedWallClockDuration)
                 
                 if (currentState == TrackingState.TRACKING && lastGpsTimeMs > 0) {
                     trackingManager.updateTimeSinceLastGps(System.currentTimeMillis() - lastGpsTimeMs)
@@ -335,6 +390,8 @@ class TrackingService : Service() {
         
         currentPointCount = 0
         rideDuration = 0L
+        elapsedWallClockDuration = 0L
+        adaptiveAutoPauseEngine.reset()
         timeStarted = android.os.SystemClock.elapsedRealtime()
         trackingManager.reset()
         
@@ -347,10 +404,12 @@ class TrackingService : Service() {
             val rideId = rideDao.insertRide(
                 RideEntity(
                     startTime = startTime,
-                    title = RideUtils.getDefaultTitle(startTime) + " (Part 2)"
+                    title = RideUtils.getDefaultTitle(startTime) + " (Part 2)",
+                    persona = trackingManager.selectedPersona.value.name
                 )
             )
             currentRideId = rideId
+            activeRideId = rideId
             
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             val splitNotification = NotificationCompat.Builder(this@TrackingService, CHANNEL_ID)
@@ -380,5 +439,9 @@ class TrackingService : Service() {
         const val ACTION_STOP_SERVICE = "ACTION_STOP_SERVICE"
         const val NOTIFICATION_ID = 1
         const val CHANNEL_ID = "tracking_channel"
+
+        @Volatile
+        var activeRideId: Long? = null
+            private set
     }
 }
