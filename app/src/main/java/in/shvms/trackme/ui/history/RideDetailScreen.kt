@@ -297,13 +297,6 @@ fun RideDetailScreen(
                             )
 
                             Marker(
-                                state = MarkerState(position = latLngs.first()),
-                                title = "Start",
-                                snippet = "Start of Ride",
-                                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
-                            )
-
-                            Marker(
                                 state = MarkerState(position = latLngs.last()),
                                 title = "Finish",
                                 snippet = "End of Ride",
@@ -667,11 +660,6 @@ fun RideDetailScreen(
                                 )
                                 if (exportShowMarkers) {
                                     Marker(
-                                        state = MarkerState(position = latLngs.first()),
-                                        title = "Start",
-                                        icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
-                                    )
-                                    Marker(
                                         state = MarkerState(position = latLngs.last()),
                                         title = "Finish",
                                         icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
@@ -753,28 +741,6 @@ fun RideDetailScreen(
                                 Text("Show Markers")
                             }
                         }
-                        
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(strings.routeColor, fontWeight = FontWeight.SemiBold)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf(
-                                    Color(0xFF1565C0), Color(0xFFD32F2F), Color(0xFF388E3C), Color(0xFFF57C00), Color(0xFF7B1FA2), Color.Black
-                                ).forEach { color ->
-                                    Box(
-                                        modifier = Modifier
-                                            .size(28.dp)
-                                            .background(color, shape = androidx.compose.foundation.shape.CircleShape)
-                                            .border(
-                                                width = if (exportRouteColor == color) 2.dp else 0.dp,
-                                                color = if (exportRouteColor == color) MaterialTheme.colorScheme.onSurface else Color.Transparent,
-                                                shape = androidx.compose.foundation.shape.CircleShape
-                                            )
-                                            .clickable { exportRouteColor = color }
-                                    )
-                                }
-                            }
-                        }
-                        
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text("Stats Overlay:", fontWeight = FontWeight.SemiBold)
                             Switch(checked = exportShowStats, onCheckedChange = { exportShowStats = it })
