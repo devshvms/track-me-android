@@ -1,6 +1,7 @@
 name: Play Store Release
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
