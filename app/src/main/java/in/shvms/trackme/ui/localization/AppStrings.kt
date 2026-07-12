@@ -83,7 +83,8 @@ data class AppStrings(
     val privacyAndSecurity: String = "Privacy and Security",
     val privacyPolicyText: String = "Privacy Policy\n\nYour data is completely under your control. We only store data locally by default. If you enable Cloud Sync, your rides are securely stored on our servers. You can permanently delete your synced data or your entire account at any time using the options below. Deleted data cannot be recovered.",
     val deleteCloudData: String = "Delete Cloud Data",
-    val downloadAllMyData: String = "Download All My Data (GPX/JSON Archive)",
+    val downloadAllMyData: String = "Export All Data",
+
     val dataExportSuccess: String = "Archive created! Choose where to save.",
     val dataExportFailed: String = "Failed to export archive",
     val deleteAccountAndData: String = "Delete Account & Data",

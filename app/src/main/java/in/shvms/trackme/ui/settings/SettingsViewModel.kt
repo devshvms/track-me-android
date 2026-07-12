@@ -92,9 +92,10 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
     }
 
     sealed class ExportRequestResult {
-        data class Queued(val email: String, val isExisting: Boolean, val message: String) : ExportRequestResult()
-        data class Completed(val downloadUrl: String, val email: String) : ExportRequestResult()
+        data class Queued(val status: String, val message: String) : ExportRequestResult()
+        data class Completed(val downloadUrl: String) : ExportRequestResult()
     }
+
 
     suspend fun requestCompleteDataExport(): Result<ExportRequestResult> {
         val user = currentUser.value ?: return Result.failure(Exception("You must be logged in to request a complete cloud export."))
@@ -112,13 +113,12 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
                 val status = snapshot.getString("status") ?: "QUEUED"
                 val downloadUrl = snapshot.getString("downloadUrl")
                 if (status == "COMPLETED" && !downloadUrl.isNullOrEmpty()) {
-                    return Result.success(ExportRequestResult.Completed(downloadUrl, email))
+                    return Result.success(ExportRequestResult.Completed(downloadUrl))
                 } else if (status == "QUEUED" || status == "PROCESSING") {
                     return Result.success(
                         ExportRequestResult.Queued(
-                            email = email,
-                            isExisting = true,
-                            message = "Your data export request is currently being processed in our low-traffic batch queue (paced at 1 request every 4 hours).\n\nTap 'Download All My Data' again later—once completed, your direct download link will appear right here!"
+                            status = status,
+                            message = "Your archive is being prepared. Check back shortly—your download link will appear here once ready."
                         )
                     )
                 }
@@ -137,9 +137,8 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
 
             Result.success(
                 ExportRequestResult.Queued(
-                    email = email,
-                    isExisting = false,
-                    message = "Your data export request has been queued for low-traffic batch processing (paced at 1 request every 4 hours).\n\nTap 'Download All My Data' again later once processing completes to download your archive directly!"
+                    status = "QUEUED",
+                    message = "Your export request has been submitted. Archives are generated during off-peak hours.\n\nTap 'Export All Data' again later to download your .zip archive directly."
                 )
             )
 

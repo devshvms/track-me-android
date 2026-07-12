@@ -19,8 +19,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
@@ -44,10 +47,11 @@ fun AccountManagementScreen(
     var showDeleteDataWarning by remember { mutableStateOf(false) }
     var showDeleteAccountWarning by remember { mutableStateOf(false) }
     var isExporting by remember { mutableStateOf(false) }
-    var showExportScheduledDialog by remember { mutableStateOf(false) }
-    var exportDialogTitle by remember { mutableStateOf("") }
+    var showExportDialog by remember { mutableStateOf(false) }
     var exportDialogMessage by remember { mutableStateOf("") }
     var exportDownloadUrl by remember { mutableStateOf<String?>(null) }
+    var exportStatus by remember { mutableStateOf("") }
+
 
 
     
@@ -169,21 +173,19 @@ fun AccountManagementScreen(
                                             if (result.isSuccess && result.getOrNull() != null) {
                                                 when (val statusRes = result.getOrNull()!!) {
                                                     is SettingsViewModel.ExportRequestResult.Completed -> {
-                                                        exportDialogTitle = "Archive Ready for Download 📦"
-                                                        exportDialogMessage = "Your complete data archive has been processed and is ready for download."
+                                                        exportStatus = "COMPLETED"
+                                                        exportDialogMessage = "Your archive is ready."
                                                         exportDownloadUrl = statusRes.downloadUrl
-                                                        showExportScheduledDialog = true
+                                                        showExportDialog = true
                                                     }
                                                     is SettingsViewModel.ExportRequestResult.Queued -> {
-                                                        exportDialogTitle = if (statusRes.isExisting) "Archive Request Processing ⏳" else "Archive Export Scheduled ⏳"
+                                                        exportStatus = statusRes.status
                                                         exportDialogMessage = statusRes.message
                                                         exportDownloadUrl = null
-                                                        showExportScheduledDialog = true
+                                                        showExportDialog = true
                                                     }
-
                                                 }
                                             } else {
-
                                                 android.widget.Toast.makeText(
                                                     context,
                                                     result.exceptionOrNull()?.message ?: strings.dataExportFailed,
@@ -193,6 +195,7 @@ fun AccountManagementScreen(
                                         }
                                     }
                                 },
+
 
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = !isExporting
@@ -345,15 +348,50 @@ fun AccountManagementScreen(
         )
     }
 
-    if (showExportScheduledDialog) {
+    if (showExportDialog) {
         AlertDialog(
-            onDismissRequest = { showExportScheduledDialog = false },
-            title = { Text(exportDialogTitle) },
-            text = { Text(exportDialogMessage) },
+            onDismissRequest = { showExportDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = if (exportStatus == "COMPLETED") "📦" else "⏳",
+                        fontSize = 24.sp
+                    )
+                    Column {
+                        Text(
+                            text = if (exportStatus == "COMPLETED") "Archive Ready" else "Data Export",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = when (exportStatus) {
+                                "COMPLETED" -> "Status: Ready to download"
+                                "PROCESSING" -> "Status: Processing…"
+                                else -> "Status: Queued"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = when (exportStatus) {
+                                "COMPLETED" -> Color(0xFF4ADE80)
+                                "PROCESSING" -> Color(0xFFFBBF24)
+                                else -> Color(0xFF94A3B8)
+                            }
+                        )
+                    }
+                }
+            },
+            text = {
+                Text(
+                    text = exportDialogMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    lineHeight = 22.sp
+                )
+            },
             confirmButton = {
                 if (exportDownloadUrl != null) {
                     Button(onClick = {
-                        showExportScheduledDialog = false
+                        showExportDialog = false
                         try {
                             val intent = android.content.Intent(
                                 android.content.Intent.ACTION_VIEW,
@@ -363,22 +401,24 @@ fun AccountManagementScreen(
                         } catch (e: Exception) {
                             android.widget.Toast.makeText(
                                 context,
-                                "Could not open browser for download",
+                                "Could not open download link",
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         }
                     }) {
+                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text("Download .zip")
                     }
                 } else {
-                    Button(onClick = { showExportScheduledDialog = false }) {
-                        Text(strings.ok)
+                    Button(onClick = { showExportDialog = false }) {
+                        Text("Got it")
                     }
                 }
             },
             dismissButton = {
                 if (exportDownloadUrl != null) {
-                    TextButton(onClick = { showExportScheduledDialog = false }) {
+                    TextButton(onClick = { showExportDialog = false }) {
                         Text(strings.cancel)
                     }
                 }
@@ -386,5 +426,3 @@ fun AccountManagementScreen(
         )
     }
 }
-
-
