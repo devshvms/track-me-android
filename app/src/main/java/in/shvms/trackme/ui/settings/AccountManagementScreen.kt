@@ -394,7 +394,9 @@ fun AccountManagementScreen(
                         showExportDialog = false
                         try {
                             var url = exportDownloadUrl!!
-                            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                            if (url.startsWith("/")) {
+                                url = in.shvms.trackme.config.AppConfig.LIVE_SHARE_BASE_URL + url
+                            } else if (!url.startsWith("http://") && !url.startsWith("https://")) {
                                 url = "https://$url"
                             }
                             
