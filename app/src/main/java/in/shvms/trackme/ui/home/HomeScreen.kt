@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import `in`.shvms.trackme.theme.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -179,7 +180,7 @@ fun HomeScreen(
                     if (uiState.pathPoints.isNotEmpty()) {
                         Polyline(
                             points = uiState.pathPoints,
-                            color = Color.Blue,
+                            color = TrackMeBlue,
                             width = 10f
                         )
                     }
@@ -328,7 +329,7 @@ fun HomeScreen(
                                 android.widget.Toast.makeText(context, "Live Location Sharing Stopped", android.widget.Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier.alpha(blinkAlpha),
-                            containerColor = Color(0xFF4CAF50),
+                            containerColor = TrackMeGreen,
                             contentColor = Color.White,
                             shape = androidx.compose.foundation.shape.CircleShape
                         ) {
@@ -404,7 +405,7 @@ fun HomeScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .border(4.dp, Color.Red)
+                        .border(4.dp, TrackMeRed)
                 ) {
                     Text(
                         text = strings.emergencyBroadcastActive,
@@ -412,7 +413,7 @@ fun HomeScreen(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .padding(top = 16.dp)
-                            .border(2.dp, Color.Red)
+                            .border(2.dp, TrackMeRed)
                             .padding(8.dp),
                         style = MaterialTheme.typography.labelLarge
                     )

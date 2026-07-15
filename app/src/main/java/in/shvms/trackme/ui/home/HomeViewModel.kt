@@ -148,11 +148,26 @@ class HomeViewModel(
         context.startService(intent)
     }
 
+    private var sosStartTimeMs: Long = 0L
+
     fun triggerEmergency() {
+        sosStartTimeMs = System.currentTimeMillis()
+        val loc = trackingManager.pathPoints.value.lastOrNull()
+        `in`.shvms.trackme.analytics.AnalyticsManager.trackSosTriggered(
+            latitude = loc?.latitude ?: 0.0,
+            longitude = loc?.longitude ?: 0.0,
+            triggerMethod = "in_app_button"
+        )
         emergencyManager.triggerEmergency()
     }
 
-    fun stopEmergency() {
+    fun stopEmergency(falseAlarm: Boolean = false) {
+        val duration = if (sosStartTimeMs > 0) (System.currentTimeMillis() - sosStartTimeMs) / 1000L else 0L
+        `in`.shvms.trackme.analytics.AnalyticsManager.trackSosResolved(
+            resolutionTimeSeconds = duration,
+            falseAlarm = falseAlarm
+        )
+        sosStartTimeMs = 0L
         emergencyManager.stopEmergency()
     }
 

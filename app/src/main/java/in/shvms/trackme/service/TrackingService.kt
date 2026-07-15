@@ -215,6 +215,13 @@ class TrackingService : Service() {
             )
             currentRideId = rideId
             activeRideId = rideId
+            
+            `in`.shvms.trackme.analytics.AnalyticsManager.trackRideStarted(
+                rideId = rideId.toString(),
+                startLat = lastLocation?.latitude ?: 0.0,
+                startLng = lastLocation?.longitude ?: 0.0
+            )
+            
             locationHelper.startLocationTracking(locationCallback)
         }
         startTimer()
@@ -372,6 +379,12 @@ class TrackingService : Service() {
                 postRideCalculation = calc
             )
             rideDao.updateRide(finishedRide)
+            
+            `in`.shvms.trackme.analytics.AnalyticsManager.trackRideCompleted(
+                rideId = rideId.toString(),
+                durationSeconds = durationMs / 1000L,
+                distanceKm = (distance / 1000.0).toFloat()
+            )
             
             val prefs = getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
             val disablePostProcessing = prefs.getBoolean("disable_gps_post_processing", false)

@@ -51,6 +51,7 @@ class TrackMeApp : Application() {
         
         errorLogger = CrashlyticsErrorLogger()
         errorLogger.init()
+        `in`.shvms.trackme.analytics.AnalyticsManager.init(this)
 
         preferencesManager = AppPreferencesManager(this)
 

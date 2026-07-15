@@ -19,6 +19,11 @@ import org.json.JSONObject
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
 
 
 
@@ -100,50 +105,54 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
     suspend fun requestCompleteDataExport(): Result<ExportRequestResult> {
         val user = currentUser.value ?: return Result.failure(Exception("You must be logged in to request a complete cloud export."))
         val email = user.email ?: return Result.failure(Exception("No verified email address associated with your account."))
+        
+        `in`.shvms.trackme.analytics.AnalyticsManager.trackDataDownloadRequested()
 
-        return try {
-            val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-            val docRef = db.collection("users")
-                .document(user.uid)
-                .collection("data_export_requests")
-                .document("active_export_request")
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = URL(AppConfig.LIVE_SHARE_BASE_URL + "/api/export/request")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
 
-            val snapshot = docRef.get().await()
-            if (snapshot.exists()) {
-                val status = snapshot.getString("status") ?: "QUEUED"
-                val downloadUrl = snapshot.getString("downloadUrl")
-                if (status == "COMPLETED" && !downloadUrl.isNullOrEmpty()) {
-                    return Result.success(ExportRequestResult.Completed(downloadUrl))
-                } else if (status == "QUEUED" || status == "PROCESSING") {
-                    return Result.success(
-                        ExportRequestResult.Queued(
-                            status = status,
-                            message = "Your archive is being prepared. Check back shortly—your download link will appear here once ready."
-                        )
-                    )
+                val requestBody = JSONObject().apply {
+                    put("userId", user.uid)
+                    put("userEmail", email)
+                    put("clientOS", "Android")
+                    val formats = JSONArray()
+                    formats.put("GPX")
+                    formats.put("JSON_ARCHIVE")
+                    put("exportFormats", formats)
                 }
+
+                OutputStreamWriter(conn.outputStream).use { writer ->
+                    writer.write(requestBody.toString())
+                }
+
+                if (conn.responseCode == 200) {
+                    val responseString = conn.inputStream.bufferedReader().use { it.readText() }
+                    val responseJson = JSONObject(responseString)
+                    val status = responseJson.optString("status", "QUEUED")
+                    val message = responseJson.optString("message", "Your archive is being prepared. Check back shortly—your download link will appear here once ready.")
+                    val downloadUrl = responseJson.optString("downloadUrl")
+
+                    if (status == "COMPLETED" && downloadUrl.isNotEmpty()) {
+                        Result.success(ExportRequestResult.Completed(downloadUrl))
+                    } else {
+                        Result.success(
+                            ExportRequestResult.Queued(
+                                status = status,
+                                message = message
+                            )
+                        )
+                    }
+                } else {
+                    Result.failure(Exception("Failed to request export. Server returned ${conn.responseCode}"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
             }
-
-            val requestData = hashMapOf<String, Any>(
-                "requestId" to "active_export_request",
-                "userId" to user.uid,
-                "userEmail" to email,
-                "status" to "QUEUED",
-                "requestedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
-                "clientOS" to "Android",
-                "exportFormats" to listOf("GPX", "JSON_ARCHIVE")
-            )
-            docRef.set(requestData).await()
-
-            Result.success(
-                ExportRequestResult.Queued(
-                    status = "QUEUED",
-                    message = "Your export request has been submitted. Archives are generated during off-peak hours.\n\nTap 'Export All Data' again later to download your .zip archive directly."
-                )
-            )
-
-        } catch (e: Exception) {
-            Result.failure(e)
         }
     }
 
@@ -227,6 +236,8 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
     }
 
     suspend fun deleteAccountAndData(feedbackText: String): Result<Unit> {
+        `in`.shvms.trackme.analytics.AnalyticsManager.trackAccountDeletionRequested(feedbackText)
+        
         // 1. Submit feedback
         app.firestoreSyncManager.submitFeedback(feedbackText, "account_deletion")
         

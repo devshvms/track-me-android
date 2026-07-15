@@ -1,38 +1,60 @@
 # TrackMe - Product Documentation
 
-Welcome to the TrackMe Product Documentation. This document provides an overview of the product's features, privacy and security postures, technical prerequisites, and target audience.
+Welcome to the TrackMe Product Documentation. This document provides a comprehensive overview of the product's features, privacy postures, technical prerequisites, and target audience. 
 
-## 1. Security and Privacy
+For implementation details, architecture, and code logic, please refer to the [Technical Documentation](technical_documentation.md).
+
+## 1. Core Features & Capabilities
+
+Each feature is designed with a privacy-first, offline-capable approach.
+
+### 1.1. Real-Time Tracking & Ride History
+*   **Product Behavior:** Users can start a ride to record highly accurate GPS tracking with live metric calculations (Current Speed, Altitude, Distance, Duration). Finished rides are saved locally and displayed in a high-density compact list with sticky section headers and vector route thumbnails.
+*   **Privacy Control:** Data is stored locally on the device by default, ensuring offline tracking capabilities.
+*   🔗 **Tech Link:** [Real-Time Tracking Implementation](technical_documentation.md#11-real-time-tracking--ride-history)
+
+### 1.2. Emergency SOS & Safety Beacon
+*   **Product Behavior:** A built-in panic button that sends a formatted SMS with a Google Maps link to predefined emergency contacts. It includes a 5-second cancellation grace period to prevent accidental triggers.
+*   **Privacy Control:** Uses the device's native SMS manager and only accesses location upon explicit SOS trigger.
+*   🔗 **Tech Link:** [Emergency SOS Logic](technical_documentation.md#12-emergency-sos--safety-beacon)
+
+### 1.3. Live Ride Sharing
+*   **Product Behavior:** Users can share their real-time ride progress with friends or family via a secure live-tracking link directly from the Home Screen before or during their ride.
+*   **Privacy Control:** Links are generated per ride and can be revoked. Only users with the link can view the progress.
+*   🔗 **Tech Link:** [Live Ride Sharing Logic](technical_documentation.md#13-live-ride-sharing)
+
+### 1.4. Cloud Synchronization
+*   **Product Behavior:** Seamless, opt-in Google Sign-In and Firestore synchronization. It features automated daily background syncing with lightweight downstream lazy-loading and a manual "Cloud Sync" button.
+*   **Privacy Control:** Opt-in only. Users can manually delete individual rides, purge their history, or sign out to stop cloud sync entirely.
+*   🔗 **Tech Link:** [Cloud Sync Architecture](technical_documentation.md#14-cloud-synchronization)
+
+### 1.5. Data Export & GPX Interoperability
+*   **Product Behavior:** Avoids data lock-in by providing full support for exporting individual routes to standard `.gpx` files for platforms like Strava or Garmin. Users can also request a complete **Asynchronous Data Archive Export** (.zip) of their entire history, which is queued and generated off-peak by the backend API.
+*   🔗 **Tech Link:** [GPX Processing Logic](technical_documentation.md#15-gpx-import--export)
+
+### 1.6. Social Sharing (Image Export)
+*   **Product Behavior:** A WYSIWYG export preview allowing users to frame their route, apply a customized data overlay, and share a high-quality static image of their route to social media.
+*   🔗 **Tech Link:** [Image Export Implementation](technical_documentation.md#16-social-sharing-image-export)
+
+### 1.7. In-App Auto-Update Notifications
+*   **Product Behavior:** Non-blocking version checks on app launch to alert users of new versions. Presents an interactive Material 3 release notes popup when an update is available.
+*   🔗 **Tech Link:** [Auto-Update Flow](technical_documentation.md#17-in-app-auto-update-notifications)
+
+### 1.8. Multi-Language Localization
+*   **Product Behavior:** Built-in dynamic locale support for 7 languages (English, Spanish, French, German, Hindi, Japanese, Chinese) across all application screens.
+*   🔗 **Tech Link:** [Localization Strategy](technical_documentation.md#18-multi-language-localization)
+
+---
+
+## 2. Security, Privacy, and Permissions
 
 TrackMe is built with a **Privacy-First** approach. User location data is highly sensitive, and we provide transparent controls over how data is collected and managed.
 
 ### Permissions: When and For What
 *   **Location (Precise & Approximate)**: Requested when the user starts their first track. Required to record the geographical path.
 *   **Background Location**: Requested optionally for users who want to lock their phones or switch apps while tracking. Without it, tracking stops when the app goes into the background.
-*   **Notifications (Android 13+)**: Requested to show an ongoing notification. Android requires this for Foreground Services so users are explicitly aware the app is running.
-*   **Send SMS**: Requested *only* if the user configures the Emergency SOS feature. Used to broadcast the user's location to designated contacts in an emergency.
-
-### Data Collection and Controls
-*   **Local First**: All GPS data, metrics, and emergency contacts are stored in the device's local SQLite database. TrackMe functions entirely offline without sending data to any servers.
-*   **Opt-In Cloud Backup**: Users can explicitly opt-in to cloud sync by signing in with their Google Account. Data is then backed up securely to Firebase Firestore.
-*   **User Controls**: Users have full control to manually delete individual rides, purge their entire local history, or sign out to stop cloud sync.
-
----
-
-## 2. Prerequisites & Limitations
-
-To ensure the best experience, TrackMe has specific software and hardware prerequisites.
-
-### Software
-*   **Minimum OS**: Android 7.0 (API Level 24).
-*   **Google Play Services**: Required on the device for Google Maps rendering and accurate location fetching.
-
-### Hardware & Connectivity
-*   **GPS Sensor**: **Mandatory**. Devices without a GPS module (e.g., some Wi-Fi only tablets) cannot track rides accurately.
-*   **Internet/Network**: 
-    *   *Not required* for tracking, saving rides, or triggering SMS SOS.
-    *   *Required* for loading map tiles, cloud syncing, and Google Sign-In.
-*   **Cellular / SIM Card**: Required *only* if utilizing the Emergency SOS SMS broadcast feature.
+*   **Notifications (Android 13+)**: Requested to show an ongoing notification (required for Foreground Services).
+*   **Send SMS**: Requested *only* if the user configures the Emergency SOS feature.
 
 ---
 
@@ -61,73 +83,10 @@ graph TD
 
 ---
 
-## 4. System Sequence Diagrams
-
-### Tracking Lifecycle Sequence
-The following sequence outlines how a ride is tracked, processed, and stored.
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant UI as Home Screen
-    participant TM as TrackingManager
-    participant Loc as LocationService
-    participant DB as Local Database
-    
-    User->>UI: Swipes "Start Ride"
-    UI->>TM: startTracking()
-    TM->>Loc: Request Location Updates
-    loop Every 3 seconds
-        Loc-->>TM: Raw GPS Point
-        TM->>TM: Process & Filter Point (Accuracy/Speed Check)
-        TM-->>UI: Update Live Stats (Distance, Speed)
-    end
-    User->>UI: Swipes "Stop Ride"
-    UI->>TM: stopTracking()
-    TM->>DB: Save Ride Details & Points
-    TM-->>UI: End Ride State
-```
-
-### Emergency SOS Sequence
-How the emergency feature operates independently of active tracking.
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant UI as Any Screen (SOS Button)
-    participant EM as EmergencyManager
-    participant SMS as OS SMS Manager
-    
-    User->>UI: Presses SOS Button
-    UI->>EM: triggerEmergency()
-    EM-->>UI: Show 10s Countdown Dialog
-    opt User Cancels
-        User->>UI: Clicks Cancel
-        UI->>EM: cancelEmergency()
-    end
-    EM->>EM: Wait 10 Seconds
-    EM->>Loc: Fetch Last Known Location
-    EM->>SMS: sendTextMessage(Contacts, MapsLink)
-    EM-->>UI: Notify "SOS Sent Successfully"
-```
-
----
-
-## 5. Core Features
-
-1.  **Real-Time Tracking**: Highly accurate GPS tracking with live metric calculations (Current Speed, Altitude, Distance, Duration).
-2.  **Emergency SOS**: A built-in panic button that sends a formatted SMS with a Google Maps link to predefined contacts. Includes a 10-second cancelation grace period.
-3.  **Advanced Analytics**: Historical ride viewer with smooth, interactive line charts plotting speed and altitude over time.
-4.  **Social Image Exporting**: A WYSIWYG export preview allowing users to frame their route, apply a customized data overlay, and share a high-quality image to social media.
-5.  **GPX Support**: Full support for importing and exporting standard `.gpx` files for interoperability with Strava, Garmin, etc.
-6.  **Cloud Backup**: Seamless, opt-in Google Sign-In and Firestore synchronization.
-
----
-
-## 6. Target Audience
+## 4. Target Audience
 
 TrackMe is designed for:
 *   **Cyclists & Mountain Bikers**: Who need offline tracking and altitude metrics on remote trails.
 *   **Runners & Hikers**: Who want a lightweight, ad-free alternative to heavy fitness apps.
 *   **Privacy-Conscious Individuals**: Users who want to track their fitness but refuse to upload their location data to third-party servers by default.
-*   **Safety-Minded Explorers**: Solo adventurers who require the safety net of an offline SMS SOS beacon in case of emergency.
+*   **Safety-Minded Explorers**: Solo adventurers who require the safety net of an offline SMS SOS beacon.

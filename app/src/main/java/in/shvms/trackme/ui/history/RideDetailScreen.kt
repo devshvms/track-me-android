@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import `in`.shvms.trackme.theme.*
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -113,7 +114,7 @@ fun RideDetailScreen(
     
     var exportMapType by remember { mutableStateOf(MapType.NORMAL) }
     var exportHidePOIs by remember { mutableStateOf(false) }
-    var exportRouteColor by remember { mutableStateOf(Color(0xFF1565C0)) }
+    var exportRouteColor by remember { mutableStateOf(TrackMeBlueDark) }
     var exportShowMarkers by remember { mutableStateOf(true) }
     var exportOverlayDarkTheme by remember { mutableStateOf(true) }
     var exportShowDate by remember { mutableStateOf(true) }
@@ -353,7 +354,7 @@ fun RideDetailScreen(
                             }
                             Polyline(
                                 points = latLngs,
-                                color = Color(0xFF1565C0),
+                                color = TrackMeBlueDark,
                                 width = 10f
                             )
 
@@ -455,8 +456,8 @@ fun RideDetailScreen(
                         maxSpeed = maxSpeed,
                         minAlt = minAlt,
                         maxAlt = maxAlt,
-                        speedColor = Color(0xFF4CAF50),
-                        altColor = Color(0xFFFFC107),
+                        speedColor = TrackMeGreen,
+                        altColor = TrackMeAmber,
                         scrubIndex = scrubIndex,
                         modifier = Modifier.fillMaxWidth().height(160.dp).padding(horizontal = 16.dp)
                     )
@@ -487,6 +488,11 @@ fun RideDetailScreen(
                         value = scrubIndex?.toFloat() ?: 0f,
                         onValueChange = { scrubIndex = it.toInt() },
                         valueRange = 0f..(points.size - 1).toFloat(),
+                        colors = SliderDefaults.colors(
+                            thumbColor = TrackMeBlue,
+                            activeTrackColor = TrackMeBlue,
+                            inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                        ),
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                     )
                     
@@ -954,6 +960,9 @@ fun CombinedMetricLineChart(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val width = size.width
             val height = size.height
+            val topPadding = 36f
+            val bottomPadding = 16f
+            val usableHeight = height - topPadding - bottomPadding
 
             val maxX = plotData.last().second.coerceAtLeast(1f)
 
@@ -990,7 +999,7 @@ fun CombinedMetricLineChart(
                     val xVal1 = plotData[i].second
                     val x1 = (xVal1 / maxX) * width
                     val val1 = values[i]
-                    val y1 = height - (((val1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * height)
+                    val y1 = topPadding + usableHeight - (((val1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * usableHeight)
 
                     if (isFirst) {
                         path.moveTo(x1, y1)
@@ -998,7 +1007,7 @@ fun CombinedMetricLineChart(
                     } else {
                         val prevX = (plotData[i - 1].second / maxX) * width
                         val prevVal1 = values[i - 1]
-                        val prevY = height - (((prevVal1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * height)
+                        val prevY = topPadding + usableHeight - (((prevVal1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * usableHeight)
                         val cpX = (prevX + x1) / 2f
                         path.cubicTo(cpX, prevY, cpX, y1, x1, y1)
                     }
@@ -1025,8 +1034,8 @@ fun CombinedMetricLineChart(
                 val sVal = p.speed * 3.6f
                 val aVal = p.altitude.toFloat()
                 
-                val sY = height - (((sVal - minSpeed) / speedRange) * height)
-                val aY = height - (((aVal - minAlt) / altRange) * height)
+                val sY = topPadding + usableHeight - (((sVal - minSpeed) / speedRange) * usableHeight)
+                val aY = topPadding + usableHeight - (((aVal - minAlt) / altRange) * usableHeight)
                 
                 // Draw Speed Intersection
                 drawCircle(color = speedColor, radius = 8f, center = Offset(scrubX, sY))

@@ -4,7 +4,7 @@ This guide provides a high-level overview of the TrackMe Android application's a
 
 ## 1. App Configuration (`AppConfig.kt`)
 
-The central configuration for the app is located in `com.example.trackme.config.AppConfig`. It dictates visual styling, thresholds, and emergency behaviors:
+The central configuration for the app is located in `in.shvms.trackme.config.AppConfig`. It dictates visual styling, thresholds, and emergency behaviors:
 
 *   **Map Rendering Constants:** `MAP_LINE_COLOR`, `MAP_LINE_WEIGHT`, `STATIC_MAP_BASE_URL`
 *   **High Quality Image Export:** Resolutions and aspect ratios (`HQ_IMAGE_WIDTH`, `HQ_IMAGE_RATIO_1_1`, `HQ_IMAGE_RATIO_16_9`), retina scaling.
@@ -13,7 +13,7 @@ The central configuration for the app is located in `com.example.trackme.config.
     *   `SOS_COUNTDOWN_SECONDS`: 5 seconds countdown before broadcasting SOS.
     *   `MAX_HAPTIC_MESSAGES`: 5 broadcast ticks for haptic vibration feedback.
     *   `HAPTIC_VIBRATION_DURATION_MS`: 1000ms duration for each vibration.
-*   **Post Processing:** `MAX_ACCELERATION_G` (1.5f) used by the `GPSProcessor` to filter out impossible speed jumps.
+*   **Post Processing:** `MAX_ACCELERATION_G` (2.0f) used by the `GPSProcessor` to filter out impossible speed jumps.
 
 ## 2. Services Dependency & Interaction
 

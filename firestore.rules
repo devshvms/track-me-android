@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Config: Anyone can read (for app release info & telemetry flag), no client can write
+    match /config/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Users: Only the authenticated user can read and write their own data & subcollections
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Feedback: Anyone can create feedback, but no client can read, edit, or delete existing feedback
+    match /feedbacks/{feedbackId} {
+      allow create: if 
+          request.resource.data.keys().hasAll(['text', 'type', 'timestamp', 'uid']) &&
+          request.resource.data.text is string && request.resource.data.text.size() <= 5000 &&
+          request.resource.data.type is string &&
+          (
+            (request.auth != null && request.resource.data.uid == request.auth.uid) || 
+            (request.auth == null && request.resource.data.uid == 'anonymous')
+          );
+      allow read, update, delete: if false;
+    }
+
+    // Default deny for all other paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

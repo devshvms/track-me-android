@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
+import `in`.shvms.trackme.theme.*
 import `in`.shvms.trackme.ui.components.HapticFeedbackUtils.triggerPhysicalVibrate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -89,9 +90,9 @@ fun InteractiveShareLocationButton(
     }
 
     // Colors for different states
-    val inactiveBgColor = Color(0xFFB0BEC5) // s1: Inactive gray push button
+    val inactiveBgColor = TrackMeGrey // s1: Inactive gray push button
     val activeBgColor = Color(0xFFB3E5FC) // s4: Active cyan/sky blue
-    val optionButtonColor = Color(0xFF29B6F6) // Drawer circle blue
+    val optionButtonColor = TrackMeBlue // Drawer circle blue
 
     // Blinking animation for s3 (STARTING)
     val infiniteTransition = rememberInfiniteTransition(label = "share_blink")
@@ -217,7 +218,7 @@ fun InteractiveShareLocationButton(
                     .size(12.dp)
                     .scale(dotPulse)
                     .clip(CircleShape)
-                    .background(Color(0xFFEF4444))
+                    .background(TrackMeRed)
             )
         }
 
@@ -236,7 +237,7 @@ fun InteractiveShareLocationButton(
                 // 90% transparent background container hugging the circular 52dp buttons
                 Surface(
                     shape = RoundedCornerShape(32.dp),
-                    color = Color(0xFFCFD8DC).copy(alpha = 0.10f),
+                    color = TrackMeGreyLight.copy(alpha = 0.10f),
                     shadowElevation = 0.dp
                 ) {
                     Column(
@@ -272,7 +273,7 @@ fun InteractiveShareLocationButton(
                                 icon = Icons.Default.Stop,
                                 contentDescription = "Stop",
                                 color = Color(0xFFFFCDD2),
-                                iconTint = Color(0xFFC62828),
+                                iconTint = TrackMeRed,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     triggerPhysicalVibrate(context, 65L)
@@ -344,7 +345,7 @@ private fun LiveShareAntennaIcon(tint: Color) {
         Icon(
             imageVector = Icons.Default.Place,
             contentDescription = "Share Pin",
-            tint = Color(0xFFE53935),
+            tint = TrackMeRed,
             modifier = Modifier.size(18.dp)
         )
         Spacer(modifier = Modifier.width(2.dp))
