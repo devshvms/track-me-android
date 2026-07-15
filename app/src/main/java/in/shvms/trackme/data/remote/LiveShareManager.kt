@@ -26,6 +26,7 @@ data class LiveShareState(
     val sessionId: String? = null,
     val shareLink: String? = null,
     val expiresAt: Instant? = null,
+    val startedAt: Instant? = null,
     val stopOnRideEnd: Boolean = false
 )
 
@@ -68,9 +69,13 @@ class LiveShareManager {
                     sessionId = sessionId,
                     shareLink = shareLink,
                     expiresAt = expiresAt,
+                    startedAt = Instant.now(),
                     stopOnRideEnd = stopOnRideEnd
                 )
                 _state.value = newState
+                
+                `in`.shvms.trackme.analytics.AnalyticsManager.trackLiveShareStarted(sessionId, 0)
+                
                 Result.success(newState)
             } else {
                 _state.value = LiveShareState(status = LiveShareStatus.IDLE)
@@ -152,6 +157,12 @@ class LiveShareManager {
                 writer.write(requestBody.toString())
             }
 
+            val durationSecs = currentState.startedAt?.let {
+                java.time.Duration.between(it, Instant.now()).seconds
+            } ?: 0L
+            
+            `in`.shvms.trackme.analytics.AnalyticsManager.trackLiveShareEnded(currentState.sessionId, durationSecs)
+            
             // Regardless of backend response, we stop it locally
             _state.value = LiveShareState(status = LiveShareStatus.IDLE)
             

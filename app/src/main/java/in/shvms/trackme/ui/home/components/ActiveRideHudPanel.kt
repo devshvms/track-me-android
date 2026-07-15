@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import `in`.shvms.trackme.theme.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -87,17 +88,17 @@ fun ActiveRideHudPanel(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Persistent Info Pills Row (Yellow/Orange/Cyan pills)
-        Row(
+        FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             // Persona Pill (Yellow)
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = Color(0xFFFFC107),
+                color = TrackMeAmber,
                 shadowElevation = 2.dp,
                 modifier = Modifier.padding(horizontal = 4.dp)
             ) {
@@ -114,7 +115,7 @@ fun ActiveRideHudPanel(
             if (isAutoPaused) {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFFFF9800),
+                    color = TrackMeOrange,
                     shadowElevation = 2.dp,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
@@ -129,7 +130,7 @@ fun ActiveRideHudPanel(
             } else if (trackingState == TrackingState.PAUSED) {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFFFFB300),
+                    color = TrackMeOrange,
                     shadowElevation = 2.dp,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
@@ -165,7 +166,7 @@ fun ActiveRideHudPanel(
             if (isOffline) {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFF69F0AE),
+                    color = TrackMeGreenLight,
                     shadowElevation = 2.dp,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
@@ -289,9 +290,9 @@ private fun SosButton(
     val buttonScale = remember { Animatable(1f) }
     val coroutineScope = rememberCoroutineScope()
 
-    val inactiveBgColor = Color(0xFFB0BEC5)
-    val readyBgColor = Color(0xFFD32F2F)
-    val activeBgColor = Color(0xFFEF4444)
+    val inactiveBgColor = TrackMeGrey
+    val readyBgColor = TrackMeRed
+    val activeBgColor = TrackMeRedLight
 
     val animatedBgColor by animateColorAsState(
         targetValue = when {
@@ -353,7 +354,7 @@ private fun UnifiedPauseStopPill(
     BoxWithConstraints(
         modifier = modifier
             .clip(CircleShape)
-            .background(Color(0xFF1E88E5))
+            .background(TrackMeBlue)
     ) {
         val halfWidthDp = maxWidth / 2
         val maxSlidePx = with(density) { halfWidthDp.toPx() }
@@ -395,7 +396,7 @@ private fun UnifiedPauseStopPill(
                 .width(halfWidthDp)
                 .fillMaxHeight()
                 .clip(CircleShape)
-                .background(Color(0xFFD32F2F))
+                .background(TrackMeRed)
                 .clickable {
                     if (!isStoppingAcknowledged) {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -454,7 +455,7 @@ private fun UnifiedPauseStopPill(
                     Icon(
                         imageVector = Icons.Default.Stop,
                         contentDescription = "Stop Ride",
-                        tint = Color(0xFFD32F2F),
+                        tint = TrackMeRed,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -467,7 +468,7 @@ private fun UnifiedPauseStopPill(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFFD32F2F))
+                    .background(TrackMeRed)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(

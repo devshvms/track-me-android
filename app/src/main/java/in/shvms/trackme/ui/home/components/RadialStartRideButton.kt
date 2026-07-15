@@ -6,6 +6,7 @@ import android.os.Vibrator
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import `in`.shvms.trackme.theme.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -148,7 +149,7 @@ fun RadialStartRideButton(
                         .size(56.dp)
                         .clip(CircleShape)
                         .background(
-                            color = if (isHovered) Color(0xFF4CAF50) else Color(0xFF66BB6A).copy(alpha = 0.8f)
+                            color = if (isHovered) TrackMeGreen else TrackMeGreenLight.copy(alpha = 0.8f)
                         )
                         .border(
                             width = if (isHovered) 2.dp else 0.dp,
@@ -183,7 +184,7 @@ fun RadialStartRideButton(
                     .scale(pulseScale)
                     .size(86.dp)
                     .clip(CircleShape)
-                    .border(2.dp, Color(0xFF4CAF50).copy(alpha = pulseAlpha), CircleShape)
+                    .border(2.dp, TrackMeGreen.copy(alpha = pulseAlpha), CircleShape)
             )
         }
 
@@ -203,7 +204,7 @@ fun RadialStartRideButton(
                 .scale(centerScale)
                 .size(86.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF4CAF50))
+                .background(TrackMeGreen)
                 .border(2.dp, Color.White.copy(alpha = 0.4f), CircleShape)
                 .pointerInput(Unit) {
                     awaitEachGesture {
@@ -265,13 +266,13 @@ fun RadialStartRideButton(
                     )
                     Text(
                         text = "STARTING",
-                        color = Color.Black.copy(alpha = 0.7f),
+                        color = Color.White.copy(alpha = 0.7f),
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = currentLaunch.displayName.uppercase(),
-                        color = Color.Black,
+                        color = Color.White,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black
                     )
@@ -284,13 +285,13 @@ fun RadialStartRideButton(
                         )
                         Text(
                             text = currentHover.displayName.uppercase(),
-                            color = Color.Black,
+                            color = Color.White,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Black
                         )
                         Text(
                             text = "RELEASE",
-                            color = Color.Black.copy(alpha = 0.7f),
+                            color = Color.White.copy(alpha = 0.7f),
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -301,13 +302,13 @@ fun RadialStartRideButton(
                         )
                         Text(
                             text = "AUTO",
-                            color = Color.Black,
+                            color = Color.White,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Black
                         )
                         Text(
                             text = "DRAG TO SELECT",
-                            color = Color.Black.copy(alpha = 0.7f),
+                            color = Color.White.copy(alpha = 0.7f),
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -316,7 +317,7 @@ fun RadialStartRideButton(
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = "Start Ride",
-                        tint = Color.Black,
+                        tint = Color.White,
                         modifier = Modifier.size(46.dp)
                     )
                 }

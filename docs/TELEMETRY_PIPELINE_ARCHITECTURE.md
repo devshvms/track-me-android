@@ -119,7 +119,7 @@ When the user taps **Stop & Save Ride**, `TrackingService.finalizeRide` calls [`
         ▼
 ┌────────────────────────────────────────────────────────┐
 │ Step A: Kinematic Outlier Removal                      │
-│         Discard points requiring acceleration > 2.5G   │
+│         Discard points requiring acceleration > 2.0G   │
 └──────────────────────────────────┬─────────────────────┘
                                    │
                                    ▼
@@ -143,7 +143,7 @@ When the user taps **Stop & Save Ride**, `TrackingService.finalizeRide` calls [`
 
 ### Step A: Kinematic Outlier Removal
 * Computes acceleration between successive points: $a = \frac{\Delta v}{\Delta t}$.
-* Any point requiring an acceleration $> 2.5G$ ($> 24.5\text{ m/s}^2$) is discarded. Records `maxAcceleration` and `rawPointCount`.
+* Any point requiring an acceleration $> 2.0G$ ($> 19.6\text{ m/s}^2$) is discarded. Records `maxAcceleration` and `rawPointCount`.
 
 ### Step B: Altitude & Speed Smoothing
 * Applies a 5-point moving average across `altitude` and `speed` to remove GPS sensor noise.

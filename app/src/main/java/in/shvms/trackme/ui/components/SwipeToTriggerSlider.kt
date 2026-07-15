@@ -3,6 +3,7 @@ package `in`.shvms.trackme.ui.components
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import `in`.shvms.trackme.theme.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -130,7 +131,7 @@ fun SwipeToTriggerSlider(
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(animatedProgress)
-                    .background(Color(0xFFB71C1C)) // Darker red
+                    .background(TrackMeRed) // Darker red
             )
             
             // Cancel button overlay

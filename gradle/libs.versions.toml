@@ -26,6 +26,7 @@ googleid = "1.1.1"
 crashlyticsPlugin = "3.0.2"
 coil = "2.6.0"
 mapsUtils = "3.8.2"
+posthog = "3.4.0"
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivity" }
@@ -67,6 +68,7 @@ credentials-play-services-auth = { module = "androidx.credentials:credentials-pl
 googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 maps-utils = { module = "com.google.maps.android:android-maps-utils", version.ref = "mapsUtils" }
+posthog = { module = "com.posthog:posthog-android", version.ref = "posthog" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

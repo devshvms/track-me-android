@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.List
@@ -38,6 +39,23 @@ fun MainNavigation() {
     val items = listOf(strings.navHome, strings.navHistory, strings.navSettings)
     val routes = listOf("home", "history", "settings")
     val icons = listOf(Icons.Default.Home, Icons.Default.History, Icons.Default.Settings)
+
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    var currentScreenStartTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var currentScreenName by remember { mutableStateOf("") }
+
+    LaunchedEffect(navBackStackEntry) {
+        val route = navBackStackEntry?.destination?.route ?: return@LaunchedEffect
+        val now = System.currentTimeMillis()
+        if (currentScreenName.isNotEmpty() && currentScreenName != route) {
+            val duration = (now - currentScreenStartTime) / 1000L
+            `in`.shvms.trackme.analytics.AnalyticsManager.trackScreenViewed(currentScreenName, duration)
+        }
+        if (currentScreenName != route) {
+            currentScreenName = route
+            currentScreenStartTime = now
+        }
+    }
 
     CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
         Scaffold(

@@ -61,6 +61,16 @@ class AuthManager {
                 val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
                 val firebaseCredential = GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
                 val authResult = auth.signInWithCredential(firebaseCredential).await()
+                
+                authResult.user?.uid?.let { uid ->
+                    `in`.shvms.trackme.analytics.AnalyticsManager.identifyUser(uid)
+                    if (authResult.additionalUserInfo?.isNewUser == true) {
+                        `in`.shvms.trackme.analytics.AnalyticsManager.trackUserSignedUp()
+                    } else {
+                        `in`.shvms.trackme.analytics.AnalyticsManager.trackUserLoggedIn()
+                    }
+                }
+                
                 return Result.success(authResult.user!!)
             } catch (e: Exception) {
                 return Result.failure(e)

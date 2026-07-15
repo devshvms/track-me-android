@@ -97,6 +97,7 @@ fun MapLayerHorizontalDrawerButton(
     modifier: Modifier = Modifier
 ) {
     var isDrawerOpen by remember { mutableStateOf(false) }
+    var lastDismissTime by remember { mutableStateOf(0L) }
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -142,8 +143,11 @@ fun MapLayerHorizontalDrawerButton(
             modifier = Modifier
                 .size(52.dp)
                 .clickable {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    isDrawerOpen = !isDrawerOpen
+                    val now = System.currentTimeMillis()
+                    if (now - lastDismissTime > 100L) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isDrawerOpen = !isDrawerOpen
+                    }
                 }
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -182,12 +186,15 @@ fun MapLayerHorizontalDrawerButton(
         // Horizontal pill drawer opening left-to-right next to the button
         if (isDrawerOpen) {
             val popupOffsetX = remember(density) {
-                with(density) { -62.dp.roundToPx() }
+                with(density) { -58.dp.roundToPx() }
             }
             Popup(
                 alignment = Alignment.CenterEnd,
                 offset = IntOffset(popupOffsetX, 0),
-                onDismissRequest = { isDrawerOpen = false },
+                onDismissRequest = {
+                    isDrawerOpen = false
+                    lastDismissTime = System.currentTimeMillis()
+                },
                 properties = PopupProperties(focusable = true)
             ) {
                 // 90% transparent background container hugging the circular 52dp option buttons horizontally
@@ -198,8 +205,8 @@ fun MapLayerHorizontalDrawerButton(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
                     ) {
                         MapLayerOptionButton(
                             icon = Icons.Default.Map,
@@ -251,6 +258,7 @@ fun MapLayerHorizontalDrawerButton(
                                 isDrawerOpen = false
                             }
                         )
+                        Spacer(modifier = Modifier.width(10.dp))
                     }
                 }
             }
@@ -273,7 +281,7 @@ private fun MapLayerOptionButton(
         color = bgColor,
         shadowElevation = 2.dp,
         modifier = Modifier
-            .size(52.dp)
+            .size(42.dp)
             .clickable(onClick = onClick)
     ) {
         Box(contentAlignment = Alignment.Center) {

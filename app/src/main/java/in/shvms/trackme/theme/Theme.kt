@@ -10,24 +10,37 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme = darkColorScheme(primary = Purple80, secondary = PurpleGrey80, tertiary = Pink80)
+import androidx.compose.ui.graphics.Color
 
-private val LightColorScheme =
-  lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
+private val DarkColorScheme = darkColorScheme(
+    primary = TrackMeBlue,
+    secondary = TrackMeGreen,
+    tertiary = TrackMeAmber,
+    background = Color(0xFF121212),
+    surface = Color(0xFF1E1E1E),
+    onPrimary = Color.White,
+    onSecondary = Color.Black,
+    onTertiary = Color.Black,
+    onBackground = Color(0xFFE3E2E6),
+    onSurface = Color(0xFFE3E2E6),
+    surfaceVariant = Color(0xFF43474E),
+    onSurfaceVariant = Color(0xFFC3C7D0)
+)
 
-    /* Other default colors to override
+private val LightColorScheme = lightColorScheme(
+    primary = TrackMeBlue,
+    secondary = TrackMeGreen,
+    tertiary = TrackMeAmber,
     background = Color(0xFFFFFBFE),
     surface = Color(0xFFFFFBFE),
     onPrimary = Color.White,
     onSecondary = Color.White,
-    onTertiary = Color.White,
+    onTertiary = Color.Black,
     onBackground = Color(0xFF1C1B1F),
     onSurface = Color(0xFF1C1B1F),
-    */
-  )
+    surfaceVariant = Color(0xFFE1E2EC),
+    onSurfaceVariant = Color(0xFF44474F)
+)
 
 @Composable
 fun TrackMeTheme(

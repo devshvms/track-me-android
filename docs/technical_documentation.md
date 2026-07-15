@@ -1,116 +1,119 @@
 # TrackMe Android - Technical Documentation
 
-Welcome to the TrackMe technical documentation. This guide is intended to help engineers understand the architecture, dependencies, and configuration of the project.
+Welcome to the TrackMe technical documentation. This guide is intended to help engineers understand the architecture, dependencies, and feature implementations of the project.
 
-## 1. Technical Dependencies
+For product vision, feature behavior, and UX flows, please refer to the [Product Documentation](product_documentation.md).
 
-TrackMe is built using modern Android development practices. Here are the core dependencies:
+## 1. Feature Implementations & Logic
 
-### Core & UI
-*   **Kotlin (1.9+)**: The primary programming language.
-*   **Jetpack Compose**: The modern declarative UI toolkit used for all screens.
-*   **Navigation Compose**: For in-app routing between screens.
-*   **Material 3**: The design system components used throughout the app.
+This section breaks down the technical implementation for the core features described in the product docs.
 
-### Architecture & Async
-*   **Coroutines & Flow**: Used for asynchronous programming, background tasks, and reactive data streams.
-*   **Lifecycle & ViewModel**: For managing UI state and surviving configuration changes.
+### 1.1. Real-Time Tracking & Ride History
+*   **Implementation:** Utilizes an Android Foreground Service (`TrackingService.kt`) to ensure tracking survives configuration changes and backgrounding. GPS points are fetched via `FusedLocationProviderClient`.
+*   **Data Flow:** `TrackingManager.kt` receives raw GPS points, passes them to `GPSProcessor.kt` for accuracy/speed filtering, and emits updates to `HomeViewModel` via `StateFlow`.
+*   **Storage:** Rides are saved to the local SQLite database using Room (`RideDao`). UI lists use `stickyHeader` for grouped views.
+*   🔗 **Product Link:** [Real-Time Tracking Feature](product_documentation.md#11-real-time-tracking--ride-history)
 
-### Data Storage & Cloud
-*   **Room Database**: Local SQLite abstraction for persisting ride data, GPS points, and emergency contacts.
-*   **Firebase**:
-    *   **Auth**: Integrated via `androidx.credentials` (Google Sign-In).
-    *   **Firestore**: For cloud syncing and backup of user data.
-    *   **Crashlytics**: For remote error and crash logging.
+### 1.2. Emergency SOS & Safety Beacon
+*   **Implementation:** Handled by `EmergencyManager.kt`. When triggered, it initiates a 5-second coroutine delay (cancellation grace period). 
+*   **Action:** If not canceled, it retrieves the last known location, formats a Google Maps URL, and uses `SmsManager` to broadcast the message to contacts stored in Room (`EmergencyDao`).
+*   🔗 **Product Link:** [Emergency SOS Feature](product_documentation.md#12-emergency-sos--safety-beacon)
 
-### Location & Maps
-*   **Google Play Services Location**: For fetching high-accuracy GPS coordinates via `FusedLocationProviderClient`.
-*   **Google Maps SDK**: For rendering maps (`play-services-maps`) and **Maps Compose** for declarative map integration.
-*   **Google Maps Utils**: For spherical geometry calculations and polyline utilities.
+### 1.3. Live Ride Sharing
+*   **Implementation:** Upon ride creation, if live sharing is enabled, a unique ride session ID is generated. 
+*   **Data Sync:** The app streams real-time `(latitude, longitude, timestamp)` points to a specific Firebase Realtime Database or Firestore document. The shareable link points to a web viewer (or deep links) mapped to this session ID.
+*   🔗 **Product Link:** [Live Ride Sharing Feature](product_documentation.md#13-live-ride-sharing)
 
-### Utilities
-*   **Vico Charts**: For rendering the speed and altitude graphs in the Ride Detail screen.
-*   **Coil Compose**: For image loading (if needed).
+### 1.4. Cloud Synchronization
+*   **Implementation:** Uses Jetpack `WorkManager` (`SyncWorker.kt`) for background, periodic syncing.
+*   **Database:** Combines Room (Local Source of Truth) and Firebase Firestore (Remote Backup). `FirestoreSyncManager` handles upstream inserts and lazy downstream fetches based on timestamp resolution to avoid conflicts.
+*   🔗 **Product Link:** [Cloud Sync Feature](product_documentation.md#14-cloud-synchronization)
+
+### 1.5. Data Export & GPX Interoperability
+*   **Local GPX:** Implemented via Strategy/Adapter pattern. `GPXExporter.kt` formats local points into GPX 1.1 XML. `GPXParser.kt` ingests `.gpx` files to map to Room entities.
+*   **Asynchronous Archive Export:** Complete historical data can be exported via a `POST` request to the `/api/export/request` backend endpoint. `SettingsViewModel.kt` submits the request and polls status via HTTP, aligning with backend queuing and rate-limiting policies.
+*   🔗 **Product Link:** [Data Export & GPX Interoperability](product_documentation.md#15-data-export--gpx-interoperability)
+
+### 1.6. Social Sharing (Image Export)
+*   **Implementation:** Uses the Google Static Maps API to render the route polyline onto a static image map tile. 
+*   **Processing:** `NativeSnapshotImageExporterImpl` overlays application statistics (distance, time) on top of the map bitmap using Android `Canvas` APIs before saving to local storage or opening the Share sheet.
+*   🔗 **Product Link:** [Social Sharing Feature](product_documentation.md#16-social-sharing-image-export)
+
+### 1.7. In-App Auto-Update Notifications
+*   **Implementation:** On `MainActivity` initialization, the app queries Firebase Remote Config (`config/app_release`) and optionally the GitHub Releases API to compare the current `BuildConfig.VERSION_CODE` against the latest available version.
+*   **Action:** Displays a Material 3 dialog containing the markdown release notes if a newer version is detected.
+*   🔗 **Product Link:** [Auto-Update Feature](product_documentation.md#17-in-app-auto-update-notifications)
+
+### 1.8. Multi-Language Localization
+*   **Implementation:** Relies on standard Android `strings.xml` resource buckets (`values-es`, `values-fr`, etc.). App-level locale changes are handled via Android 13's per-app language preferences (`LocaleManager`) which dynamically updates the configuration context without requiring a hard restart.
+*   🔗 **Product Link:** [Localization Feature](product_documentation.md#18-multi-language-localization)
 
 ---
 
-## 2. Codebase Structure (What to find where)
+## 2. Technical Architecture & Dependencies
 
-The project follows a feature-based and layer-based hybrid structure under `app/src/main/java/in/shvms/trackme/`:
+### Core & UI
+*   **Kotlin (1.9+)**: Primary language.
+*   **Jetpack Compose & Material 3**: Declarative UI toolkit.
+*   **Navigation Compose**: Screen routing.
+
+### Data Storage, Cloud & Networking
+*   **Room Database**: Local SQLite abstraction.
+*   **Firebase**: Auth (Google Sign-In), Firestore, Crashlytics.
+*   **Networking**: Standard `HttpURLConnection` for communicating with the backend API (`/api/track` and `/api/export`).
+
+### Architecture Patterns
+1.  **MVVM (Model-View-ViewModel)**: UI observes `StateFlow`. ViewModels handle intents.
+2.  **Repository Pattern**: `DataRepository` abstracts Room and Firestore.
+3.  **Observer Pattern**: Heavy use of Kotlin Coroutines & Flow.
+
+---
+
+## 3. Codebase Structure
 
 ```
 trackme/
-├── MainActivity.kt         // Entry point of the Android application.
-├── TrackMeApp.kt           // Main Compose entry containing the Scaffold and global Snackbar.
-├── Navigation.kt           // Defines the Navigation Graph and routes (Home, History, Settings, etc.).
-├── config/
-│   └── AppConfig.kt        // Global configuration constants (Map colors, export sizes, etc.).
-├── auth/
-│   └── AuthManager.kt      // Google Sign-In and Credential Manager integration.
-├── ui/                     // UI Layer (Compose Screens and ViewModels)
-│   ├── components/         // Reusable Compose components (e.g., SwipeToTriggerSlider).
-│   ├── home/               // HomeScreen and HomeViewModel (Active tracking UI).
-│   ├── history/            // HistoryScreen, RideDetailScreen and ViewModels (Past rides).
-│   └── settings/           // SettingsScreen, EmergencySetupScreen, AccountManagementScreen.
-├── service/                // Background Services and Device Integration
-│   ├── TrackingService.kt  // Android Foreground Service ensuring OS doesn't kill tracking.
-│   ├── LocationHelper.kt   // Wraps FusedLocationProviderClient.
-│   ├── EmergencyManager.kt // Handles sending SMS and emergency logic.
-│   ├── EmergencyBroadcastWorker.kt // WorkManager task for delayed emergency broadcasts.
-│   └── TrackingManager.kt  // Singleton managing the tracking state across the app.
-├── data/                   // Data Layer
-│   ├── DataRepository.kt   // Single source of truth abstracting DB and Network.
-│   ├── local/              // Room Database, DAOs (RideDao, EmergencyDao), Entities.
-│   └── remote/             // FirestoreSyncManager for uploading/downloading rides.
-├── domain/                 // Business Logic Use Cases
-│   ├── processor/          // GPSProcessor (Filters inaccurate points, calculates distance).
-│   ├── export/             // Exporters (NativeSnapshotImageExporterImpl, GPXExporter).
-│   └── import/             // GPXParser (Parsing GPX files to Ride entities).
-└── utils/
-    └── logger/             // CrashlyticsErrorLogger for non-fatal exception tracking.
+├── MainActivity.kt         // Entry point
+├── Navigation.kt           // Defines Nav Graph
+├── ui/                     // Compose Screens and ViewModels
+├── service/                // TrackingService, EmergencyManager
+├── data/                   // Repository, local (Room), remote (Firestore)
+├── domain/                 // Business Logic (GPSProcessor, Exporters)
+└── utils/                  // Loggers, helpers
 ```
 
 ---
 
-## 3. Credentials and Configuration Management
+## 4. Credentials and Configuration
 
-### Secrets & API Keys
-Secrets are **not** checked into version control. They are managed via `local.properties` or environment variables:
-*   `MAPS_API_KEY`: Injected into the `AndroidManifest.xml` via Gradle `resValue`.
-*   `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`: Used for signing the Release APK.
-*   `google-services.json`: Downloaded from the Firebase Console and placed in the `app/` directory to configure Firebase services.
-
-### App Configuration
-*   **`AppConfig.kt`**: Contains all non-secret business constants. This includes map overlay colors, static map URLs, image export aspect ratios, and padding configurations. It serves as the single source of truth for technical product configurations.
+*   **`local.properties`**: API Keys (`MAPS_API_KEY`) and Keystore passwords are kept here and NOT checked into version control.
+*   **`google-services.json`**: Firebase configuration file placed in `app/`.
+*   **`AppConfig.kt`**: Contains all non-secret business constants (colors, map styles, padding).
 
 ---
 
-## 4. Technical Design Patterns
+## 5. System Sequence Diagrams
 
-### Implemented Patterns
-1.  **MVVM (Model-View-ViewModel)**: The core architecture. UI screens are stateless and observe `StateFlow` from ViewModels. ViewModels handle user intents and communicate with the Repository.
-2.  **Repository Pattern**: `DataRepository` abstracts the origin of data. The rest of the app doesn't know if data comes from Room or Firestore.
-3.  **Singleton Pattern**: Used for core managers (`TrackingManager`, `AuthManager`) that need a single global lifecycle matching the Application.
-4.  **Observer Pattern**: Implemented heavily via Kotlin `Flow` and `StateFlow` for reactive UI updates (e.g., location updates stream from `TrackingManager` to `HomeViewModel`).
-5.  **Strategy/Adapter Pattern**: Used in Exporters (`ImageExporter`, `GPXExporter`) to allow swapping out export logic.
+### Tracking Lifecycle Sequence
 
-### Areas for Improvement
-1.  **Dependency Injection**: Currently, the app uses manual dependency injection or passing Singletons directly. **Action**: Implement **Hilt/Dagger** to manage dependencies cleanly, which will improve testability.
-2.  **Domain Layer Isolation**: The domain layer currently depends on some Android framework classes. **Action**: Create pure Kotlin UseCases to further decouple business logic from the Android SDK.
-3.  **Testing**: Introduce more robust Unit Tests for `GPSProcessor` and UI Tests for Compose components.
-
----
-
-## 5. Developer Onboarding (Getting Started)
-
-1.  **Clone the Repo**.
-2.  Create a `local.properties` file in the root directory and add:
-    ```properties
-    MAPS_API_KEY=your_google_maps_api_key_here
-    ```
-3.  Obtain the `google-services.json` file from the lead engineer and place it in the `app/` folder.
-4.  Sync Gradle. The app uses Kotlin DSL (`build.gradle.kts`) and version catalogs (if migrated) or direct dependencies.
-5.  Run on an emulator or physical device. **Note**: A physical device is recommended for testing GPS and SMS emergency features.
-
-> [!TIP]
-> When debugging location issues, check `GPSProcessor.kt`. This class contains the filtering algorithms that discard inaccurate points or points that violate speed constraints.
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as Home Screen
+    participant TM as TrackingManager
+    participant Loc as LocationService
+    participant DB as Local Database
+    
+    User->>UI: Swipes "Start Ride"
+    UI->>TM: startTracking()
+    TM->>Loc: Request Location Updates
+    loop Every 3 seconds
+        Loc-->>TM: Raw GPS Point
+        TM->>TM: Process & Filter Point (Accuracy/Speed Check)
+        TM-->>UI: Update Live Stats (Distance, Speed)
+    end
+    User->>UI: Swipes "Stop Ride"
+    UI->>TM: stopTracking()
+    TM->>DB: Save Ride Details & Points
+    TM-->>UI: End Ride State
+```
