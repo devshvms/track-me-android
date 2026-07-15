@@ -395,16 +395,18 @@ fun AccountManagementScreen(
                         try {
                             var url = exportDownloadUrl!!
                             if (url.startsWith("/")) {
-                                url = in.shvms.trackme.config.AppConfig.LIVE_SHARE_BASE_URL + url
+                                url = `in`.shvms.trackme.config.AppConfig.LIVE_SHARE_BASE_URL + url
                             } else if (!url.startsWith("http://") && !url.startsWith("https://")) {
                                 url = "https://$url"
                             }
                             
+                            val filename = "trackme_archive_${System.currentTimeMillis()}.zip"
                             val request = android.app.DownloadManager.Request(android.net.Uri.parse(url))
                                 .setTitle("TrackMe Data Archive")
                                 .setDescription("Downloading your exported data archive")
+                                .setMimeType("application/zip")
                                 .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                                .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "trackme_archive.zip")
+                                .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, filename)
 
                             val downloadManager = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
                             downloadManager.enqueue(request)
