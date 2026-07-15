@@ -393,15 +393,29 @@ fun AccountManagementScreen(
                     Button(onClick = {
                         showExportDialog = false
                         try {
-                            val intent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse(exportDownloadUrl)
-                            )
-                            context.startActivity(intent)
+                            var url = exportDownloadUrl
+                            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                                url = "https://$url"
+                            }
+                            
+                            val request = android.app.DownloadManager.Request(android.net.Uri.parse(url))
+                                .setTitle("TrackMe Data Archive")
+                                .setDescription("Downloading your exported data archive")
+                                .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "trackme_archive.zip")
+
+                            val downloadManager = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+                            downloadManager.enqueue(request)
+
+                            android.widget.Toast.makeText(
+                                context,
+                                "Download started",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
                         } catch (e: Exception) {
                             android.widget.Toast.makeText(
                                 context,
-                                "Could not open download link",
+                                "Could not start download",
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         }
