@@ -393,7 +393,7 @@ fun AccountManagementScreen(
                     Button(onClick = {
                         showExportDialog = false
                         try {
-                            var url = exportDownloadUrl
+                            var url = exportDownloadUrl!!
                             if (!url.startsWith("http://") && !url.startsWith("https://")) {
                                 url = "https://$url"
                             }
