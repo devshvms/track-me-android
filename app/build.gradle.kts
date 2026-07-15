@@ -31,8 +31,8 @@ android {
         applicationId = "in.shvms.trackme"
         minSdk = 24
         targetSdk = 36
-        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "12").toInt()
-        versionName = "1.5.1"
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "13").toInt()
+        versionName = "1.5.2"
         
         resValue("string", "google_maps_key", mapsApiKey)
         buildConfigField("String", "POSTHOG_API_KEY", "\"$posthogApiKey\"")
