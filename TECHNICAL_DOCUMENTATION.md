@@ -105,5 +105,8 @@ Our UI is 100% declarative, built with Jetpack Compose following Material 3 prin
 > **Refinement:** Transitioned to a strict "Offline-First" model. All real-time data is piped exclusively to the local Room `AppDatabase`. The `FirestoreSyncManager` was introduced as an asynchronous worker that batches and syncs data in the background *after* the ride concludes or when network conditions become favorable.
 
 ### 🔄 Iteration 3: UI State & Memory Leak Review (Reviewer: Mobile UX Lead)
-> **Critique:** Exposing raw Room LiveData directly to Compose caused excessive recompositions when processing thousands of GPS points, leading to jank on the `RideDetailScreen`.
 > **Refinement:** Migrated all UI bindings to Kotlin `StateFlow`. ViewModels now throttle and map database emissions into distinct UI States. Furthermore, we implemented `RideWithPoints` relational queries to lazily load heavy trajectory data only when requested by the user, rather than loading everything upfront.
+
+### 🔄 Iteration 4: Battery Optimization & Tracking Accuracy (Reviewer: Lead Mobile Engineer)
+> **Critique:** When a device enters Power Saving Mode (Doze), background CPU operations and coroutine timers (like `delay(1000)`) freeze completely, while batched GPS pings occasionally come through. This caused absurdly short active durations against long distances (leading to unrealistic 7000+ km/h speeds) and the OS abruptly killing the background tracker (resulting in fragmented, "orphaned" rides).
+> **Refinement:** Transitioned speed and duration math in `TrackingService` to rely strictly on immutable GPS timestamps (`curr.timestamp - prev.timestamp`) instead of fragile coroutine tick counters. Added `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` so the app can prompt users to exempt it from Doze mode, ensuring uninterrupted GPS polling even when the screen is locked and the battery is low.
