@@ -1,10 +1,12 @@
 package `in`.shvms.trackme.data.remote
 
 import `in`.shvms.trackme.config.AppConfig
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.OutputStreamWriter
@@ -34,13 +36,27 @@ class LiveShareManager {
     private val _state = MutableStateFlow(LiveShareState())
     val state: StateFlow<LiveShareState> = _state.asStateFlow()
 
+    private suspend fun firebaseIdToken(): String {
+        return FirebaseAuth.getInstance().currentUser
+            ?.getIdToken(false)
+            ?.await()
+            ?.token
+            ?: throw Exception("You must be signed in to start live sharing.")
+    }
+
+    private fun HttpURLConnection.setBearerToken(token: String) {
+        setRequestProperty("Authorization", "Bearer $token")
+    }
+
     suspend fun startSession(durationMinutes: Int, username: String? = null, stopOnRideEnd: Boolean = false): Result<LiveShareState> = withContext(Dispatchers.IO) {
         _state.value = _state.value.copy(status = LiveShareStatus.STARTING)
         try {
+            val token = firebaseIdToken()
             val url = URL(AppConfig.LIVE_SHARE_BASE_URL + AppConfig.LIVE_SHARE_START_ENDPOINT)
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
+            conn.setBearerToken(token)
             conn.doOutput = true
 
             val requestBody = JSONObject().apply {
@@ -99,11 +115,13 @@ class LiveShareManager {
         }
 
         try {
+            val token = firebaseIdToken()
             val endpoint = String.format(AppConfig.LIVE_SHARE_LOCATION_ENDPOINT_TEMPLATE, currentState.sessionId)
             val url = URL(AppConfig.LIVE_SHARE_BASE_URL + endpoint)
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
+            conn.setBearerToken(token)
             conn.doOutput = true
 
             val requestBody = JSONObject().apply {
@@ -140,11 +158,13 @@ class LiveShareManager {
         }
 
         try {
+            val token = firebaseIdToken()
             val endpoint = String.format(AppConfig.LIVE_SHARE_STOP_ENDPOINT_TEMPLATE, currentState.sessionId)
             val url = URL(AppConfig.LIVE_SHARE_BASE_URL + endpoint)
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
+            conn.setBearerToken(token)
             conn.doOutput = true
 
             val requestBody = JSONObject().apply {

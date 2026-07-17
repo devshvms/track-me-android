@@ -29,7 +29,7 @@ Each feature is designed with a privacy-first, offline-capable approach.
 *   🔗 **Tech Link:** [Cloud Sync Architecture](technical_documentation.md#14-cloud-synchronization)
 
 ### 1.5. Data Export & GPX Interoperability
-*   **Product Behavior:** Avoids data lock-in by providing full support for exporting individual routes to standard `.gpx` files for platforms like Strava or Garmin. Users can also request a complete **Asynchronous Data Archive Export** (.zip) of their entire history, which is queued and generated off-peak by the backend API.
+*   **Product Behavior:** Avoids data lock-in by providing full support for exporting individual routes to standard `.gpx` files for platforms like Strava or Garmin. Users can also request a complete **Cloud Data Archive Export** (.zip) of their synchronized history. The API returns a tokenized download URL and assembles the ZIP on demand.
 *   🔗 **Tech Link:** [GPX Processing Logic](technical_documentation.md#15-gpx-import--export)
 
 ### 1.6. Social Sharing (Image Export)

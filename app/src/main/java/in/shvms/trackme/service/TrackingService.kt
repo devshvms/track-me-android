@@ -357,17 +357,37 @@ class TrackingService : Service() {
                 return
             }
             
-            val distance = finalDistance
-            val durationMs = finalDuration
-            val avgSpeed = if (durationMs > 0) (distance / (durationMs / 1000f)).toFloat() else 0f
-            val maxSpeed = points.maxOfOrNull { it.speed } ?: 0f
+            var activeTimeMs = 0L
+            var maxSpeed = 0f
+            
+            if (points.size >= 2) {
+                for (i in 1 until points.size) {
+                    val prev = points[i - 1]
+                    val curr = points[i]
+                    
+                    if (curr.speed > maxSpeed) {
+                        maxSpeed = curr.speed
+                    }
+                    
+                    val timestampDeltaMs = curr.timestamp - prev.timestamp
+                    if (!curr.isPaused && !prev.isPaused && timestampDeltaMs > 0) {
+                        activeTimeMs += timestampDeltaMs
+                    }
+                }
+            } else if (points.size == 1) {
+                maxSpeed = points[0].speed
+            }
+            
+            // Keep the distance filtered by TrackingManager; recomputing raw point-to-point
+            // distance here would count GPS drift and movement recorded during pauses.
+            val avgSpeed = if (activeTimeMs > 0) (finalDistance / (activeTimeMs / 1000f)).toFloat() else 0f
             
             val newTitle = if (ride.title == `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime)) {
                 `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime, maxSpeed * 3.6f)
             } else ride.title
 
             val calc = `in`.shvms.trackme.data.local.entity.PostRideCalculation(
-                distance = distance,
+                distance = finalDistance,
                 maxSpeed = maxSpeed,
                 avgSpeed = avgSpeed,
                 pauseDuration = 0L
@@ -382,8 +402,8 @@ class TrackingService : Service() {
             
             `in`.shvms.trackme.analytics.AnalyticsManager.trackRideCompleted(
                 rideId = rideId.toString(),
-                durationSeconds = durationMs / 1000L,
-                distanceKm = (distance / 1000.0).toFloat()
+                durationSeconds = activeTimeMs / 1000L,
+                distanceKm = (finalDistance / 1000.0).toFloat()
             )
             
             val prefs = getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)

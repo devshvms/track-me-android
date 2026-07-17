@@ -399,9 +399,14 @@ fun AccountManagementScreen(
                             } else if (!url.startsWith("http://") && !url.startsWith("https://")) {
                                 url = "https://$url"
                             }
+
+                            val downloadUri = android.net.Uri.parse(url)
+                            if (downloadUri.getQueryParameter("token").isNullOrBlank()) {
+                                throw IllegalArgumentException("The export response did not include a secure download token. Please request a new archive.")
+                            }
                             
                             val filename = "trackme_archive_${System.currentTimeMillis()}.zip"
-                            val request = android.app.DownloadManager.Request(android.net.Uri.parse(url))
+                            val request = android.app.DownloadManager.Request(downloadUri)
                                 .setTitle("TrackMe Data Archive")
                                 .setDescription("Downloading your exported data archive")
                                 .setMimeType("application/zip")
