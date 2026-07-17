@@ -110,10 +110,15 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
 
         return withContext(Dispatchers.IO) {
             try {
+                // Export APIs require a current Firebase ID token. A cached token can be
+                // expired even while FirebaseUser is still present after app resume.
+                val idToken = user.getIdToken(true).await().token
+                    ?: return@withContext Result.failure(Exception("Could not verify your session. Please sign in again."))
                 val url = URL(AppConfig.LIVE_SHARE_BASE_URL + "/api/export/request")
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("Authorization", "Bearer $idToken")
                 conn.doOutput = true
 
                 val requestBody = JSONObject().apply {
@@ -130,7 +135,8 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
                     writer.write(requestBody.toString())
                 }
 
-                if (conn.responseCode == 200) {
+                val responseCode = conn.responseCode
+                if (responseCode in 200..299) {
                     val responseString = conn.inputStream.bufferedReader().use { it.readText() }
                     val responseJson = JSONObject(responseString)
                     val status = responseJson.optString("status", "QUEUED")
@@ -148,7 +154,13 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
                         )
                     }
                 } else {
-                    Result.failure(Exception("Failed to request export. Server returned ${conn.responseCode}"))
+                    val errorBody = conn.errorStream?.bufferedReader()?.use { it.readText() }
+                    val serverMessage = errorBody?.let {
+                        runCatching { JSONObject(it).optString("error") }.getOrNull()
+                    }?.takeIf { it.isNotBlank() }
+                    Result.failure(
+                        Exception(serverMessage ?: "Failed to request export. Server returned $responseCode")
+                    )
                 }
             } catch (e: Exception) {
                 Result.failure(e)

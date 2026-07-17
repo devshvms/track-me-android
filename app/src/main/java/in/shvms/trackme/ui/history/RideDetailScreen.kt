@@ -541,9 +541,8 @@ fun RideDetailScreen(
                             StatItem("Max G-Force", String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f), modifier = Modifier.weight(1f))
 
                             val distanceKm = (ride.postRideCalculation?.distance ?: 0.0) / 1000.0
-                            val durationHours = ((ride.endTime ?: ride.startTime) - ride.startTime) / 3600000.0
-                            val avgSpeed = if (durationHours > 0) (distanceKm / durationHours).toFloat() else 0f
-                            StatItem(strings.avgSpeed, String.format("%.1f km/h", avgSpeed), modifier = Modifier.weight(1f))
+                            val avgSpeedKmh = (ride.postRideCalculation?.avgSpeed ?: 0f) * 3.6f
+                            StatItem(strings.avgSpeed, String.format("%.1f km/h", avgSpeedKmh), modifier = Modifier.weight(1f))
                         }
                     }
                 }

@@ -1,4 +1,4 @@
-# TrackMe 🚵‍♂️🗺️ (v1.5.4)
+# TrackMe 🚵‍♂️🗺️ (v1.5.6)
 
 ![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
@@ -7,12 +7,12 @@
 
 > **Product Vision:** TrackMe is designed to be the ultimate companion for cyclists, runners, and explorers. We believe in privacy-first tracking that seamlessly works offline, but elegantly syncs to the cloud when you want it to. Track your journey, analyze your performance, and share your adventures.
 
-## 🌟 Key Features (v1.5.0)
+## 🌟 Key Features (v1.5.6)
 
 *   **Production-Grade Firestore Security Lockdown:** Enforces strict user-isolated access control lists (`firestore.rules`) validating `uid`-based ownership across all user data, ride histories, emergency contacts, and feedback submissions.
 *   **PostHog Telemetry Engine & Remote Kill-Switch:** Comprehensive privacy-aware event tracking (`AnalyticsManager`) across authentication, ride lifecycle, live sharing, and SOS beacons—dynamically toggled via Firebase Remote Config (`telemetry_enabled`).
 *   **Centralized UI Theming & Chart Polish:** Standardized color tokens across `RideDetailScreen`, `HomeScreen`, `ActiveRideHudPanel`, and `InteractiveShareLocationButton`, along with improved padding and edge avoidance on interactive scrubbable charts.
-*   **Complete Data Ownership & Cloud Export:** Download your entire tracking history from the cloud in a secure, streamlined asynchronous flow to prevent vendor lock-in.
+*   **Complete Data Ownership & Cloud Export:** Download your entire tracking history from the cloud in a secure, tokenized on-demand ZIP flow to prevent vendor lock-in.
 *   **Live Ride Sharing with Notifications:** Share your real-time ride progress with friends or family via a secure live-tracking link, complete with interactive red-dot UI notifications and personalized SMS templates.
 *   **Emergency SOS & Safety Beacon:** Configure emergency contacts and broadcast immediate emergency alerts with a streamlined push-button action directly from the HUD.
 *   **Offline-First Architecture:** Rides are saved locally to a robust Room Database. No internet required to track a ride—even in the most remote locations.

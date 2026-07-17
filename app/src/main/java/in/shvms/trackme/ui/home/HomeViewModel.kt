@@ -35,6 +35,7 @@ data class HomeUiState(
     val isAutoPaused: Boolean = false,
     val inferredActivityType: `in`.shvms.trackme.domain.processor.InferredActivityType = `in`.shvms.trackme.domain.processor.InferredActivityType.RUN_OR_TREK,
     val selectedPersona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO,
+    val isAuthenticated: Boolean = false,
     val userName: String? = null
 )
 
@@ -106,6 +107,7 @@ class HomeViewModel(
             isEmergencyActive = isEmergency,
             isEmergencyReady = isReady,
             liveShareState = liveShare,
+            isAuthenticated = user != null,
             userName = user?.displayName
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
@@ -179,6 +181,11 @@ class HomeViewModel(
 
     fun startLiveShare(context: Context, durationMinutes: Int, stopOnRideEnd: Boolean) {
         viewModelScope.launch {
+            if (authManager.currentUser.value == null) {
+                val strings = getStrings(context)
+                android.widget.Toast.makeText(context, strings.liveShareAuthRequired, android.widget.Toast.LENGTH_LONG).show()
+                return@launch
+            }
             val username = authManager.currentUser.value?.displayName
             val result = liveShareManager.startSession(durationMinutes, username, stopOnRideEnd)
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {

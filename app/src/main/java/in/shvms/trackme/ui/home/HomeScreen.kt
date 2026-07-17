@@ -297,6 +297,18 @@ fun HomeScreen(
             if (uiState.trackingState == TrackingState.IDLE) {
                 RadialStartRideButton(
                     onStartRide = { persona ->
+                        val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+                        if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
+                            try {
+                                val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                    data = android.net.Uri.parse("package:${context.packageName}")
+                                }
+                                context.startActivity(intent)
+                                android.widget.Toast.makeText(context, "Please allow background activity for accurate GPS tracking", android.widget.Toast.LENGTH_LONG).show()
+                            } catch (e: Exception) {
+                                // Fallback if device doesn't support this intent
+                            }
+                        }
                         viewModel.startTracking(context, persona)
                     },
                     modifier = Modifier
@@ -353,6 +365,8 @@ fun HomeScreen(
                     isEmergencyReady = uiState.isEmergencyReady,
                     isEmergencyActive = uiState.isEmergencyActive,
                     liveShareState = uiState.liveShareState,
+                    isAuthenticated = uiState.isAuthenticated,
+                    liveShareAuthRequired = strings.liveShareAuthRequired,
                     isOffline = isOffline,
                     onPauseToggle = {
                         if (uiState.trackingState == TrackingState.TRACKING) {
@@ -466,4 +480,3 @@ fun rememberIsOffline(): Boolean {
     }
     return isOffline
 }
-
