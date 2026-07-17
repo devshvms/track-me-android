@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.database.sqlite.SQLiteException
 import android.location.Location
 import android.location.LocationManager
 import android.os.Build
@@ -18,6 +19,7 @@ import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import `in`.shvms.trackme.utils.RideUtils
+import `in`.shvms.trackme.utils.StorageHealthMonitor
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.maps.model.LatLng
@@ -26,7 +28,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 
 enum class TrackingState {
-    IDLE, TRACKING, PAUSED, GPS_LOST, GPS_DISABLED
+    IDLE, TRACKING, PAUSED, GPS_LOST, GPS_DISABLED, STORAGE_LOW
 }
 
 class TrackingService : Service() {
@@ -45,6 +47,7 @@ class TrackingService : Service() {
     private var rideDuration = 0L
     private var elapsedWallClockDuration = 0L
     private var currentPointCount = 0
+    private var storageWarningShown = false
     private var lastGpsTimeMs = 0L
     private var lastLiveShareTimeMs = 0L
 
@@ -63,6 +66,10 @@ class TrackingService : Service() {
 
             if (currentState == TrackingState.GPS_LOST || currentState == TrackingState.GPS_DISABLED) {
                 updateState(TrackingState.TRACKING)
+            }
+
+            if (currentState == TrackingState.STORAGE_LOW) {
+                return
             }
 
             if (currentState == TrackingState.TRACKING) {
@@ -118,24 +125,34 @@ class TrackingService : Service() {
                 lastLocation = location
 
                 currentRideId?.let { rideId ->
+                    if (StorageHealthMonitor.isLowStorage(this@TrackingService)) {
+                        enterStorageLowState()
+                        return@let
+                    }
                     serviceScope.launch {
-                        rideDao.insertGPSPoint(
-                            GPSPointEntity(
-                                rideId = rideId,
-                                latitude = location.latitude,
-                                longitude = location.longitude,
-                                altitude = location.altitude,
-                                accuracy = location.accuracy,
-                                speed = effectiveSpeed,
-                                timestamp = location.time,
-                                isPaused = isPointPaused
+                        try {
+                            rideDao.insertGPSPoint(
+                                GPSPointEntity(
+                                    rideId = rideId,
+                                    latitude = location.latitude,
+                                    longitude = location.longitude,
+                                    altitude = location.altitude,
+                                    accuracy = location.accuracy,
+                                    speed = effectiveSpeed,
+                                    timestamp = location.time,
+                                    isPaused = isPointPaused
+                                )
                             )
-                        )
-                        currentPointCount++
-                        if (currentPointCount == 8000) {
-                            showPointLimitWarning()
-                        } else if (currentPointCount >= 9000) {
-                            splitRide()
+                            currentPointCount++
+                            if (currentPointCount == 8000) {
+                                showPointLimitWarning()
+                            } else if (currentPointCount >= 9000) {
+                                splitRide()
+                            }
+                        } catch (_: SQLiteException) {
+                            withContext(Dispatchers.Main.immediate) {
+                                enterStorageLowState()
+                            }
                         }
                     }
                 }
@@ -197,31 +214,42 @@ class TrackingService : Service() {
     private fun startForegroundService() {
         createNotificationChannels()
         startForeground(NOTIFICATION_ID, getNotification())
-        
+
+        if (StorageHealthMonitor.isLowStorage(this)) {
+            enterStorageLowState()
+            return
+        }
+
         updateState(TrackingState.TRACKING)
         currentPointCount = 0
         lastGpsTimeMs = System.currentTimeMillis()
         motionSensorManager.startListening()
         
         serviceScope.launch {
-            val startTime = System.currentTimeMillis()
-            val rideId = rideDao.insertRide(
-                RideEntity(
-                    startTime = startTime,
-                    title = RideUtils.getDefaultTitle(startTime),
-                    persona = trackingManager.selectedPersona.value.name
+            try {
+                val startTime = System.currentTimeMillis()
+                val rideId = rideDao.insertRide(
+                    RideEntity(
+                        startTime = startTime,
+                        title = RideUtils.getDefaultTitle(startTime),
+                        persona = trackingManager.selectedPersona.value.name
+                    )
                 )
-            )
-            currentRideId = rideId
-            activeRideId = rideId
-            
-            `in`.shvms.trackme.analytics.AnalyticsManager.trackRideStarted(
-                rideId = rideId.toString(),
-                startLat = lastLocation?.latitude ?: 0.0,
-                startLng = lastLocation?.longitude ?: 0.0
-            )
-            
-            locationHelper.startLocationTracking(locationCallback)
+                currentRideId = rideId
+                activeRideId = rideId
+
+                `in`.shvms.trackme.analytics.AnalyticsManager.trackRideStarted(
+                    rideId = rideId.toString(),
+                    startLat = lastLocation?.latitude ?: 0.0,
+                    startLng = lastLocation?.longitude ?: 0.0
+                )
+
+                locationHelper.startLocationTracking(locationCallback)
+            } catch (_: SQLiteException) {
+                withContext(Dispatchers.Main.immediate) {
+                    enterStorageLowState()
+                }
+            }
         }
         startTimer()
     }
@@ -234,6 +262,11 @@ class TrackingService : Service() {
     }
 
     private fun resumeTracking() {
+        if (StorageHealthMonitor.isLowStorage(this)) {
+            enterStorageLowState()
+            return
+        }
+        storageWarningShown = false
         updateState(TrackingState.TRACKING)
         motionSensorManager.startListening()
         currentRideId?.let { rideId ->
@@ -280,6 +313,16 @@ class TrackingService : Service() {
     private fun updateState(newState: TrackingState) {
         currentState = newState
         trackingManager.updateState(newState)
+    }
+
+    private fun enterStorageLowState() {
+        if (currentState == TrackingState.STORAGE_LOW && storageWarningShown) return
+        storageWarningShown = true
+        updateState(TrackingState.STORAGE_LOW)
+        isTimerEnabled = false
+        motionSensorManager.stopListening()
+        locationHelper.stopLocationTracking(locationCallback)
+        showStorageLowNotification()
     }
 
     private fun startTimer() {
@@ -506,6 +549,18 @@ class TrackingService : Service() {
         notificationManager.notify(2, warningNotification)
     }
 
+    private fun showStorageLowNotification() {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val warningNotification = NotificationCompat.Builder(this, SYNC_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("Storage almost full")
+            .setContentText("Tracking is paused. Free device storage, then tap Resume in TrackMe.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+        notificationManager.notify(STORAGE_WARNING_NOTIFICATION_ID, warningNotification)
+    }
+
     companion object {
         const val ACTION_START_OR_RESUME_SERVICE = "ACTION_START_OR_RESUME_SERVICE"
         const val ACTION_PAUSE_SERVICE = "ACTION_PAUSE_SERVICE"
@@ -514,6 +569,7 @@ class TrackingService : Service() {
         const val CHANNEL_ID = "tracking_channel"
         const val SYNC_CHANNEL_ID = "sync_channel"
         const val SOS_CHANNEL_ID = "sos_channel"
+        const val STORAGE_WARNING_NOTIFICATION_ID = 4
         const val GPS_LOSS_TIMEOUT_MS = 15_000L
 
         @Volatile

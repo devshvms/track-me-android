@@ -121,7 +121,7 @@ fun ActiveRideHudPanel(
                 )
             }
 
-            if (trackingState == TrackingState.GPS_LOST || trackingState == TrackingState.GPS_DISABLED) {
+            if (trackingState == TrackingState.GPS_LOST || trackingState == TrackingState.GPS_DISABLED || trackingState == TrackingState.STORAGE_LOW) {
                 val context = LocalContext.current
                 Surface(
                     shape = RoundedCornerShape(14.dp),
@@ -130,14 +130,21 @@ fun ActiveRideHudPanel(
                     modifier = Modifier
                         .padding(horizontal = 4.dp)
                         .clickable {
+                            val settingsAction = if (trackingState == TrackingState.STORAGE_LOW) {
+                                android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS
+                            } else {
+                                android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS
+                            }
                             context.startActivity(
-                                android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                                android.content.Intent(settingsAction)
                             )
                         }
                 ) {
                     val lostSeconds = (timeSinceLastGps / 1000L).coerceAtLeast(1L)
                     Text(
-                        text = if (trackingState == TrackingState.GPS_DISABLED) {
+                        text = if (trackingState == TrackingState.STORAGE_LOW) {
+                            "⚠ Storage almost full - free space to resume"
+                        } else if (trackingState == TrackingState.GPS_DISABLED) {
                             "⚠ Location services disabled (${lostSeconds}s)"
                         } else {
                             "⚠ GPS signal lost (${lostSeconds}s)"
@@ -320,7 +327,8 @@ fun ActiveRideHudPanel(
                     // Unified Center Pill (Pause/Resume on left, Slide-to-Stop on right) - 52.dp height
                     val isPaused = trackingState == TrackingState.PAUSED ||
                         trackingState == TrackingState.GPS_LOST ||
-                        trackingState == TrackingState.GPS_DISABLED
+                        trackingState == TrackingState.GPS_DISABLED ||
+                        trackingState == TrackingState.STORAGE_LOW
                     UnifiedPauseStopPill(
                         isPaused = isPaused,
                         onPauseToggle = onPauseToggle,
