@@ -5,8 +5,27 @@
 -dontwarn com.google.android.gms.common.**
 
 # Room Database Keep Rules
--keep class * extends androidx.room.RoomDatabase
--keep class * extends androidx.room.Dao
+# `-keep class X` with no `{ *; }` body only stops R8 from renaming/removing
+# the class itself — it does NOT stop R8 from stripping "unused" members,
+# including the no-arg constructor that Room (and WorkManager's internal
+# Room database) invoke reflectively via
+# Class.getDeclaredConstructor().newInstance(). That gap is the confirmed
+# root cause of the internal-track startup crash:
+#   Fatal Exception: java.lang.RuntimeException: Unable to get provider
+#   androidx.startup.InitializationProvider
+#   Caused by: java.lang.NoSuchMethodException: androidx.work.impl.WorkDatabase_Impl.<init> []
+# R8 stripped the constructor of WorkManager's generated Room database impl
+# because static analysis can't see the reflective call site. Fixed by
+# keeping full members on RoomDatabase/Dao subclasses and on every
+# Room-generated `*_Impl` class (covers our own AppDatabase_Impl and DAO
+# impls too, not just WorkManager's).
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep class * extends androidx.room.Dao { *; }
+-keep class **_Impl { *; }
+-keepclassmembers class **_Impl {
+    public <init>(...);
+}
+-keep class androidx.work.impl.** { *; }
 -dontwarn androidx.room.**
 
 # Kotlin Serialization Keep Rules
