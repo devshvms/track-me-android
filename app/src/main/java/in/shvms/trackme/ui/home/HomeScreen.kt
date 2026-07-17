@@ -61,10 +61,39 @@ fun HomeScreen(
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    val app = context.applicationContext as TrackMeApp
     var hasLocationPermission by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
+    val recoveryNotice by app.recoveryNotice.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
+
+    LaunchedEffect(recoveryNotice) {
+        val summary = recoveryNotice ?: return@LaunchedEffect
+        val message = when {
+            summary.recoveredCount > 0 && summary.discardedCount > 0 ->
+                String.format(
+                    java.util.Locale.getDefault(),
+                    strings.rideRecoveryMixedNotice,
+                    summary.recoveredCount,
+                    summary.discardedCount
+                )
+            summary.recoveredCount > 0 ->
+                String.format(
+                    java.util.Locale.getDefault(),
+                    strings.rideRecoveryNotice,
+                    summary.recoveredCount
+                )
+            else ->
+                String.format(
+                    java.util.Locale.getDefault(),
+                    strings.rideRecoveryDiscardNotice,
+                    summary.discardedCount
+                )
+        }
+        snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Long)
+        app.consumeRecoveryNotice()
+    }
 
     val receiver = remember {
         object : android.content.BroadcastReceiver() {

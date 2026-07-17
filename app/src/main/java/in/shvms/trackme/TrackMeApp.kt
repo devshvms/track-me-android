@@ -15,7 +15,9 @@ import `in`.shvms.trackme.service.EmergencyBroadcastWorker
 import `in`.shvms.trackme.utils.logger.ErrorLogger
 import `in`.shvms.trackme.utils.logger.CrashlyticsErrorLogger
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -43,6 +45,9 @@ class TrackMeApp : Application() {
 
     lateinit var appUpdateChecker: `in`.shvms.trackme.ui.update.AppUpdateChecker
         private set
+
+    private val _recoveryNotice = MutableStateFlow<`in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.RecoverySummary?>(null)
+    val recoveryNotice = _recoveryNotice.asStateFlow()
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -82,14 +87,21 @@ class TrackMeApp : Application() {
 
         applicationScope.launch(Dispatchers.IO) {
             try {
-                `in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.recoverOrphanedRides(
+                val summary = `in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.recoverOrphanedRides(
                     database.rideDao(),
                     `in`.shvms.trackme.service.TrackingService.activeRideId
                 )
+                if (summary.hasChanges) {
+                    _recoveryNotice.value = summary
+                }
             } catch (e: Exception) {
                 errorLogger.recordException(e)
             }
             appUpdateChecker.checkForUpdate()
         }
+    }
+
+    fun consumeRecoveryNotice() {
+        _recoveryNotice.value = null
     }
 }

@@ -16,20 +16,29 @@ import kotlinx.coroutines.withContext
  */
 object OrphanedRideRecoveryManager {
 
+    data class RecoverySummary(
+        val recoveredCount: Int = 0,
+        val discardedCount: Int = 0
+    ) {
+        val hasChanges: Boolean
+            get() = recoveredCount > 0 || discardedCount > 0
+    }
+
     /**
      * Inspects the database for uncompleted rides and auto-finalizes any orphaned ride
      * not currently being tracked.
      *
      * @param rideDao The Room DAO for rides and GPS points.
      * @param activeRideId The currently active ride ID in TrackingService (if any).
-     * @return Number of orphaned rides recovered or cleaned up.
+     * @return Counts of rides recovered and empty records discarded.
      */
     suspend fun recoverOrphanedRides(
         rideDao: RideDao,
         activeRideId: Long? = null
-    ): Int = withContext(Dispatchers.IO) {
+    ): RecoverySummary = withContext(Dispatchers.IO) {
         val uncompletedRides = rideDao.getUncompletedRides()
-        var processedCount = 0
+        var recoveredCount = 0
+        var discardedCount = 0
 
         for (ride in uncompletedRides) {
             // Skip if this is the active live tracking session
@@ -42,7 +51,7 @@ object OrphanedRideRecoveryManager {
             if (points.isEmpty()) {
                 // No GPS data was recorded before the crash/force-stop -> clean up empty entry
                 rideDao.deleteRide(ride.id)
-                processedCount++
+                discardedCount++
                 continue
             }
 
@@ -96,9 +105,12 @@ object OrphanedRideRecoveryManager {
             )
 
             rideDao.updateRide(recoveredRide)
-            processedCount++
+            recoveredCount++
         }
 
-        processedCount
+        RecoverySummary(
+            recoveredCount = recoveredCount,
+            discardedCount = discardedCount
+        )
     }
 }
