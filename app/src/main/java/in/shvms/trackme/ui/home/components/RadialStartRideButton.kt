@@ -351,7 +351,8 @@ fun RadialStartRideButton(
                 } else {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Start Ride",
+                        // The parent owns the merged accessibility description.
+                        contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(46.dp)
                     )
