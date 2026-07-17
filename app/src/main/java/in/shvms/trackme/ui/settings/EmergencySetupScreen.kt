@@ -28,6 +28,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -73,7 +75,12 @@ fun EmergencySetupScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Setup Emergency Broadcast") },
+                title = {
+                    Text(
+                        "Setup Emergency Broadcast",
+                        modifier = Modifier.semantics { heading() }
+                    )
+                },
                 actions = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
@@ -116,7 +123,11 @@ fun ContactsStep(viewModel: EmergencySettingsViewModel, contacts: List<Emergency
     }
     
     Column(modifier = Modifier.padding(24.dp).fillMaxSize()) {
-        Text("Trusted Contacts", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            "Trusted Contacts",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() }
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Text("Even in remote areas without internet, standard SMS has a much higher chance of reaching cell towers.", style = MaterialTheme.typography.bodyLarge)
         Spacer(modifier = Modifier.height(8.dp))
@@ -143,7 +154,10 @@ fun ContactsStep(viewModel: EmergencySettingsViewModel, contacts: List<Emergency
                     supportingContent = { Text(contact.phoneNumber) },
                     trailingContent = {
                         IconButton(onClick = { viewModel.deleteContact(contact) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete")
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete ${contact.name}"
+                            )
                         }
                     }
                 )
@@ -189,7 +203,11 @@ fun PermissionAndTestStep(
     }
     
     Column(modifier = Modifier.padding(24.dp).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text("Permissions & Testing", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            "Permissions & Testing",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() }
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Text("To send automated messages during an emergency, TrackMe needs permission to send SMS messages on your behalf.",
             style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
@@ -273,7 +291,11 @@ fun AcknowledgmentStep(settings: EmergencySettingsEntity?, viewModel: EmergencyS
     
     Column(modifier = Modifier.padding(24.dp).fillMaxSize()) {
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            Text("How it works", style = MaterialTheme.typography.headlineMedium)
+            Text(
+                "How it works",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.semantics { heading() }
+            )
             Spacer(modifier = Modifier.height(16.dp))
             Text("In case of emergency, your phone will send your location to your selected contacts every 2 minutes for the first 10 minutes, then every 10 minutes for the next 1 hour, and then every 1 hour for the next 24 hours.", style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(24.dp))
@@ -293,7 +315,11 @@ fun AcknowledgmentStep(settings: EmergencySettingsEntity?, viewModel: EmergencyS
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        Text("Available Tags:", style = MaterialTheme.typography.labelMedium)
+        Text(
+            "Available Tags:",
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.semantics { heading() }
+        )
         Spacer(modifier = Modifier.height(8.dp))
         
         // Use a horizontally scrollable Row to keep tags inline and save vertical space
