@@ -113,6 +113,24 @@ fun ActiveRideHudPanel(
                 )
             }
 
+            if (trackingState == TrackingState.GPS_LOST) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = TrackMeRed,
+                    shadowElevation = 2.dp,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                ) {
+                    val lostSeconds = (timeSinceLastGps / 1000L).coerceAtLeast(1L)
+                    Text(
+                        text = "⚠ GPS signal lost (${lostSeconds}s)",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
             // Auto-Paused / Paused Pill
             if (isAutoPaused) {
                 Surface(

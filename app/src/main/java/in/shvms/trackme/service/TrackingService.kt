@@ -60,6 +60,10 @@ class TrackingService : Service() {
                 return
             }
 
+            if (currentState == TrackingState.GPS_LOST) {
+                updateState(TrackingState.TRACKING)
+            }
+
             if (currentState == TrackingState.TRACKING) {
                 lastGpsTimeMs = System.currentTimeMillis()
 
@@ -292,8 +296,12 @@ class TrackingService : Service() {
                 trackingManager.updateDuration(rideDuration)
                 trackingManager.updateElapsedDuration(elapsedWallClockDuration)
                 
-                if (currentState == TrackingState.TRACKING && lastGpsTimeMs > 0) {
-                    trackingManager.updateTimeSinceLastGps(System.currentTimeMillis() - lastGpsTimeMs)
+                if ((currentState == TrackingState.TRACKING || currentState == TrackingState.GPS_LOST) && lastGpsTimeMs > 0) {
+                    val timeSinceLastGps = System.currentTimeMillis() - lastGpsTimeMs
+                    trackingManager.updateTimeSinceLastGps(timeSinceLastGps)
+                    if (currentState == TrackingState.TRACKING && timeSinceLastGps >= GPS_LOSS_TIMEOUT_MS) {
+                        updateState(TrackingState.GPS_LOST)
+                    }
                 } else {
                     trackingManager.updateTimeSinceLastGps(0L)
                 }
@@ -487,6 +495,7 @@ class TrackingService : Service() {
         const val CHANNEL_ID = "tracking_channel"
         const val SYNC_CHANNEL_ID = "sync_channel"
         const val SOS_CHANNEL_ID = "sos_channel"
+        const val GPS_LOSS_TIMEOUT_MS = 15_000L
 
         @Volatile
         var activeRideId: Long? = null
