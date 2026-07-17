@@ -2,7 +2,9 @@ package `in`.shvms.trackme.ui.settings
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.ContactsContract
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -34,11 +37,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.entity.EmergencyContactEntity
 import `in`.shvms.trackme.data.local.entity.EmergencySettingsEntity
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
 
 @SuppressLint("Range")
 fun getPhoneContactInfo(context: Context, uri: android.net.Uri): Pair<String?, String?> {
@@ -186,21 +198,54 @@ fun PermissionAndTestStep(
     var permissionGranted by remember { 
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) 
     }
+    var permissionRequestAttempted by rememberSaveable { mutableStateOf(false) }
+    var permissionPermanentlyDenied by rememberSaveable { mutableStateOf(false) }
     var testSent by remember { mutableStateOf(false) }
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        permissionGranted = isGranted
-        if (isGranted) {
-            (context.applicationContext as TrackMeApp).setSmsPermissionRevokedNotice(false)
-        }
-    }
-
-    LaunchedEffect(permissionWasRevoked) {
+    fun refreshPermissionState() {
         permissionGranted = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.SEND_SMS
         ) == PackageManager.PERMISSION_GRANTED
+        if (permissionGranted) {
+            permissionPermanentlyDenied = false
+        } else if (permissionRequestAttempted) {
+            permissionPermanentlyDenied = context.findActivity()?.let {
+                !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
+                    it,
+                    Manifest.permission.SEND_SMS
+                )
+            } ?: false
+        }
     }
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        permissionGranted = isGranted
+        if (isGranted) {
+            permissionPermanentlyDenied = false
+            (context.applicationContext as TrackMeApp).setSmsPermissionRevokedNotice(false)
+        } else {
+            permissionPermanentlyDenied = context.findActivity()?.let {
+                !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
+                    it,
+                    Manifest.permission.SEND_SMS
+                )
+            } ?: false
+        }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshPermissionState()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(permissionWasRevoked) { refreshPermissionState() }
     
     Column(modifier = Modifier.padding(24.dp).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Text(
@@ -255,9 +300,9 @@ fun PermissionAndTestStep(
                 Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) { Text("Continue") }
             }
         } else {
-            if (permissionWasRevoked) {
+            if (permissionWasRevoked || permissionPermanentlyDenied) {
                 Text(
-                    text = strings.sosPermissionRevoked,
+                    text = if (permissionWasRevoked) strings.sosPermissionRevoked else strings.smsPermissionSettingsRequired,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center
@@ -273,7 +318,13 @@ fun PermissionAndTestStep(
                     modifier = Modifier.fillMaxWidth()
                 ) { Text(strings.openSettings) }
             } else {
-                Button(onClick = { launcher.launch(Manifest.permission.SEND_SMS) }, modifier = Modifier.fillMaxWidth()) { Text("Grant SMS Permission") }
+                Button(
+                    onClick = {
+                        permissionRequestAttempted = true
+                        launcher.launch(Manifest.permission.SEND_SMS)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(strings.grantSmsPermission) }
             }
         }
     }
