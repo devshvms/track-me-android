@@ -16,7 +16,7 @@ Each row is one feature under one worst-case condition. "Expected" is what a lau
 | GPS signal gap mid-ride (tunnel, urban canyon) | User sees a live "GPS lost" indicator while recording continues; gap is later shown clearly in ride detail | The service now transitions to `TrackingState.GPS_LOST` after a 15-second callback gap and the HUD shows the elapsed gap; the next valid fix returns to `TRACKING`. The existing post-ride chunk/graph behavior remains. Runtime behavior still needs emulator/device verification. | ⚠️ | **P0** |
 | Airplane mode / GPS toggled off mid-ride | Clear in-app state ("GPS unavailable — check location settings") | `TrackingService` now distinguishes a callback gap from disabled location services using `LocationManager.isLocationEnabled` (or GPS/network providers on older Android), enters `GPS_DISABLED`, and the HUD offers a tap-through to Location Settings. Runtime/device verification remains pending. | ⚠️ | **P0 — runtime/device verification pending** |
 | Speed spikes from noisy GPS fixes | Outliers rejected, no absurd speed/distance in results | `GPSProcessor.kt:38-67` rejects points exceeding `MAX_ACCELERATION_G = 2.0f`; live accuracy filter also discards fixes with `accuracy > 22.0f` (`TrackingService.kt:59-61`) | ✅ | — |
-| Storage nearly full | Graceful warning before write failure; no corrupt ride data | No `StatFs`/free-space check anywhere in `TrackingService` or the Room layer. An `SQLiteFullException` mid-ride is unhandled — behavior on real low-storage devices is unverified and likely a raw crash or silent write failure. | ❌ | **P1** |
+| Storage nearly full | Graceful warning before write failure; no corrupt ride data | `StorageHealthMonitor` checks the Room volume before point inserts; low space or a caught `SQLiteException` transitions the ride to `STORAGE_LOW`, stops location writes/timing, and posts an actionable notification. Home shows the state and Resume retries only after space is available. Runtime low-storage behavior remains unverified. | ⚠️ | **P1 — runtime verification pending** |
 | Battery saver mode on | Tracking continues (with possible accuracy tradeoff), user warned if not | Foreground service + `FusedLocationProviderClient` is the standard battery-saver-resilient pattern; battery-optimization exemption is prompted once at ride start (`HomeScreen.kt:300-311`). No explicit test evidence of behavior *if user declines* the exemption and battery saver later kills background delivery — flag for device-level W1 manual matrix. | ⚠️ | P1 |
 | Process death mid-ride (OS-killed) | User relaunches into a resumed live HUD, or is clearly told the ride was saved/ended | `TrackingService` still does not resume automatically after process death, but `OrphanedRideRecoveryManager` now returns separate recovered/discarded counts. `TrackMeApp` publishes a one-time recovery event and Home shows a localized Snackbar stating what was recovered or removed; empty zero-point records are distinguished from saved rides. Runtime process-death verification remains pending. | ⚠️ | **P0 — runtime verification pending** |
 | Device has no accelerometer / linear-accel sensor | Auto-pause feature degrades gracefully or is disabled; tracking still records distance/speed | `MotionSensorManager` now requires both an available sensor and at least one received sample before reporting stationary. Devices without a sensor, and the startup period before the first sample, fall back to GPS speed/drift logic instead of forcing effective speed to `0f`. Runtime/device coverage remains pending. | ⚠️ | **P0 — runtime/device verification pending** |
@@ -47,7 +47,7 @@ Each row is one feature under one worst-case condition. "Expected" is what a lau
 |---|---|---|---|---|
 | Conflict after restore-to-new-device | Merge or explicit conflict resolution, not silent data loss | `FirestoreSyncManager.uploadRideInternal()` (258-300) is last-write-wins with no version check; download dedupes only by `firestoreId` presence. No conflict UI. Acceptable for a single-user-per-account app *if* documented, but currently undocumented and unverified against a real two-device scenario. | ⚠️ | P1 |
 | Partial sync interruption | Resumable, no duplicate uploads | Each ride is marked `isSynced = true` only after its own `.set().await()` succeeds (line 293-295) — genuinely resumable. | ✅ | — |
-| Sync failure reporting accuracy | `SyncResult` reflects what actually happened | Periodic sync now propagates upload failures instead of counting a ride as uploaded after a swallowed exception. Interactive `syncAll()` still uses the existing coroutine-based flow and should be covered by a follow-up test/review. | ⚠️ | **P0 — runtime/failure-path verification pending** |
+| Sync failure reporting accuracy | `SyncResult` reflects what actually happened | Re-verified 2026-07-18: `uploadRideInternal()` (`FirestoreSyncManager.kt:255-299`) now rethrows on failure and is the single upload path shared by both `syncAll()` and `syncPeriodic()`. `syncAll()`'s loop (line 82-85) has no per-item try/catch, so a thrown upload failure propagates to its outer catch (line 91-95) and correctly yields `SyncResult.Error`, not a false `Success`. No separate interactive-path fix is needed — this was resolved as a side effect of the shared-function fix, not left open. | ✅ | **P0 — code fix verified by review; real Firestore-failure runtime/device test still recommended before production** |
 | Background periodic sync via WorkManager | `WorkManager` retries on real failure | `SyncWorker.doWork()` now awaits the suspend `syncPeriodic()` result, writes `last_sync_time` only on `SyncResult.Success`, and returns `Result.retry()` for sync errors. Runtime WorkManager/Firestore failure-path verification remains pending. | ⚠️ | **P0 — runtime/failure-path verification pending** |
 | Sign-out mid-sync | No crash, no partial-state corruption | `user` is captured once at the top of `syncAll()`; mid-loop sign-out likely fails remaining writes server-side, but the swallowed-exception bug above means the UI won't reflect this accurately. Same root cause as the sync-count bug. | ⚠️ | P1 (tied to the P0 above) |
 
@@ -70,15 +70,20 @@ Each row is one feature under one worst-case condition. "Expected" is what a lau
 ## Severity summary (for W1/W2 triage)
 
 **P0 — fix before production (safety, silent failure, or data-integrity risk):**
-1. Live GPS-loss indicator is dead code — no in-ride warning on signal loss (Tracking)
-2. No airplane-mode/GPS-disabled detection — fully silent tracking failure (Tracking)
-3. Process-death mid-ride does not resume automatically; recovery now gives a user-facing saved/removed summary, with runtime verification still open (Tracking)
-4. Accelerometer-less devices can permanently zero distance/speed via stuck auto-pause (Tracking)
-5. SOS has no user-facing send confirmation or failure state at all (SOS)
-6. SOS SMS failures are silently swallowed with no delivery confirmation (SOS)
-7. SOS button disables with no explanation when permission is revoked (SOS)
-8. `syncAll()` can report `Success` on a partially failed sync (Cloud Sync)
-9. `SyncWorker` never actually awaits sync completion — retry is dead code (Cloud Sync)
+
+Status key: 🔧 code fix landed, runtime/device verification still open · ❌ not yet fixed.
+
+1. 🔧 Live GPS-loss indicator — `GPS_LOST` state now drives a visible in-ride HUD warning after a 15s callback gap (Tracking)
+2. 🔧 Airplane-mode/GPS-disabled detection — now distinguished from a plain signal gap, with a Location Settings deep link (Tracking)
+3. 🔧 Process-death mid-ride — still doesn't auto-resume the live HUD, but recovery now shows a user-facing saved/removed Snackbar instead of finalizing silently (Tracking)
+4. 🔧 Accelerometer-less devices — auto-pause no longer sticks at zero; falls back to GPS speed/drift logic when no motion sensor/sample exists (Tracking)
+5. 🔧 SOS send confirmation — `sos_channel` now posts accepted/partial/failed contact counts while SOS is active (SOS)
+6. 🔧 SOS SMS failures — each SMS now uses a sent-result `PendingIntent`; rejected/timed-out sends are counted and surfaced (SOS)
+7. 🔧 SOS permission revocation — a previously configured user now sees a Home warning with Settings navigation/dismissal, and Emergency Setup explains how to restore SMS permission (SOS)
+8. ✅ `syncAll()` reporting `Success` on a partial failure — resolved; confirmed by code review that it shares the now-rethrowing `uploadRideInternal()` with `syncPeriodic()` (Cloud Sync)
+9. 🔧 `SyncWorker` retry path — now awaits `syncPeriodic()` and only advances `last_sync_time` on real success (Cloud Sync)
+
+Net: all 9 P0s now have code fixes; 8 still need runtime/device confirmation under TASK-005's gate, while #8 (`syncAll()` reporting) is fully resolved by code review. No unfixed P0 remains in the current matrix.
 
 **P1 — fix before "polished," acceptable to launch without if triaged explicitly:**
 storage-nearly-full unhandled; battery-saver decline path unverified; Live Share 401 not distinguished + non-forced token refresh; SMS permanent-denial fallback missing; sync conflict handling undocumented; sign-out-mid-sync UI accuracy.
