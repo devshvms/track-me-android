@@ -187,6 +187,7 @@ class TrackingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         locationHelper = LocationHelper(this)
         motionSensorManager = MotionSensorManager(this)
         val app = application as TrackMeApp
@@ -194,6 +195,12 @@ class TrackingService : Service() {
         trackingManager = app.trackingManager
         liveShareManager = app.liveShareManager
         
+    }
+
+    override fun onDestroy() {
+        isRunning = false
+        serviceScope.cancel()
+        super.onDestroy()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -659,6 +666,10 @@ class TrackingService : Service() {
         const val TRACKING_PREFS = "trackme_prefs"
         const val ACTIVE_TRACKING_SESSION_KEY = "active_tracking_session"
         const val PAUSED_TRACKING_SESSION_KEY = "paused_tracking_session"
+
+        @Volatile
+        var isRunning: Boolean = false
+            private set
 
         @Volatile
         var activeRideId: Long? = null

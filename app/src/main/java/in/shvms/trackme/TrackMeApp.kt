@@ -144,7 +144,7 @@ class TrackMeApp : Application() {
             `in`.shvms.trackme.service.TrackingService.ACTIVE_TRACKING_SESSION_KEY,
             false
         )
-        if (hasActiveSession) {
+        if (hasActiveSession && !`in`.shvms.trackme.service.TrackingService.isRunning) {
             val intent = android.content.Intent(this, `in`.shvms.trackme.service.TrackingService::class.java).apply {
                 action = `in`.shvms.trackme.service.TrackingService.ACTION_START_OR_RESUME_SERVICE
             }
