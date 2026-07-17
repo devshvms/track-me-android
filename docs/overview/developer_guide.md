@@ -27,13 +27,12 @@ graph TD
     TS -->|Store Points| RD(RideDao)
     TS -->|Update State| TM(TrackingManager)
     TM -.->|Observe StateFlow| UI
-    TS -->|Acquire/Release| WL[PowerManager.WakeLock]
+    TS -->|Updates State| TM[TrackingManager]
 ```
 
 *   **`TrackingService`**: A Foreground Service that runs the primary tracking loop. It manages its own CoroutineScope, binds to the `TrackingManager` to push real-time UI updates, and talks to the `RideDao` to persist `GPSPointEntity` rows instantly.
 *   **`LocationHelper`**: Wraps the `FusedLocationProviderClient`. Requests location updates.
 *   **`TrackingManager`**: A singleton state holder (often provided via dependency injection or App context). Exposes `StateFlow` streams for `trackingState`, `pathPoints`, `currentSpeed`, `totalDistance`, and `rideDurationInMillis`. This is how Jetpack Compose screens know what to render during an active ride without directly binding to the service.
-*   **`WakeLock`**: Held as a `PARTIAL_WAKE_LOCK` to ensure the CPU doesn't sleep while tracking, even when the screen is off.
 
 ## 3. Data Layer Methods & Syncing
 
