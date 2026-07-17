@@ -2,6 +2,15 @@ name: Play Store Release
 
 on:
   workflow_dispatch:
+    inputs:
+      track:
+        description: 'Google Play track to publish to'
+        required: true
+        default: alpha
+        type: choice
+        options:
+          - alpha
+          - internal
   push:
     branches:
       - master
@@ -70,15 +79,23 @@ jobs:
           name: app-release.aab
           path: app/build/outputs/bundle/release/app-release.aab
 
+      - name: Verify Google Play publish credentials
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$PLAY_JSON" ]; then
+            echo "::error::PLAY_SERVICE_ACCOUNT_JSON is not configured. The AAB was built but cannot be published to Google Play."
+            exit 1
+          fi
+          printf '%s' "$PLAY_JSON" | jq empty
+
       - name: Upload to Google Play
         env:
           PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-        if: ${{ env.PLAY_JSON != '' }}
-        continue-on-error: true
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: in.shvms.trackme
           releaseFiles: app/build/outputs/bundle/release/app-release.aab
-          track: internal
+          track: ${{ inputs.track || 'alpha' }}
           status: completed
