@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.location.Location
+import android.location.LocationManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -25,7 +26,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 
 enum class TrackingState {
-    IDLE, TRACKING, PAUSED, GPS_LOST
+    IDLE, TRACKING, PAUSED, GPS_LOST, GPS_DISABLED
 }
 
 class TrackingService : Service() {
@@ -60,7 +61,7 @@ class TrackingService : Service() {
                 return
             }
 
-            if (currentState == TrackingState.GPS_LOST) {
+            if (currentState == TrackingState.GPS_LOST || currentState == TrackingState.GPS_DISABLED) {
                 updateState(TrackingState.TRACKING)
             }
 
@@ -296,11 +297,13 @@ class TrackingService : Service() {
                 trackingManager.updateDuration(rideDuration)
                 trackingManager.updateElapsedDuration(elapsedWallClockDuration)
                 
-                if ((currentState == TrackingState.TRACKING || currentState == TrackingState.GPS_LOST) && lastGpsTimeMs > 0) {
+                if ((currentState == TrackingState.TRACKING || currentState == TrackingState.GPS_LOST || currentState == TrackingState.GPS_DISABLED) && lastGpsTimeMs > 0) {
                     val timeSinceLastGps = System.currentTimeMillis() - lastGpsTimeMs
                     trackingManager.updateTimeSinceLastGps(timeSinceLastGps)
-                    if (currentState == TrackingState.TRACKING && timeSinceLastGps >= GPS_LOSS_TIMEOUT_MS) {
-                        updateState(TrackingState.GPS_LOST)
+                    if (timeSinceLastGps >= GPS_LOSS_TIMEOUT_MS) {
+                        updateState(
+                            if (isLocationServiceEnabled()) TrackingState.GPS_LOST else TrackingState.GPS_DISABLED
+                        )
                     }
                 } else {
                     trackingManager.updateTimeSinceLastGps(0L)
@@ -308,6 +311,22 @@ class TrackingService : Service() {
                 
                 delay(1000L)
             }
+        }
+    }
+
+    private fun isLocationServiceEnabled(): Boolean {
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            ?: return false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            locationManager.isLocationEnabled
+        } else {
+            val gpsEnabled = runCatching {
+                locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+            }.getOrDefault(false)
+            val networkEnabled = runCatching {
+                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+            }.getOrDefault(false)
+            !areLocationProvidersUnavailable(gpsEnabled, networkEnabled)
         }
     }
 

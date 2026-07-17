@@ -113,16 +113,27 @@ fun ActiveRideHudPanel(
                 )
             }
 
-            if (trackingState == TrackingState.GPS_LOST) {
+            if (trackingState == TrackingState.GPS_LOST || trackingState == TrackingState.GPS_DISABLED) {
+                val context = LocalContext.current
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = TrackMeRed,
                     shadowElevation = 2.dp,
-                    modifier = Modifier.padding(horizontal = 4.dp)
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .clickable {
+                            context.startActivity(
+                                android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                            )
+                        }
                 ) {
                     val lostSeconds = (timeSinceLastGps / 1000L).coerceAtLeast(1L)
                     Text(
-                        text = "⚠ GPS signal lost (${lostSeconds}s)",
+                        text = if (trackingState == TrackingState.GPS_DISABLED) {
+                            "⚠ Location services disabled (${lostSeconds}s)"
+                        } else {
+                            "⚠ GPS signal lost (${lostSeconds}s)"
+                        },
                         color = Color.White,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
@@ -264,7 +275,9 @@ fun ActiveRideHudPanel(
                     )
 
                     // Unified Center Pill (Pause/Resume on left, Slide-to-Stop on right) - 52.dp height
-                    val isPaused = trackingState == TrackingState.PAUSED || trackingState == TrackingState.GPS_LOST
+                    val isPaused = trackingState == TrackingState.PAUSED ||
+                        trackingState == TrackingState.GPS_LOST ||
+                        trackingState == TrackingState.GPS_DISABLED
                     UnifiedPauseStopPill(
                         isPaused = isPaused,
                         onPauseToggle = onPauseToggle,

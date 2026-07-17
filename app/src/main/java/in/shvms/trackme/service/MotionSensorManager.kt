@@ -110,3 +110,6 @@ internal fun shouldTreatDeviceAsStationary(
     sampleReceived: Boolean,
     motionEnergy: Float
 ): Boolean = sensorAvailable && sampleReceived && motionEnergy < 0.18f
+
+internal fun areLocationProvidersUnavailable(gpsEnabled: Boolean, networkEnabled: Boolean): Boolean =
+    !gpsEnabled && !networkEnabled

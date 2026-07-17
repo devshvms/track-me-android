@@ -20,4 +20,11 @@ class MotionSensorPolicyTest {
         assertTrue(shouldTreatDeviceAsStationary(sensorAvailable = true, sampleReceived = true, motionEnergy = 0.1f))
         assertFalse(shouldTreatDeviceAsStationary(sensorAvailable = true, sampleReceived = true, motionEnergy = 0.3f))
     }
+
+    @Test
+    fun locationProvidersAreUnavailableOnlyWhenBothAreDisabled() {
+        assertTrue(areLocationProvidersUnavailable(gpsEnabled = false, networkEnabled = false))
+        assertFalse(areLocationProvidersUnavailable(gpsEnabled = true, networkEnabled = false))
+        assertFalse(areLocationProvidersUnavailable(gpsEnabled = false, networkEnabled = true))
+    }
 }
