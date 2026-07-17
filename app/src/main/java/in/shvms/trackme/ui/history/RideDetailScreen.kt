@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.provider.MediaStore
 import java.io.FileInputStream
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -108,6 +110,31 @@ fun RideDetailScreen(
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
     var previewMapInstance by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
+    var pendingGpxFile by remember { mutableStateOf<java.io.File?>(null) }
+
+    val gpxSaveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/gpx+xml")
+    ) { uri ->
+        val sourceFile = pendingGpxFile
+        pendingGpxFile = null
+        if (uri != null && sourceFile != null) {
+            coroutineScope.launch(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use { output ->
+                        sourceFile.inputStream().use { input -> input.copyTo(output) }
+                    } ?: error("Unable to open destination")
+                }.onSuccess {
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(context, "Saved successfully", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }.onFailure { error ->
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(context, "Error saving GPX: ${error.message}", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
     
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
@@ -371,7 +398,7 @@ fun RideDetailScreen(
                             }
 
                             Marker(
-                                state = MarkerState(position = latLngs.last()),
+                                state = remember(latLngs.last()) { MarkerState(position = latLngs.last()) },
                                 title = "Finish",
                                 snippet = "End of Ride",
                                 icon = finishFlagIcon,
@@ -388,7 +415,9 @@ fun RideDetailScreen(
                                     }
                                 }
                                 Marker(
-                                    state = MarkerState(position = LatLng(p.latitude, p.longitude)),
+                                    state = remember(p.latitude, p.longitude) {
+                                        MarkerState(position = LatLng(p.latitude, p.longitude))
+                                    },
                                     title = "Scrub",
                                     snippet = "Speed: ${String.format(java.util.Locale.getDefault(), "%.1f", p.speed * 3.6f)} km/h",
                                     icon = scrubIcon,
@@ -579,14 +608,22 @@ fun RideDetailScreen(
                                             put(MediaStore.MediaColumns.MIME_TYPE, "application/gpx+xml")
                                             put(MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
                                         }
-                                        val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                                        if (uri != null) {
-                                            val outputStream = context.contentResolver.openOutputStream(uri)
-                                            outputStream?.use { out ->
-                                                gpxFile.inputStream().use { input -> input.copyTo(out) }
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                            val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                                            if (uri != null) {
+                                                context.contentResolver.openOutputStream(uri)?.use { out ->
+                                                    gpxFile.inputStream().use { input -> input.copyTo(out) }
+                                                } ?: error("Unable to open Downloads")
+                                                withContext(Dispatchers.Main) {
+                                                    android.widget.Toast.makeText(context, "Saved to Downloads", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            } else {
+                                                error("Unable to create Downloads entry")
                                             }
+                                        } else {
                                             withContext(Dispatchers.Main) {
-                                                android.widget.Toast.makeText(context, "Saved to Downloads", android.widget.Toast.LENGTH_SHORT).show()
+                                                pendingGpxFile = gpxFile
+                                                gpxSaveLauncher.launch(gpxFile.name)
                                             }
                                         }
                                     } catch (e: Exception) {
@@ -750,7 +787,7 @@ fun RideDetailScreen(
                                         )
                                     }
                                     Marker(
-                                        state = MarkerState(position = latLngs.last()),
+                                        state = remember(latLngs.last()) { MarkerState(position = latLngs.last()) },
                                         title = "Finish",
                                         icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
                                     )

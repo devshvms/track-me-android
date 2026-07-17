@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.content.ContextCompat
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.service.TrackingState
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -108,11 +109,12 @@ fun HomeScreen(
 
     DisposableEffect(context) {
         val filter = android.content.IntentFilter("in.shvms.trackme.RIDE_SAVED")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(receiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            context.registerReceiver(receiver, filter)
-        }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         onDispose {
             context.unregisterReceiver(receiver)
         }

@@ -494,7 +494,7 @@ class TrackingService : Service() {
             val app = application as TrackMeApp
             app.firestoreSyncManager.uploadRide(rideId)
             
-            val bcastIntent = Intent("in.shvms.trackme.RIDE_SAVED")
+            val bcastIntent = Intent("in.shvms.trackme.RIDE_SAVED").setPackage(packageName)
             sendBroadcast(bcastIntent)
         }
     }

@@ -34,7 +34,7 @@ class AppPreferencesManager(private val context: Context) {
 
     private fun updateSystemLocale(lang: String) {
         try {
-            val locale = java.util.Locale(lang)
+            val locale = java.util.Locale.forLanguageTag(lang.ifBlank { "en" })
             java.util.Locale.setDefault(locale)
             val config = android.content.res.Configuration(context.resources.configuration)
             config.setLocale(locale)
