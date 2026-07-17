@@ -31,7 +31,8 @@ This section breaks down the technical implementation for the core features desc
 
 ### 1.5. Data Export & GPX Interoperability
 *   **Local GPX:** Implemented via Strategy/Adapter pattern. `GPXExporter.kt` formats local points into GPX 1.1 XML. `GPXParser.kt` ingests `.gpx` files to map to Room entities.
-*   **Asynchronous Archive Export:** Complete historical data can be exported via a `POST` request to the `/api/export/request` backend endpoint. `SettingsViewModel.kt` submits the request and polls status via HTTP, aligning with backend queuing and rate-limiting policies.
+*   **Cloud Archive Export:** Complete cloud history is requested with `POST /api/export/request`. The request and optional status call use a fresh Firebase ID token in `Authorization: Bearer <token>`. The response is currently `COMPLETED` immediately because the server creates the ZIP on demand at download time. Android passes the exact tokenized `downloadUrl` to `DownloadManager`; the URL query token is required because `DownloadManager` cannot send the bearer header. Never call `/api/export/download` without that returned URL and its `token` parameter.
+*   **Canonical API contract:** [TrackMe Web API Contract](../../track-me-web/doc/api.md)
 *   🔗 **Product Link:** [Data Export & GPX Interoperability](product_documentation.md#15-data-export--gpx-interoperability)
 
 ### 1.6. Social Sharing (Image Export)
