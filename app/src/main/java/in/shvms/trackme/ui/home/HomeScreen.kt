@@ -43,6 +43,7 @@ import kotlinx.coroutines.launch
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.home.components.RadialStartRideButton
 import `in`.shvms.trackme.ui.home.components.ActiveRideHudPanel
+import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
 import `in`.shvms.trackme.domain.model.RidePersona
@@ -473,47 +474,4 @@ fun HomeScreen(
         }
     }
 }
-}
-
-@Composable
-fun rememberIsOffline(): Boolean {
-    val context = LocalContext.current
-    var isOffline by remember { mutableStateOf(false) }
-    DisposableEffect(context) {
-        val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
-        fun checkOffline(): Boolean {
-            val network = connectivityManager?.activeNetwork ?: return true
-            val caps = connectivityManager.getNetworkCapabilities(network) ?: return true
-            return !(caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                    caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED))
-        }
-        isOffline = checkOffline()
-
-        val callback = object : android.net.ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: android.net.Network) {
-                isOffline = false
-            }
-            override fun onLost(network: android.net.Network) {
-                isOffline = true
-            }
-            override fun onCapabilitiesChanged(
-                network: android.net.Network,
-                networkCapabilities: android.net.NetworkCapabilities
-            ) {
-                val hasInternet = networkCapabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                        networkCapabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-                isOffline = !hasInternet
-            }
-        }
-        try {
-            connectivityManager?.registerDefaultNetworkCallback(callback)
-        } catch (_: Exception) {}
-
-        onDispose {
-            try {
-                connectivityManager?.unregisterNetworkCallback(callback)
-            } catch (_: Exception) {}
-        }
-    }
-    return isOffline
 }

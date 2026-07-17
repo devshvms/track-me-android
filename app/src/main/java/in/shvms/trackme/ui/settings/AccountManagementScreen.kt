@@ -29,6 +29,8 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.ui.components.OfflineShieldBanner
+import `in`.shvms.trackme.ui.components.rememberIsOffline
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,6 +43,7 @@ fun AccountManagementScreen(
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    val isOffline = rememberIsOffline()
     val user by viewModel.currentUser.collectAsState()
     var isPrivacyExpanded by remember { mutableStateOf(false) }
     var showSignOutWarning by remember { mutableStateOf(false) }
@@ -84,6 +87,10 @@ fun AccountManagementScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            if (isOffline) {
+                OfflineShieldBanner(modifier = Modifier.padding(bottom = 16.dp))
+            }
+
             if (user != null) {
                 if (user?.photoUrl != null) {
                     Image(

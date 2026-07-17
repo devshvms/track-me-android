@@ -30,6 +30,8 @@ import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.draw.clip
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.ui.components.OfflineShieldBanner
+import `in`.shvms.trackme.ui.components.rememberIsOffline
 import android.widget.Toast
 
 @Composable
@@ -44,6 +46,7 @@ fun SettingsScreen(
     val syncResult by viewModel.syncResult.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val isOffline = rememberIsOffline()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
     Column(
@@ -54,6 +57,10 @@ fun SettingsScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        if (isOffline) {
+            OfflineShieldBanner(modifier = Modifier.padding(bottom = 16.dp))
+        }
+
         // Header removed
 
         if (user == null) {
