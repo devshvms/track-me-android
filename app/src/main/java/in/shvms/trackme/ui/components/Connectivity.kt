@@ -87,7 +87,7 @@ fun OfflineShieldBanner(modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .semantics {
+            .semantics(mergeDescendants = true) {
                 contentDescription = "${strings.offlineModeTitle}. ${strings.offlineModeDescription}"
             },
         shape = RoundedCornerShape(12.dp),
