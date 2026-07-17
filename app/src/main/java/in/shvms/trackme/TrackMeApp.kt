@@ -1,6 +1,7 @@
 package `in`.shvms.trackme
 
 import android.app.Application
+import android.os.StrictMode
 import androidx.room.Room
 import `in`.shvms.trackme.data.local.AppDatabase
 import `in`.shvms.trackme.service.TrackingManager
@@ -56,6 +57,21 @@ class TrackMeApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        if (BuildConfig.DEBUG) {
+            StrictMode.setThreadPolicy(
+                StrictMode.ThreadPolicy.Builder()
+                    .detectAll()
+                    .penaltyLog()
+                    .build()
+            )
+            StrictMode.setVmPolicy(
+                StrictMode.VmPolicy.Builder()
+                    .detectAll()
+                    .penaltyLog()
+                    .build()
+            )
+        }
 
         _smsPermissionRevokedNotice.value = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
             .getBoolean("sos_permission_revoked_notice", false)
