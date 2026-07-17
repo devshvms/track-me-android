@@ -28,6 +28,24 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Verify Android signing credentials
+        env:
+          KEYSTORE_FILE_BASE64: ${{ secrets.KEYSTORE_FILE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          missing=()
+          [ -n "$KEYSTORE_FILE_BASE64" ] || missing+=(KEYSTORE_FILE_BASE64)
+          [ -n "$KEY_ALIAS" ] || missing+=(KEY_ALIAS)
+          [ -n "$KEYSTORE_PASSWORD" ] || missing+=(KEYSTORE_PASSWORD)
+          [ -n "$KEY_PASSWORD" ] || missing+=(KEY_PASSWORD)
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing Android Play signing secret(s): ${missing[*]}"
+            echo "The Play publishing workflow must use the registered upload key; it will not generate a fallback keystore."
+            exit 1
+          fi
+
       - name: Decode Keystore
         env:
           KEYSTORE_FILE_BASE64: ${{ secrets.KEYSTORE_FILE_BASE64 }}
@@ -35,15 +53,14 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ -n "$KEYSTORE_FILE_BASE64" ]; then
-            echo "$KEYSTORE_FILE_BASE64" | base64 --decode > app/release.keystore 2>/dev/null || true
+          echo "$KEYSTORE_FILE_BASE64" | base64 --decode > app/release.keystore
+          if [ ! -s "app/release.keystore" ]; then
+            echo "::error::KEYSTORE_FILE_BASE64 did not decode to a keystore file."
+            exit 1
           fi
-          if [ ! -f "app/release.keystore" ]; then
-            echo "Generating fallback keystore for CI build validation..."
-            alias_val="${KEY_ALIAS:-dummy_alias}"
-            store_pwd="${KEYSTORE_PASSWORD:-dummy_password}"
-            key_pwd="${KEY_PASSWORD:-dummy_password}"
-            keytool -genkeypair -v -keystore app/release.keystore -alias "$alias_val" -keyalg RSA -keysize 2048 -validity 10000 -storepass "$store_pwd" -keypass "$key_pwd" -dname "CN=TrackMe, OU=Dev, O=Shvms, L=City, S=State, C=IN"
+          if ! keytool -list -keystore app/release.keystore -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" >/dev/null 2>&1; then
+            echo "::error::The configured Android signing secrets do not open the decoded keystore with the configured alias/password."
+            exit 1
           fi
 
       - name: Decode Google Services JSON
