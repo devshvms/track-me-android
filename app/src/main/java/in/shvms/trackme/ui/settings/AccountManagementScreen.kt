@@ -35,6 +35,11 @@ import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.components.OfflineShieldBanner
 import `in`.shvms.trackme.ui.components.rememberIsOffline
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
+import `in`.shvms.trackme.utils.containsExportFailureMarker
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -428,7 +433,50 @@ fun AccountManagementScreen(
                                 .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, filename)
 
                             val downloadManager = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
-                            downloadManager.enqueue(request)
+                            val downloadId = downloadManager.enqueue(request)
+
+                            scope.launch {
+                                var finished = false
+                                while (isActive && !finished) {
+                                    val status = withContext(Dispatchers.IO) {
+                                        downloadManager.query(
+                                            android.app.DownloadManager.Query().setFilterById(downloadId)
+                                        )?.use { cursor ->
+                                            if (cursor.moveToFirst()) {
+                                                cursor.getInt(cursor.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_STATUS))
+                                            } else {
+                                                null
+                                            }
+                                        }
+                                    }
+
+                                    when (status) {
+                                        android.app.DownloadManager.STATUS_SUCCESSFUL -> {
+                                            val downloadedUri = downloadManager.getUriForDownloadedFile(downloadId)
+                                            val isIncomplete = downloadedUri?.let { uri ->
+                                                withContext(Dispatchers.IO) {
+                                                    context.contentResolver.openInputStream(uri)?.use { input ->
+                                                        input.containsExportFailureMarker()
+                                                    } ?: true
+                                                }
+                                            } ?: true
+
+                                            if (isIncomplete) {
+                                                downloadManager.remove(downloadId)
+                                                snackbarHostState.showSnackbar(strings.dataExportFailed)
+                                            }
+                                            finished = true
+                                        }
+
+                                        android.app.DownloadManager.STATUS_FAILED -> {
+                                            snackbarHostState.showSnackbar(strings.dataExportFailed)
+                                            finished = true
+                                        }
+
+                                        else -> delay(1000)
+                                    }
+                                }
+                            }
 
                             android.widget.Toast.makeText(
                                 context,
