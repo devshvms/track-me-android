@@ -13,11 +13,16 @@ class SyncWorker(
     override suspend fun doWork(): Result {
         val app = applicationContext as? TrackMeApp ?: return Result.failure()
         return try {
-            app.firestoreSyncManager.syncPeriodic()
-            val time = System.currentTimeMillis()
-            applicationContext.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE)
-                .edit().putLong("last_sync_time", time).apply()
-            Result.success()
+            when (app.firestoreSyncManager.syncPeriodic()) {
+                is SyncResult.Success -> {
+                    val time = System.currentTimeMillis()
+                    applicationContext.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE)
+                        .edit().putLong("last_sync_time", time).apply()
+                    Result.success()
+                }
+                is SyncResult.Error -> Result.retry()
+                else -> Result.retry()
+            }
         } catch (e: Exception) {
             Result.retry()
         }
