@@ -239,9 +239,7 @@ class TrackingService : Service() {
                 activeRideId = rideId
 
                 `in`.shvms.trackme.analytics.AnalyticsManager.trackRideStarted(
-                    rideId = rideId.toString(),
-                    startLat = lastLocation?.latitude ?: 0.0,
-                    startLng = lastLocation?.longitude ?: 0.0
+                    rideId = rideId.toString()
                 )
 
                 locationHelper.startLocationTracking(locationCallback)

@@ -14,7 +14,7 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Feedback: Anyone can create feedback, but no client can read, edit, or delete existing feedback
+    // Feedback: anyone can create feedback; an authenticated author may read/delete only their own records.
     match /feedbacks/{feedbackId} {
       allow create: if 
           request.resource.data.keys().hasAll(['text', 'type', 'timestamp', 'uid']) &&
@@ -24,7 +24,8 @@ service cloud.firestore {
             (request.auth != null && request.resource.data.uid == request.auth.uid) || 
             (request.auth == null && request.resource.data.uid == 'anonymous')
           );
-      allow read, update, delete: if false;
+      allow read, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow update: if false;
     }
 
     // Default deny for all other paths

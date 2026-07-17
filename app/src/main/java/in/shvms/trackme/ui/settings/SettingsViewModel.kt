@@ -253,8 +253,12 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
         // 1. Submit feedback
         app.firestoreSyncManager.submitFeedback(feedbackText, "account_deletion")
         
-        // 2. Delete cloud data
-        app.firestoreSyncManager.deleteAllCloudData()
+        // 2. Delete cloud data before deleting the auth record, so a failed purge is visible
+        // and the user can retry instead of losing access to remaining cloud data.
+        val cloudDeleteResult = app.firestoreSyncManager.deleteAllCloudData()
+        if (cloudDeleteResult.isFailure) {
+            return cloudDeleteResult
+        }
         
         // 3. Delete Firebase Auth Account
         val deleteAuthResult = app.authManager.deleteAccount()

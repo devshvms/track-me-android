@@ -154,10 +154,7 @@ class HomeViewModel(
 
     fun triggerEmergency() {
         sosStartTimeMs = System.currentTimeMillis()
-        val loc = trackingManager.pathPoints.value.lastOrNull()
         `in`.shvms.trackme.analytics.AnalyticsManager.trackSosTriggered(
-            latitude = loc?.latitude ?: 0.0,
-            longitude = loc?.longitude ?: 0.0,
             triggerMethod = "in_app_button"
         )
         emergencyManager.triggerEmergency()

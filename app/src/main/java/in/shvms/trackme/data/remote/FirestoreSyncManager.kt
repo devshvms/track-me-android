@@ -415,6 +415,27 @@ class FirestoreSyncManager(
                 // Delete the ride document
                 rideDoc.reference.delete().await()
             }
+
+            // Delete emergency configuration and delivery logs owned by this user.
+            val emergencyConfigSnapshot = firestore.collection("users").document(uid)
+                .collection("emergency_config").get().await()
+            for (document in emergencyConfigSnapshot.documents) {
+                document.reference.delete().await()
+            }
+
+            val emergencyLogsSnapshot = firestore.collection("users").document(uid)
+                .collection("emergency_logs").get().await()
+            for (document in emergencyLogsSnapshot.documents) {
+                document.reference.delete().await()
+            }
+
+            // Feedback is user-owned and may be deleted only through the matching UID query.
+            val feedbackSnapshot = firestore.collection("feedbacks")
+                .whereEqualTo("uid", uid)
+                .get().await()
+            for (document in feedbackSnapshot.documents) {
+                document.reference.delete().await()
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             errorLogger.log("Delete all cloud data failed")
