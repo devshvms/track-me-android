@@ -29,7 +29,7 @@ This is also the live-HUD screen during an active ride (`ActiveRideHudPanel`).
 |---|---|---|---|
 | 1 | Notification channels | N/A | This screen doesn't trigger notifications. |
 | 2 | Dark theme | 🔍 | Route-preview thumbnails and ride-card charts need a dark-mode contrast check. |
-| 3 | Accessibility | ⚠️ | 5 `contentDescription`s present — reasonable for a list screen, but not itemized in this audit pass; **spec: verify each ride-list-item's route thumbnail and any icon-only affordance (delete, share) has a label**, and that ride cards announce ride name/date/distance as a single semantic unit for TalkBack (avoid reading fragmented sub-elements). |
+| 3 | Accessibility | ✅ code | Ride cards now expose one localized actionable summary containing ride title, start date, distance, duration, and average speed; the card's navigation action is labeled while child thumbnail/metric semantics are consolidated. Physical TalkBack verification remains pending. |
 | 4 | State preservation | ✅ | Standard list screen; no special preservation need beyond scroll position, which Compose's `LazyColumn` + `rememberLazyListState` handles by default if wired (verify wiring, not confirmed in audit). |
 | 5 | Empty/edge states | ✅ | Explicit `Text(strings.noRidesRecorded)` empty state exists (`HistoryScreen.kt:217-225`). **Minor spec**: currently text-only — consider a light illustration/icon per Google's Empty_States guidance for a more "delightful" first-run feel, but this is P2 polish, not a gap. |
 | 5b | Route thumbnail with <2 points | ✅ | Falls back to a plain "GPS" text label (`HistoryScreen.kt:482-488`) rather than a broken/blank thumbnail — correctly handled. |
