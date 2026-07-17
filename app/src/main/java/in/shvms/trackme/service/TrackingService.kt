@@ -364,11 +364,11 @@ class TrackingService : Service() {
                 for (i in 1 until points.size) {
                     val prev = points[i - 1]
                     val curr = points[i]
-                    
+
                     if (curr.speed > maxSpeed) {
                         maxSpeed = curr.speed
                     }
-                    
+
                     val timestampDeltaMs = curr.timestamp - prev.timestamp
                     if (!curr.isPaused && !prev.isPaused && timestampDeltaMs > 0) {
                         activeTimeMs += timestampDeltaMs
@@ -377,11 +377,11 @@ class TrackingService : Service() {
             } else if (points.size == 1) {
                 maxSpeed = points[0].speed
             }
-            
+
             // Keep the distance filtered by TrackingManager; recomputing raw point-to-point
             // distance here would count GPS drift and movement recorded during pauses.
             val avgSpeed = if (activeTimeMs > 0) (finalDistance / (activeTimeMs / 1000f)).toFloat() else 0f
-            
+
             val newTitle = if (ride.title == `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime)) {
                 `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime, maxSpeed * 3.6f)
             } else ride.title
