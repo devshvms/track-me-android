@@ -207,6 +207,13 @@ class TrackingService : Service() {
             }
             ACTION_PAUSE_SERVICE -> pauseTracking()
             ACTION_STOP_SERVICE -> stopTracking()
+            null -> {
+                // START_STICKY recreates the service with a null intent after process death.
+                // Only restore a session that was explicitly marked active by the service.
+                if (hasPersistedActiveSession() && currentState == TrackingState.IDLE) {
+                    startForegroundService()
+                }
+            }
         }
         return START_STICKY
     }
@@ -227,22 +234,32 @@ class TrackingService : Service() {
         
         serviceScope.launch {
             try {
-                val startTime = System.currentTimeMillis()
-                val rideId = rideDao.insertRide(
-                    RideEntity(
-                        startTime = startTime,
-                        title = RideUtils.getDefaultTitle(startTime),
-                        persona = trackingManager.selectedPersona.value.name
+                if (!restorePersistedRide()) {
+                    val startTime = System.currentTimeMillis()
+                    val rideId = rideDao.insertRide(
+                        RideEntity(
+                            startTime = startTime,
+                            title = RideUtils.getDefaultTitle(startTime),
+                            persona = trackingManager.selectedPersona.value.name
+                        )
                     )
-                )
-                currentRideId = rideId
-                activeRideId = rideId
+                    currentRideId = rideId
+                    activeRideId = rideId
+                    setPersistedActiveSession(true)
+                    setPersistedPausedSession(false)
 
-                `in`.shvms.trackme.analytics.AnalyticsManager.trackRideStarted(
-                    rideId = rideId.toString()
-                )
+                    `in`.shvms.trackme.analytics.AnalyticsManager.trackRideStarted(
+                        rideId = rideId.toString()
+                    )
+                }
 
-                locationHelper.startLocationTracking(locationCallback)
+                if (hasPersistedPausedSession()) {
+                    updateState(TrackingState.PAUSED)
+                    isTimerEnabled = false
+                    motionSensorManager.stopListening()
+                } else {
+                    locationHelper.startLocationTracking(locationCallback)
+                }
             } catch (_: SQLiteException) {
                 withContext(Dispatchers.Main.immediate) {
                     enterStorageLowState()
@@ -256,6 +273,7 @@ class TrackingService : Service() {
         updateState(TrackingState.PAUSED)
         isTimerEnabled = false
         motionSensorManager.stopListening()
+        setPersistedPausedSession(true)
         lastLocation = null // prevent distance jumping when resumed
     }
 
@@ -267,6 +285,7 @@ class TrackingService : Service() {
         storageWarningShown = false
         updateState(TrackingState.TRACKING)
         motionSensorManager.startListening()
+        setPersistedPausedSession(false)
         currentRideId?.let { rideId ->
             serviceScope.launch {
                 currentPointCount = rideDao.getPointsForRide(rideId).firstOrNull()?.size ?: 0
@@ -294,6 +313,8 @@ class TrackingService : Service() {
         lastLocation = null
         currentRideId = null
         activeRideId = null
+        setPersistedActiveSession(false)
+        setPersistedPausedSession(false)
         
         stopForeground(STOP_FOREGROUND_REMOVE)
         
@@ -311,6 +332,72 @@ class TrackingService : Service() {
     private fun updateState(newState: TrackingState) {
         currentState = newState
         trackingManager.updateState(newState)
+    }
+
+    private fun hasPersistedActiveSession(): Boolean =
+        getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+            .getBoolean(ACTIVE_TRACKING_SESSION_KEY, false)
+
+    private fun setPersistedActiveSession(active: Boolean) {
+        getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(ACTIVE_TRACKING_SESSION_KEY, active)
+            .apply()
+    }
+
+    private fun hasPersistedPausedSession(): Boolean =
+        getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+            .getBoolean(PAUSED_TRACKING_SESSION_KEY, false)
+
+    private fun setPersistedPausedSession(paused: Boolean) {
+        getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(PAUSED_TRACKING_SESSION_KEY, paused)
+            .apply()
+    }
+
+    /**
+     * Reattaches the sticky service to the newest unfinished ride after process death.
+     * GPS points are the source of truth for the restored path and HUD metrics; the next
+     * live fix starts a fresh distance segment so downtime cannot create a jump.
+     */
+    private suspend fun restorePersistedRide(): Boolean {
+        if (!hasPersistedActiveSession()) return false
+
+        val ride = rideDao.getUncompletedRides().maxByOrNull { it.startTime }
+        if (ride == null) {
+            setPersistedActiveSession(false)
+            return false
+        }
+
+        val points = rideDao.getPointsForRideSync(ride.id)
+        trackingManager.reset()
+        updateState(TrackingState.TRACKING)
+        currentRideId = ride.id
+        activeRideId = ride.id
+        currentPointCount = points.size
+
+        val persona = runCatching {
+            `in`.shvms.trackme.domain.model.RidePersona.valueOf(ride.persona)
+        }.getOrDefault(`in`.shvms.trackme.domain.model.RidePersona.AUTO)
+        trackingManager.setSelectedPersona(persona)
+
+        points.forEach { point ->
+            trackingManager.addPathPoint(LatLng(point.latitude, point.longitude))
+        }
+
+        val now = System.currentTimeMillis()
+        val restoredMetrics = TrackingSessionRestorer.calculate(ride.startTime, points, now)
+        rideDuration = restoredMetrics.activeDurationMillis
+        elapsedWallClockDuration = restoredMetrics.elapsedDurationMillis
+        trackingManager.addDistance(restoredMetrics.distanceMeters)
+        trackingManager.updateDuration(restoredMetrics.activeDurationMillis)
+        trackingManager.updateElapsedDuration(restoredMetrics.elapsedDurationMillis)
+        trackingManager.updateSpeed(restoredMetrics.latestSpeedMetersPerSecond)
+        trackingManager.setAutoPaused(restoredMetrics.isPaused)
+        lastGpsTimeMs = now
+        lastLocation = null
+        return true
     }
 
     private fun enterStorageLowState() {
@@ -569,6 +656,9 @@ class TrackingService : Service() {
         const val SOS_CHANNEL_ID = "sos_channel"
         const val STORAGE_WARNING_NOTIFICATION_ID = 4
         const val GPS_LOSS_TIMEOUT_MS = 15_000L
+        const val TRACKING_PREFS = "trackme_prefs"
+        const val ACTIVE_TRACKING_SESSION_KEY = "active_tracking_session"
+        const val PAUSED_TRACKING_SESSION_KEY = "paused_tracking_session"
 
         @Volatile
         var activeRideId: Long? = null

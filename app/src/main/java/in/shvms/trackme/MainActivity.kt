@@ -24,6 +24,7 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     val app = applicationContext as TrackMeApp
+    app.resumePersistedTrackingIfNeeded()
     lifecycleScope.launch {
         app.authManager.currentUser.collect { user ->
             if (user != null) {

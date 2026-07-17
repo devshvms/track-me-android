@@ -109,12 +109,21 @@ class TrackMeApp : Application() {
 
         applicationScope.launch(Dispatchers.IO) {
             try {
-                val summary = `in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.recoverOrphanedRides(
-                    database.rideDao(),
-                    `in`.shvms.trackme.service.TrackingService.activeRideId
+                val activeSessionPending = getSharedPreferences(
+                    `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
+                    MODE_PRIVATE
+                ).getBoolean(
+                    `in`.shvms.trackme.service.TrackingService.ACTIVE_TRACKING_SESSION_KEY,
+                    false
                 )
-                if (summary.hasChanges) {
-                    _recoveryNotice.value = summary
+                if (!activeSessionPending) {
+                    val summary = `in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.recoverOrphanedRides(
+                        database.rideDao(),
+                        `in`.shvms.trackme.service.TrackingService.activeRideId
+                    )
+                    if (summary.hasChanges) {
+                        _recoveryNotice.value = summary
+                    }
                 }
             } catch (e: Exception) {
                 errorLogger.recordException(e)
@@ -125,6 +134,22 @@ class TrackMeApp : Application() {
 
     fun consumeRecoveryNotice() {
         _recoveryNotice.value = null
+    }
+
+    fun resumePersistedTrackingIfNeeded() {
+        val hasActiveSession = getSharedPreferences(
+            `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
+            MODE_PRIVATE
+        ).getBoolean(
+            `in`.shvms.trackme.service.TrackingService.ACTIVE_TRACKING_SESSION_KEY,
+            false
+        )
+        if (hasActiveSession) {
+            val intent = android.content.Intent(this, `in`.shvms.trackme.service.TrackingService::class.java).apply {
+                action = `in`.shvms.trackme.service.TrackingService.ACTION_START_OR_RESUME_SERVICE
+            }
+            androidx.core.content.ContextCompat.startForegroundService(this, intent)
+        }
     }
 
     fun setSmsPermissionRevokedNotice(isRevoked: Boolean) {
