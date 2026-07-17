@@ -9,7 +9,6 @@ import android.content.Intent
 import android.location.Location
 import android.os.Build
 import android.os.IBinder
-import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.dao.RideDao
@@ -35,8 +34,6 @@ class TrackingService : Service() {
     private lateinit var rideDao: RideDao
     private lateinit var trackingManager: TrackingManager
     private lateinit var liveShareManager: LiveShareManager
-    private lateinit var wakeLock: PowerManager.WakeLock
-
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var currentState = TrackingState.IDLE
     private var currentRideId: Long? = null
@@ -175,8 +172,6 @@ class TrackingService : Service() {
         trackingManager = app.trackingManager
         liveShareManager = app.liveShareManager
         
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TrackMe::TrackingWakeLock")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -195,7 +190,6 @@ class TrackingService : Service() {
     }
 
     private fun startForegroundService() {
-        wakeLock.acquire(10 * 60 * 60 * 1000L) // 10 hour max lock
         createNotificationChannels()
         startForeground(NOTIFICATION_ID, getNotification())
         
@@ -274,7 +268,6 @@ class TrackingService : Service() {
             rideToProcess?.let { rideId ->
                 finalizeRide(rideId, finalDistance, finalDuration)
             }
-            if (wakeLock.isHeld) wakeLock.release()
             stopSelf()
         }
     }
