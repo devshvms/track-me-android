@@ -195,7 +195,12 @@ class HomeViewModel(
                     val msg = if (isTracking) strings.liveShareReadyActive else strings.liveShareReadyIdle
                     android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                 } else {
-                    val msg = LiveShareManager.formatGracefulError(result.exceptionOrNull())
+                    val error = result.exceptionOrNull()
+                    val msg = if (LiveShareManager.isAuthenticationError(error)) {
+                        strings.liveShareAuthExpired
+                    } else {
+                        LiveShareManager.formatGracefulError(error)
+                    }
                     android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                 }
             }
@@ -210,7 +215,12 @@ class HomeViewModel(
                 if (result.isSuccess) {
                     android.widget.Toast.makeText(context, strings.liveShareStoppedToast, android.widget.Toast.LENGTH_SHORT).show()
                 } else {
-                    val msg = LiveShareManager.formatGracefulError(result.exceptionOrNull())
+                    val error = result.exceptionOrNull()
+                    val msg = if (LiveShareManager.isAuthenticationError(error)) {
+                        strings.liveShareAuthExpired
+                    } else {
+                        LiveShareManager.formatGracefulError(error)
+                    }
                     android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                 }
             }

@@ -26,8 +26,8 @@ Each row is one feature under one worst-case condition. "Expected" is what a lau
 
 | Failure condition | Expected | Actual (audited) | Status | Severity |
 |---|---|---|---|---|
-| Session/token expires mid-share | Refresh + retry transparently, or clear "session expired" message | `LiveShareManager.pushLocation()` (line 142-144) transitions to `EXPIRED` state on HTTP 404 — handled. **401 (auth) is not specially handled** — falls into the generic `formatGracefulError()` else-branch, showing a network-style message rather than an auth-specific one (lines 200-223). | ⚠️ | P1 |
-| Stale ID token at share start | Force-refreshed token used to avoid an avoidable 401 | `firebaseIdToken()` (`LiveShareManager.kt:39-45`) calls `getIdToken(false)` — **not force-refreshed**, unlike the export flow (`SettingsViewModel.kt:113-115`, which explicitly force-refreshes with a code comment about cached-token expiry). Live Share is more exposed to stale-token failures than export is. | ❌ | P1 |
+| Session/token expires mid-share | Refresh + retry transparently, or clear "session expired" message | `LiveShareManager.pushLocation()` handles 404 as `EXPIRED`; HTTP 401 now becomes a typed authentication failure, stops the local active state with `ERROR`, and surfaces localized re-authentication guidance through the Home flow. | ⚠️ | **Code-complete in local commit; physical mid-share/auth verification pending** |
+| Stale ID token at share start | Force-refreshed token used to avoid an avoidable 401 | `LiveShareManager.firebaseIdToken()` now calls `getIdToken(true)` for start, push, and stop, matching the export flow's forced-refresh behavior. | ✅ | **Verify token-expiry/re-auth path on device** |
 | Offline start attempt | Clear, friendly error — not a hang or generic failure | `formatGracefulError()` maps `UnknownHostException`/`ConnectException`/`SocketTimeoutException`/`SSLException` to specific messages (e.g., "Unable to reach live share server...") | ✅ | — |
 | Viewer opens link after session expiry | Clean "this share has ended" page, not a broken/blank viewer | Web-side (`track-me-web`) responsibility — not audited in this pass; flagged for a follow-up cross-check against `track-me-web/public/tracker.html`. | ⚠️ untested | P2 |
 
@@ -86,7 +86,7 @@ Status key: 🔧 code fix landed, runtime/device verification still open · ❌ 
 Net: all 9 P0s now have code fixes; 8 still need runtime/device confirmation under TASK-005's gate, while #8 (`syncAll()` reporting) is fully resolved by code review. No unfixed P0 remains in the current matrix.
 
 **P1 — fix before "polished," acceptable to launch without if triaged explicitly:**
-storage-nearly-full unhandled; battery-saver decline path unverified; Live Share 401 not distinguished + non-forced token refresh; SMS permanent-denial fallback missing; sync conflict handling undocumented; sign-out-mid-sync UI accuracy.
+storage-nearly-full runtime evidence; battery-saver decline path unverified; Live Share physical auth/expiry verification; sync conflict handling undocumented; sign-out-mid-sync UI accuracy.
 
 **P2 — polish backlog:**
 contact-deletion copy clarification; large-history export/disk-full friendlier errors; viewer-expired page cross-check on web.
