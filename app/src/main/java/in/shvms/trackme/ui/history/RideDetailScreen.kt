@@ -533,6 +533,16 @@ fun RideDetailScreen(
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
+                } else if (points.size == 1) {
+                    Text(
+                        text = strings.notEnoughGpsDataForChart,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
                 }
                 
                 Card(
