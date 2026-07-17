@@ -365,6 +365,8 @@ fun HomeScreen(
                     isEmergencyReady = uiState.isEmergencyReady,
                     isEmergencyActive = uiState.isEmergencyActive,
                     liveShareState = uiState.liveShareState,
+                    isAuthenticated = uiState.isAuthenticated,
+                    liveShareAuthRequired = strings.liveShareAuthRequired,
                     isOffline = isOffline,
                     onPauseToggle = {
                         if (uiState.trackingState == TrackingState.TRACKING) {
@@ -478,4 +480,3 @@ fun rememberIsOffline(): Boolean {
     }
     return isOffline
 }
-

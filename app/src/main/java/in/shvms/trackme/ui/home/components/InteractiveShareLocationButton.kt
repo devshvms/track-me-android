@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
@@ -50,6 +51,7 @@ import `in`.shvms.trackme.data.remote.LiveShareStatus
  * - Tactile haptic feedback and device vibration on state changes and clicks.
  *
  * @param liveShareState Current [LiveShareState] representing active/idle/starting status.
+ * @param isAuthenticated Whether the current user can create or mutate a live-share session.
  * @param onStartShare Callback triggered when the user initiates location sharing.
  * @param onStopShare Callback triggered when the user stops sharing location.
  * @param onSendShare Callback triggered when sending/sharing link via system intent.
@@ -59,6 +61,7 @@ import `in`.shvms.trackme.data.remote.LiveShareStatus
 @Composable
 fun InteractiveShareLocationButton(
     liveShareState: LiveShareState,
+    isAuthenticated: Boolean,
     onStartShare: () -> Unit,
     onStopShare: () -> Unit,
     onSendShare: () -> Unit,
@@ -108,11 +111,13 @@ fun InteractiveShareLocationButton(
 
     val isStarting = liveShareState.status == LiveShareStatus.STARTING
     val isActive = liveShareState.status == LiveShareStatus.ACTIVE
+    val isDisabled = !isAuthenticated
     val density = LocalDensity.current
 
     // Smooth background color transition
     val animatedBgColor by animateColorAsState(
         targetValue = when {
+            isDisabled -> TrackMeGrey.copy(alpha = 0.55f)
             isDrawerOpen -> Color(0xFFE0E0E0)
             isActive -> activeBgColor
             isStarting -> activeBgColor.copy(alpha = blinkingAlpha)
@@ -161,15 +166,22 @@ fun InteractiveShareLocationButton(
                 .scale(buttonScale.value)
                 .clip(CircleShape)
                 .background(color = animatedBgColor)
-                .clickable {
+                .clickable(enabled = isAuthenticated) {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     triggerPhysicalVibrate(context, 35L)
                     isDrawerOpen = !isDrawerOpen
                 }
         ) {
             Box(contentAlignment = Alignment.Center) {
-                // Antenna icon layer
-                if (antennaAlpha > 0.01f) {
+                if (isDisabled) {
+                    Icon(
+                        imageVector = Icons.Default.Block,
+                        contentDescription = "Live sharing unavailable. Sign in to share your live location.",
+                        tint = Color.Black.copy(alpha = 0.6f),
+                        modifier = Modifier.size(27.dp)
+                    )
+                } else if (antennaAlpha > 0.01f) {
+                    // Antenna icon layer
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.graphicsLayer {
@@ -224,7 +236,7 @@ fun InteractiveShareLocationButton(
 
         // Upward Circular Drawer (s2 / s5)
 
-        if (isDrawerOpen) {
+        if (isDrawerOpen && isAuthenticated) {
             val popupOffsetY = remember(density) {
                 with(density) { -60.dp.roundToPx() }
             }
@@ -357,4 +369,3 @@ private fun LiveShareAntennaIcon(tint: Color) {
         )
     }
 }
-

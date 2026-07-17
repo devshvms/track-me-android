@@ -71,6 +71,8 @@ fun ActiveRideHudPanel(
     isEmergencyReady: Boolean,
     isEmergencyActive: Boolean,
     liveShareState: LiveShareState,
+    isAuthenticated: Boolean,
+    liveShareAuthRequired: String,
     isOffline: Boolean = false,
     onPauseToggle: () -> Unit,
 
@@ -215,6 +217,17 @@ fun ActiveRideHudPanel(
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
                 Spacer(modifier = Modifier.height(12.dp))
 
+                if (!isAuthenticated) {
+                    Text(
+                        text = liveShareAuthRequired,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
                 // Action Buttons Row (SOS | Unified Pause/Stop Pill | Live Share)
                 Row(
                     modifier = Modifier
@@ -247,6 +260,7 @@ fun ActiveRideHudPanel(
                     // Live Location Interactive Share Button (s1 - s5) - 52.dp circle
                     InteractiveShareLocationButton(
                         liveShareState = liveShareState,
+                        isAuthenticated = isAuthenticated,
                         onStartShare = onStartShare,
                         onStopShare = onStopShare,
                         onSendShare = onSendShare,
@@ -489,4 +503,3 @@ private fun UnifiedPauseStopPill(
         }
     }
 }
-
