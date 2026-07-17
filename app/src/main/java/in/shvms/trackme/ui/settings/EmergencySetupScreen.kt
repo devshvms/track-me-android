@@ -121,6 +121,7 @@ fun EmergencySetupScreen(
 @Composable
 fun ContactsStep(viewModel: EmergencySettingsViewModel, contacts: List<EmergencyContactEntity>, onNext: () -> Unit) {
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
     val pickPhoneLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
@@ -143,7 +144,7 @@ fun ContactsStep(viewModel: EmergencySettingsViewModel, contacts: List<Emergency
         Spacer(modifier = Modifier.height(16.dp))
         Text("Even in remote areas without internet, standard SMS has a much higher chance of reaching cell towers.", style = MaterialTheme.typography.bodyLarge)
         Spacer(modifier = Modifier.height(8.dp))
-        Text("Add up to 5 contacts who will receive your emergency broadcast.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(strings.emergencyContactSnapshotInfo, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(24.dp))
         
         Button(
