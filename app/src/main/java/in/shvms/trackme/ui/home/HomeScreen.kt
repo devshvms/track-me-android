@@ -65,6 +65,12 @@ fun HomeScreen(
     val strings = LocalAppStrings.current
     val context = LocalContext.current
     val app = context.applicationContext as TrackMeApp
+    val uiPreferences = remember {
+        context.getSharedPreferences("ui_prefs", android.content.Context.MODE_PRIVATE)
+    }
+    var showStartRideHint by remember {
+        mutableStateOf(!uiPreferences.getBoolean("start_ride_hint_seen", false))
+    }
     var hasLocationPermission by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
     val recoveryNotice by app.recoveryNotice.collectAsState()
@@ -329,8 +335,41 @@ fun HomeScreen(
 
             // Idle State: Radial Persona Start Button
             if (uiState.trackingState == TrackingState.IDLE) {
+                if (hasLocationPermission && showStartRideHint) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 186.dp, start = 24.dp, end = 24.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        tonalElevation = 3.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = strings.startRideHint,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = {
+                                    showStartRideHint = false
+                                    uiPreferences.edit().putBoolean("start_ride_hint_seen", true).apply()
+                                }
+                            ) {
+                                Text(strings.dismissStartRideHint)
+                            }
+                        }
+                    }
+                }
+
                 RadialStartRideButton(
                     onStartRide = { persona ->
+                        showStartRideHint = false
+                        uiPreferences.edit().putBoolean("start_ride_hint_seen", true).apply()
                         val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
                         if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
                             try {
