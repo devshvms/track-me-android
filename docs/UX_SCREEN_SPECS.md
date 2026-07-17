@@ -44,7 +44,7 @@ This is also the live-HUD screen during an active ride (`ActiveRideHudPanel`).
 | 1 | Notification channels | N/A | — |
 | 2 | Dark theme | 🔍 | Chart (`CombinedMetricLineChart`, Canvas-drawn) colors, gap-markers (red dashed lines), and map overlay all need explicit dark-mode verification — Canvas-drawn content doesn't automatically inherit M3 theme tokens the way Composables do, so this is a real risk area, not a formality. |
 | 3 | Accessibility | ✅ code | **Fixed in `e0feadb`:** the Canvas chart now exposes a semantic summary covering duration, average speed, altitude range, and GPS-signal gaps. The scrubber also announces that it controls speed, altitude, and route position. Physical TalkBack verification remains a device check. |
-| 4 | State preservation | ⚠️ | Rotation should preserve chart scrub position per the W3 spec — not confirmed in this audit pass (would need `rememberSaveable` on `scrubIndex` or equivalent). **Spec: verify `scrubIndex` survives rotation; if it resets to 0, wrap in `rememberSaveable`.** |
+| 4 | State preservation | ✅ code | `scrubIndex` uses `rememberSaveable(rideId)`, so the selected chart point survives configuration recreation for the active ride. Physical rotation/recreation verification remains pending. |
 | 5 | Empty/edge states | ✅ code | Zero-point rides show "No GPS data available" (line 413-415). Exactly one point now keeps the chart slot and shows the localized `notEnoughGpsDataForChart` message; runtime verification remains pending. |
 | 6 | Permission choreography | N/A | — |
 | 7 | Export failure handling | ✅ code | GPX/image export failures now use the localized `exportFailed` message with storage guidance instead of exposing raw exception text; runtime low-storage verification remains pending. |

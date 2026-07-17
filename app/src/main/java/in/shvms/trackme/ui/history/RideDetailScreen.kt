@@ -16,6 +16,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -287,7 +288,7 @@ fun RideDetailScreen(
         } else {
             val points = rideWithPoints!!.points
             val ride = rideWithPoints!!.ride
-            var scrubIndex by remember { mutableStateOf<Int?>(null) }
+            var scrubIndex by rememberSaveable(rideId) { mutableStateOf<Int?>(null) }
             
             var columnScrollEnabled by remember { mutableStateOf(true) }
             val scrollState = rememberScrollState()
