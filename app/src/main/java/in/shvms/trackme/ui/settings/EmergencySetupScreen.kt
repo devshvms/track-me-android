@@ -36,6 +36,7 @@ import androidx.navigation.NavController
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.entity.EmergencyContactEntity
 import `in`.shvms.trackme.data.local.entity.EmergencySettingsEntity
+import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
 @SuppressLint("Range")
 fun getPhoneContactInfo(context: Context, uri: android.net.Uri): Pair<String?, String?> {
@@ -61,8 +62,11 @@ fun EmergencySetupScreen(
         factory = EmergencySettingsViewModelFactory(LocalContext.current.applicationContext as TrackMeApp)
     )
 ) {
+    val context = LocalContext.current
     val settings by viewModel.settings.collectAsState()
     val contacts by viewModel.contacts.collectAsState()
+    val app = context.applicationContext as TrackMeApp
+    val smsPermissionRevoked by app.smsPermissionRevokedNotice.collectAsState()
     
     var currentStep by remember { mutableIntStateOf(0) }
     
@@ -87,7 +91,7 @@ fun EmergencySetupScreen(
             ) { step ->
                 when (step) {
                     0 -> ContactsStep(viewModel, contacts) { currentStep = 1 }
-                    1 -> PermissionAndTestStep(viewModel, contacts) { currentStep = 2 }
+                    1 -> PermissionAndTestStep(viewModel, contacts, smsPermissionRevoked) { currentStep = 2 }
                     2 -> AcknowledgmentStep(settings, viewModel) { navController.popBackStack() }
                 }
             }
@@ -157,8 +161,14 @@ fun ContactsStep(viewModel: EmergencySettingsViewModel, contacts: List<Emergency
 }
 
 @Composable
-fun PermissionAndTestStep(viewModel: EmergencySettingsViewModel, contacts: List<EmergencyContactEntity>, onNext: () -> Unit) {
+fun PermissionAndTestStep(
+    viewModel: EmergencySettingsViewModel,
+    contacts: List<EmergencyContactEntity>,
+    permissionWasRevoked: Boolean,
+    onNext: () -> Unit
+) {
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
     var permissionGranted by remember { 
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) 
     }
@@ -166,6 +176,16 @@ fun PermissionAndTestStep(viewModel: EmergencySettingsViewModel, contacts: List<
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         permissionGranted = isGranted
+        if (isGranted) {
+            (context.applicationContext as TrackMeApp).setSmsPermissionRevokedNotice(false)
+        }
+    }
+
+    LaunchedEffect(permissionWasRevoked) {
+        permissionGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.SEND_SMS
+        ) == PackageManager.PERMISSION_GRANTED
     }
     
     Column(modifier = Modifier.padding(24.dp).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -217,7 +237,26 @@ fun PermissionAndTestStep(viewModel: EmergencySettingsViewModel, contacts: List<
                 Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) { Text("Continue") }
             }
         } else {
-            Button(onClick = { launcher.launch(Manifest.permission.SEND_SMS) }, modifier = Modifier.fillMaxWidth()) { Text("Grant SMS Permission") }
+            if (permissionWasRevoked) {
+                Text(
+                    text = strings.sosPermissionRevoked,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = android.net.Uri.fromParts("package", context.packageName, null)
+                        }
+                        context.startActivity(intent)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(strings.openSettings) }
+            } else {
+                Button(onClick = { launcher.launch(Manifest.permission.SEND_SMS) }, modifier = Modifier.fillMaxWidth()) { Text("Grant SMS Permission") }
+            }
         }
     }
 }

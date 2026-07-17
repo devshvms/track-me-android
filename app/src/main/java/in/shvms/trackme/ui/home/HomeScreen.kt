@@ -49,6 +49,7 @@ import `in`.shvms.trackme.domain.model.RidePersona
 
 @Composable
 fun HomeScreen(
+    onNavigateToEmergencySetup: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModelFactory(
             (LocalContext.current.applicationContext as TrackMeApp).trackingManager,
@@ -65,6 +66,7 @@ fun HomeScreen(
     var hasLocationPermission by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
     val recoveryNotice by app.recoveryNotice.collectAsState()
+    val smsPermissionRevoked by app.smsPermissionRevokedNotice.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
@@ -392,6 +394,10 @@ fun HomeScreen(
                     isAutoPaused = uiState.isAutoPaused,
                     timeSinceLastGps = uiState.timeSinceLastGps,
                     isEmergencyReady = uiState.isEmergencyReady,
+                    isEmergencyPermissionRevoked = smsPermissionRevoked,
+                    sosPermissionRevokedMessage = strings.sosPermissionRevoked,
+                    reEnableSosDescription = strings.configureEmergencySetup,
+                    dismissSosPermissionDescription = strings.close,
                     isEmergencyActive = uiState.isEmergencyActive,
                     liveShareState = uiState.liveShareState,
                     isAuthenticated = uiState.isAuthenticated,
@@ -410,6 +416,8 @@ fun HomeScreen(
                     },
                     onTriggerSos = { viewModel.triggerEmergency() },
                     onStopSos = { viewModel.stopEmergency() },
+                    onOpenEmergencySetup = onNavigateToEmergencySetup,
+                    onDismissSosPermissionNotice = { app.setSmsPermissionRevokedNotice(false) },
                     onStartShare = {
                         viewModel.startLiveShare(context, durationMinutes = 1440, stopOnRideEnd = true)
                     },

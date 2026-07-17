@@ -21,11 +21,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -69,6 +71,10 @@ fun ActiveRideHudPanel(
     isAutoPaused: Boolean,
     timeSinceLastGps: Long,
     isEmergencyReady: Boolean,
+    isEmergencyPermissionRevoked: Boolean = false,
+    sosPermissionRevokedMessage: String = "SOS is off - SMS permission was removed.",
+    reEnableSosDescription: String = "Re-enable SOS",
+    dismissSosPermissionDescription: String = "Dismiss",
     isEmergencyActive: Boolean,
     liveShareState: LiveShareState,
     isAuthenticated: Boolean,
@@ -79,6 +85,8 @@ fun ActiveRideHudPanel(
     onStopRide: () -> Unit,
     onTriggerSos: () -> Unit,
     onStopSos: () -> Unit,
+    onOpenEmergencySetup: () -> Unit = {},
+    onDismissSosPermissionNotice: () -> Unit = {},
     onStartShare: () -> Unit,
     onStopShare: () -> Unit,
     onSendShare: () -> Unit,
@@ -255,6 +263,41 @@ fun ActiveRideHudPanel(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (isEmergencyPermissionRevoked) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 12.dp, end = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text(
+                                text = sosPermissionRevokedMessage,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 8.dp, vertical = 10.dp)
+                            )
+                            IconButton(onClick = onOpenEmergencySetup) {
+                                Icon(Icons.Default.Settings, contentDescription = reEnableSosDescription)
+                            }
+                            IconButton(onClick = onDismissSosPermissionNotice) {
+                                Icon(Icons.Default.Close, contentDescription = dismissSosPermissionDescription)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
 
                 // Action Buttons Row (SOS | Unified Pause/Stop Pill | Live Share)

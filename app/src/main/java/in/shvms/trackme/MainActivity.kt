@@ -60,10 +60,15 @@ class MainActivity : ComponentActivity() {
       val app = applicationContext as TrackMeApp
       lifecycleScope.launch {
           val settings = app.database.emergencyDao().getSettings()
-          if (settings?.isSetupComplete == true) {
-              if (ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.SEND_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                  app.database.emergencyDao().updateSettings(settings.copy(isSetupComplete = false))
-              }
+          val smsPermissionGranted = ContextCompat.checkSelfPermission(
+              this@MainActivity,
+              android.Manifest.permission.SEND_SMS
+          ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+          if (settings?.isSetupComplete == true && !smsPermissionGranted) {
+              app.setSmsPermissionRevokedNotice(true)
+              app.database.emergencyDao().updateSettings(settings.copy(isSetupComplete = false))
+          } else if (smsPermissionGranted) {
+              app.setSmsPermissionRevokedNotice(false)
           }
       }
   }

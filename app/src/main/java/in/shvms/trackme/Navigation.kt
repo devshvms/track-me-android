@@ -86,7 +86,9 @@ fun MainNavigation() {
             startDestination = "home",
             modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
         ) {
-            composable("home") { HomeScreen() }
+            composable("home") {
+                HomeScreen(onNavigateToEmergencySetup = { navController.navigate("emergency_setup") })
+            }
             composable("history") { 
                 HistoryScreen(onNavigateToDetail = { id -> navController.navigate("ride_detail/$id") }) 
             }

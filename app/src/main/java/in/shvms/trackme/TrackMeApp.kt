@@ -49,10 +49,16 @@ class TrackMeApp : Application() {
     private val _recoveryNotice = MutableStateFlow<`in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.RecoverySummary?>(null)
     val recoveryNotice = _recoveryNotice.asStateFlow()
 
+    private val _smsPermissionRevokedNotice = MutableStateFlow(false)
+    val smsPermissionRevokedNotice = _smsPermissionRevokedNotice.asStateFlow()
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate() {
         super.onCreate()
+
+        _smsPermissionRevokedNotice.value = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
+            .getBoolean("sos_permission_revoked_notice", false)
         
         errorLogger = CrashlyticsErrorLogger()
         errorLogger.init()
@@ -103,5 +109,13 @@ class TrackMeApp : Application() {
 
     fun consumeRecoveryNotice() {
         _recoveryNotice.value = null
+    }
+
+    fun setSmsPermissionRevokedNotice(isRevoked: Boolean) {
+        _smsPermissionRevokedNotice.value = isRevoked
+        getSharedPreferences("trackme_prefs", MODE_PRIVATE)
+            .edit()
+            .putBoolean("sos_permission_revoked_notice", isRevoked)
+            .apply()
     }
 }
