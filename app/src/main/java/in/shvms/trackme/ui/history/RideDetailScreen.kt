@@ -23,6 +23,8 @@ import `in`.shvms.trackme.theme.*
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.drawText
 import `in`.shvms.trackme.domain.model.RidePersona
 import androidx.compose.ui.text.font.FontWeight
@@ -493,7 +495,12 @@ fun RideDetailScreen(
                             activeTrackColor = TrackMeBlue,
                             inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
                         ),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .semantics {
+                                contentDescription = "Timeline scrubber. Adjust to inspect speed, altitude, and route position."
+                            }
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
@@ -953,7 +960,9 @@ fun CombinedMetricLineChart(
 
     Card(
         shape = RoundedCornerShape(8.dp),
-        modifier = modifier,
+        modifier = modifier.semantics {
+            contentDescription = buildChartAccessibilityDescription(points)
+        },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -1081,6 +1090,28 @@ fun CombinedMetricLineChart(
             }
         }
     }
+}
+
+internal fun buildChartAccessibilityDescription(points: List<GPSPointEntity>): String {
+    if (points.isEmpty()) return "Speed and altitude chart. No GPS data available."
+
+    val duration = formatDuration((points.last().timestamp - points.first().timestamp).coerceAtLeast(0L))
+    val averageSpeedKmh = points.map { it.speed * 3.6f }.average()
+    val minAltitude = points.minOf { it.altitude }
+    val maxAltitude = points.maxOf { it.altitude }
+    val gapCount = points.zipWithNext().count { (previous, current) ->
+        current.timestamp - previous.timestamp > 25_000L
+    }
+    val gapSummary = when (gapCount) {
+        0 -> "No GPS signal gaps."
+        1 -> "1 GPS signal gap."
+        else -> "$gapCount GPS signal gaps."
+    }
+
+    return "Speed and altitude chart. Duration $duration. " +
+        "Average speed ${String.format(Locale.getDefault(), "%.1f km/h", averageSpeedKmh)}. " +
+        "Altitude from ${String.format(Locale.getDefault(), "%.0f", minAltitude)} to " +
+        "${String.format(Locale.getDefault(), "%.0f", maxAltitude)} meters. $gapSummary"
 }
 
 private fun formatDuration(durationMillis: Long): String {
