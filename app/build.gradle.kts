@@ -13,6 +13,7 @@ plugins {
 android {
     namespace = "in.shvms.trackme"
     compileSdk = 36
+    testBuildType = "release"
     
     val localProperties = Properties()
     val localPropertiesFile = rootProject.file("local.properties")
@@ -31,6 +32,7 @@ android {
         applicationId = "in.shvms.trackme"
         minSdk = 24
         targetSdk = 36
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "17").toInt()
         versionName = "1.5.6"
         

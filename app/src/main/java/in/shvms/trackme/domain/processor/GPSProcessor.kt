@@ -12,7 +12,21 @@ interface GPSProcessor {
     suspend fun processRide(rideId: Long, rideDao: RideDao, isEnabled: Boolean)
 }
 
-class DefaultGPSProcessor : GPSProcessor {
+fun interface GeoDistanceCalculator {
+    fun meters(from: GPSPointEntity, to: GPSPointEntity): Float
+}
+
+private object AndroidGeoDistanceCalculator : GeoDistanceCalculator {
+    override fun meters(from: GPSPointEntity, to: GPSPointEntity): Float {
+        val results = FloatArray(1)
+        Location.distanceBetween(from.latitude, from.longitude, to.latitude, to.longitude, results)
+        return results[0]
+    }
+}
+
+class DefaultGPSProcessor(
+    private val distanceCalculator: GeoDistanceCalculator = AndroidGeoDistanceCalculator
+) : GPSProcessor {
     override suspend fun processRide(rideId: Long, rideDao: RideDao, isEnabled: Boolean) {
         if (!isEnabled) return
         
@@ -36,9 +50,7 @@ class DefaultGPSProcessor : GPSProcessor {
             val timeDiffSecs = (current.timestamp - last.timestamp) / 1000f
             if (timeDiffSecs <= 0f) continue // Prevent division by zero
             
-            val results = FloatArray(1)
-            Location.distanceBetween(last.latitude, last.longitude, current.latitude, current.longitude, results)
-            val distance = results[0]
+            val distance = distanceCalculator.meters(last, current)
             
             val requiredSpeed = distance / timeDiffSecs // m/s
             val speedDiff = kotlin.math.abs(requiredSpeed - last.speed)
@@ -133,10 +145,9 @@ class DefaultGPSProcessor : GPSProcessor {
             }
             
             if (!p.isPaused) {
-                if (lastUnpausedPoint != null) {
-                    val results = FloatArray(1)
-                    Location.distanceBetween(lastUnpausedPoint.latitude, lastUnpausedPoint.longitude, p.latitude, p.longitude, results)
-                    totalDistance += results[0]
+                val gapMs = lastUnpausedPoint?.let { p.timestamp - it.timestamp }
+                if (lastUnpausedPoint != null && gapMs != null && gapMs <= maxGapMs) {
+                    totalDistance += distanceCalculator.meters(lastUnpausedPoint, p)
                 }
                 lastUnpausedPoint = p
             }
@@ -147,8 +158,9 @@ class DefaultGPSProcessor : GPSProcessor {
         for (i in 1 until autoPausedPoints.size) {
             val curr = autoPausedPoints[i]
             val prev = autoPausedPoints[i-1]
-            if (!curr.isPaused && !prev.isPaused) {
-                activeTimeMs += (curr.timestamp - prev.timestamp)
+            val gapMs = curr.timestamp - prev.timestamp
+            if (!curr.isPaused && !prev.isPaused && gapMs <= maxGapMs) {
+                activeTimeMs += gapMs
             }
         }
         val totalTimeMs = autoPausedPoints.last().timestamp - autoPausedPoints.first().timestamp
@@ -208,21 +220,16 @@ class DefaultGPSProcessor : GPSProcessor {
 
     private fun perpendicularDistance4D(pt: GPSPointEntity, lineStart: GPSPointEntity, lineEnd: GPSPointEntity): Double {
         // Calculate geographic distance deviation (meters)
-        val results = FloatArray(1)
-        Location.distanceBetween(lineStart.latitude, lineStart.longitude, lineEnd.latitude, lineEnd.longitude, results)
-        val lineLengthGeo = results[0].toDouble()
+        val lineLengthGeo = distanceCalculator.meters(lineStart, lineEnd).toDouble()
         
         // If lineStart and lineEnd are exactly same geo point, just return distance from pt to lineStart
         if (lineLengthGeo == 0.0) {
-            Location.distanceBetween(pt.latitude, pt.longitude, lineStart.latitude, lineStart.longitude, results)
-            return results[0].toDouble()
+            return distanceCalculator.meters(pt, lineStart).toDouble()
         }
 
         // Cross-track distance (simplified approximation using area of triangle)
-        Location.distanceBetween(lineStart.latitude, lineStart.longitude, pt.latitude, pt.longitude, results)
-        val d1 = results[0].toDouble()
-        Location.distanceBetween(pt.latitude, pt.longitude, lineEnd.latitude, lineEnd.longitude, results)
-        val d2 = results[0].toDouble()
+        val d1 = distanceCalculator.meters(lineStart, pt).toDouble()
+        val d2 = distanceCalculator.meters(pt, lineEnd).toDouble()
         
         // Heron's formula for area of triangle
         val s = (lineLengthGeo + d1 + d2) / 2.0
