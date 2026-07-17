@@ -21,6 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -142,7 +145,10 @@ fun AccountManagementScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { isPrivacyExpanded = !isPrivacyExpanded },
+                            .clickable { isPrivacyExpanded = !isPrivacyExpanded }
+                            .semantics(mergeDescendants = true) {
+                                role = Role.Button
+                            },
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -316,6 +322,7 @@ fun AccountManagementScreen(
                     OutlinedTextField(
                         value = confirmText,
                         onValueChange = { confirmText = it },
+                        label = { Text(strings.confirmTypeDelete) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         enabled = !isDeleting
