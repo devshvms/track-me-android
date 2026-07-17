@@ -628,7 +628,7 @@ fun RideDetailScreen(
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
-                                            android.widget.Toast.makeText(context, "Error saving GPX: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(context, strings.exportFailed, android.widget.Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }
@@ -703,7 +703,7 @@ fun RideDetailScreen(
                             }
                         } catch (e: Exception) {
                             withContext(Dispatchers.Main) {
-                                android.widget.Toast.makeText(context, "Error: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(context, strings.exportFailed, android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
