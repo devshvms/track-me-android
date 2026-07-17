@@ -2,4 +2,10 @@
     <string name="app_name">TrackMe</string>
     <!-- Add your Web Client ID from Firebase Console (Authentication -> Sign In Method -> Google -> Web SDK configuration) -->
     <string name="default_web_client_id">126912105508-b9cborkn1inina02gkcsbvcod7hm0giu.apps.googleusercontent.com</string>
+    <string name="notification_channel_tracking">Tracking</string>
+    <string name="notification_channel_tracking_description">Ongoing ride tracking status.</string>
+    <string name="notification_channel_sync">Sync and updates</string>
+    <string name="notification_channel_sync_description">Ride processing and cloud sync updates.</string>
+    <string name="notification_channel_sos">Emergency alerts</string>
+    <string name="notification_channel_sos_description">High-priority emergency and SOS alerts.</string>
 </resources>

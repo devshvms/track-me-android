@@ -196,7 +196,7 @@ class TrackingService : Service() {
 
     private fun startForegroundService() {
         wakeLock.acquire(10 * 60 * 60 * 1000L) // 10 hour max lock
-        createNotificationChannel()
+        createNotificationChannels()
         startForeground(NOTIFICATION_ID, getNotification())
         
         updateState(TrackingState.TRACKING)
@@ -328,15 +328,31 @@ class TrackingService : Service() {
             .build()
     }
 
-    private fun createNotificationChannel() {
+    private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
+            val trackingChannel = NotificationChannel(
                 CHANNEL_ID,
-                "Tracking Service",
+                getString(`in`.shvms.trackme.R.string.notification_channel_tracking),
                 NotificationManager.IMPORTANCE_LOW
-            )
+            ).apply {
+                description = getString(`in`.shvms.trackme.R.string.notification_channel_tracking_description)
+            }
+            val syncChannel = NotificationChannel(
+                SYNC_CHANNEL_ID,
+                getString(`in`.shvms.trackme.R.string.notification_channel_sync),
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = getString(`in`.shvms.trackme.R.string.notification_channel_sync_description)
+            }
+            val sosChannel = NotificationChannel(
+                SOS_CHANNEL_ID,
+                getString(`in`.shvms.trackme.R.string.notification_channel_sos),
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = getString(`in`.shvms.trackme.R.string.notification_channel_sos_description)
+            }
             val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            manager.createNotificationChannels(listOf(trackingChannel, syncChannel, sosChannel))
         }
     }
 
@@ -449,7 +465,7 @@ class TrackingService : Service() {
             activeRideId = rideId
             
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            val splitNotification = NotificationCompat.Builder(this@TrackingService, CHANNEL_ID)
+            val splitNotification = NotificationCompat.Builder(this@TrackingService, SYNC_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                 .setContentTitle("Ride Auto-Split")
                 .setContentText("Your ride reached 9,000 points and was split automatically.")
@@ -461,7 +477,7 @@ class TrackingService : Service() {
     
     private fun showPointLimitWarning() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val warningNotification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val warningNotification = NotificationCompat.Builder(this, SYNC_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("Long Ride Warning")
             .setContentText("Approaching limit. Ride will auto-split at 9,000 points.")
@@ -476,6 +492,8 @@ class TrackingService : Service() {
         const val ACTION_STOP_SERVICE = "ACTION_STOP_SERVICE"
         const val NOTIFICATION_ID = 1
         const val CHANNEL_ID = "tracking_channel"
+        const val SYNC_CHANNEL_ID = "sync_channel"
+        const val SOS_CHANNEL_ID = "sos_channel"
 
         @Volatile
         var activeRideId: Long? = null
