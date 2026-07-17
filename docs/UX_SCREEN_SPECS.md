@@ -74,7 +74,7 @@ This is also the live-HUD screen during an active ride (`ActiveRideHudPanel`).
 | 5 | Empty/edge states | ✅ code | **Fixed in `50d4411` and refined in `31a26a0`:** Account Management reuses the localized, single-node offline banner, so export and account actions are presented with an explicit offline state before the user attempts cloud operations. Physical offline/export behavior remains a device/network check. |
 | 6 | Permission choreography | N/A | No new permissions requested here. |
 | 7 | Export auth pattern | ✅ *(corrects a prior assumption)* | Confirmed via audit: export uses a short-lived server-issued `token` query parameter on the download URL, not an `Authorization` header on `DownloadManager.Request` — this is a valid, intentional pattern (headers aren't reliable across `DownloadManager` OEM implementations). The export *request* call does correctly force-refresh its Bearer token. **No fix needed**; flagging so this doesn't get "re-fixed" by a future agent working from a stale inbox note. |
-| 7b | Disk-full / large-history export | ⚠️ | Not exercised; generic exception handling only. See robustness matrix P2 item. |
+| 7b | Disk-full / large-history export | ✅ code | Account export request and DownloadManager failures now use localized connection/storage guidance, and incomplete streamed archives are rejected. A 500+ ride archive and physical disk-full run remain runtime checks. |
 
 ## 6. Emergency Setup (`ui/settings/EmergencySetupScreen.kt`)
 

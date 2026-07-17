@@ -206,7 +206,7 @@ fun AccountManagementScreen(
                                             } else {
                                                 android.widget.Toast.makeText(
                                                     context,
-                                                    result.exceptionOrNull()?.message ?: strings.dataExportFailed,
+                                                    strings.dataExportFailed,
                                                     android.widget.Toast.LENGTH_LONG
                                                 ).show()
                                             }
@@ -480,13 +480,13 @@ fun AccountManagementScreen(
 
                             android.widget.Toast.makeText(
                                 context,
-                                "Download started",
+                                strings.dataExportSuccess,
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             android.widget.Toast.makeText(
                                 context,
-                                "Could not start download",
+                                strings.dataExportFailed,
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         }
