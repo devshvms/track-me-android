@@ -4,11 +4,13 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -336,7 +338,16 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = intelligentAutoPause,
+                            role = Role.Switch,
+                            onValueChange = { checked ->
+                                intelligentAutoPause = checked
+                                prefs.edit().putBoolean("intelligent_auto_pause", checked).apply()
+                            }
+                        ),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -350,10 +361,7 @@ fun SettingsScreen(
                     }
                     Switch(
                         checked = intelligentAutoPause,
-                        onCheckedChange = { checked ->
-                            intelligentAutoPause = checked
-                            prefs.edit().putBoolean("intelligent_auto_pause", checked).apply()
-                        }
+                        onCheckedChange = null
                     )
                 }
 
@@ -362,7 +370,16 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = disablePostProcessing,
+                            role = Role.Switch,
+                            onValueChange = { checked ->
+                                disablePostProcessing = checked
+                                prefs.edit().putBoolean("disable_gps_post_processing", checked).apply()
+                            }
+                        ),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -381,10 +398,7 @@ fun SettingsScreen(
                     }
                     Switch(
                         checked = disablePostProcessing,
-                        onCheckedChange = { checked ->
-                            disablePostProcessing = checked
-                            prefs.edit().putBoolean("disable_gps_post_processing", checked).apply()
-                        }
+                        onCheckedChange = null
                     )
                 }
             }
