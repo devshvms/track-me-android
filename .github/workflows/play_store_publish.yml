@@ -91,9 +91,21 @@ jobs:
           ./gradlew bundleRelease
 
       - name: Run release lint and unit tests
+        env:
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'dummy_password' }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'dummy_alias' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'dummy_password' }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: ./gradlew :app:lintRelease :app:testReleaseUnitTest
 
       - name: Run release launch smoke test
+        env:
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'dummy_password' }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'dummy_alias' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'dummy_password' }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
