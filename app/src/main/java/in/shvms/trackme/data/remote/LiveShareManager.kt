@@ -136,7 +136,7 @@ class LiveShareManager {
 
             val requestBody = JSONObject().apply {
                 put("lat", lat)
-                put("lon", lon)
+                put("lng", lon)
                 if (batteryLevel != null) put("batteryLevel", batteryLevel)
                 if (speed != null) put("speed", speed)
                 if (heading != null) put("heading", heading)
