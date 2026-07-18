@@ -39,6 +39,12 @@
 -keep class kotlinx.serialization.json.** { *; }
 -dontwarn kotlinx.serialization.**
 
+# AndroidJUnitRunner is loaded in the target app process for the minified
+# release instrumentation smoke test. Its tracing and Kotlin facade calls are
+# runtime-only from the app's perspective, so R8 cannot see them statically.
+-keep class androidx.tracing.** { *; }
+-keep class kotlin.LazyKt* { *; }
+
 # Vico Charts Keep Rules
 -keep class com.patrykandpatrick.vico.** { *; }
 -dontwarn com.patrykandpatrick.vico.**
