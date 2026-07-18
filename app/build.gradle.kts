@@ -22,11 +22,15 @@ android {
             localProperties.load(stream) 
         }
     }
-    val mapsApiKey = localProperties.getProperty("MAPS_API_KEY") ?: ""
+    val mapsApiKey = System.getenv("MAPS_API_KEY").takeIf { !it.isNullOrBlank() }
+        ?: localProperties.getProperty("MAPS_API_KEY")
+        ?: ""
     val keystorePassword = System.getenv("KEYSTORE_PASSWORD").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("KEYSTORE_PASSWORD").takeIf { !it.isNullOrBlank() }
     val keyAlias = System.getenv("KEY_ALIAS").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("KEY_ALIAS").takeIf { !it.isNullOrBlank() }
     val keyPassword = System.getenv("KEY_PASSWORD").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("KEY_PASSWORD").takeIf { !it.isNullOrBlank() }
-    val posthogApiKey = System.getenv("POSTHOG_API_KEY").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("POSTHOG_API_KEY") ?: "dummy_key"
+    val posthogApiKey = System.getenv("POSTHOG_API_KEY").takeIf { !it.isNullOrBlank() }
+        ?: localProperties.getProperty("POSTHOG_API_KEY")
+        ?: "dummy_key"
     // Opt-in StrictMode: ./gradlew ... -PstrictMode (or -PstrictMode=true); off by default.
     val strictModeEnabled = project.findProperty("strictMode")?.toString()
         ?.let { it.isEmpty() || it.equals("true", ignoreCase = true) } ?: false
@@ -37,7 +41,7 @@ android {
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = (System.getenv("VERSION_CODE") ?: "20").toInt()
-        versionName = "1.5.9"
+        versionName = "1.5.10"
         
         resValue("string", "google_maps_key", mapsApiKey)
         buildConfigField("String", "POSTHOG_API_KEY", "\"$posthogApiKey\"")
@@ -53,6 +57,12 @@ android {
             }
             if (isReleaseTask && (keystorePassword.isNullOrBlank() || keyAlias.isNullOrBlank() || keyPassword.isNullOrBlank())) {
                 throw GradleException("Signing configuration for 'release' build type is incomplete. Please define KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD as environment variables or in local.properties.")
+            }
+            if (isReleaseTask && mapsApiKey.isBlank()) {
+                throw GradleException("Release build requires MAPS_API_KEY as an environment variable or in local.properties.")
+            }
+            if (isReleaseTask && posthogApiKey == "dummy_key") {
+                throw GradleException("Release build requires POSTHOG_API_KEY as an environment variable or in local.properties.")
             }
             
             storePassword = keystorePassword ?: ""
