@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +29,7 @@ import androidx.core.content.ContextCompat
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.service.TrackingState
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.maps.android.compose.*
@@ -48,6 +50,27 @@ import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
 import `in`.shvms.trackme.domain.model.RidePersona
+
+private const val LAST_CAMERA_LAT_KEY = "last_camera_lat"
+private const val LAST_CAMERA_LNG_KEY = "last_camera_lng"
+private const val LAST_CAMERA_ZOOM_KEY = "last_camera_zoom"
+
+// Country-level fallback used before a location fix has ever been persisted (center
+// of India); anything is better than the (0,0) world view.
+private val DEFAULT_HOME_CAMERA_TARGET = com.google.android.gms.maps.model.LatLng(22.5937, 78.9629)
+
+private fun lastKnownHomeCamera(prefs: android.content.SharedPreferences): CameraPosition {
+    val lat = prefs.getFloat(LAST_CAMERA_LAT_KEY, Float.NaN)
+    val lng = prefs.getFloat(LAST_CAMERA_LNG_KEY, Float.NaN)
+    if (lat.isNaN() || lng.isNaN()) {
+        return CameraPosition.fromLatLngZoom(DEFAULT_HOME_CAMERA_TARGET, 4.5f)
+    }
+    val zoom = prefs.getFloat(LAST_CAMERA_ZOOM_KEY, 15f)
+    return CameraPosition.fromLatLngZoom(
+        com.google.android.gms.maps.model.LatLng(lat.toDouble(), lng.toDouble()),
+        zoom
+    )
+}
 
 @Composable
 fun HomeScreen(
@@ -72,7 +95,14 @@ fun HomeScreen(
         mutableStateOf(!uiPreferences.getBoolean("start_ride_hint_seen", false))
     }
     var showDiscardRideDialog by remember { mutableStateOf(false) }
-    var hasLocationPermission by remember { mutableStateOf(false) }
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
     val uiState by viewModel.uiState.collectAsState()
     val recoveryNotice by app.recoveryNotice.collectAsState()
     val smsPermissionRevoked by app.smsPermissionRevokedNotice.collectAsState()
@@ -135,24 +165,43 @@ fun HomeScreen(
     )
 
     LaunchedEffect(Unit) {
-        val permissionsToRequest = mutableListOf(
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+        if (!hasLocationPermission) {
+            val permissionsToRequest = mutableListOf(
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            locationPermissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
-        locationPermissionLauncher.launch(permissionsToRequest.toTypedArray())
     }
 
-    val cameraPositionState = rememberCameraPositionState()
+    // Seeded from the last persisted camera (country-level default before the first
+    // fix) so the map never composes at the world view; rememberCameraPositionState
+    // is saveable, so tab switches and rotation restore the live position instead.
+    val cameraPositionState = rememberCameraPositionState {
+        position = lastKnownHomeCamera(uiPreferences)
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            val position = cameraPositionState.position
+            uiPreferences.edit()
+                .putFloat(LAST_CAMERA_LAT_KEY, position.target.latitude.toFloat())
+                .putFloat(LAST_CAMERA_LNG_KEY, position.target.longitude.toFloat())
+                .putFloat(LAST_CAMERA_ZOOM_KEY, position.zoom)
+                .apply()
+        }
+    }
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-    
+
+    var hasCenteredOnLocation by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(hasLocationPermission) {
-        if (hasLocationPermission && uiState.pathPoints.isEmpty()) {
+        if (hasLocationPermission && !hasCenteredOnLocation && uiState.pathPoints.isEmpty()) {
             try {
                 fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
                     if (loc != null) {
+                        hasCenteredOnLocation = true
                         coroutineScope.launch {
                             cameraPositionState.animate(
                                 CameraUpdateFactory.newLatLngZoom(com.google.android.gms.maps.model.LatLng(loc.latitude, loc.longitude), 17f)
