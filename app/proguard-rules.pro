@@ -69,9 +69,3 @@
     public <init>(android.content.Context, androidx.work.WorkerParameters);
 }
 -dontwarn androidx.work.**
-
-# AndroidX Test's runner loads tracing through its manifest-selected runtime
-# path. The release instrumentation APK is minified too, so preserve this
-# dependency for connectedReleaseAndroidTest instead of allowing a false-green
-# release build followed by a runner crash before test discovery.
--keep class androidx.tracing.** { *; }
