@@ -77,7 +77,10 @@ jobs:
           fi
 
       - name: Calculate Version Code
-        run: echo "VERSION_CODE=$(git rev-list --count HEAD)" >> $GITHUB_ENV
+        # actions/checkout uses a shallow clone by default, making git rev-list
+        # report 1 for every workflow run. GitHub's run number is monotonic for
+        # this repository and therefore safe for Play's version-code requirement.
+        run: echo "VERSION_CODE=${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
 
       - name: Build Release AAB
         env:
