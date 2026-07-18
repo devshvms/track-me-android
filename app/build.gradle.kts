@@ -28,7 +28,9 @@ android {
     val keystorePassword = System.getenv("KEYSTORE_PASSWORD").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("KEYSTORE_PASSWORD").takeIf { !it.isNullOrBlank() }
     val keyAlias = System.getenv("KEY_ALIAS").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("KEY_ALIAS").takeIf { !it.isNullOrBlank() }
     val keyPassword = System.getenv("KEY_PASSWORD").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("KEY_PASSWORD").takeIf { !it.isNullOrBlank() }
-    val posthogApiKey = System.getenv("POSTHOG_API_KEY").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("POSTHOG_API_KEY") ?: "dummy_key"
+    val posthogApiKey = System.getenv("POSTHOG_API_KEY").takeIf { !it.isNullOrBlank() }
+        ?: localProperties.getProperty("POSTHOG_API_KEY")
+        ?: "dummy_key"
     // Opt-in StrictMode: ./gradlew ... -PstrictMode (or -PstrictMode=true); off by default.
     val strictModeEnabled = project.findProperty("strictMode")?.toString()
         ?.let { it.isEmpty() || it.equals("true", ignoreCase = true) } ?: false
@@ -58,6 +60,9 @@ android {
             }
             if (isReleaseTask && mapsApiKey.isBlank()) {
                 throw GradleException("Release build requires MAPS_API_KEY as an environment variable or in local.properties.")
+            }
+            if (isReleaseTask && posthogApiKey == "dummy_key") {
+                throw GradleException("Release build requires POSTHOG_API_KEY as an environment variable or in local.properties.")
             }
             
             storePassword = keystorePassword ?: ""

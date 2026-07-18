@@ -102,6 +102,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'dummy_password' }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'dummy_alias' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'dummy_password' }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           VERSION_CODE: ${{ env.VERSION_CODE }}
         run: |
           chmod +x ./gradlew
@@ -113,6 +114,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'dummy_password' }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'dummy_alias' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'dummy_password' }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           VERSION_CODE: ${{ env.VERSION_CODE }}
         run: ./gradlew :app:lintRelease :app:testReleaseUnitTest
 
@@ -128,6 +130,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'dummy_password' }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'dummy_alias' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'dummy_password' }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           VERSION_CODE: ${{ env.VERSION_CODE }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
