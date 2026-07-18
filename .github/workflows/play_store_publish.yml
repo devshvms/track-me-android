@@ -11,6 +11,11 @@ on:
         options:
           - alpha
           - internal
+      publish:
+        description: 'Publish the validated AAB to Google Play'
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   build_and_publish:
@@ -129,6 +134,7 @@ jobs:
           path: app/build/outputs/bundle/release/app-release.aab
 
       - name: Verify Google Play publish credentials
+        if: inputs.publish
         env:
           PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
@@ -139,6 +145,7 @@ jobs:
           printf '%s' "$PLAY_JSON" | jq empty
 
       - name: Upload to Google Play
+        if: inputs.publish
         env:
           PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         uses: r0adkll/upload-google-play@v1
