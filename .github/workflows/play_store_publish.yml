@@ -128,3 +128,4 @@ jobs:
           releaseFiles: app/build/outputs/bundle/release/app-release.aab
           track: ${{ inputs.track || 'alpha' }}
           status: completed
+          whatsNewDirectory: distribution/whatsnew
