@@ -58,7 +58,7 @@ class TrackMeApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        if (BuildConfig.DEBUG) {
+        if (BuildConfig.STRICT_MODE) {
             StrictMode.setThreadPolicy(
                 StrictMode.ThreadPolicy.Builder()
                     .detectAll()
