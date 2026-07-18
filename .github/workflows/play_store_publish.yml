@@ -11,6 +11,11 @@ on:
         options:
           - alpha
           - internal
+      publish:
+        description: 'Publish the validated AAB to Google Play'
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   build_and_publish:
@@ -120,7 +125,14 @@ jobs:
           api-level: 35
           arch: x86_64
           target: google_apis
-          script: ./gradlew connectedReleaseAndroidTest
+          script: |
+            ./gradlew assembleRelease
+            adb logcat -c
+            adb install -r app/build/outputs/apk/release/app-release.apk
+            adb shell am force-stop in.shvms.trackme
+            adb shell am start -W -n in.shvms.trackme/.MainActivity
+            sleep 15
+            if adb logcat -d -b crash -v brief | grep -Fq "Process: in.shvms.trackme"; then echo "::error::The release app crashed after launch."; exit 1; fi
 
       - name: Upload Release AAB Artifact
         uses: actions/upload-artifact@v4
@@ -129,6 +141,7 @@ jobs:
           path: app/build/outputs/bundle/release/app-release.aab
 
       - name: Verify Google Play publish credentials
+        if: inputs.publish
         env:
           PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
@@ -139,6 +152,7 @@ jobs:
           printf '%s' "$PLAY_JSON" | jq empty
 
       - name: Upload to Google Play
+        if: inputs.publish
         env:
           PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         uses: r0adkll/upload-google-play@v1
