@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,9 +25,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.content.ContextCompat
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.service.TrackingState
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.maps.android.compose.*
@@ -43,12 +46,35 @@ import kotlinx.coroutines.launch
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.home.components.RadialStartRideButton
 import `in`.shvms.trackme.ui.home.components.ActiveRideHudPanel
+import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
 import `in`.shvms.trackme.domain.model.RidePersona
 
+private const val LAST_CAMERA_LAT_KEY = "last_camera_lat"
+private const val LAST_CAMERA_LNG_KEY = "last_camera_lng"
+private const val LAST_CAMERA_ZOOM_KEY = "last_camera_zoom"
+
+// Country-level fallback used before a location fix has ever been persisted (center
+// of India); anything is better than the (0,0) world view.
+private val DEFAULT_HOME_CAMERA_TARGET = com.google.android.gms.maps.model.LatLng(22.5937, 78.9629)
+
+private fun lastKnownHomeCamera(prefs: android.content.SharedPreferences): CameraPosition {
+    val lat = prefs.getFloat(LAST_CAMERA_LAT_KEY, Float.NaN)
+    val lng = prefs.getFloat(LAST_CAMERA_LNG_KEY, Float.NaN)
+    if (lat.isNaN() || lng.isNaN()) {
+        return CameraPosition.fromLatLngZoom(DEFAULT_HOME_CAMERA_TARGET, 4.5f)
+    }
+    val zoom = prefs.getFloat(LAST_CAMERA_ZOOM_KEY, 15f)
+    return CameraPosition.fromLatLngZoom(
+        com.google.android.gms.maps.model.LatLng(lat.toDouble(), lng.toDouble()),
+        zoom
+    )
+}
+
 @Composable
 fun HomeScreen(
+    onNavigateToEmergencySetup: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModelFactory(
             (LocalContext.current.applicationContext as TrackMeApp).trackingManager,
@@ -61,10 +87,54 @@ fun HomeScreen(
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
-    var hasLocationPermission by remember { mutableStateOf(false) }
+    val app = context.applicationContext as TrackMeApp
+    val uiPreferences = remember {
+        context.getSharedPreferences("ui_prefs", android.content.Context.MODE_PRIVATE)
+    }
+    var showStartRideHint by remember {
+        mutableStateOf(!uiPreferences.getBoolean("start_ride_hint_seen", false))
+    }
+    var showDiscardRideDialog by remember { mutableStateOf(false) }
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
     val uiState by viewModel.uiState.collectAsState()
+    val recoveryNotice by app.recoveryNotice.collectAsState()
+    val smsPermissionRevoked by app.smsPermissionRevokedNotice.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
+
+    LaunchedEffect(recoveryNotice) {
+        val summary = recoveryNotice ?: return@LaunchedEffect
+        val message = when {
+            summary.recoveredCount > 0 && summary.discardedCount > 0 ->
+                String.format(
+                    java.util.Locale.getDefault(),
+                    strings.rideRecoveryMixedNotice,
+                    summary.recoveredCount,
+                    summary.discardedCount
+                )
+            summary.recoveredCount > 0 ->
+                String.format(
+                    java.util.Locale.getDefault(),
+                    strings.rideRecoveryNotice,
+                    summary.recoveredCount
+                )
+            else ->
+                String.format(
+                    java.util.Locale.getDefault(),
+                    strings.rideRecoveryDiscardNotice,
+                    summary.discardedCount
+                )
+        }
+        snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Long)
+        app.consumeRecoveryNotice()
+    }
 
     val receiver = remember {
         object : android.content.BroadcastReceiver() {
@@ -76,11 +146,12 @@ fun HomeScreen(
 
     DisposableEffect(context) {
         val filter = android.content.IntentFilter("in.shvms.trackme.RIDE_SAVED")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(receiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            context.registerReceiver(receiver, filter)
-        }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         onDispose {
             context.unregisterReceiver(receiver)
         }
@@ -94,24 +165,43 @@ fun HomeScreen(
     )
 
     LaunchedEffect(Unit) {
-        val permissionsToRequest = mutableListOf(
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+        if (!hasLocationPermission) {
+            val permissionsToRequest = mutableListOf(
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            locationPermissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
-        locationPermissionLauncher.launch(permissionsToRequest.toTypedArray())
     }
 
-    val cameraPositionState = rememberCameraPositionState()
+    // Seeded from the last persisted camera (country-level default before the first
+    // fix) so the map never composes at the world view; rememberCameraPositionState
+    // is saveable, so tab switches and rotation restore the live position instead.
+    val cameraPositionState = rememberCameraPositionState {
+        position = lastKnownHomeCamera(uiPreferences)
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            val position = cameraPositionState.position
+            uiPreferences.edit()
+                .putFloat(LAST_CAMERA_LAT_KEY, position.target.latitude.toFloat())
+                .putFloat(LAST_CAMERA_LNG_KEY, position.target.longitude.toFloat())
+                .putFloat(LAST_CAMERA_ZOOM_KEY, position.zoom)
+                .apply()
+        }
+    }
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-    
+
+    var hasCenteredOnLocation by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(hasLocationPermission) {
-        if (hasLocationPermission && uiState.pathPoints.isEmpty()) {
+        if (hasLocationPermission && !hasCenteredOnLocation && uiState.pathPoints.isEmpty()) {
             try {
                 fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
                     if (loc != null) {
+                        hasCenteredOnLocation = true
                         coroutineScope.launch {
                             cameraPositionState.animate(
                                 CameraUpdateFactory.newLatLngZoom(com.google.android.gms.maps.model.LatLng(loc.latitude, loc.longitude), 17f)
@@ -295,8 +385,41 @@ fun HomeScreen(
 
             // Idle State: Radial Persona Start Button
             if (uiState.trackingState == TrackingState.IDLE) {
+                if (hasLocationPermission && showStartRideHint) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 186.dp, start = 24.dp, end = 24.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        tonalElevation = 3.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = strings.startRideHint,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = {
+                                    showStartRideHint = false
+                                    uiPreferences.edit().putBoolean("start_ride_hint_seen", true).apply()
+                                }
+                            ) {
+                                Text(strings.dismissStartRideHint)
+                            }
+                        }
+                    }
+                }
+
                 RadialStartRideButton(
                     onStartRide = { persona ->
+                        showStartRideHint = false
+                        uiPreferences.edit().putBoolean("start_ride_hint_seen", true).apply()
                         val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
                         if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
                             try {
@@ -304,7 +427,6 @@ fun HomeScreen(
                                     data = android.net.Uri.parse("package:${context.packageName}")
                                 }
                                 context.startActivity(intent)
-                                android.widget.Toast.makeText(context, "Please allow background activity for accurate GPS tracking", android.widget.Toast.LENGTH_LONG).show()
                             } catch (e: Exception) {
                                 // Fallback if device doesn't support this intent
                             }
@@ -363,6 +485,10 @@ fun HomeScreen(
                     isAutoPaused = uiState.isAutoPaused,
                     timeSinceLastGps = uiState.timeSinceLastGps,
                     isEmergencyReady = uiState.isEmergencyReady,
+                    isEmergencyPermissionRevoked = smsPermissionRevoked,
+                    sosPermissionRevokedMessage = strings.sosPermissionRevoked,
+                    reEnableSosDescription = strings.configureEmergencySetup,
+                    dismissSosPermissionDescription = strings.close,
                     isEmergencyActive = uiState.isEmergencyActive,
                     liveShareState = uiState.liveShareState,
                     isAuthenticated = uiState.isAuthenticated,
@@ -376,11 +502,19 @@ fun HomeScreen(
                         }
                     },
                     onStopRide = {
-                        viewModel.stopTracking(context)
-                        android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
+                        if (uiState.distanceMeters < `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DISTANCE_METERS &&
+                            uiState.durationMillis < `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DURATION_MILLIS
+                        ) {
+                            showDiscardRideDialog = true
+                        } else {
+                            viewModel.stopTracking(context)
+                            android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     },
                     onTriggerSos = { viewModel.triggerEmergency() },
                     onStopSos = { viewModel.stopEmergency() },
+                    onOpenEmergencySetup = onNavigateToEmergencySetup,
+                    onDismissSosPermissionNotice = { app.setSmsPermissionRevokedNotice(false) },
                     onStartShare = {
                         viewModel.startLiveShare(context, durationMinutes = 1440, stopOnRideEnd = true)
                     },
@@ -433,50 +567,32 @@ fun HomeScreen(
                     )
                 }
             }
+
+            if (showDiscardRideDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDiscardRideDialog = false },
+                    title = { Text(strings.discardRideTitle) },
+                    text = { Text(strings.discardRideMessage) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showDiscardRideDialog = false
+                            viewModel.stopTracking(context, discardNearEmptyRide = true)
+                        }) {
+                            Text(strings.discardRide)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            showDiscardRideDialog = false
+                            viewModel.stopTracking(context)
+                            android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
+                        }) {
+                            Text(strings.saveAnyway)
+                        }
+                    }
+                )
+            }
         }
     }
 }
-}
-
-@Composable
-fun rememberIsOffline(): Boolean {
-    val context = LocalContext.current
-    var isOffline by remember { mutableStateOf(false) }
-    DisposableEffect(context) {
-        val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
-        fun checkOffline(): Boolean {
-            val network = connectivityManager?.activeNetwork ?: return true
-            val caps = connectivityManager.getNetworkCapabilities(network) ?: return true
-            return !(caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                    caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED))
-        }
-        isOffline = checkOffline()
-
-        val callback = object : android.net.ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: android.net.Network) {
-                isOffline = false
-            }
-            override fun onLost(network: android.net.Network) {
-                isOffline = true
-            }
-            override fun onCapabilitiesChanged(
-                network: android.net.Network,
-                networkCapabilities: android.net.NetworkCapabilities
-            ) {
-                val hasInternet = networkCapabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                        networkCapabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-                isOffline = !hasInternet
-            }
-        }
-        try {
-            connectivityManager?.registerDefaultNetworkCallback(callback)
-        } catch (_: Exception) {}
-
-        onDispose {
-            try {
-                connectivityManager?.unregisterNetworkCallback(callback)
-            } catch (_: Exception) {}
-        }
-    }
-    return isOffline
 }

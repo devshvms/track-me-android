@@ -2,7 +2,9 @@ package `in`.shvms.trackme.ui.settings
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.ContactsContract
@@ -25,17 +27,30 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.entity.EmergencyContactEntity
 import `in`.shvms.trackme.data.local.entity.EmergencySettingsEntity
+import `in`.shvms.trackme.ui.localization.LocalAppStrings
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
 
 @SuppressLint("Range")
 fun getPhoneContactInfo(context: Context, uri: android.net.Uri): Pair<String?, String?> {
@@ -61,15 +76,23 @@ fun EmergencySetupScreen(
         factory = EmergencySettingsViewModelFactory(LocalContext.current.applicationContext as TrackMeApp)
     )
 ) {
+    val context = LocalContext.current
     val settings by viewModel.settings.collectAsState()
     val contacts by viewModel.contacts.collectAsState()
+    val app = context.applicationContext as TrackMeApp
+    val smsPermissionRevoked by app.smsPermissionRevokedNotice.collectAsState()
     
     var currentStep by remember { mutableIntStateOf(0) }
     
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Setup Emergency Broadcast") },
+                title = {
+                    Text(
+                        "Setup Emergency Broadcast",
+                        modifier = Modifier.semantics { heading() }
+                    )
+                },
                 actions = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
@@ -87,7 +110,7 @@ fun EmergencySetupScreen(
             ) { step ->
                 when (step) {
                     0 -> ContactsStep(viewModel, contacts) { currentStep = 1 }
-                    1 -> PermissionAndTestStep(viewModel, contacts) { currentStep = 2 }
+                    1 -> PermissionAndTestStep(viewModel, contacts, smsPermissionRevoked) { currentStep = 2 }
                     2 -> AcknowledgmentStep(settings, viewModel) { navController.popBackStack() }
                 }
             }
@@ -98,6 +121,7 @@ fun EmergencySetupScreen(
 @Composable
 fun ContactsStep(viewModel: EmergencySettingsViewModel, contacts: List<EmergencyContactEntity>, onNext: () -> Unit) {
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
     val pickPhoneLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
@@ -112,11 +136,15 @@ fun ContactsStep(viewModel: EmergencySettingsViewModel, contacts: List<Emergency
     }
     
     Column(modifier = Modifier.padding(24.dp).fillMaxSize()) {
-        Text("Trusted Contacts", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            "Trusted Contacts",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() }
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Text("Even in remote areas without internet, standard SMS has a much higher chance of reaching cell towers.", style = MaterialTheme.typography.bodyLarge)
         Spacer(modifier = Modifier.height(8.dp))
-        Text("Add up to 5 contacts who will receive your emergency broadcast.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(strings.emergencyContactSnapshotInfo, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(24.dp))
         
         Button(
@@ -139,7 +167,10 @@ fun ContactsStep(viewModel: EmergencySettingsViewModel, contacts: List<Emergency
                     supportingContent = { Text(contact.phoneNumber) },
                     trailingContent = {
                         IconButton(onClick = { viewModel.deleteContact(contact) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete")
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete ${contact.name}"
+                            )
                         }
                     }
                 )
@@ -157,19 +188,72 @@ fun ContactsStep(viewModel: EmergencySettingsViewModel, contacts: List<Emergency
 }
 
 @Composable
-fun PermissionAndTestStep(viewModel: EmergencySettingsViewModel, contacts: List<EmergencyContactEntity>, onNext: () -> Unit) {
+fun PermissionAndTestStep(
+    viewModel: EmergencySettingsViewModel,
+    contacts: List<EmergencyContactEntity>,
+    permissionWasRevoked: Boolean,
+    onNext: () -> Unit
+) {
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
     var permissionGranted by remember { 
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) 
     }
+    var permissionRequestAttempted by rememberSaveable { mutableStateOf(false) }
+    var permissionPermanentlyDenied by rememberSaveable { mutableStateOf(false) }
     var testSent by remember { mutableStateOf(false) }
+
+    fun refreshPermissionState() {
+        permissionGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.SEND_SMS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (permissionGranted) {
+            permissionPermanentlyDenied = false
+        } else if (permissionRequestAttempted) {
+            permissionPermanentlyDenied = context.findActivity()?.let {
+                !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
+                    it,
+                    Manifest.permission.SEND_SMS
+                )
+            } ?: false
+        }
+    }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         permissionGranted = isGranted
+        if (isGranted) {
+            permissionPermanentlyDenied = false
+            (context.applicationContext as TrackMeApp).setSmsPermissionRevokedNotice(false)
+        } else {
+            permissionPermanentlyDenied = context.findActivity()?.let {
+                !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
+                    it,
+                    Manifest.permission.SEND_SMS
+                )
+            } ?: false
+        }
     }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshPermissionState()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(permissionWasRevoked) { refreshPermissionState() }
     
     Column(modifier = Modifier.padding(24.dp).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text("Permissions & Testing", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            "Permissions & Testing",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() }
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Text("To send automated messages during an emergency, TrackMe needs permission to send SMS messages on your behalf.",
             style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
@@ -217,7 +301,32 @@ fun PermissionAndTestStep(viewModel: EmergencySettingsViewModel, contacts: List<
                 Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) { Text("Continue") }
             }
         } else {
-            Button(onClick = { launcher.launch(Manifest.permission.SEND_SMS) }, modifier = Modifier.fillMaxWidth()) { Text("Grant SMS Permission") }
+            if (permissionWasRevoked || permissionPermanentlyDenied) {
+                Text(
+                    text = if (permissionWasRevoked) strings.sosPermissionRevoked else strings.smsPermissionSettingsRequired,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = android.net.Uri.fromParts("package", context.packageName, null)
+                        }
+                        context.startActivity(intent)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(strings.openSettings) }
+            } else {
+                Button(
+                    onClick = {
+                        permissionRequestAttempted = true
+                        launcher.launch(Manifest.permission.SEND_SMS)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(strings.grantSmsPermission) }
+            }
         }
     }
 }
@@ -234,7 +343,11 @@ fun AcknowledgmentStep(settings: EmergencySettingsEntity?, viewModel: EmergencyS
     
     Column(modifier = Modifier.padding(24.dp).fillMaxSize()) {
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            Text("How it works", style = MaterialTheme.typography.headlineMedium)
+            Text(
+                "How it works",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.semantics { heading() }
+            )
             Spacer(modifier = Modifier.height(16.dp))
             Text("In case of emergency, your phone will send your location to your selected contacts every 2 minutes for the first 10 minutes, then every 10 minutes for the next 1 hour, and then every 1 hour for the next 24 hours.", style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(24.dp))
@@ -254,7 +367,11 @@ fun AcknowledgmentStep(settings: EmergencySettingsEntity?, viewModel: EmergencyS
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        Text("Available Tags:", style = MaterialTheme.typography.labelMedium)
+        Text(
+            "Available Tags:",
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.semantics { heading() }
+        )
         Spacer(modifier = Modifier.height(8.dp))
         
         // Use a horizontally scrollable Row to keep tags inline and save vertical space

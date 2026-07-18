@@ -6,10 +6,11 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.database.sqlite.SQLiteException
 import android.location.Location
+import android.location.LocationManager
 import android.os.Build
 import android.os.IBinder
-import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.dao.RideDao
@@ -18,6 +19,7 @@ import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import `in`.shvms.trackme.utils.RideUtils
+import `in`.shvms.trackme.utils.StorageHealthMonitor
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.maps.model.LatLng
@@ -26,7 +28,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 
 enum class TrackingState {
-    IDLE, TRACKING, PAUSED, GPS_LOST
+    IDLE, TRACKING, PAUSED, GPS_LOST, GPS_DISABLED, STORAGE_LOW
 }
 
 class TrackingService : Service() {
@@ -35,8 +37,6 @@ class TrackingService : Service() {
     private lateinit var rideDao: RideDao
     private lateinit var trackingManager: TrackingManager
     private lateinit var liveShareManager: LiveShareManager
-    private lateinit var wakeLock: PowerManager.WakeLock
-
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var currentState = TrackingState.IDLE
     private var currentRideId: Long? = null
@@ -47,6 +47,7 @@ class TrackingService : Service() {
     private var rideDuration = 0L
     private var elapsedWallClockDuration = 0L
     private var currentPointCount = 0
+    private var storageWarningShown = false
     private var lastGpsTimeMs = 0L
     private var lastLiveShareTimeMs = 0L
 
@@ -60,6 +61,14 @@ class TrackingService : Service() {
 
             // 1. Strict GPS Accuracy Filter: discard indoor/multipath bounce (> 22 meters inaccuracy)
             if (location.hasAccuracy() && location.accuracy > 22.0f) {
+                return
+            }
+
+            if (currentState == TrackingState.GPS_LOST || currentState == TrackingState.GPS_DISABLED) {
+                updateState(TrackingState.TRACKING)
+            }
+
+            if (currentState == TrackingState.STORAGE_LOW) {
                 return
             }
 
@@ -116,24 +125,34 @@ class TrackingService : Service() {
                 lastLocation = location
 
                 currentRideId?.let { rideId ->
+                    if (StorageHealthMonitor.isLowStorage(this@TrackingService)) {
+                        enterStorageLowState()
+                        return@let
+                    }
                     serviceScope.launch {
-                        rideDao.insertGPSPoint(
-                            GPSPointEntity(
-                                rideId = rideId,
-                                latitude = location.latitude,
-                                longitude = location.longitude,
-                                altitude = location.altitude,
-                                accuracy = location.accuracy,
-                                speed = effectiveSpeed,
-                                timestamp = location.time,
-                                isPaused = isPointPaused
+                        try {
+                            rideDao.insertGPSPoint(
+                                GPSPointEntity(
+                                    rideId = rideId,
+                                    latitude = location.latitude,
+                                    longitude = location.longitude,
+                                    altitude = location.altitude,
+                                    accuracy = location.accuracy,
+                                    speed = effectiveSpeed,
+                                    timestamp = location.time,
+                                    isPaused = isPointPaused
+                                )
                             )
-                        )
-                        currentPointCount++
-                        if (currentPointCount == 8000) {
-                            showPointLimitWarning()
-                        } else if (currentPointCount >= 9000) {
-                            splitRide()
+                            currentPointCount++
+                            if (currentPointCount == 8000) {
+                                showPointLimitWarning()
+                            } else if (currentPointCount >= 9000) {
+                                splitRide()
+                            }
+                        } catch (_: SQLiteException) {
+                            withContext(Dispatchers.Main.immediate) {
+                                enterStorageLowState()
+                            }
                         }
                     }
                 }
@@ -168,6 +187,7 @@ class TrackingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         locationHelper = LocationHelper(this)
         motionSensorManager = MotionSensorManager(this)
         val app = application as TrackMeApp
@@ -175,8 +195,12 @@ class TrackingService : Service() {
         trackingManager = app.trackingManager
         liveShareManager = app.liveShareManager
         
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TrackMe::TrackingWakeLock")
+    }
+
+    override fun onDestroy() {
+        isRunning = false
+        serviceScope.cancel()
+        super.onDestroy()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -190,39 +214,65 @@ class TrackingService : Service() {
             }
             ACTION_PAUSE_SERVICE -> pauseTracking()
             ACTION_STOP_SERVICE -> stopTracking()
+            ACTION_DISCARD_NEAR_EMPTY_RIDE -> stopTracking(discardNearEmptyRide = true)
+            null -> {
+                // START_STICKY recreates the service with a null intent after process death.
+                // Only restore a session that was explicitly marked active by the service.
+                if (hasPersistedActiveSession() && currentState == TrackingState.IDLE) {
+                    startForegroundService()
+                }
+            }
         }
         return START_STICKY
     }
 
     private fun startForegroundService() {
-        wakeLock.acquire(10 * 60 * 60 * 1000L) // 10 hour max lock
-        createNotificationChannel()
+        createNotificationChannels()
         startForeground(NOTIFICATION_ID, getNotification())
-        
+
+        if (StorageHealthMonitor.isLowStorage(this)) {
+            enterStorageLowState()
+            return
+        }
+
         updateState(TrackingState.TRACKING)
         currentPointCount = 0
         lastGpsTimeMs = System.currentTimeMillis()
         motionSensorManager.startListening()
         
         serviceScope.launch {
-            val startTime = System.currentTimeMillis()
-            val rideId = rideDao.insertRide(
-                RideEntity(
-                    startTime = startTime,
-                    title = RideUtils.getDefaultTitle(startTime),
-                    persona = trackingManager.selectedPersona.value.name
-                )
-            )
-            currentRideId = rideId
-            activeRideId = rideId
-            
-            `in`.shvms.trackme.analytics.AnalyticsManager.trackRideStarted(
-                rideId = rideId.toString(),
-                startLat = lastLocation?.latitude ?: 0.0,
-                startLng = lastLocation?.longitude ?: 0.0
-            )
-            
-            locationHelper.startLocationTracking(locationCallback)
+            try {
+                if (!restorePersistedRide()) {
+                    val startTime = System.currentTimeMillis()
+                    val rideId = rideDao.insertRide(
+                        RideEntity(
+                            startTime = startTime,
+                            title = RideUtils.getDefaultTitle(startTime, trackingManager.selectedPersona.value),
+                            persona = trackingManager.selectedPersona.value.name
+                        )
+                    )
+                    currentRideId = rideId
+                    activeRideId = rideId
+                    setPersistedActiveSession(true)
+                    setPersistedPausedSession(false)
+
+                    `in`.shvms.trackme.analytics.AnalyticsManager.trackRideStarted(
+                        rideId = rideId.toString()
+                    )
+                }
+
+                if (hasPersistedPausedSession()) {
+                    updateState(TrackingState.PAUSED)
+                    isTimerEnabled = false
+                    motionSensorManager.stopListening()
+                } else {
+                    locationHelper.startLocationTracking(locationCallback)
+                }
+            } catch (_: SQLiteException) {
+                withContext(Dispatchers.Main.immediate) {
+                    enterStorageLowState()
+                }
+            }
         }
         startTimer()
     }
@@ -231,12 +281,19 @@ class TrackingService : Service() {
         updateState(TrackingState.PAUSED)
         isTimerEnabled = false
         motionSensorManager.stopListening()
+        setPersistedPausedSession(true)
         lastLocation = null // prevent distance jumping when resumed
     }
 
     private fun resumeTracking() {
+        if (StorageHealthMonitor.isLowStorage(this)) {
+            enterStorageLowState()
+            return
+        }
+        storageWarningShown = false
         updateState(TrackingState.TRACKING)
         motionSensorManager.startListening()
+        setPersistedPausedSession(false)
         currentRideId?.let { rideId ->
             serviceScope.launch {
                 currentPointCount = rideDao.getPointsForRide(rideId).firstOrNull()?.size ?: 0
@@ -249,7 +306,7 @@ class TrackingService : Service() {
         }
     }
 
-    private fun stopTracking() {
+    private fun stopTracking(discardNearEmptyRide: Boolean = false) {
         updateState(TrackingState.IDLE)
         isTimerEnabled = false
         motionSensorManager.stopListening()
@@ -264,6 +321,8 @@ class TrackingService : Service() {
         lastLocation = null
         currentRideId = null
         activeRideId = null
+        setPersistedActiveSession(false)
+        setPersistedPausedSession(false)
         
         stopForeground(STOP_FOREGROUND_REMOVE)
         
@@ -272,9 +331,8 @@ class TrackingService : Service() {
                 liveShareManager.stopSession("Ride ended by user.")
             }
             rideToProcess?.let { rideId ->
-                finalizeRide(rideId, finalDistance, finalDuration)
+                finalizeRide(rideId, finalDistance, finalDuration, discardNearEmptyRide)
             }
-            if (wakeLock.isHeld) wakeLock.release()
             stopSelf()
         }
     }
@@ -282,6 +340,82 @@ class TrackingService : Service() {
     private fun updateState(newState: TrackingState) {
         currentState = newState
         trackingManager.updateState(newState)
+    }
+
+    private fun hasPersistedActiveSession(): Boolean =
+        getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+            .getBoolean(ACTIVE_TRACKING_SESSION_KEY, false)
+
+    private fun setPersistedActiveSession(active: Boolean) {
+        getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(ACTIVE_TRACKING_SESSION_KEY, active)
+            .apply()
+    }
+
+    private fun hasPersistedPausedSession(): Boolean =
+        getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+            .getBoolean(PAUSED_TRACKING_SESSION_KEY, false)
+
+    private fun setPersistedPausedSession(paused: Boolean) {
+        getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(PAUSED_TRACKING_SESSION_KEY, paused)
+            .apply()
+    }
+
+    /**
+     * Reattaches the sticky service to the newest unfinished ride after process death.
+     * GPS points are the source of truth for the restored path and HUD metrics; the next
+     * live fix starts a fresh distance segment so downtime cannot create a jump.
+     */
+    private suspend fun restorePersistedRide(): Boolean {
+        if (!hasPersistedActiveSession()) return false
+
+        val ride = rideDao.getUncompletedRides().maxByOrNull { it.startTime }
+        if (ride == null) {
+            setPersistedActiveSession(false)
+            return false
+        }
+
+        val points = rideDao.getPointsForRideSync(ride.id)
+        trackingManager.reset()
+        updateState(TrackingState.TRACKING)
+        currentRideId = ride.id
+        activeRideId = ride.id
+        currentPointCount = points.size
+
+        val persona = runCatching {
+            `in`.shvms.trackme.domain.model.RidePersona.valueOf(ride.persona)
+        }.getOrDefault(`in`.shvms.trackme.domain.model.RidePersona.AUTO)
+        trackingManager.setSelectedPersona(persona)
+
+        points.forEach { point ->
+            trackingManager.addPathPoint(LatLng(point.latitude, point.longitude))
+        }
+
+        val now = System.currentTimeMillis()
+        val restoredMetrics = TrackingSessionRestorer.calculate(ride.startTime, points, now)
+        rideDuration = restoredMetrics.activeDurationMillis
+        elapsedWallClockDuration = restoredMetrics.elapsedDurationMillis
+        trackingManager.addDistance(restoredMetrics.distanceMeters)
+        trackingManager.updateDuration(restoredMetrics.activeDurationMillis)
+        trackingManager.updateElapsedDuration(restoredMetrics.elapsedDurationMillis)
+        trackingManager.updateSpeed(restoredMetrics.latestSpeedMetersPerSecond)
+        trackingManager.setAutoPaused(restoredMetrics.isPaused)
+        lastGpsTimeMs = now
+        lastLocation = null
+        return true
+    }
+
+    private fun enterStorageLowState() {
+        if (currentState == TrackingState.STORAGE_LOW && storageWarningShown) return
+        storageWarningShown = true
+        updateState(TrackingState.STORAGE_LOW)
+        isTimerEnabled = false
+        motionSensorManager.stopListening()
+        locationHelper.stopLocationTracking(locationCallback)
+        showStorageLowNotification()
     }
 
     private fun startTimer() {
@@ -299,14 +433,36 @@ class TrackingService : Service() {
                 trackingManager.updateDuration(rideDuration)
                 trackingManager.updateElapsedDuration(elapsedWallClockDuration)
                 
-                if (currentState == TrackingState.TRACKING && lastGpsTimeMs > 0) {
-                    trackingManager.updateTimeSinceLastGps(System.currentTimeMillis() - lastGpsTimeMs)
+                if ((currentState == TrackingState.TRACKING || currentState == TrackingState.GPS_LOST || currentState == TrackingState.GPS_DISABLED) && lastGpsTimeMs > 0) {
+                    val timeSinceLastGps = System.currentTimeMillis() - lastGpsTimeMs
+                    trackingManager.updateTimeSinceLastGps(timeSinceLastGps)
+                    if (timeSinceLastGps >= GPS_LOSS_TIMEOUT_MS) {
+                        updateState(
+                            if (isLocationServiceEnabled()) TrackingState.GPS_LOST else TrackingState.GPS_DISABLED
+                        )
+                    }
                 } else {
                     trackingManager.updateTimeSinceLastGps(0L)
                 }
                 
                 delay(1000L)
             }
+        }
+    }
+
+    private fun isLocationServiceEnabled(): Boolean {
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            ?: return false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            locationManager.isLocationEnabled
+        } else {
+            val gpsEnabled = runCatching {
+                locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+            }.getOrDefault(false)
+            val networkEnabled = runCatching {
+                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+            }.getOrDefault(false)
+            !areLocationProvidersUnavailable(gpsEnabled, networkEnabled)
         }
     }
 
@@ -328,21 +484,42 @@ class TrackingService : Service() {
             .build()
     }
 
-    private fun createNotificationChannel() {
+    private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
+            val trackingChannel = NotificationChannel(
                 CHANNEL_ID,
-                "Tracking Service",
+                getString(`in`.shvms.trackme.R.string.notification_channel_tracking),
                 NotificationManager.IMPORTANCE_LOW
-            )
+            ).apply {
+                description = getString(`in`.shvms.trackme.R.string.notification_channel_tracking_description)
+            }
+            val syncChannel = NotificationChannel(
+                SYNC_CHANNEL_ID,
+                getString(`in`.shvms.trackme.R.string.notification_channel_sync),
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = getString(`in`.shvms.trackme.R.string.notification_channel_sync_description)
+            }
+            val sosChannel = NotificationChannel(
+                SOS_CHANNEL_ID,
+                getString(`in`.shvms.trackme.R.string.notification_channel_sos),
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = getString(`in`.shvms.trackme.R.string.notification_channel_sos_description)
+            }
             val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            manager.createNotificationChannels(listOf(trackingChannel, syncChannel, sosChannel))
         }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private suspend fun finalizeRide(rideId: Long, finalDistance: Double, finalDuration: Long) {
+    private suspend fun finalizeRide(
+        rideId: Long,
+        finalDistance: Double,
+        finalDuration: Long,
+        discardNearEmptyRide: Boolean = false
+    ) {
         val rideWithPoints = rideDao.getRideWithPointsById(rideId)
         if (rideWithPoints != null) {
             val ride = rideWithPoints.ride
@@ -354,6 +531,12 @@ class TrackingService : Service() {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                     android.widget.Toast.makeText(applicationContext, "Ride was too short to save (no GPS data).", android.widget.Toast.LENGTH_LONG).show()
                 }
+                return
+            }
+
+            if (discardNearEmptyRide && finalDistance < JUNK_RIDE_DISTANCE_METERS && finalDuration < JUNK_RIDE_DURATION_MILLIS) {
+                rideDao.deletePointsForRide(rideId)
+                rideDao.deleteRide(rideId)
                 return
             }
             
@@ -382,8 +565,9 @@ class TrackingService : Service() {
             // distance here would count GPS drift and movement recorded during pauses.
             val avgSpeed = if (activeTimeMs > 0) (finalDistance / (activeTimeMs / 1000f)).toFloat() else 0f
 
-            val newTitle = if (ride.title == `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime)) {
-                `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime, maxSpeed * 3.6f)
+            val persona = RideUtils.personaFromStoredName(ride.persona)
+            val newTitle = if (RideUtils.isGeneratedTitle(ride.title, ride.startTime, persona)) {
+                RideUtils.getDefaultTitle(ride.startTime, persona, maxSpeed * 3.6f)
             } else ride.title
 
             val calc = `in`.shvms.trackme.data.local.entity.PostRideCalculation(
@@ -415,7 +599,7 @@ class TrackingService : Service() {
             val app = application as TrackMeApp
             app.firestoreSyncManager.uploadRide(rideId)
             
-            val bcastIntent = Intent("in.shvms.trackme.RIDE_SAVED")
+            val bcastIntent = Intent("in.shvms.trackme.RIDE_SAVED").setPackage(packageName)
             sendBroadcast(bcastIntent)
         }
     }
@@ -441,7 +625,7 @@ class TrackingService : Service() {
             val rideId = rideDao.insertRide(
                 RideEntity(
                     startTime = startTime,
-                    title = RideUtils.getDefaultTitle(startTime) + " (Part 2)",
+                    title = RideUtils.getDefaultTitle(startTime, trackingManager.selectedPersona.value) + " (Part 2)",
                     persona = trackingManager.selectedPersona.value.name
                 )
             )
@@ -449,7 +633,7 @@ class TrackingService : Service() {
             activeRideId = rideId
             
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            val splitNotification = NotificationCompat.Builder(this@TrackingService, CHANNEL_ID)
+            val splitNotification = NotificationCompat.Builder(this@TrackingService, SYNC_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                 .setContentTitle("Ride Auto-Split")
                 .setContentText("Your ride reached 9,000 points and was split automatically.")
@@ -461,7 +645,7 @@ class TrackingService : Service() {
     
     private fun showPointLimitWarning() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val warningNotification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val warningNotification = NotificationCompat.Builder(this, SYNC_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("Long Ride Warning")
             .setContentText("Approaching limit. Ride will auto-split at 9,000 points.")
@@ -470,12 +654,38 @@ class TrackingService : Service() {
         notificationManager.notify(2, warningNotification)
     }
 
+    private fun showStorageLowNotification() {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val warningNotification = NotificationCompat.Builder(this, SYNC_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("Storage almost full")
+            .setContentText("Tracking is paused. Free device storage, then tap Resume in TrackMe.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+        notificationManager.notify(STORAGE_WARNING_NOTIFICATION_ID, warningNotification)
+    }
+
     companion object {
         const val ACTION_START_OR_RESUME_SERVICE = "ACTION_START_OR_RESUME_SERVICE"
         const val ACTION_PAUSE_SERVICE = "ACTION_PAUSE_SERVICE"
         const val ACTION_STOP_SERVICE = "ACTION_STOP_SERVICE"
+        const val ACTION_DISCARD_NEAR_EMPTY_RIDE = "ACTION_DISCARD_NEAR_EMPTY_RIDE"
+        const val JUNK_RIDE_DISTANCE_METERS = 10.0
+        const val JUNK_RIDE_DURATION_MILLIS = 2 * 60 * 1000L
         const val NOTIFICATION_ID = 1
         const val CHANNEL_ID = "tracking_channel"
+        const val SYNC_CHANNEL_ID = "sync_channel"
+        const val SOS_CHANNEL_ID = "sos_channel"
+        const val STORAGE_WARNING_NOTIFICATION_ID = 4
+        const val GPS_LOSS_TIMEOUT_MS = 15_000L
+        const val TRACKING_PREFS = "trackme_prefs"
+        const val ACTIVE_TRACKING_SESSION_KEY = "active_tracking_session"
+        const val PAUSED_TRACKING_SESSION_KEY = "paused_tracking_session"
+
+        @Volatile
+        var isRunning: Boolean = false
+            private set
 
         @Volatile
         var activeRideId: Long? = null

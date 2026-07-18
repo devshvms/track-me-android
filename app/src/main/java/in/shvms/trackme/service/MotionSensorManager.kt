@@ -24,6 +24,7 @@ class MotionSensorManager(context: Context) : SensorEventListener {
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val linearAccelerationSensor: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         ?: sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    private val hasMotionSensor = linearAccelerationSensor != null
 
     private val _motionEnergy = MutableStateFlow(0f)
     val motionEnergy: StateFlow<Float> = _motionEnergy.asStateFlow()
@@ -36,6 +37,7 @@ class MotionSensorManager(context: Context) : SensorEventListener {
     private var gravityX = 0f
     private var gravityY = 0f
     private var gravityZ = 0f
+    private var hasReceivedSample = false
 
     fun startListening() {
         linearAccelerationSensor?.let { sensor ->
@@ -50,11 +52,13 @@ class MotionSensorManager(context: Context) : SensorEventListener {
     fun stopListening() {
         sensorManager.unregisterListener(this)
         emaEnergy = 0f
+        hasReceivedSample = false
         _motionEnergy.value = 0f
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
         event ?: return
+        hasReceivedSample = true
 
         val now = System.currentTimeMillis()
         val linearX: Float
@@ -97,6 +101,15 @@ class MotionSensorManager(context: Context) : SensorEventListener {
      * Threshold 0.18 m/s² cleanly separates resting on a table/stopped vehicle from actual motion.
      */
     fun isDeviceStationary(): Boolean {
-        return emaEnergy < 0.18f
+        return shouldTreatDeviceAsStationary(hasMotionSensor, hasReceivedSample, emaEnergy)
     }
 }
+
+internal fun shouldTreatDeviceAsStationary(
+    sensorAvailable: Boolean,
+    sampleReceived: Boolean,
+    motionEnergy: Float
+): Boolean = sensorAvailable && sampleReceived && motionEnergy < 0.18f
+
+internal fun areLocationProvidersUnavailable(gpsEnabled: Boolean, networkEnabled: Boolean): Boolean =
+    !gpsEnabled && !networkEnabled

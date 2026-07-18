@@ -96,30 +96,27 @@ class FirestoreSyncManager(
         }
     }
 
-    fun syncPeriodic() {
-        syncScope.launch {
-            val user = authManager.currentUser.value ?: return@launch
-            _syncResult.value = SyncResult.Syncing
-            var uploaded = 0
-            var downloaded = 0
-            try {
-                // --- UPSTREAM: Local → Cloud ---
-                val allRides = rideDao.getAllRidesWithPoints().first()
-                val unsyncedRides = allRides.filter { !it.ride.isSynced }
-                for (rideWithPoints in unsyncedRides) {
-                    uploadRideInternal(rideWithPoints.ride.id)
-                    uploaded++
-                }
-
-                // --- DOWNSTREAM: Cloud → Local (Lazy Load Top 10 for Periodic Sync) ---
-                downloaded = downloadFromCloud(user.uid, 10)
-                refreshCloudCount()
-                _syncResult.value = SyncResult.Success(uploaded, downloaded)
-            } catch (e: Exception) {
-                errorLogger.log("Periodic sync failed")
-                errorLogger.recordException(e)
-                _syncResult.value = SyncResult.Error(e.localizedMessage ?: "Unknown error")
+    suspend fun syncPeriodic(): SyncResult {
+        val user = authManager.currentUser.value ?: return SyncResult.Error("Not signed in")
+        _syncResult.value = SyncResult.Syncing
+        var uploaded = 0
+        return try {
+            // --- UPSTREAM: Local → Cloud ---
+            val allRides = rideDao.getAllRidesWithPoints().first()
+            val unsyncedRides = allRides.filter { !it.ride.isSynced }
+            for (rideWithPoints in unsyncedRides) {
+                uploadRideInternal(rideWithPoints.ride.id)
+                uploaded++
             }
+
+            // --- DOWNSTREAM: Cloud → Local (Lazy Load Top 10 for Periodic Sync) ---
+            val downloaded = downloadFromCloud(user.uid, 10)
+            refreshCloudCount()
+            SyncResult.Success(uploaded, downloaded).also { _syncResult.value = it }
+        } catch (e: Exception) {
+            errorLogger.log("Periodic sync failed")
+            errorLogger.recordException(e)
+            SyncResult.Error(e.localizedMessage ?: "Unknown error").also { _syncResult.value = it }
         }
     }
 
@@ -256,9 +253,10 @@ class FirestoreSyncManager(
     }
 
     private suspend fun uploadRideInternal(rideId: Long) {
-        val user = authManager.currentUser.value ?: return
+        val user = authManager.currentUser.value ?: throw IllegalStateException("Not signed in")
         try {
-            val rideWithPoints = rideDao.getRideWithPointsById(rideId) ?: return
+            val rideWithPoints = rideDao.getRideWithPointsById(rideId)
+                ?: throw IllegalStateException("Ride $rideId was not found")
             if (rideWithPoints.ride.isSynced) return
 
             val rideDocRef = firestore.collection("users")
@@ -296,6 +294,7 @@ class FirestoreSyncManager(
         } catch (e: Exception) {
             errorLogger.log("Failed to upload ride $rideId")
             errorLogger.recordException(e)
+            throw e
         }
     }
 
@@ -415,6 +414,27 @@ class FirestoreSyncManager(
                 }
                 // Delete the ride document
                 rideDoc.reference.delete().await()
+            }
+
+            // Delete emergency configuration and delivery logs owned by this user.
+            val emergencyConfigSnapshot = firestore.collection("users").document(uid)
+                .collection("emergency_config").get().await()
+            for (document in emergencyConfigSnapshot.documents) {
+                document.reference.delete().await()
+            }
+
+            val emergencyLogsSnapshot = firestore.collection("users").document(uid)
+                .collection("emergency_logs").get().await()
+            for (document in emergencyLogsSnapshot.documents) {
+                document.reference.delete().await()
+            }
+
+            // Feedback is user-owned and may be deleted only through the matching UID query.
+            val feedbackSnapshot = firestore.collection("feedbacks")
+                .whereEqualTo("uid", uid)
+                .get().await()
+            for (document in feedbackSnapshot.documents) {
+                document.reference.delete().await()
             }
             Result.success(Unit)
         } catch (e: Exception) {

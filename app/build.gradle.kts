@@ -13,6 +13,7 @@ plugins {
 android {
     namespace = "in.shvms.trackme"
     compileSdk = 36
+    testBuildType = "release"
     
     val localProperties = Properties()
     val localPropertiesFile = rootProject.file("local.properties")
@@ -26,16 +27,21 @@ android {
     val keyAlias = System.getenv("KEY_ALIAS").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("KEY_ALIAS").takeIf { !it.isNullOrBlank() }
     val keyPassword = System.getenv("KEY_PASSWORD").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("KEY_PASSWORD").takeIf { !it.isNullOrBlank() }
     val posthogApiKey = System.getenv("POSTHOG_API_KEY").takeIf { !it.isNullOrBlank() } ?: localProperties.getProperty("POSTHOG_API_KEY") ?: "dummy_key"
+    // Opt-in StrictMode: ./gradlew ... -PstrictMode (or -PstrictMode=true); off by default.
+    val strictModeEnabled = project.findProperty("strictMode")?.toString()
+        ?.let { it.isEmpty() || it.equals("true", ignoreCase = true) } ?: false
 
     defaultConfig {
         applicationId = "in.shvms.trackme"
         minSdk = 24
         targetSdk = 36
-        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "17").toInt()
-        versionName = "1.5.6"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "20").toInt()
+        versionName = "1.5.9"
         
         resValue("string", "google_maps_key", mapsApiKey)
         buildConfigField("String", "POSTHOG_API_KEY", "\"$posthogApiKey\"")
+        buildConfigField("boolean", "STRICT_MODE", strictModeEnabled.toString())
     }
 
     signingConfigs {

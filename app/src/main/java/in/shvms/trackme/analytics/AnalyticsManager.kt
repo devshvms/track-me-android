@@ -97,14 +97,12 @@ object AnalyticsManager {
     }
 
     // Core Rides
-    fun trackRideStarted(rideId: String, startLat: Double, startLng: Double) {
+    fun trackRideStarted(rideId: String) {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture(
             "ride_started",
             properties = mapOf(
-                "ride_id" to rideId,
-                "start_latitude" to startLat,
-                "start_longitude" to startLng
+                "ride_id" to rideId
             )
         )
     }
@@ -145,13 +143,11 @@ object AnalyticsManager {
     }
 
     // SOS Usage
-    fun trackSosTriggered(latitude: Double, longitude: Double, triggerMethod: String) {
+    fun trackSosTriggered(triggerMethod: String) {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture(
             "sos_triggered",
             properties = mapOf(
-                "latitude" to latitude,
-                "longitude" to longitude,
                 "trigger_method" to triggerMethod
             )
         )

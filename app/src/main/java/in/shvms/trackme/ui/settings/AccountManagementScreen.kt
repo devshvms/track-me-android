@@ -8,7 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -21,6 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -29,7 +32,14 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.ui.components.OfflineShieldBanner
+import `in`.shvms.trackme.ui.components.rememberIsOffline
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
+import `in`.shvms.trackme.utils.containsExportFailureMarker
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,6 +51,7 @@ fun AccountManagementScreen(
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    val isOffline = rememberIsOffline()
     val user by viewModel.currentUser.collectAsState()
     var isPrivacyExpanded by remember { mutableStateOf(false) }
     var showSignOutWarning by remember { mutableStateOf(false) }
@@ -70,7 +81,7 @@ fun AccountManagementScreen(
                 title = { Text(strings.accountManagement) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = strings.back)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.back)
                     }
                 }
             )
@@ -84,6 +95,10 @@ fun AccountManagementScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            if (isOffline) {
+                OfflineShieldBanner(modifier = Modifier.padding(bottom = 16.dp))
+            }
+
             if (user != null) {
                 if (user?.photoUrl != null) {
                     Image(
@@ -135,7 +150,10 @@ fun AccountManagementScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { isPrivacyExpanded = !isPrivacyExpanded },
+                            .clickable { isPrivacyExpanded = !isPrivacyExpanded }
+                            .semantics(mergeDescendants = true) {
+                                role = Role.Button
+                            },
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -188,7 +206,7 @@ fun AccountManagementScreen(
                                             } else {
                                                 android.widget.Toast.makeText(
                                                     context,
-                                                    result.exceptionOrNull()?.message ?: strings.dataExportFailed,
+                                                    strings.dataExportFailed,
                                                     android.widget.Toast.LENGTH_LONG
                                                 ).show()
                                             }
@@ -309,6 +327,7 @@ fun AccountManagementScreen(
                     OutlinedTextField(
                         value = confirmText,
                         onValueChange = { confirmText = it },
+                        label = { Text(strings.confirmTypeDelete) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         enabled = !isDeleting
@@ -414,17 +433,60 @@ fun AccountManagementScreen(
                                 .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, filename)
 
                             val downloadManager = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
-                            downloadManager.enqueue(request)
+                            val downloadId = downloadManager.enqueue(request)
+
+                            scope.launch {
+                                var finished = false
+                                while (isActive && !finished) {
+                                    val status = withContext(Dispatchers.IO) {
+                                        downloadManager.query(
+                                            android.app.DownloadManager.Query().setFilterById(downloadId)
+                                        )?.use { cursor ->
+                                            if (cursor.moveToFirst()) {
+                                                cursor.getInt(cursor.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_STATUS))
+                                            } else {
+                                                null
+                                            }
+                                        }
+                                    }
+
+                                    when (status) {
+                                        android.app.DownloadManager.STATUS_SUCCESSFUL -> {
+                                            val downloadedUri = downloadManager.getUriForDownloadedFile(downloadId)
+                                            val isIncomplete = downloadedUri?.let { uri ->
+                                                withContext(Dispatchers.IO) {
+                                                    context.contentResolver.openInputStream(uri)?.use { input ->
+                                                        input.containsExportFailureMarker()
+                                                    } ?: true
+                                                }
+                                            } ?: true
+
+                                            if (isIncomplete) {
+                                                downloadManager.remove(downloadId)
+                                                snackbarHostState.showSnackbar(strings.dataExportFailed)
+                                            }
+                                            finished = true
+                                        }
+
+                                        android.app.DownloadManager.STATUS_FAILED -> {
+                                            snackbarHostState.showSnackbar(strings.dataExportFailed)
+                                            finished = true
+                                        }
+
+                                        else -> delay(1000)
+                                    }
+                                }
+                            }
 
                             android.widget.Toast.makeText(
                                 context,
-                                "Download started",
+                                strings.dataExportSuccess,
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             android.widget.Toast.makeText(
                                 context,
-                                "Could not start download",
+                                strings.dataExportFailed,
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         }

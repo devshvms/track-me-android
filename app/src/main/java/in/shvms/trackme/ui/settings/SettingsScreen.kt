@@ -4,11 +4,13 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -28,6 +30,8 @@ import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.draw.clip
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.ui.components.OfflineShieldBanner
+import `in`.shvms.trackme.ui.components.rememberIsOffline
 import android.widget.Toast
 
 @Composable
@@ -42,6 +46,7 @@ fun SettingsScreen(
     val syncResult by viewModel.syncResult.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val isOffline = rememberIsOffline()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
     Column(
@@ -52,6 +57,10 @@ fun SettingsScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        if (isOffline) {
+            OfflineShieldBanner(modifier = Modifier.padding(bottom = 16.dp))
+        }
+
         // Header removed
 
         if (user == null) {
@@ -79,6 +88,9 @@ fun SettingsScreen(
                             val result = viewModel.signInWithGoogle(context)
                             if (result.isFailure) {
                                 val e = result.exceptionOrNull()
+                                if ((context.applicationContext as TrackMeApp).authManager.isSignInCancellation(e)) {
+                                    return@launch
+                                }
                                 val msg = if (e?.javaClass?.simpleName == "NoCredentialException" || e?.message?.contains("NoCredential") == true) {
                                     "Sign In Error: App Signing Key fingerprint (SHA-1) is missing in Firebase."
                                 } else {
@@ -336,7 +348,16 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = intelligentAutoPause,
+                            role = Role.Switch,
+                            onValueChange = { checked ->
+                                intelligentAutoPause = checked
+                                prefs.edit().putBoolean("intelligent_auto_pause", checked).apply()
+                            }
+                        ),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -350,10 +371,7 @@ fun SettingsScreen(
                     }
                     Switch(
                         checked = intelligentAutoPause,
-                        onCheckedChange = { checked ->
-                            intelligentAutoPause = checked
-                            prefs.edit().putBoolean("intelligent_auto_pause", checked).apply()
-                        }
+                        onCheckedChange = null
                     )
                 }
 
@@ -362,7 +380,16 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = disablePostProcessing,
+                            role = Role.Switch,
+                            onValueChange = { checked ->
+                                disablePostProcessing = checked
+                                prefs.edit().putBoolean("disable_gps_post_processing", checked).apply()
+                            }
+                        ),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -381,10 +408,7 @@ fun SettingsScreen(
                     }
                     Switch(
                         checked = disablePostProcessing,
-                        onCheckedChange = { checked ->
-                            disablePostProcessing = checked
-                            prefs.edit().putBoolean("disable_gps_post_processing", checked).apply()
-                        }
+                        onCheckedChange = null
                     )
                 }
             }

@@ -27,6 +27,8 @@ data class HomeUiState(
     val pathPoints: List<LatLng> = emptyList(),
     val distanceText: String = "0.00 km",
     val durationText: String = "00:00:00",
+    val distanceMeters: Float = 0f,
+    val durationMillis: Long = 0L,
     val speedText: String = "0.0 km/h",
     val isEmergencyActive: Boolean = false,
     val isEmergencyReady: Boolean = false,
@@ -81,6 +83,8 @@ class HomeViewModel(
             pathPoints = g1.second,
             distanceText = formatDistance(g1.third),
             durationText = formatDuration(g2.first),
+            distanceMeters = g1.third,
+            durationMillis = g2.first,
             speedText = formatSpeed(g2.second),
             timeSinceLastGps = g2.third,
             isAutoPaused = g3.first,
@@ -139,8 +143,12 @@ class HomeViewModel(
         sendCommandToService(context, TrackingService.ACTION_PAUSE_SERVICE)
     }
 
-    fun stopTracking(context: Context) {
-        sendCommandToService(context, TrackingService.ACTION_STOP_SERVICE)
+    fun stopTracking(context: Context, discardNearEmptyRide: Boolean = false) {
+        sendCommandToService(
+            context,
+            if (discardNearEmptyRide) TrackingService.ACTION_DISCARD_NEAR_EMPTY_RIDE
+            else TrackingService.ACTION_STOP_SERVICE
+        )
     }
 
     private fun sendCommandToService(context: Context, action: String) {
@@ -154,10 +162,7 @@ class HomeViewModel(
 
     fun triggerEmergency() {
         sosStartTimeMs = System.currentTimeMillis()
-        val loc = trackingManager.pathPoints.value.lastOrNull()
         `in`.shvms.trackme.analytics.AnalyticsManager.trackSosTriggered(
-            latitude = loc?.latitude ?: 0.0,
-            longitude = loc?.longitude ?: 0.0,
             triggerMethod = "in_app_button"
         )
         emergencyManager.triggerEmergency()
@@ -195,7 +200,12 @@ class HomeViewModel(
                     val msg = if (isTracking) strings.liveShareReadyActive else strings.liveShareReadyIdle
                     android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                 } else {
-                    val msg = LiveShareManager.formatGracefulError(result.exceptionOrNull())
+                    val error = result.exceptionOrNull()
+                    val msg = if (LiveShareManager.isAuthenticationError(error)) {
+                        strings.liveShareAuthExpired
+                    } else {
+                        LiveShareManager.formatGracefulError(error)
+                    }
                     android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                 }
             }
@@ -210,7 +220,12 @@ class HomeViewModel(
                 if (result.isSuccess) {
                     android.widget.Toast.makeText(context, strings.liveShareStoppedToast, android.widget.Toast.LENGTH_SHORT).show()
                 } else {
-                    val msg = LiveShareManager.formatGracefulError(result.exceptionOrNull())
+                    val error = result.exceptionOrNull()
+                    val msg = if (LiveShareManager.isAuthenticationError(error)) {
+                        strings.liveShareAuthExpired
+                    } else {
+                        LiveShareManager.formatGracefulError(error)
+                    }
                     android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                 }
             }

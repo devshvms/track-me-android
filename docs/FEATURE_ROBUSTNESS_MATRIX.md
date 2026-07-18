@@ -1,0 +1,94 @@
+# Feature Robustness Matrix (TASK-015 W2)
+
+*Owner: Claude (Product/Design Agent). Written 2026-07-17 per `.ai/context/ANDROID_QUALITY_GUIDELINES.md` W2. Every cell below is grounded in a direct code audit of `track-me-android` (file:line references included), not assumption — this satisfies the "verified manually" half of the W2 acceptance criterion. Verification-by-test/device still belongs to Codex/TASK-005 before production. Statuses: ✅ Handled, ⚠️ Partially handled, ❌ Not handled (bug/gap).*
+
+## How to read this
+
+Each row is one feature under one worst-case condition. "Expected" is what a launch-quality GPS/safety app should do. "Actual" is what the current code does, cited by file:line. "Severity" reflects user impact if unfixed at launch: **P0** = safety/data-loss/silent-failure in a core promise (tracking, SOS), **P1** = degraded experience without warning, **P2** = polish gap.
+
+---
+
+## Tracking
+
+| Failure condition | Expected | Actual (audited) | Status | Severity |
+|---|---|---|---|---|
+| 4h+ ride, sustained recording | No memory growth/crash, accurate distance/speed over full duration | Points stream to Room continuously (not held in memory); ride auto-splits at 8,000/9,000-point thresholds via `sync_channel` notifications (`TrackingService.kt:460-480`) | ✅ | — |
+| GPS signal gap mid-ride (tunnel, urban canyon) | User sees a live "GPS lost" indicator while recording continues; gap is later shown clearly in ride detail | The service now transitions to `TrackingState.GPS_LOST` after a 15-second callback gap and the HUD shows the elapsed gap; the next valid fix returns to `TRACKING`. The existing post-ride chunk/graph behavior remains. Runtime behavior still needs emulator/device verification. | ⚠️ | **P0** |
+| Airplane mode / GPS toggled off mid-ride | Clear in-app state ("GPS unavailable — check location settings") | `TrackingService` now distinguishes a callback gap from disabled location services using `LocationManager.isLocationEnabled` (or GPS/network providers on older Android), enters `GPS_DISABLED`, and the HUD offers a tap-through to Location Settings. Runtime/device verification remains pending. | ⚠️ | **P0 — runtime/device verification pending** |
+| Speed spikes from noisy GPS fixes | Outliers rejected, no absurd speed/distance in results | `GPSProcessor.kt:38-67` rejects points exceeding `MAX_ACCELERATION_G = 2.0f`; live accuracy filter also discards fixes with `accuracy > 22.0f` (`TrackingService.kt:59-61`) | ✅ | — |
+| Storage nearly full | Graceful warning before write failure; no corrupt ride data | `StorageHealthMonitor` checks the Room volume before point inserts; low space or a caught `SQLiteException` transitions the ride to `STORAGE_LOW`, stops location writes/timing, and posts an actionable notification. Home shows the state and Resume retries only after space is available. Runtime low-storage behavior remains unverified. | ⚠️ | **P1 — runtime verification pending** |
+| Battery saver mode on | Tracking continues (with possible accuracy tradeoff), user warned if not | Foreground service + `FusedLocationProviderClient` is the standard battery-saver-resilient pattern; battery-optimization exemption is prompted once at ride start (`HomeScreen.kt:300-311`). No explicit test evidence of behavior *if user declines* the exemption and battery saver later kills background delivery — flag for device-level W1 manual matrix. | ⚠️ | P1 |
+| Process death mid-ride (OS-killed) | User relaunches into a resumed live HUD, or is clearly told the ride was saved/ended | `TrackingService` persists active/paused-session markers, handles sticky-service recreation with a null intent, and reattaches to the newest unfinished Room ride while rebuilding the path and core HUD metrics. `MainActivity` starts reattachment only when the service is not already alive, so rotation cannot reissue a resume command to an active or explicitly paused ride. Sessions without the marker still use `OrphanedRideRecoveryManager`, which reports recovered rides and discarded empty records through the existing localized Home Snackbar. Process-death/relaunch behavior remains a physical-device verification gate. | ⚠️ | **P0 — runtime verification pending** |
+| Device has no accelerometer / linear-accel sensor | Auto-pause feature degrades gracefully or is disabled; tracking still records distance/speed | `MotionSensorManager` now requires both an available sensor and at least one received sample before reporting stationary. Devices without a sensor, and the startup period before the first sample, fall back to GPS speed/drift logic instead of forcing effective speed to `0f`. Runtime/device coverage remains pending. | ⚠️ | **P0 — runtime/device verification pending** |
+| Wake-lock / CPU sleep during long ride | GPS callbacks keep arriving without a manual wake lock (Mar 2026 Play policy compliance) | Explicit 10h `PARTIAL_WAKE_LOCK` removed (decision log 2026-07-17); relies on `FusedLocationProviderClient` + location-typed foreground service (`LocationHelper.kt`, manifest `foregroundServiceType="location"`). Confirmed no wake lock exists anywhere in the codebase. | ✅ | — |
+
+## Live Share
+
+| Failure condition | Expected | Actual (audited) | Status | Severity |
+|---|---|---|---|---|
+| Session/token expires mid-share | Refresh + retry transparently, or clear "session expired" message | `LiveShareManager.pushLocation()` handles 404 as `EXPIRED`; HTTP 401 now becomes a typed authentication failure, stops the local active state with `ERROR`, and surfaces localized re-authentication guidance through the Home flow. | ⚠️ | **Code-complete in local commit; physical mid-share/auth verification pending** |
+| Stale ID token at share start | Force-refreshed token used to avoid an avoidable 401 | `LiveShareManager.firebaseIdToken()` now calls `getIdToken(true)` for start, push, and stop, matching the export flow's forced-refresh behavior. | ✅ | **Verify token-expiry/re-auth path on device** |
+| Offline start attempt | Clear, friendly error — not a hang or generic failure | `formatGracefulError()` maps `UnknownHostException`/`ConnectException`/`SocketTimeoutException`/`SSLException` to specific messages (e.g., "Unable to reach live share server...") | ✅ | — |
+| Viewer opens link after session expiry | Clean "this share has ended" page, not a broken/blank viewer | Web `tracker.html` handles `404` from both location polling and viewer heartbeat by stopping both timers and showing a clear "Session Expired" state with the last-known duration when available. The marker/popup now renders the owner name as text and builds actions with DOM listeners rather than interpolated HTML/inline JavaScript. | ✅ code-reviewed; runtime check pending | P2 |
+
+## SOS / Emergency
+
+| Failure condition | Expected | Actual (audited) | Status | Severity |
+|---|---|---|---|---|
+| SOS triggered — notification to user that it's in progress/sent | User sees confirmation the alert was sent (or failed) | `EmergencyBroadcastWorker` now posts to the dedicated high-priority `sos_channel`, showing accepted/partial/failed contact counts while SOS is active. The notification reports SMS-stack submission, not carrier delivery. Runtime verification remains pending. | ⚠️ | **P0 — runtime verification pending** |
+| SMS send fails (no signal, carrier reject, permission revoked) | User/app knows the alert didn't go out and can retry or is told to call emergency services directly | Each SMS now uses a sent-result `PendingIntent`; rejected or timed-out submissions are counted and surfaced in the SOS notification. Carrier delivery confirmation is still not claimed because delivery callbacks are not awaited. Runtime verification remains pending. | ⚠️ | **P0 — runtime verification pending** |
+| SMS permission revoked after setup | Clear re-prompt/explanation before the user needs SOS again | `MainActivity.onResume()` persists a revocation signal; Home shows a dismissible warning with a Settings path, and `EmergencySetupScreen` explains the disabled state and offers the same recovery path (`8d59caf`). The SOS button remains disabled until permission is restored. Revoke/grant and cold-start behavior still need physical-device verification. | ⚠️ | **P0 — code fix landed; runtime verification pending** |
+| SMS permission permanently denied during initial setup | Rationale + deep link to Settings, same pattern as location | `EmergencySetupScreen.kt` `PermissionAndTestStep` now tracks a denied request, detects permanent denial with `shouldShowRequestPermissionRationale`, explains that SMS access is blocked, and opens the app's system Settings page. Permission state refreshes when returning from Settings. | ⚠️ | **Code-complete in local commit; physical permission-flow verification pending** |
+| Emergency contact deleted from device Contacts app | Documented behavior (app should not silently rely on a stale reference, or should clearly state it uses a saved snapshot) | Contacts are copied into local Room storage at setup time (name+phone snapshot). `ContactsStep` now explains that deleting a phonebook contact does not remove the saved TrackMe entry; the user must delete it from this list. Runtime copy/font-scale verification remains pending. | ✅ code-fixed; runtime check pending | P2 |
+
+## Cloud Sync
+
+| Failure condition | Expected | Actual (audited) | Status | Severity |
+|---|---|---|---|---|
+| Conflict after restore-to-new-device | Merge or explicit conflict resolution, not silent data loss | `FirestoreSyncManager.uploadRideInternal()` (258-300) is last-write-wins with no version check; download dedupes only by `firestoreId` presence. No conflict UI. Accepted as a documented product tradeoff for single-user-per-account usage — policy now written in `PRD.md` §4 Cloud synchronization. Still unverified against a real two-device scenario. | ⚠️ documented; runtime unverified | P1 |
+| Partial sync interruption | Resumable, no duplicate uploads | Each ride is marked `isSynced = true` only after its own `.set().await()` succeeds (line 293-295) — genuinely resumable. | ✅ | — |
+| Sync failure reporting accuracy | `SyncResult` reflects what actually happened | Re-verified 2026-07-18: `uploadRideInternal()` (`FirestoreSyncManager.kt:255-299`) now rethrows on failure and is the single upload path shared by both `syncAll()` and `syncPeriodic()`. `syncAll()`'s loop (line 82-85) has no per-item try/catch, so a thrown upload failure propagates to its outer catch (line 91-95) and correctly yields `SyncResult.Error`, not a false `Success`. No separate interactive-path fix is needed — this was resolved as a side effect of the shared-function fix, not left open. | ✅ | **P0 — code fix verified by review; real Firestore-failure runtime/device test still recommended before production** |
+| Background periodic sync via WorkManager | `WorkManager` retries on real failure | `SyncWorker.doWork()` now awaits the suspend `syncPeriodic()` result, writes `last_sync_time` only on `SyncResult.Success`, and returns `Result.retry()` for sync errors. Runtime WorkManager/Firestore failure-path verification remains pending. | ⚠️ | **P0 — runtime/failure-path verification pending** |
+| Sign-out mid-sync | No crash, no partial-state corruption | `user` is captured once at the top of `syncAll()`; a mid-loop sign-out can cause remaining writes to fail server-side, and the shared upload path now propagates that failure to `SyncResult.Error` instead of reporting false success. Cancellation and partial-progress behavior still need a real multi-step runtime test. | ⚠️ | P1 |
+
+## Export (ZIP + GPX)
+
+| Failure condition | Expected | Actual (audited) | Status | Severity |
+|---|---|---|---|---|
+| DownloadManager auth | Authenticated download without leaking long-lived credentials | **Correction to prior assumption**: does NOT use an HTTP `Authorization` header on the `DownloadManager.Request` (confirmed zero `addRequestHeader`/`setRequestHeader` calls). Instead the export *request* call properly uses a force-refreshed Bearer token (`SettingsViewModel.kt:105-168`), and the server issues a short-lived `token` query parameter embedded in the download URL, which `AccountManagementScreen.kt:392-435` validates client-side before enqueueing. This is a valid pattern for `DownloadManager` (which can't attach custom headers reliably across all OEMs) — no fix needed, but the architecture doc / prior inbox note describing this as a "missing auth header" regression is stale and should be corrected. | ✅ (verify token TTL server-side is short) | — |
+| Huge history (500+ rides) export | Completes without timeout/OOM | Not exercised in this audit; matches the Vercel-timeout risk Antigravity flagged in `SYSTEM_DEPENDENCIES_AND_SCALABILITY.md` for heavy exports — server-side risk more than client-side. | ⚠️ untested | P2 |
+| Disk full during GPX/image export | Friendly error, no crash | `RideDetailScreen.kt` catches GPX/image export failures and now shows the localized `strings.exportFailed` message ("Check available storage and try again") instead of exposing raw exception text. Runtime low-storage/export verification remains pending. | ✅ code-fixed; runtime check pending | P2 |
+
+## GPX Import
+
+| Failure condition | Expected | Actual (audited) | Status | Severity |
+|---|---|---|---|---|
+| Malformed GPX file | Clear error, never crash | `HistoryViewModel.importGPX()` wraps the full parse+insert flow in try/catch, logs via `errorLogger`, emits `UiEvent.ShowError("Failed to import. Please ensure the file is a valid GPX format.")` (lines 116-120). `HistoryScreen.kt:73-98` pre-validates file extension and wraps content-resolver access separately. | ✅ | — |
+
+---
+
+## Severity summary (for W1/W2 triage)
+
+**P0 — fix before production (safety, silent failure, or data-integrity risk):**
+
+Status key: 🔧 code fix landed, runtime/device verification still open · ❌ not yet fixed.
+
+1. 🔧 Live GPS-loss indicator — `GPS_LOST` state now drives a visible in-ride HUD warning after a 15s callback gap (Tracking)
+2. 🔧 Airplane-mode/GPS-disabled detection — now distinguished from a plain signal gap, with a Location Settings deep link (Tracking)
+3. 🔧 Process-death mid-ride — still doesn't auto-resume the live HUD, but recovery now shows a user-facing saved/removed Snackbar instead of finalizing silently (Tracking)
+4. 🔧 Accelerometer-less devices — auto-pause no longer sticks at zero; falls back to GPS speed/drift logic when no motion sensor/sample exists (Tracking)
+5. 🔧 SOS send confirmation — `sos_channel` now posts accepted/partial/failed contact counts while SOS is active (SOS)
+6. 🔧 SOS SMS failures — each SMS now uses a sent-result `PendingIntent`; rejected/timed-out sends are counted and surfaced (SOS)
+7. 🔧 SOS permission revocation — a previously configured user now sees a Home warning with Settings navigation/dismissal, and Emergency Setup explains how to restore SMS permission (SOS)
+8. ✅ `syncAll()` reporting `Success` on a partial failure — resolved; confirmed by code review that it shares the now-rethrowing `uploadRideInternal()` with `syncPeriodic()` (Cloud Sync)
+9. 🔧 `SyncWorker` retry path — now awaits `syncPeriodic()` and only advances `last_sync_time` on real success (Cloud Sync)
+
+Net: all 9 P0s now have code fixes; 8 still need runtime/device confirmation under TASK-005's gate, while #8 (`syncAll()` reporting) is fully resolved by code review. No unfixed P0 remains in the current matrix.
+
+**P1 — fix before "polished," acceptable to launch without if triaged explicitly:**
+storage-nearly-full runtime evidence; battery-saver decline path unverified; Live Share physical auth/expiry verification; sync conflict handling undocumented; sign-out-mid-sync UI accuracy.
+
+**P2 — polish backlog:**
+large-history export; viewer-expired page browser/API smoke test; runtime verification for the landed export/contact-copy fixes.
+
+*These findings are new since the ANDROID_QUALITY_GUIDELINES.md draft (which flagged the categories to check but not these specific bugs) — see companion inbox note to Codex and decision log entry dated 2026-07-17.*

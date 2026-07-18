@@ -1,17 +1,24 @@
 package `in`.shvms.trackme.service
 
+import android.app.Activity
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
-import android.telephony.SmsManager
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
+import android.os.BatteryManager
+import android.telephony.SmsManager
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import `in`.shvms.trackme.data.local.dao.EmergencyDao
 import `in`.shvms.trackme.data.local.entity.EmergencyContactEntity
 import `in`.shvms.trackme.data.local.entity.EmergencySettingsEntity
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.StateFlow
-import android.content.Intent
-import android.content.IntentFilter
-import android.os.BatteryManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -30,8 +37,20 @@ class EmergencyBroadcastWorker(
     private val firestoreSyncManager: FirestoreSyncManager,
     private val errorLogger: `in`.shvms.trackme.utils.logger.ErrorLogger
 ) {
+    private enum class SmsSendResult {
+        ACCEPTED,
+        REJECTED,
+        UNKNOWN
+    }
+
+    private data class BroadcastResult(
+        val accepted: Int,
+        val failed: Int
+    )
+
     private var job: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var pendingIntentRequestCode = 0
 
     fun start() {
         if (job?.isActive == true) return
@@ -57,22 +76,31 @@ class EmergencyBroadcastWorker(
     private fun startBroadcastLoop() {
         if (broadcastJob?.isActive == true) return
         broadcastJob = scope.launch {
-            val settings = emergencyDao.getSettings() ?: return@launch
-            if (!settings.isSetupComplete) return@launch
+            val settings = emergencyDao.getSettings() ?: run {
+                postEmergencyNotification(setupFailure = true)
+                return@launch
+            }
+            if (!settings.isSetupComplete) {
+                postEmergencyNotification(setupFailure = true)
+                return@launch
+            }
 
             val contacts = emergencyDao.getContacts()
-            if (contacts.isEmpty()) return@launch
+            if (contacts.isEmpty()) {
+                postEmergencyNotification(setupFailure = true)
+                return@launch
+            }
 
             val emergencyStartTime = System.currentTimeMillis()
             var messagesSentThisSession = 0
 
             while (isActive) {
-                broadcast(settings, contacts) {
-                    messagesSentThisSession++
-                    if (messagesSentThisSession <= AppConfig.MAX_HAPTIC_MESSAGES) {
-                        vibrate()
-                    }
+                val result = broadcast(settings, contacts)
+                messagesSentThisSession += result.accepted
+                if (messagesSentThisSession <= AppConfig.MAX_HAPTIC_MESSAGES && result.accepted > 0) {
+                    vibrate()
                 }
+                postEmergencyNotification(result)
                 
                 val elapsedMinutes = (System.currentTimeMillis() - emergencyStartTime) / 60000
                 val delayMs = when {
@@ -92,10 +120,12 @@ class EmergencyBroadcastWorker(
     private fun stopBroadcastLoop() {
         broadcastJob?.cancel()
         broadcastJob = null
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.cancel(SOS_NOTIFICATION_ID)
     }
 
     @SuppressLint("MissingPermission")
-    private suspend fun broadcast(settings: EmergencySettingsEntity, contacts: List<EmergencyContactEntity>, onSmsSent: () -> Unit) {
+    private suspend fun broadcast(settings: EmergencySettingsEntity, contacts: List<EmergencyContactEntity>): BroadcastResult {
         var lastPoint = trackingManager.pathPoints.value.lastOrNull()
         
         try {
@@ -152,19 +182,119 @@ class EmergencyBroadcastWorker(
             SmsManager.getDefault()
         }
 
+        var accepted = 0
+        var failed = 0
         contacts.forEach { contact ->
             try {
                 if (settings.isSetupComplete) {
-                    smsManager.sendTextMessage(contact.phoneNumber, null, smsMessage, null, null)
-                    firestoreSyncManager.logEmergencyMessage(System.currentTimeMillis(), smsMessage, contact.phoneNumber, "EMERGENCY")
-                    Log.d("EmergencyWorker", "Sent SMS emergency message to ${contact.phoneNumber}")
-                    onSmsSent()
+                    when (sendSms(smsManager, contact.phoneNumber, smsMessage)) {
+                        SmsSendResult.ACCEPTED -> {
+                            accepted++
+                            firestoreSyncManager.logEmergencyMessage(System.currentTimeMillis(), smsMessage, contact.phoneNumber, "EMERGENCY")
+                            Log.d("EmergencyWorker", "Submitted SMS emergency message to ${contact.phoneNumber}")
+                        }
+                        SmsSendResult.REJECTED, SmsSendResult.UNKNOWN -> failed++
+                    }
                 }
             } catch (e: Exception) {
                 errorLogger.log("Failed to send emergency broadcast")
                 errorLogger.recordException(e)
+                failed++
             }
         }
+        return BroadcastResult(accepted = accepted, failed = failed)
+    }
+
+    private suspend fun sendSms(smsManager: SmsManager, phoneNumber: String, message: String): SmsSendResult {
+        val requestCode = pendingIntentRequestCode++
+        val action = "${context.packageName}.SMS_SENT_$requestCode"
+        val result = CompletableDeferred<SmsSendResult>()
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                result.complete(
+                    if (getResultCode() == Activity.RESULT_OK) {
+                        SmsSendResult.ACCEPTED
+                    } else {
+                        SmsSendResult.REJECTED
+                    }
+                )
+            }
+        }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            IntentFilter(action),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+
+        val sentIntent = PendingIntent.getBroadcast(
+            context,
+            requestCode,
+            Intent(action).setPackage(context.packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return try {
+            smsManager.sendTextMessage(phoneNumber, null, message, sentIntent, null)
+            withTimeoutOrNull(SMS_RESULT_TIMEOUT_MS) { result.await() } ?: SmsSendResult.UNKNOWN
+        } catch (e: Exception) {
+            SmsSendResult.REJECTED
+        } finally {
+            runCatching { context.unregisterReceiver(receiver) }
+        }
+    }
+
+    private fun postEmergencyNotification(
+        result: BroadcastResult? = null,
+        setupFailure: Boolean = false
+    ) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            notificationManager.createNotificationChannel(
+                NotificationChannel(
+                    TrackingService.SOS_CHANNEL_ID,
+                    context.getString(`in`.shvms.trackme.R.string.notification_channel_sos),
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = context.getString(`in`.shvms.trackme.R.string.notification_channel_sos_description)
+                }
+            )
+        }
+
+        val message = when {
+            setupFailure -> context.getString(`in`.shvms.trackme.R.string.sos_notification_setup_failure)
+            result == null -> context.getString(`in`.shvms.trackme.R.string.sos_notification_setup_failure)
+            result.accepted > 0 && result.failed == 0 -> context.getString(
+                `in`.shvms.trackme.R.string.sos_notification_submitted,
+                result.accepted
+            )
+            result.accepted > 0 -> context.getString(
+                `in`.shvms.trackme.R.string.sos_notification_partial,
+                result.accepted,
+                result.failed
+            )
+            else -> context.getString(`in`.shvms.trackme.R.string.sos_notification_failed)
+        }
+        val intent = Intent(context, `in`.shvms.trackme.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            SOS_NOTIFICATION_ID,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, TrackingService.SOS_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle(context.getString(`in`.shvms.trackme.R.string.sos_notification_title))
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setContentIntent(pendingIntent)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .build()
+        notificationManager.notify(SOS_NOTIFICATION_ID, notification)
     }
 
     private fun vibrate() {
@@ -187,5 +317,10 @@ class EmergencyBroadcastWorker(
             errorLogger.log("Failed to vibrate device")
             errorLogger.recordException(e)
         }
+    }
+
+    private companion object {
+        const val SOS_NOTIFICATION_ID = 4001
+        const val SMS_RESULT_TIMEOUT_MS = 15_000L
     }
 }

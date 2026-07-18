@@ -13,7 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import `in`.shvms.trackme.domain.model.RidePersona
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.*
@@ -30,6 +30,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
@@ -306,7 +311,7 @@ fun SectionHeader(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = if (isCollapsed) Icons.Default.KeyboardArrowRight else Icons.Default.KeyboardArrowDown,
+                    imageVector = if (isCollapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
@@ -335,12 +340,41 @@ fun RideHistoryCard(
     val strings = LocalAppStrings.current
     val ride = rideWithPoints.ride
     val points = rideWithPoints.points
+    val personaObj = remember(ride.persona) {
+        runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
+    }
+    val rideTitle = "${personaObj.emoji} " + (ride.title ?: formatDateTime(ride.startTime))
+    val distanceKm = (ride.postRideCalculation?.distance ?: 0.0) / 1000.0
+    val distanceText = String.format(Locale.getDefault(), "%.1f km", distanceKm)
+    val durationText = formatDuration((ride.endTime ?: ride.startTime) - ride.startTime)
+    val avgSpeedText = String.format(
+        Locale.getDefault(),
+        "%.1f km/h",
+        (ride.postRideCalculation?.avgSpeed ?: 0f) * 3.6f
+    )
+    val cardDescription = String.format(
+        Locale.getDefault(),
+        strings.rideCardAccessibilityDescription,
+        rideTitle,
+        formatDateTime(ride.startTime),
+        distanceText,
+        durationText,
+        avgSpeedText
+    )
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .height(68.dp)
-            .clickable { onClick() },
+            .clickable { onClick() }
+            .clearAndSetSemantics {
+                contentDescription = cardDescription
+                role = Role.Button
+                onClick(label = strings.rideDetailsTitle) {
+                    onClick()
+                    true
+                }
+            },
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -371,11 +405,8 @@ fun RideHistoryCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val personaObj = remember(ride.persona) {
-                        runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
-                    }
                     Text(
-                        text = "${personaObj.emoji} " + (ride.title ?: formatDateTime(ride.startTime)),
+                        text = rideTitle,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -407,24 +438,21 @@ fun RideHistoryCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    val distanceKm = (ride.postRideCalculation?.distance ?: 0.0) / 1000.0
                     Text(
-                        text = String.format(Locale.getDefault(), "%.1f km", distanceKm),
+                        text = distanceText,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
 
-                    val durationMillis = (ride.endTime ?: ride.startTime) - ride.startTime
                     Text(
-                        text = formatDuration(durationMillis),
+                        text = durationText,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    val avgSpeedKmh = (ride.postRideCalculation?.avgSpeed ?: 0f) * 3.6f
                     Text(
-                        text = String.format(Locale.getDefault(), "%.1f km/h", avgSpeedKmh),
+                        text = avgSpeedText,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold
                     )

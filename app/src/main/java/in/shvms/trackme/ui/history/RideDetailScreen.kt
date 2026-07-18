@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.provider.MediaStore
 import java.io.FileInputStream
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,6 +16,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -23,6 +26,8 @@ import `in`.shvms.trackme.theme.*
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.drawText
 import `in`.shvms.trackme.domain.model.RidePersona
 import androidx.compose.ui.text.font.FontWeight
@@ -40,6 +45,7 @@ import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.config.AppConfig
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
+import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.Dot
 import com.google.android.gms.maps.model.Gap
@@ -55,7 +61,9 @@ import androidx.compose.material3.Button
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.*
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
+import kotlin.math.log2
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -76,6 +84,19 @@ import `in`.shvms.trackme.ui.localization.LocalAppStrings
 fun formatDistance(meters: Double): String {
     if (meters < 1000) return String.format("%.0f m", meters)
     return String.format("%.2f km", meters / 1000)
+}
+
+// Camera position covering the route, computable before the map has a size so the
+// initial composition never shows the world view at (0,0). The zoom is an estimate
+// from the bounds span; onMapLoaded snaps to the exact bounds fit.
+internal fun initialRouteCamera(latLngs: List<LatLng>, bounds: LatLngBounds): CameraPosition {
+    if (latLngs.size == 1) return CameraPosition.fromLatLngZoom(latLngs.first(), 16f)
+    val latSpan = bounds.northeast.latitude - bounds.southwest.latitude
+    var lngSpan = bounds.northeast.longitude - bounds.southwest.longitude
+    if (lngSpan < 0) lngSpan += 360.0
+    val span = maxOf(latSpan, lngSpan, 1e-4)
+    val zoom = (log2(360.0 / span) - 0.5).toFloat().coerceIn(2f, 17f)
+    return CameraPosition.fromLatLngZoom(bounds.center, zoom)
 }
 
 fun vectorToBitmap(context: android.content.Context, id: Int, color: Int): BitmapDescriptor {
@@ -106,6 +127,31 @@ fun RideDetailScreen(
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
     var previewMapInstance by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
+    var pendingGpxFile by remember { mutableStateOf<java.io.File?>(null) }
+
+    val gpxSaveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/gpx+xml")
+    ) { uri ->
+        val sourceFile = pendingGpxFile
+        pendingGpxFile = null
+        if (uri != null && sourceFile != null) {
+            coroutineScope.launch(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use { output ->
+                        sourceFile.inputStream().use { input -> input.copyTo(output) }
+                    } ?: error("Unable to open destination")
+                }.onSuccess {
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(context, "Saved successfully", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }.onFailure { error ->
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(context, "Error saving GPX: ${error.message}", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
     
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
@@ -208,9 +254,10 @@ fun RideDetailScreen(
                 if (ride == null) "Ride Details"
                 else {
                     var t = ride.title ?: "Ride Details"
-                    if (t == `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime)) {
-                         val maxKmh = (ride.postRideCalculation?.maxSpeed ?: 0f) * 3.6f
-                         t = `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime, maxKmh)
+                    val persona = `in`.shvms.trackme.utils.RideUtils.personaFromStoredName(ride.persona)
+                    if (`in`.shvms.trackme.utils.RideUtils.isGeneratedTitle(t, ride.startTime, persona)) {
+                        val maxKmh = (ride.postRideCalculation?.maxSpeed ?: 0f) * 3.6f
+                        t = `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime, persona, maxKmh)
                     }
                     t
                 }
@@ -258,7 +305,7 @@ fun RideDetailScreen(
         } else {
             val points = rideWithPoints!!.points
             val ride = rideWithPoints!!.ride
-            var scrubIndex by remember { mutableStateOf<Int?>(null) }
+            var scrubIndex by rememberSaveable(rideId) { mutableStateOf<Int?>(null) }
             
             var columnScrollEnabled by remember { mutableStateOf(true) }
             val scrollState = rememberScrollState()
@@ -295,8 +342,11 @@ fun RideDetailScreen(
                             builder.build()
                         }
                         
-                        val cameraPositionState = rememberCameraPositionState()
-                        
+                        val cameraPositionState = rememberCameraPositionState {
+                            position = initialRouteCamera(latLngs, bounds)
+                        }
+                        var isMapLoaded by remember { mutableStateOf(false) }
+
                         val pointerBitmap = remember {
                             val size = 40
                             val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
@@ -343,11 +393,26 @@ fun RideDetailScreen(
                         var mapType by remember { mutableStateOf(MapType.NORMAL) }
                         var isTrafficEnabled by remember { mutableStateOf(false) }
 
+                        if (!isMapLoaded) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            )
+                        }
                         GoogleMap(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .alpha(if (isMapLoaded) 1f else 0f),
                             cameraPositionState = cameraPositionState,
                             properties = MapProperties(mapType = mapType, isTrafficEnabled = isTrafficEnabled),
-                            uiSettings = MapUiSettings(zoomControlsEnabled = false)
+                            uiSettings = MapUiSettings(zoomControlsEnabled = false),
+                            onMapLoaded = {
+                                if (latLngs.size > 1) {
+                                    cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 100))
+                                }
+                                isMapLoaded = true
+                            }
                         ) {
                             MapEffect { map ->
                                 mapInstance = map
@@ -369,7 +434,7 @@ fun RideDetailScreen(
                             }
 
                             Marker(
-                                state = MarkerState(position = latLngs.last()),
+                                state = remember(latLngs.last()) { MarkerState(position = latLngs.last()) },
                                 title = "Finish",
                                 snippet = "End of Ride",
                                 icon = finishFlagIcon,
@@ -386,7 +451,9 @@ fun RideDetailScreen(
                                     }
                                 }
                                 Marker(
-                                    state = MarkerState(position = LatLng(p.latitude, p.longitude)),
+                                    state = remember(p.latitude, p.longitude) {
+                                        MarkerState(position = LatLng(p.latitude, p.longitude))
+                                    },
                                     title = "Scrub",
                                     snippet = "Speed: ${String.format(java.util.Locale.getDefault(), "%.1f", p.speed * 3.6f)} km/h",
                                     icon = scrubIcon,
@@ -395,13 +462,6 @@ fun RideDetailScreen(
                             }
                         }
 
-                        LaunchedEffect(bounds) {
-                            cameraPositionState.animate(
-                                update = CameraUpdateFactory.newLatLngBounds(bounds, 100),
-                                durationMs = 1000
-                            )
-                        }
-                        
                         Box(modifier = Modifier.align(Alignment.TopEnd).padding(top = 16.dp, end = 12.dp)) {
                             MapLayerHorizontalDrawerButton(
                                 currentMapType = mapType,
@@ -417,7 +477,10 @@ fun RideDetailScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (points.size > 1) {
+                val hasChartData = points.size > 1 &&
+                    (ride.postRideCalculation?.distance ?: 0.0) >= `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DISTANCE_METERS
+
+                if (hasChartData) {
                     val speeds = points.map { it.speed * 3.6f }
                     val rawMinSpeed = speeds.minOrNull() ?: 0f
                     val rawMaxSpeed = speeds.maxOrNull() ?: 0f
@@ -493,10 +556,25 @@ fun RideDetailScreen(
                             activeTrackColor = TrackMeBlue,
                             inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
                         ),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .semantics {
+                                contentDescription = "Timeline scrubber. Adjust to inspect speed, altitude, and route position."
+                            }
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
+                } else if (points.isNotEmpty()) {
+                    Text(
+                        text = strings.notEnoughGpsDataForChart,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
                 }
                 
                 Card(
@@ -529,7 +607,7 @@ fun RideDetailScreen(
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             StatItem(strings.distance, String.format("%.2f km", (ride.postRideCalculation?.distance ?: 0.0) / 1000f), modifier = Modifier.weight(1f))
                             StatItem(strings.duration, formatDuration((ride.endTime ?: ride.startTime) - ride.startTime), modifier = Modifier.weight(1f))
-                            StatItem("GPS Tag", points.size.toString(), modifier = Modifier.weight(1f))
+                            StatItem(strings.gpsPoints, points.size.toString(), modifier = Modifier.weight(1f))
                         }
                         
                         Spacer(modifier = Modifier.height(16.dp))
@@ -572,19 +650,27 @@ fun RideDetailScreen(
                                             put(MediaStore.MediaColumns.MIME_TYPE, "application/gpx+xml")
                                             put(MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
                                         }
-                                        val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                                        if (uri != null) {
-                                            val outputStream = context.contentResolver.openOutputStream(uri)
-                                            outputStream?.use { out ->
-                                                gpxFile.inputStream().use { input -> input.copyTo(out) }
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                            val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                                            if (uri != null) {
+                                                context.contentResolver.openOutputStream(uri)?.use { out ->
+                                                    gpxFile.inputStream().use { input -> input.copyTo(out) }
+                                                } ?: error("Unable to open Downloads")
+                                                withContext(Dispatchers.Main) {
+                                                    android.widget.Toast.makeText(context, "Saved to Downloads", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            } else {
+                                                error("Unable to create Downloads entry")
                                             }
+                                        } else {
                                             withContext(Dispatchers.Main) {
-                                                android.widget.Toast.makeText(context, "Saved to Downloads", android.widget.Toast.LENGTH_SHORT).show()
+                                                pendingGpxFile = gpxFile
+                                                gpxSaveLauncher.launch(gpxFile.name)
                                             }
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
-                                            android.widget.Toast.makeText(context, "Error saving GPX: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(context, strings.exportFailed, android.widget.Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }
@@ -659,7 +745,7 @@ fun RideDetailScreen(
                             }
                         } catch (e: Exception) {
                             withContext(Dispatchers.Main) {
-                                android.widget.Toast.makeText(context, "Error: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(context, strings.exportFailed, android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
@@ -709,7 +795,9 @@ fun RideDetailScreen(
                                 builder.build()
                             }
                             
-                            val cameraPositionState = rememberCameraPositionState()
+                            val cameraPositionState = rememberCameraPositionState {
+                                position = initialRouteCamera(latLngs, bounds)
+                            }
                             LaunchedEffect(bounds, ratioFloat) {
                                 // Wait for layout to be ready, then move camera
                                 kotlinx.coroutines.delay(200)
@@ -743,7 +831,7 @@ fun RideDetailScreen(
                                         )
                                     }
                                     Marker(
-                                        state = MarkerState(position = latLngs.last()),
+                                        state = remember(latLngs.last()) { MarkerState(position = latLngs.last()) },
                                         title = "Finish",
                                         icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
                                     )
@@ -953,7 +1041,9 @@ fun CombinedMetricLineChart(
 
     Card(
         shape = RoundedCornerShape(8.dp),
-        modifier = modifier,
+        modifier = modifier.semantics {
+            contentDescription = buildChartAccessibilityDescription(points)
+        },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -1081,6 +1171,28 @@ fun CombinedMetricLineChart(
             }
         }
     }
+}
+
+internal fun buildChartAccessibilityDescription(points: List<GPSPointEntity>): String {
+    if (points.isEmpty()) return "Speed and altitude chart. No GPS data available."
+
+    val duration = formatDuration((points.last().timestamp - points.first().timestamp).coerceAtLeast(0L))
+    val averageSpeedKmh = points.map { it.speed * 3.6f }.average()
+    val minAltitude = points.minOf { it.altitude }
+    val maxAltitude = points.maxOf { it.altitude }
+    val gapCount = points.zipWithNext().count { (previous, current) ->
+        current.timestamp - previous.timestamp > 25_000L
+    }
+    val gapSummary = when (gapCount) {
+        0 -> "No GPS signal gaps."
+        1 -> "1 GPS signal gap."
+        else -> "$gapCount GPS signal gaps."
+    }
+
+    return "Speed and altitude chart. Duration $duration. " +
+        "Average speed ${String.format(Locale.getDefault(), "%.1f km/h", averageSpeedKmh)}. " +
+        "Altitude from ${String.format(Locale.getDefault(), "%.0f", minAltitude)} to " +
+        "${String.format(Locale.getDefault(), "%.0f", maxAltitude)} meters. $gapSummary"
 }
 
 private fun formatDuration(durationMillis: Long): String {

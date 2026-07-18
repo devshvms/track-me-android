@@ -44,6 +44,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -206,6 +214,33 @@ fun RadialStartRideButton(
                 .clip(CircleShape)
                 .background(TrackMeGreen)
                 .border(2.dp, Color.White.copy(alpha = 0.4f), CircleShape)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = "Start ride. Drag to choose an activity."
+                    stateDescription = if (launchedPersona == null) {
+                        "Activity selection available"
+                    } else {
+                        "Starting ${launchedPersona?.displayName}"
+                    }
+                    role = Role.Button
+                    onClick(label = "Start ride") {
+                        if (launchedPersona == null) {
+                            launchedPersona = RidePersona.AUTO
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    customActions = personas.map { persona ->
+                        CustomAccessibilityAction("Start ${persona.displayName}") {
+                            if (launchedPersona == null) {
+                                launchedPersona = persona
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    }
+                }
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
@@ -316,7 +351,8 @@ fun RadialStartRideButton(
                 } else {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Start Ride",
+                        // The parent owns the merged accessibility description.
+                        contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(46.dp)
                     )

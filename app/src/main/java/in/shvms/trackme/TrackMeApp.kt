@@ -1,6 +1,7 @@
 package `in`.shvms.trackme
 
 import android.app.Application
+import android.os.StrictMode
 import androidx.room.Room
 import `in`.shvms.trackme.data.local.AppDatabase
 import `in`.shvms.trackme.service.TrackingManager
@@ -15,7 +16,9 @@ import `in`.shvms.trackme.service.EmergencyBroadcastWorker
 import `in`.shvms.trackme.utils.logger.ErrorLogger
 import `in`.shvms.trackme.utils.logger.CrashlyticsErrorLogger
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -44,10 +47,34 @@ class TrackMeApp : Application() {
     lateinit var appUpdateChecker: `in`.shvms.trackme.ui.update.AppUpdateChecker
         private set
 
+    private val _recoveryNotice = MutableStateFlow<`in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.RecoverySummary?>(null)
+    val recoveryNotice = _recoveryNotice.asStateFlow()
+
+    private val _smsPermissionRevokedNotice = MutableStateFlow(false)
+    val smsPermissionRevokedNotice = _smsPermissionRevokedNotice.asStateFlow()
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate() {
         super.onCreate()
+
+        if (BuildConfig.STRICT_MODE) {
+            StrictMode.setThreadPolicy(
+                StrictMode.ThreadPolicy.Builder()
+                    .detectAll()
+                    .penaltyLog()
+                    .build()
+            )
+            StrictMode.setVmPolicy(
+                StrictMode.VmPolicy.Builder()
+                    .detectAll()
+                    .penaltyLog()
+                    .build()
+            )
+        }
+
+        _smsPermissionRevokedNotice.value = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
+            .getBoolean("sos_permission_revoked_notice", false)
         
         errorLogger = CrashlyticsErrorLogger()
         errorLogger.init()
@@ -82,14 +109,54 @@ class TrackMeApp : Application() {
 
         applicationScope.launch(Dispatchers.IO) {
             try {
-                `in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.recoverOrphanedRides(
-                    database.rideDao(),
-                    `in`.shvms.trackme.service.TrackingService.activeRideId
+                val activeSessionPending = getSharedPreferences(
+                    `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
+                    MODE_PRIVATE
+                ).getBoolean(
+                    `in`.shvms.trackme.service.TrackingService.ACTIVE_TRACKING_SESSION_KEY,
+                    false
                 )
+                if (!activeSessionPending) {
+                    val summary = `in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.recoverOrphanedRides(
+                        database.rideDao(),
+                        `in`.shvms.trackme.service.TrackingService.activeRideId
+                    )
+                    if (summary.hasChanges) {
+                        _recoveryNotice.value = summary
+                    }
+                }
             } catch (e: Exception) {
                 errorLogger.recordException(e)
             }
             appUpdateChecker.checkForUpdate()
         }
+    }
+
+    fun consumeRecoveryNotice() {
+        _recoveryNotice.value = null
+    }
+
+    fun resumePersistedTrackingIfNeeded() {
+        val hasActiveSession = getSharedPreferences(
+            `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
+            MODE_PRIVATE
+        ).getBoolean(
+            `in`.shvms.trackme.service.TrackingService.ACTIVE_TRACKING_SESSION_KEY,
+            false
+        )
+        if (hasActiveSession && !`in`.shvms.trackme.service.TrackingService.isRunning) {
+            val intent = android.content.Intent(this, `in`.shvms.trackme.service.TrackingService::class.java).apply {
+                action = `in`.shvms.trackme.service.TrackingService.ACTION_START_OR_RESUME_SERVICE
+            }
+            androidx.core.content.ContextCompat.startForegroundService(this, intent)
+        }
+    }
+
+    fun setSmsPermissionRevokedNotice(isRevoked: Boolean) {
+        _smsPermissionRevokedNotice.value = isRevoked
+        getSharedPreferences("trackme_prefs", MODE_PRIVATE)
+            .edit()
+            .putBoolean("sos_permission_revoked_notice", isRevoked)
+            .apply()
     }
 }

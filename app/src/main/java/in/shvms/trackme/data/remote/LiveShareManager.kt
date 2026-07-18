@@ -32,13 +32,17 @@ data class LiveShareState(
     val stopOnRideEnd: Boolean = false
 )
 
+class LiveShareHttpException(val statusCode: Int) : Exception(
+    "Live share request failed with HTTP $statusCode"
+)
+
 class LiveShareManager {
     private val _state = MutableStateFlow(LiveShareState())
     val state: StateFlow<LiveShareState> = _state.asStateFlow()
 
     private suspend fun firebaseIdToken(): String {
         return FirebaseAuth.getInstance().currentUser
-            ?.getIdToken(false)
+            ?.getIdToken(true)
             ?.await()
             ?.token
             ?: throw Exception("You must be signed in to start live sharing.")
@@ -95,7 +99,13 @@ class LiveShareManager {
                 Result.success(newState)
             } else {
                 _state.value = LiveShareState(status = LiveShareStatus.IDLE)
-                Result.failure(Exception("Live sharing service is temporarily unavailable (Error ${conn.responseCode}). Please try again later."))
+                val statusCode = conn.responseCode
+                val error = if (statusCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                    LiveShareHttpException(statusCode)
+                } else {
+                    Exception("Live sharing service is temporarily unavailable (Error $statusCode). Please try again later.")
+                }
+                Result.failure(error)
             }
         } catch (e: Exception) {
             _state.value = LiveShareState(status = LiveShareStatus.IDLE)
@@ -126,7 +136,7 @@ class LiveShareManager {
 
             val requestBody = JSONObject().apply {
                 put("lat", lat)
-                put("lon", lon)
+                put("lng", lon)
                 if (batteryLevel != null) put("batteryLevel", batteryLevel)
                 if (speed != null) put("speed", speed)
                 if (heading != null) put("heading", heading)
@@ -142,6 +152,9 @@ class LiveShareManager {
             } else if (conn.responseCode == 404) {
                 _state.value = currentState.copy(status = LiveShareStatus.EXPIRED)
                 Result.failure(Exception("Session not found or expired (404)"))
+            } else if (conn.responseCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                _state.value = currentState.copy(status = LiveShareStatus.ERROR)
+                Result.failure(LiveShareHttpException(conn.responseCode))
             } else {
                 Result.failure(Exception("Failed to push location: ${conn.responseCode}"))
             }
@@ -188,6 +201,8 @@ class LiveShareManager {
             
             if (conn.responseCode == 200) {
                 Result.success(Unit)
+            } else if (conn.responseCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                Result.failure(LiveShareHttpException(conn.responseCode))
             } else {
                 Result.failure(Exception("Failed to stop session on server: ${conn.responseCode}"))
             }
@@ -198,9 +213,15 @@ class LiveShareManager {
     }
 
     companion object {
+        fun isAuthenticationError(e: Throwable?): Boolean {
+            return e is LiveShareHttpException && e.statusCode == HttpURLConnection.HTTP_UNAUTHORIZED
+        }
+
         fun formatGracefulError(e: Throwable?): String {
             val msg = e?.message ?: return "Live share service is temporarily unreachable. Please try again."
             return when {
+                isAuthenticationError(e) || msg.contains("HTTP 401", ignoreCase = true) || msg.contains("401 Unauthorized", ignoreCase = true) ->
+                    "Your sign-in expired. Please sign in again to share your location."
                 msg.contains("Unable to resolve host", ignoreCase = true) ||
                 msg.contains("No address associated with hostname", ignoreCase = true) ||
                 msg.contains("UnknownHostException", ignoreCase = true) ||
