@@ -83,6 +83,12 @@ class AuthManager {
         auth.signOut()
     }
 
+    fun isSignInCancellation(error: Throwable?): Boolean {
+        val name = error?.javaClass?.simpleName ?: return false
+        return name.contains("Cancellation", ignoreCase = true) ||
+            error.message?.contains("cancel", ignoreCase = true) == true
+    }
+
     suspend fun deleteAccount(): Result<Unit> {
         return try {
             val user = auth.currentUser ?: throw Exception("Not signed in")

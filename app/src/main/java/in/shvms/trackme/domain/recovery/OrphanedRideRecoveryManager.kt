@@ -85,8 +85,9 @@ object OrphanedRideRecoveryManager {
                 0f
             }
 
-            val newTitle = if (ride.title == RideUtils.getDefaultTitle(ride.startTime)) {
-                RideUtils.getDefaultTitle(ride.startTime, maxSpeed * 3.6f)
+            val persona = RideUtils.personaFromStoredName(ride.persona)
+            val newTitle = if (RideUtils.isGeneratedTitle(ride.title, ride.startTime, persona)) {
+                RideUtils.getDefaultTitle(ride.startTime, persona, maxSpeed * 3.6f)
             } else {
                 ride.title
             }

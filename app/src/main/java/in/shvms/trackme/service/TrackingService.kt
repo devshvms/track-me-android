@@ -214,6 +214,7 @@ class TrackingService : Service() {
             }
             ACTION_PAUSE_SERVICE -> pauseTracking()
             ACTION_STOP_SERVICE -> stopTracking()
+            ACTION_DISCARD_NEAR_EMPTY_RIDE -> stopTracking(discardNearEmptyRide = true)
             null -> {
                 // START_STICKY recreates the service with a null intent after process death.
                 // Only restore a session that was explicitly marked active by the service.
@@ -246,7 +247,7 @@ class TrackingService : Service() {
                     val rideId = rideDao.insertRide(
                         RideEntity(
                             startTime = startTime,
-                            title = RideUtils.getDefaultTitle(startTime),
+                            title = RideUtils.getDefaultTitle(startTime, trackingManager.selectedPersona.value),
                             persona = trackingManager.selectedPersona.value.name
                         )
                     )
@@ -305,7 +306,7 @@ class TrackingService : Service() {
         }
     }
 
-    private fun stopTracking() {
+    private fun stopTracking(discardNearEmptyRide: Boolean = false) {
         updateState(TrackingState.IDLE)
         isTimerEnabled = false
         motionSensorManager.stopListening()
@@ -330,7 +331,7 @@ class TrackingService : Service() {
                 liveShareManager.stopSession("Ride ended by user.")
             }
             rideToProcess?.let { rideId ->
-                finalizeRide(rideId, finalDistance, finalDuration)
+                finalizeRide(rideId, finalDistance, finalDuration, discardNearEmptyRide)
             }
             stopSelf()
         }
@@ -513,7 +514,12 @@ class TrackingService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private suspend fun finalizeRide(rideId: Long, finalDistance: Double, finalDuration: Long) {
+    private suspend fun finalizeRide(
+        rideId: Long,
+        finalDistance: Double,
+        finalDuration: Long,
+        discardNearEmptyRide: Boolean = false
+    ) {
         val rideWithPoints = rideDao.getRideWithPointsById(rideId)
         if (rideWithPoints != null) {
             val ride = rideWithPoints.ride
@@ -525,6 +531,12 @@ class TrackingService : Service() {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                     android.widget.Toast.makeText(applicationContext, "Ride was too short to save (no GPS data).", android.widget.Toast.LENGTH_LONG).show()
                 }
+                return
+            }
+
+            if (discardNearEmptyRide && finalDistance < JUNK_RIDE_DISTANCE_METERS && finalDuration < JUNK_RIDE_DURATION_MILLIS) {
+                rideDao.deletePointsForRide(rideId)
+                rideDao.deleteRide(rideId)
                 return
             }
             
@@ -553,8 +565,9 @@ class TrackingService : Service() {
             // distance here would count GPS drift and movement recorded during pauses.
             val avgSpeed = if (activeTimeMs > 0) (finalDistance / (activeTimeMs / 1000f)).toFloat() else 0f
 
-            val newTitle = if (ride.title == `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime)) {
-                `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime, maxSpeed * 3.6f)
+            val persona = RideUtils.personaFromStoredName(ride.persona)
+            val newTitle = if (RideUtils.isGeneratedTitle(ride.title, ride.startTime, persona)) {
+                RideUtils.getDefaultTitle(ride.startTime, persona, maxSpeed * 3.6f)
             } else ride.title
 
             val calc = `in`.shvms.trackme.data.local.entity.PostRideCalculation(
@@ -612,7 +625,7 @@ class TrackingService : Service() {
             val rideId = rideDao.insertRide(
                 RideEntity(
                     startTime = startTime,
-                    title = RideUtils.getDefaultTitle(startTime) + " (Part 2)",
+                    title = RideUtils.getDefaultTitle(startTime, trackingManager.selectedPersona.value) + " (Part 2)",
                     persona = trackingManager.selectedPersona.value.name
                 )
             )
@@ -657,6 +670,9 @@ class TrackingService : Service() {
         const val ACTION_START_OR_RESUME_SERVICE = "ACTION_START_OR_RESUME_SERVICE"
         const val ACTION_PAUSE_SERVICE = "ACTION_PAUSE_SERVICE"
         const val ACTION_STOP_SERVICE = "ACTION_STOP_SERVICE"
+        const val ACTION_DISCARD_NEAR_EMPTY_RIDE = "ACTION_DISCARD_NEAR_EMPTY_RIDE"
+        const val JUNK_RIDE_DISTANCE_METERS = 10.0
+        const val JUNK_RIDE_DURATION_MILLIS = 2 * 60 * 1000L
         const val NOTIFICATION_ID = 1
         const val CHANNEL_ID = "tracking_channel"
         const val SYNC_CHANNEL_ID = "sync_channel"

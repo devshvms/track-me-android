@@ -71,6 +71,7 @@ fun HomeScreen(
     var showStartRideHint by remember {
         mutableStateOf(!uiPreferences.getBoolean("start_ride_hint_seen", false))
     }
+    var showDiscardRideDialog by remember { mutableStateOf(false) }
     var hasLocationPermission by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
     val recoveryNotice by app.recoveryNotice.collectAsState()
@@ -377,7 +378,6 @@ fun HomeScreen(
                                     data = android.net.Uri.parse("package:${context.packageName}")
                                 }
                                 context.startActivity(intent)
-                                android.widget.Toast.makeText(context, "Please allow background activity for accurate GPS tracking", android.widget.Toast.LENGTH_LONG).show()
                             } catch (e: Exception) {
                                 // Fallback if device doesn't support this intent
                             }
@@ -453,8 +453,14 @@ fun HomeScreen(
                         }
                     },
                     onStopRide = {
-                        viewModel.stopTracking(context)
-                        android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
+                        if (uiState.distanceMeters < `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DISTANCE_METERS &&
+                            uiState.durationMillis < `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DURATION_MILLIS
+                        ) {
+                            showDiscardRideDialog = true
+                        } else {
+                            viewModel.stopTracking(context)
+                            android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     },
                     onTriggerSos = { viewModel.triggerEmergency() },
                     onStopSos = { viewModel.stopEmergency() },
@@ -511,6 +517,31 @@ fun HomeScreen(
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
+            }
+
+            if (showDiscardRideDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDiscardRideDialog = false },
+                    title = { Text(strings.discardRideTitle) },
+                    text = { Text(strings.discardRideMessage) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showDiscardRideDialog = false
+                            viewModel.stopTracking(context, discardNearEmptyRide = true)
+                        }) {
+                            Text(strings.discardRide)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            showDiscardRideDialog = false
+                            viewModel.stopTracking(context)
+                            android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
+                        }) {
+                            Text(strings.saveAnyway)
+                        }
+                    }
+                )
             }
         }
     }

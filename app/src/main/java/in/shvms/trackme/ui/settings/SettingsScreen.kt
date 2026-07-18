@@ -88,6 +88,9 @@ fun SettingsScreen(
                             val result = viewModel.signInWithGoogle(context)
                             if (result.isFailure) {
                                 val e = result.exceptionOrNull()
+                                if (app.authManager.isSignInCancellation(e)) {
+                                    return@launch
+                                }
                                 val msg = if (e?.javaClass?.simpleName == "NoCredentialException" || e?.message?.contains("NoCredential") == true) {
                                     "Sign In Error: App Signing Key fingerprint (SHA-1) is missing in Firebase."
                                 } else {

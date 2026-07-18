@@ -45,6 +45,7 @@ import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.config.AppConfig
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
+import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.Dot
 import com.google.android.gms.maps.model.Gap
@@ -60,7 +61,9 @@ import androidx.compose.material3.Button
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.*
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
+import kotlin.math.log2
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -81,6 +84,19 @@ import `in`.shvms.trackme.ui.localization.LocalAppStrings
 fun formatDistance(meters: Double): String {
     if (meters < 1000) return String.format("%.0f m", meters)
     return String.format("%.2f km", meters / 1000)
+}
+
+// Camera position covering the route, computable before the map has a size so the
+// initial composition never shows the world view at (0,0). The zoom is an estimate
+// from the bounds span; onMapLoaded snaps to the exact bounds fit.
+internal fun initialRouteCamera(latLngs: List<LatLng>, bounds: LatLngBounds): CameraPosition {
+    if (latLngs.size == 1) return CameraPosition.fromLatLngZoom(latLngs.first(), 16f)
+    val latSpan = bounds.northeast.latitude - bounds.southwest.latitude
+    var lngSpan = bounds.northeast.longitude - bounds.southwest.longitude
+    if (lngSpan < 0) lngSpan += 360.0
+    val span = maxOf(latSpan, lngSpan, 1e-4)
+    val zoom = (log2(360.0 / span) - 0.5).toFloat().coerceIn(2f, 17f)
+    return CameraPosition.fromLatLngZoom(bounds.center, zoom)
 }
 
 fun vectorToBitmap(context: android.content.Context, id: Int, color: Int): BitmapDescriptor {
@@ -238,9 +254,10 @@ fun RideDetailScreen(
                 if (ride == null) "Ride Details"
                 else {
                     var t = ride.title ?: "Ride Details"
-                    if (t == `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime)) {
-                         val maxKmh = (ride.postRideCalculation?.maxSpeed ?: 0f) * 3.6f
-                         t = `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime, maxKmh)
+                    val persona = `in`.shvms.trackme.utils.RideUtils.personaFromStoredName(ride.persona)
+                    if (`in`.shvms.trackme.utils.RideUtils.isGeneratedTitle(t, ride.startTime, persona)) {
+                        val maxKmh = (ride.postRideCalculation?.maxSpeed ?: 0f) * 3.6f
+                        t = `in`.shvms.trackme.utils.RideUtils.getDefaultTitle(ride.startTime, persona, maxKmh)
                     }
                     t
                 }
@@ -325,8 +342,11 @@ fun RideDetailScreen(
                             builder.build()
                         }
                         
-                        val cameraPositionState = rememberCameraPositionState()
-                        
+                        val cameraPositionState = rememberCameraPositionState {
+                            position = initialRouteCamera(latLngs, bounds)
+                        }
+                        var isMapLoaded by remember { mutableStateOf(false) }
+
                         val pointerBitmap = remember {
                             val size = 40
                             val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
@@ -373,11 +393,26 @@ fun RideDetailScreen(
                         var mapType by remember { mutableStateOf(MapType.NORMAL) }
                         var isTrafficEnabled by remember { mutableStateOf(false) }
 
+                        if (!isMapLoaded) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            )
+                        }
                         GoogleMap(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .alpha(if (isMapLoaded) 1f else 0f),
                             cameraPositionState = cameraPositionState,
                             properties = MapProperties(mapType = mapType, isTrafficEnabled = isTrafficEnabled),
-                            uiSettings = MapUiSettings(zoomControlsEnabled = false)
+                            uiSettings = MapUiSettings(zoomControlsEnabled = false),
+                            onMapLoaded = {
+                                if (latLngs.size > 1) {
+                                    cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 100))
+                                }
+                                isMapLoaded = true
+                            }
                         ) {
                             MapEffect { map ->
                                 mapInstance = map
@@ -427,13 +462,6 @@ fun RideDetailScreen(
                             }
                         }
 
-                        LaunchedEffect(bounds) {
-                            cameraPositionState.animate(
-                                update = CameraUpdateFactory.newLatLngBounds(bounds, 100),
-                                durationMs = 1000
-                            )
-                        }
-                        
                         Box(modifier = Modifier.align(Alignment.TopEnd).padding(top = 16.dp, end = 12.dp)) {
                             MapLayerHorizontalDrawerButton(
                                 currentMapType = mapType,
@@ -449,7 +477,10 @@ fun RideDetailScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (points.size > 1) {
+                val hasChartData = points.size > 1 &&
+                    (ride.postRideCalculation?.distance ?: 0.0) >= `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DISTANCE_METERS
+
+                if (hasChartData) {
                     val speeds = points.map { it.speed * 3.6f }
                     val rawMinSpeed = speeds.minOrNull() ?: 0f
                     val rawMaxSpeed = speeds.maxOrNull() ?: 0f
@@ -534,7 +565,7 @@ fun RideDetailScreen(
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
-                } else if (points.size == 1) {
+                } else if (points.isNotEmpty()) {
                     Text(
                         text = strings.notEnoughGpsDataForChart,
                         style = MaterialTheme.typography.bodyMedium,
@@ -576,7 +607,7 @@ fun RideDetailScreen(
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             StatItem(strings.distance, String.format("%.2f km", (ride.postRideCalculation?.distance ?: 0.0) / 1000f), modifier = Modifier.weight(1f))
                             StatItem(strings.duration, formatDuration((ride.endTime ?: ride.startTime) - ride.startTime), modifier = Modifier.weight(1f))
-                            StatItem("GPS Tag", points.size.toString(), modifier = Modifier.weight(1f))
+                            StatItem(strings.gpsPoints, points.size.toString(), modifier = Modifier.weight(1f))
                         }
                         
                         Spacer(modifier = Modifier.height(16.dp))
@@ -764,7 +795,9 @@ fun RideDetailScreen(
                                 builder.build()
                             }
                             
-                            val cameraPositionState = rememberCameraPositionState()
+                            val cameraPositionState = rememberCameraPositionState {
+                                position = initialRouteCamera(latLngs, bounds)
+                            }
                             LaunchedEffect(bounds, ratioFloat) {
                                 // Wait for layout to be ready, then move camera
                                 kotlinx.coroutines.delay(200)
