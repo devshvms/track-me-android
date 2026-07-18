@@ -11,9 +11,6 @@ on:
         options:
           - alpha
           - internal
-  push:
-    branches:
-      - master
 
 jobs:
   build_and_publish:
@@ -79,13 +76,16 @@ jobs:
             echo '{"project_info":{"project_number":"126912105508","project_id":"trackme-android-1234","storage_bucket":"trackme-android-1234.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:126912105508:android:a6d760183d8025b6df1cb1","android_client_info":{"package_name":"in.shvms.trackme"}},"oauth_client":[],"api_key":[{"current_key":"dummy_api_key_for_ci_build_validation"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}' > app/google-services.json
           fi
 
+      - name: Calculate Version Code
+        run: echo "VERSION_CODE=$(git rev-list --count HEAD)" >> $GITHUB_ENV
+
       - name: Build Release AAB
         env:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'dummy_password' }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'dummy_alias' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'dummy_password' }}
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          VERSION_CODE: ${{ env.VERSION_CODE }}
         run: |
           chmod +x ./gradlew
           ./gradlew bundleRelease
@@ -96,8 +96,14 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'dummy_password' }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'dummy_alias' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'dummy_password' }}
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          VERSION_CODE: ${{ env.VERSION_CODE }}
         run: ./gradlew :app:lintRelease :app:testReleaseUnitTest
+
+      - name: Enable KVM for emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Run release launch smoke test
         env:
@@ -105,7 +111,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'dummy_password' }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'dummy_alias' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'dummy_password' }}
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          VERSION_CODE: ${{ env.VERSION_CODE }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35

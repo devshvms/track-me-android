@@ -36,7 +36,7 @@ android {
         minSdk = 24
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "20").toInt()
+        versionCode = (System.getenv("VERSION_CODE") ?: "20").toInt()
         versionName = "1.5.9"
         
         resValue("string", "google_maps_key", mapsApiKey)
