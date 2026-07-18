@@ -88,7 +88,7 @@ fun SettingsScreen(
                             val result = viewModel.signInWithGoogle(context)
                             if (result.isFailure) {
                                 val e = result.exceptionOrNull()
-                                if (app.authManager.isSignInCancellation(e)) {
+                                if ((context.applicationContext as TrackMeApp).authManager.isSignInCancellation(e)) {
                                     return@launch
                                 }
                                 val msg = if (e?.javaClass?.simpleName == "NoCredentialException" || e?.message?.contains("NoCredential") == true) {
