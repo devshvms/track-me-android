@@ -24,6 +24,7 @@ import `in`.shvms.trackme.data.remote.SyncResult
 import kotlinx.coroutines.launch
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -247,9 +248,13 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         val prefs = context.getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
+        val preferencesManager = remember(context) {
+            (context.applicationContext as TrackMeApp).preferencesManager
+        }
 
         // App Preferences Card (Theme & Language)
         var themeMode by remember { mutableStateOf(prefs.getInt("theme_mode", 0)) } // 0: System, 1: Light, 2: Dark
+        val dynamicColor by preferencesManager.dynamicColor.collectAsState()
         var appLanguage by remember { mutableStateOf(prefs.getString("app_language", "en") ?: "en") }
         var showLangDropdown by remember { mutableStateOf(false) }
 
@@ -287,6 +292,32 @@ fun SettingsScreen(
                             label = { Text(label, style = MaterialTheme.typography.labelSmall, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
                             modifier = Modifier.weight(1f)
                         )
+                    }
+                }
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = dynamicColor,
+                                role = Role.Switch,
+                                onValueChange = preferencesManager::setDynamicColor
+                            )
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                            Text(strings.dynamicColor, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = strings.dynamicColorDescription,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(checked = dynamicColor, onCheckedChange = null)
                     }
                 }
 

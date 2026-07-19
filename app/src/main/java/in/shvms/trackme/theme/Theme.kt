@@ -133,7 +133,20 @@ fun TrackMeTheme(
     when {
       dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
         val context = LocalContext.current
-        if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        val wallpaperScheme =
+          if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+
+        // Wallpaper palettes must never dilute emergency or warning affordances.
+        wallpaperScheme.copy(
+          error = RedSos,
+          onError = Color.White,
+          errorContainer = if (isDark) ErrorContainerDark else ErrorContainerLight,
+          onErrorContainer = if (isDark) ErrorContainerLight else ErrorContainerDark,
+          tertiary = AmberWarn,
+          onTertiary = Navy900,
+          tertiaryContainer = if (isDark) AmberContainerDark else AmberContainerLight,
+          onTertiaryContainer = if (isDark) AmberContainerLight else AmberContainerDark,
+        )
       }
       isDark -> TrackMeDarkColorScheme
       else -> TrackMeLightColorScheme

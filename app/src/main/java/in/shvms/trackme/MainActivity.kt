@@ -36,12 +36,13 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
     setContent {
       val themeMode by app.preferencesManager.themeMode.collectAsState()
+      val dynamicColor by app.preferencesManager.dynamicColor.collectAsState()
       val appLanguage by app.preferencesManager.appLanguage.collectAsState()
       val appStrings = remember(appLanguage) { getAppStrings(appLanguage) }
       val updateInfo by app.appUpdateChecker.updateInfo.collectAsState()
 
       CompositionLocalProvider(LocalAppStrings provides appStrings) {
-        TrackMeTheme(themeMode = themeMode) {
+        TrackMeTheme(themeMode = themeMode, dynamicColor = dynamicColor) {
           Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             MainNavigation()
             updateInfo?.let { info ->
