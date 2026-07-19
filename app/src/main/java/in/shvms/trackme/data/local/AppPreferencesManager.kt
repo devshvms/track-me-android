@@ -13,6 +13,10 @@ class AppPreferencesManager(private val context: Context) {
     private val _themeMode = MutableStateFlow(prefs.getInt("theme_mode", 0))
     val themeMode: StateFlow<Int> = _themeMode.asStateFlow()
 
+    // Material You wallpaper colors are opt-in so the TrackMe cyan palette stays the default.
+    private val _dynamicColor = MutableStateFlow(prefs.getBoolean("dynamic_color", false))
+    val dynamicColor: StateFlow<Boolean> = _dynamicColor.asStateFlow()
+
     // App language code: "en", "es", "fr", "de", "hi", "ja", "zh"
     private val _appLanguage = MutableStateFlow(prefs.getString("app_language", "en") ?: "en")
     val appLanguage: StateFlow<String> = _appLanguage.asStateFlow()
@@ -24,6 +28,11 @@ class AppPreferencesManager(private val context: Context) {
     fun setThemeMode(mode: Int) {
         prefs.edit().putInt("theme_mode", mode).apply()
         _themeMode.value = mode
+    }
+
+    fun setDynamicColor(enabled: Boolean) {
+        prefs.edit().putBoolean("dynamic_color", enabled).apply()
+        _dynamicColor.value = enabled
     }
 
     fun setAppLanguage(lang: String) {

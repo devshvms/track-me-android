@@ -194,7 +194,7 @@ fun ActiveRideHudPanel(
             if (liveShareState.status == LiveShareStatus.ACTIVE) {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFF00E5FF),
+                    color = CyanBright,
                     shadowElevation = 2.dp,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
@@ -361,7 +361,7 @@ private fun StatItem(label: String, value: String) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Bold
         )
         Text(
@@ -450,7 +450,7 @@ private fun UnifiedPauseStopPill(
     BoxWithConstraints(
         modifier = modifier
             .clip(CircleShape)
-            .background(TrackMeBlue)
+            .background(MaterialTheme.colorScheme.primary)
     ) {
         val halfWidthDp = maxWidth / 2
         val maxSlidePx = with(density) { halfWidthDp.toPx() }
@@ -476,7 +476,7 @@ private fun UnifiedPauseStopPill(
             Icon(
                 imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
                 contentDescription = "Pause / Play",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier
                     .size(24.dp)
                     .scale(pauseIconScale.value)
@@ -536,7 +536,7 @@ private fun UnifiedPauseStopPill(
             ) {
                 Text(
                     text = "<<",
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = Color.White,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold
                 )

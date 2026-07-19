@@ -13,7 +13,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -462,9 +461,10 @@ fun HomeScreen(
                                 viewModel.stopLiveShare(context)
                                 android.widget.Toast.makeText(context, "Live Location Sharing Stopped", android.widget.Toast.LENGTH_SHORT).show()
                             },
-                            modifier = Modifier.alpha(blinkAlpha),
                             containerColor = TrackMeGreen,
-                            contentColor = Color.White,
+                            // Keep this fixed token pair together under Material You; a
+                            // wallpaper-derived onSecondary may not contrast with GreenGo.
+                            contentColor = Navy900,
                             shape = androidx.compose.foundation.shape.CircleShape
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(4.dp)) {
@@ -472,6 +472,15 @@ fun HomeScreen(
                                 Text(countdownText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                             }
                         }
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .border(
+                                    width = 3.dp,
+                                    color = Color.White.copy(alpha = blinkAlpha),
+                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                )
+                        )
                     }
                 }
             } else {

@@ -273,8 +273,8 @@ private fun MapLayerOptionButton(
     isActive: Boolean,
     onClick: () -> Unit
 ) {
-    val bgColor = if (isActive) Color(0xFF1E88E5) else MaterialTheme.colorScheme.surface
-    val iconColor = if (isActive) Color.White else MaterialTheme.colorScheme.onSurface
+    val bgColor = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
+    val iconColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
 
     Surface(
         shape = CircleShape,
@@ -294,4 +294,3 @@ private fun MapLayerOptionButton(
         }
     }
 }
-
