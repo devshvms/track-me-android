@@ -462,7 +462,9 @@ fun HomeScreen(
                                 android.widget.Toast.makeText(context, "Live Location Sharing Stopped", android.widget.Toast.LENGTH_SHORT).show()
                             },
                             containerColor = TrackMeGreen,
-                            contentColor = MaterialTheme.colorScheme.onSecondary,
+                            // Keep this fixed token pair together under Material You; a
+                            // wallpaper-derived onSecondary may not contrast with GreenGo.
+                            contentColor = Navy900,
                             shape = androidx.compose.foundation.shape.CircleShape
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(4.dp)) {
