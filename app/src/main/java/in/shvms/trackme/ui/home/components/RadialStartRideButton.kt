@@ -301,13 +301,13 @@ fun RadialStartRideButton(
                     )
                     Text(
                         text = "STARTING",
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = Navy900.copy(alpha = 0.90f),
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = currentLaunch.displayName.uppercase(),
-                        color = Color.White,
+                        color = Navy900,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black
                     )
@@ -320,13 +320,13 @@ fun RadialStartRideButton(
                         )
                         Text(
                             text = currentHover.displayName.uppercase(),
-                            color = Color.White,
+                            color = Navy900,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Black
                         )
                         Text(
                             text = "RELEASE",
-                            color = Color.White.copy(alpha = 0.7f),
+                            color = Navy900.copy(alpha = 0.90f),
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -337,13 +337,13 @@ fun RadialStartRideButton(
                         )
                         Text(
                             text = "AUTO",
-                            color = Color.White,
+                            color = Navy900,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Black
                         )
                         Text(
                             text = "DRAG TO SELECT",
-                            color = Color.White.copy(alpha = 0.7f),
+                            color = Navy900.copy(alpha = 0.90f),
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -353,7 +353,7 @@ fun RadialStartRideButton(
                         imageVector = Icons.Default.PlayArrow,
                         // The parent owns the merged accessibility description.
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = Navy900,
                         modifier = Modifier.size(46.dp)
                     )
                 }
