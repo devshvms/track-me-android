@@ -519,8 +519,9 @@ fun RideDetailScreen(
                         maxSpeed = maxSpeed,
                         minAlt = minAlt,
                         maxAlt = maxAlt,
-                        speedColor = TrackMeGreen,
-                        altColor = TrackMeAmber,
+                        // C1: chart hues encode data series, not brand or state.
+                        speedColor = ChartSpeed,
+                        altColor = ChartAltitude,
                         scrubIndex = scrubIndex,
                         modifier = Modifier.fillMaxWidth().height(160.dp).padding(horizontal = 16.dp)
                     )

@@ -156,8 +156,13 @@ fun RadialStartRideButton(
                         .alpha(animAlpha)
                         .size(56.dp)
                         .clip(CircleShape)
+                        // C1: persona circles are a brand-action control → cyan, not green.
                         .background(
-                            color = if (isHovered) TrackMeGreen else TrackMeGreenLight.copy(alpha = 0.8f)
+                            color = if (isHovered) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                            }
                         )
                         .border(
                             width = if (isHovered) 2.dp else 0.dp,
@@ -192,11 +197,17 @@ fun RadialStartRideButton(
                     .scale(pulseScale)
                     .size(86.dp)
                     .clip(CircleShape)
-                    .border(2.dp, TrackMeGreen.copy(alpha = pulseAlpha), CircleShape)
+                    // C1: launch pulse belongs to the brand-action Start control → cyan.
+                    .border(
+                        2.dp,
+                        MaterialTheme.colorScheme.primary.copy(alpha = pulseAlpha),
+                        CircleShape
+                    )
             )
         }
 
-        // Center Green Start Button - only touches on this circle trigger interaction
+        // Center Start Button (C1: brand cyan, not green) - only touches on this circle
+        // trigger interaction
         val centerScale by animateFloatAsState(
             targetValue = when {
                 launchedPersona != null -> 1.12f
@@ -212,7 +223,7 @@ fun RadialStartRideButton(
                 .scale(centerScale)
                 .size(86.dp)
                 .clip(CircleShape)
-                .background(TrackMeGreen)
+                .background(MaterialTheme.colorScheme.primary)
                 .border(2.dp, Color.White.copy(alpha = 0.4f), CircleShape)
                 .semantics(mergeDescendants = true) {
                     contentDescription = "Start ride. Drag to choose an activity."
@@ -293,6 +304,13 @@ fun RadialStartRideButton(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // C1: content sits on colorScheme.primary, so it must use onPrimary. It was
+                // hardcoded Navy900, which only worked because the button was light green —
+                // on light theme's cyan/deep that would be dark-on-dark and fail AA.
+                // The small captions previously ran at 90% alpha; on cyan/deep that composites
+                // to 4.27:1 (below AA for 8-9sp text), so they now render at full opacity and
+                // take their hierarchy from size/weight instead. Covered by ThemeContrastTest.
+                val onStartButton = MaterialTheme.colorScheme.onPrimary
                 val currentLaunch = launchedPersona
                 if (currentLaunch != null) {
                     Text(
@@ -301,13 +319,13 @@ fun RadialStartRideButton(
                     )
                     Text(
                         text = "STARTING",
-                        color = Navy900.copy(alpha = 0.90f),
+                        color = onStartButton,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = currentLaunch.displayName.uppercase(),
-                        color = Navy900,
+                        color = onStartButton,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black
                     )
@@ -320,13 +338,13 @@ fun RadialStartRideButton(
                         )
                         Text(
                             text = currentHover.displayName.uppercase(),
-                            color = Navy900,
+                            color = onStartButton,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Black
                         )
                         Text(
                             text = "RELEASE",
-                            color = Navy900.copy(alpha = 0.90f),
+                            color = onStartButton,
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -337,13 +355,13 @@ fun RadialStartRideButton(
                         )
                         Text(
                             text = "AUTO",
-                            color = Navy900,
+                            color = onStartButton,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Black
                         )
                         Text(
                             text = "DRAG TO SELECT",
-                            color = Navy900.copy(alpha = 0.90f),
+                            color = onStartButton,
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -353,7 +371,7 @@ fun RadialStartRideButton(
                         imageVector = Icons.Default.PlayArrow,
                         // The parent owns the merged accessibility description.
                         contentDescription = null,
-                        tint = Navy900,
+                        tint = onStartButton,
                         modifier = Modifier.size(46.dp)
                     )
                 }

@@ -212,7 +212,8 @@ fun ActiveRideHudPanel(
             if (isOffline) {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
-                    color = TrackMeGreenLight,
+                    // C1: semantic — "shield active" is a positive state, not brand accent.
+                    color = SuccessGreen,
                     shadowElevation = 2.dp,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
