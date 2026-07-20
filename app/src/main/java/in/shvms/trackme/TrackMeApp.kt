@@ -44,6 +44,10 @@ class TrackMeApp : Application() {
     lateinit var preferencesManager: AppPreferencesManager
         private set
 
+    /** Shared v1.6.0 ride-stats aggregate (A1). Feeds B1 reveal / B2 recap / B3 streak. */
+    lateinit var rideStatsStore: `in`.shvms.trackme.data.local.RideStatsStore
+        private set
+
     lateinit var appUpdateChecker: `in`.shvms.trackme.ui.update.AppUpdateChecker
         private set
 
@@ -81,6 +85,7 @@ class TrackMeApp : Application() {
         `in`.shvms.trackme.analytics.AnalyticsManager.init(this)
 
         preferencesManager = AppPreferencesManager(this)
+        rideStatsStore = `in`.shvms.trackme.data.local.RideStatsStore(this)
 
         database = Room.databaseBuilder(
             this,

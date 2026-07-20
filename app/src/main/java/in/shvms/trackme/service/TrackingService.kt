@@ -587,9 +587,33 @@ class TrackingService : Service() {
             `in`.shvms.trackme.analytics.AnalyticsManager.trackRideCompleted(
                 rideId = rideId.toString(),
                 durationSeconds = activeTimeMs / 1000L,
-                distanceKm = (finalDistance / 1000.0).toFloat()
+                distanceKm = finalDistance / 1000.0
             )
-            
+
+            // A1: shared good-ride hook. Fold the just-saved ride into the aggregate store.
+            // Best-effort and idempotent (keyed by ride ID) — must NEVER fail ride saving.
+            // The returned RideStatsTransition is what B1 (reveal) / B2 (recap) / B3 (streak)
+            // will consume.
+            // Decision (decision_log 2026-07-20): NEVER credit sub-threshold "junk" rides to
+            // retention stats, even when the user chose to keep them (discardNearEmptyRide=false).
+            // Mirror iOS's guard so the eligibility rule is identical on both platforms.
+            val isJunkRide = finalDistance < JUNK_RIDE_DISTANCE_METERS &&
+                finalDuration < JUNK_RIDE_DURATION_MILLIS
+            if (!isJunkRide) {
+                try {
+                    (application as? TrackMeApp)?.rideStatsStore?.recordGoodRide(
+                        `in`.shvms.trackme.domain.stats.GoodRideSummary(
+                            rideId = rideId,
+                            finishedAtMillis = finishedRide.endTime ?: System.currentTimeMillis(),
+                            durationMillis = activeTimeMs,
+                            distanceMeters = finalDistance
+                        )
+                    )
+                } catch (t: Throwable) {
+                    (application as? TrackMeApp)?.errorLogger?.recordException(t)
+                }
+            }
+
             val prefs = getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
             val disablePostProcessing = prefs.getBoolean("disable_gps_post_processing", false)
             
