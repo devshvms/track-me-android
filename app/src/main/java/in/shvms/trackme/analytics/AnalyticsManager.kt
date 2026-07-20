@@ -107,7 +107,9 @@ object AnalyticsManager {
         )
     }
 
-    fun trackRideCompleted(rideId: String, durationSeconds: Long, distanceKm: Float) {
+    // distance_km is Double for cross-platform type parity (decision_log 2026-07-20 — no
+    // Float/Double fragmentation in PostHog).
+    fun trackRideCompleted(rideId: String, durationSeconds: Long, distanceKm: Double) {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture(
             "ride_completed",
@@ -194,8 +196,8 @@ object AnalyticsManager {
         )
     }
 
-    /** B2 — weekly gain-framed recap surfaced. */
-    fun trackWeeklyRecapShown(weekKey: String, rideCount: Int, distanceKm: Float) {
+    /** B2 — weekly gain-framed recap surfaced. distance_km is Double (parity). */
+    fun trackWeeklyRecapShown(weekKey: String, rideCount: Int, distanceKm: Double) {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture(
             "weekly_recap_shown",
