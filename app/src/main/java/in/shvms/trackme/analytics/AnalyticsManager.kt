@@ -175,4 +175,58 @@ object AnalyticsManager {
             )
         )
     }
+
+    // ------------------------------------------------------------------------------------
+    // v1.6.0 retention taxonomy (A1). snake_case names + typed props, NO PII (no lat/lng,
+    // no names/emails/titles). iOS MUST emit identical event names + property keys/types.
+    // These are emitted by the feature layer (B1–B4), only when the surface is actually
+    // shown/acted on — never speculatively.
+    // ------------------------------------------------------------------------------------
+
+    /** B1 — reveal_type in {"pr","first_ride","milestone","default"}. */
+    fun trackPostRideRevealShown(revealType: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "post_ride_reveal_shown",
+            properties = mapOf(
+                "reveal_type" to revealType
+            )
+        )
+    }
+
+    /** B2 — weekly gain-framed recap surfaced. */
+    fun trackWeeklyRecapShown(weekKey: String, rideCount: Int, distanceKm: Float) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "weekly_recap_shown",
+            properties = mapOf(
+                "week_key" to weekKey,
+                "ride_count" to rideCount,
+                "distance_km" to distanceKm
+            )
+        )
+    }
+
+    /** B3 — active-week streak advanced. `froze` reserved for the freeze/tolerance path. */
+    fun trackWeeklyStreakUpdated(streakWeeks: Int, froze: Boolean) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "weekly_streak_updated",
+            properties = mapOf(
+                "streak_weeks" to streakWeeks,
+                "froze" to froze
+            )
+        )
+    }
+
+    /** B4 — in-app review prompt requested (system may or may not show it). */
+    fun trackReviewPromptRequested(platform: String = "android") {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "review_prompt_requested",
+            properties = mapOf(
+                "platform" to platform
+            )
+        )
+    }
 }
