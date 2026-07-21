@@ -76,13 +76,15 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
     }
 
     /**
-     * Cleanly end anything that depends on the current session BEFORE we drop auth. A live-share
-     * session must be ended while still authenticated, otherwise its Firestore writes fail
-     * silently and the viewer is left watching a frozen location with no session-ended signal.
-     * An active ride is stopped gracefully (finalized + saved locally), not discarded.
-     * Best-effort: a failure here must never block the sign-out itself.
+     * End the live-location share BEFORE we drop auth. It must be stopped while still
+     * authenticated, otherwise its Firestore writes fail silently and the viewer is left
+     * watching a frozen location with no session-ended signal.
+     *
+     * The active ride is deliberately left RUNNING: tracking records to the local DB and needs
+     * no auth, so a sign-out must not interrupt an in-progress ride — only its location sharing
+     * stops. Best-effort: a failure here must never block the sign-out itself.
      */
-    private suspend fun endActiveSessionsBeforeSignOut() {
+    private suspend fun endActiveLiveShareBeforeSignOut() {
         try {
             if (app.liveShareManager.state.value.status ==
                 `in`.shvms.trackme.data.remote.LiveShareStatus.ACTIVE
@@ -92,22 +94,12 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
         } catch (e: Exception) {
             // ignore — proceed with sign-out regardless
         }
-        try {
-            if (`in`.shvms.trackme.service.TrackingService.isRunning) {
-                val intent = android.content.Intent(
-                    app, `in`.shvms.trackme.service.TrackingService::class.java
-                ).apply { action = `in`.shvms.trackme.service.TrackingService.ACTION_STOP_SERVICE }
-                app.startService(intent)
-            }
-        } catch (e: Exception) {
-            // ignore
-        }
     }
 
     fun signOut() {
         viewModelScope.launch {
-            // End live-share / tracking while still authenticated (order matters).
-            endActiveSessionsBeforeSignOut()
+            // Stop the live-location share while still authenticated (the ride keeps recording).
+            endActiveLiveShareBeforeSignOut()
             try {
                 app.database.rideDao().deleteSyncedPoints()
                 app.database.rideDao().deleteSyncedRides()
@@ -281,9 +273,9 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
     suspend fun deleteAccountAndData(feedbackText: String): Result<Unit> {
         `in`.shvms.trackme.analytics.AnalyticsManager.trackAccountDeletionRequested(feedbackText)
 
-        // End any live-share / active ride while still authenticated, before we tear down cloud
-        // data and the auth record.
-        endActiveSessionsBeforeSignOut()
+        // End the live-location share while still authenticated, before we tear down cloud data
+        // and the auth record.
+        endActiveLiveShareBeforeSignOut()
 
         // 1. Submit feedback
         app.firestoreSyncManager.submitFeedback(feedbackText, "account_deletion")
