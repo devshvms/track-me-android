@@ -60,6 +60,8 @@ class MainActivity : ComponentActivity() {
   override fun onResume() {
       super.onResume()
       val app = applicationContext as TrackMeApp
+      // B2: surface a weekly recap for a just-completed week (shared foreground trigger).
+      app.checkWeeklyRecap()
       lifecycleScope.launch {
           val settings = app.database.emergencyDao().getSettings()
           val smsPermissionGranted = ContextCompat.checkSelfPermission(

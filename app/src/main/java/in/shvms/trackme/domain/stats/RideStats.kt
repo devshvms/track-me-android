@@ -30,6 +30,17 @@ data class RideStats(
     val streakWeeks: Int = 0,
     /** Monday epoch-day of the most recent week that counted toward the streak. */
     val lastStreakWeekStartEpochDay: Long = 0L,
+    /**
+     * B3 streak forgiveness: whether a single-week miss can currently be auto-frozen without
+     * breaking the streak. Consumed when a lone miss is forgiven; refilled after any active
+     * week. `true` for a fresh store so the first isolated miss is always forgiven.
+     */
+    val freezeAvailable: Boolean = true,
+    /**
+     * B2 dedupe: Monday epoch-day of the completed week whose recap has already been surfaced,
+     * so the weekly recap shows at most once per week even across many app opens.
+     */
+    val lastRecapShownWeekStartEpochDay: Long = 0L,
     /** Bounded set of ride IDs already folded in, for idempotent finalization/retry. */
     val processedRideIds: List<Long> = emptyList()
 ) {
@@ -68,5 +79,22 @@ data class RideStatsTransition(
     /** True when this ride is the first good ride of its (Monday-anchored) week. */
     val isFirstRideOfWeek: Boolean,
     /** True when this ride advanced the streak counter above its previous value. */
-    val streakAdvanced: Boolean
+    val streakAdvanced: Boolean,
+    /** True when this ride's week-rollover forgave a single missed week (B3 auto-freeze). */
+    val streakFroze: Boolean
+)
+
+/**
+ * B2 immutable snapshot of a completed (rolled-over) week, ready to present in the recap card.
+ * Gain-framed facts only; the presenter formats + localizes. [streakWeeks] is the B3 line.
+ */
+data class WeeklyRecap(
+    /** ISO-8601 label of the completed week, e.g. "2026-W29". */
+    val weekKey: String,
+    /** Monday epoch-day of the completed week (used to acknowledge/dedupe). */
+    val weekStartEpochDay: Long,
+    val rideCount: Int,
+    val distanceMeters: Double,
+    /** Consecutive active weeks as of this completed week (B3 streak line; never loss-framed). */
+    val streakWeeks: Int
 )

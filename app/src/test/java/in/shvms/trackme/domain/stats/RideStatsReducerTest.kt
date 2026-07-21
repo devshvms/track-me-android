@@ -121,14 +121,54 @@ class RideStatsReducerTest {
     }
 
     @Test
-    fun weekGap_resetsStreakToOne() {
+    fun singleMissedWeek_isForgiven_byFreeze() {
+        // B3: exactly one missed week is auto-frozen — streak survives, freeze token consumed.
         val w1 = LocalDate.of(2026, 7, 20)
-        val w3 = w1.plusWeeks(2) // skipped w2
+        val w3 = w1.plusWeeks(2) // skipped w2 (a single miss)
         var stats = RideStats()
         stats = RideStatsReducer.reduce(stats, summary(1, millis(w1)), utc).first
-        val (_, t) = RideStatsReducer.reduce(stats, summary(2, millis(w3)), utc)
+        val (after, t) = RideStatsReducer.reduce(stats, summary(2, millis(w3)), utc)
+        assertEquals(2, t.streakWeeks)      // survived, not reset
+        assertTrue(t.streakFroze)
+        assertFalse(after.freezeAvailable)  // token consumed
+    }
+
+    @Test
+    fun twoMissedWeeks_resetStreak() {
+        // B3: two+ missed weeks cannot both be frozen -> reset to 1, no freeze consumed.
+        val w1 = LocalDate.of(2026, 7, 20)
+        val w4 = w1.plusWeeks(3) // skipped w2 and w3
+        var stats = RideStats()
+        stats = RideStatsReducer.reduce(stats, summary(1, millis(w1)), utc).first
+        val (after, t) = RideStatsReducer.reduce(stats, summary(2, millis(w4)), utc)
         assertEquals(1, t.streakWeeks)
-        assertTrue(t.isFirstRideOfWeek)
+        assertFalse(t.streakFroze)
+        assertTrue(after.freezeAvailable) // refilled by the new active week
+    }
+
+    @Test
+    fun twoConsecutiveSingleMisses_secondResets() {
+        // First isolated miss forgiven; the next isolated miss has no token left -> reset.
+        val w1 = LocalDate.of(2026, 7, 20)
+        var stats = RideStats()
+        stats = RideStatsReducer.reduce(stats, summary(1, millis(w1)), utc).first
+        stats = RideStatsReducer.reduce(stats, summary(2, millis(w1.plusWeeks(2))), utc).first // forgiven -> 2
+        val (_, t) = RideStatsReducer.reduce(stats, summary(3, millis(w1.plusWeeks(4))), utc)   // miss again
+        assertEquals(1, t.streakWeeks)
+        assertFalse(t.streakFroze)
+    }
+
+    @Test
+    fun activeWeek_refillsFreeze_afterAForgivenMiss() {
+        val w1 = LocalDate.of(2026, 7, 20)
+        var stats = RideStats()
+        stats = RideStatsReducer.reduce(stats, summary(1, millis(w1)), utc).first
+        stats = RideStatsReducer.reduce(stats, summary(2, millis(w1.plusWeeks(2))), utc).first // forgiven -> 2, no token
+        stats = RideStatsReducer.reduce(stats, summary(3, millis(w1.plusWeeks(3))), utc).first // consecutive -> 3, token refilled
+        assertTrue(stats.freezeAvailable)
+        val (_, t) = RideStatsReducer.reduce(stats, summary(4, millis(w1.plusWeeks(5))), utc)   // single miss again
+        assertEquals(4, t.streakWeeks)
+        assertTrue(t.streakFroze) // forgiven again thanks to refilled token
     }
 
     @Test

@@ -107,6 +107,8 @@ fun HomeScreen(
     val smsPermissionRevoked by app.smsPermissionRevokedNotice.collectAsState()
     // B1: durable one-shot post-ride reveal (null unless a good ride was just saved).
     val pendingReveal by app.pendingRevealStore.pending.collectAsState()
+    // B2: weekly recap for a completed week (null unless one is pending on foreground).
+    val weeklyRecap by app.weeklyRecap.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
@@ -260,6 +262,24 @@ fun HomeScreen(
             reveal = reveal,
             onDismiss = { app.pendingRevealStore.consume(reveal.rideId) }
         )
+    }
+
+    // B2/B3: weekly recap (with the streak line). Emitted once when actually shown, then acked.
+    // Suppressed while a post-ride reveal is up, so the two celebrations never stack.
+    weeklyRecap?.let { recap ->
+        if (pendingReveal == null) {
+            LaunchedEffect(recap.weekStartEpochDay) {
+                `in`.shvms.trackme.analytics.AnalyticsManager.trackWeeklyRecapShown(
+                    weekKey = recap.weekKey,
+                    rideCount = recap.rideCount,
+                    distanceKm = recap.distanceMeters / 1000.0
+                )
+            }
+            WeeklyRecapDialog(
+                recap = recap,
+                onDismiss = { app.consumeWeeklyRecap() }
+            )
+        }
     }
 
     Scaffold(
