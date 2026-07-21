@@ -54,7 +54,12 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 
     fun loadMoreRides() {
         if (_isLoadingMore.value || !_hasMoreCloudRides.value) return
-        val user = app.authManager.currentUser.value ?: return
+        // Signed out → there is no cloud page to fetch. Clear the flag so the paginator stops
+        // asking (otherwise it stays "true" forever after logout).
+        val user = app.authManager.currentUser.value ?: run {
+            _hasMoreCloudRides.value = false
+            return
+        }
         viewModelScope.launch {
             _isLoadingMore.value = true
             try {

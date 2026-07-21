@@ -75,12 +75,43 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
         return result
     }
 
+    /**
+     * Cleanly end anything that depends on the current session BEFORE we drop auth. A live-share
+     * session must be ended while still authenticated, otherwise its Firestore writes fail
+     * silently and the viewer is left watching a frozen location with no session-ended signal.
+     * An active ride is stopped gracefully (finalized + saved locally), not discarded.
+     * Best-effort: a failure here must never block the sign-out itself.
+     */
+    private suspend fun endActiveSessionsBeforeSignOut() {
+        try {
+            if (app.liveShareManager.state.value.status ==
+                `in`.shvms.trackme.data.remote.LiveShareStatus.ACTIVE
+            ) {
+                app.liveShareManager.stopSession("Signed out")
+            }
+        } catch (e: Exception) {
+            // ignore — proceed with sign-out regardless
+        }
+        try {
+            if (`in`.shvms.trackme.service.TrackingService.isRunning) {
+                val intent = android.content.Intent(
+                    app, `in`.shvms.trackme.service.TrackingService::class.java
+                ).apply { action = `in`.shvms.trackme.service.TrackingService.ACTION_STOP_SERVICE }
+                app.startService(intent)
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
+    }
+
     fun signOut() {
         viewModelScope.launch {
+            // End live-share / tracking while still authenticated (order matters).
+            endActiveSessionsBeforeSignOut()
             try {
                 app.database.rideDao().deleteSyncedPoints()
                 app.database.rideDao().deleteSyncedRides()
-                
+
                 // Clear emergency settings and stop active broadcast
                 app.database.emergencyDao().deleteSettings()
                 app.database.emergencyDao().deleteAllContacts()
@@ -249,7 +280,11 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
 
     suspend fun deleteAccountAndData(feedbackText: String): Result<Unit> {
         `in`.shvms.trackme.analytics.AnalyticsManager.trackAccountDeletionRequested(feedbackText)
-        
+
+        // End any live-share / active ride while still authenticated, before we tear down cloud
+        // data and the auth record.
+        endActiveSessionsBeforeSignOut()
+
         // 1. Submit feedback
         app.firestoreSyncManager.submitFeedback(feedbackText, "account_deletion")
         
