@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.withLock
 
+/** Load lifecycle for a single ride detail — separates a slow load from a missing ride. */
+enum class RideLoadState { LOADING, LOADED, NOT_FOUND }
+
 class RideDetailViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as `in`.shvms.trackme.TrackMeApp
     private val db = app.database
@@ -22,9 +25,17 @@ class RideDetailViewModel(application: Application) : AndroidViewModel(applicati
     private val _rideWithPoints = MutableStateFlow<RideWithPoints?>(null)
     val rideWithPoints: StateFlow<RideWithPoints?> = _rideWithPoints.asStateFlow()
 
+    // Distinguishes "still loading" from "loaded, but the ride no longer exists" — otherwise a
+    // deleted ride (e.g. a synced ride cleared on sign-out) is indistinguishable from a slow
+    // load and the detail screen spins forever.
+    private val _loadState = MutableStateFlow(RideLoadState.LOADING)
+    val loadState: StateFlow<RideLoadState> = _loadState.asStateFlow()
+
     fun loadRide(rideId: Long) {
         viewModelScope.launch {
-            _rideWithPoints.value = rideDao.getRideWithPointsById(rideId)
+            val loaded = rideDao.getRideWithPointsById(rideId)
+            _rideWithPoints.value = loaded
+            _loadState.value = if (loaded != null) RideLoadState.LOADED else RideLoadState.NOT_FOUND
         }
     }
 

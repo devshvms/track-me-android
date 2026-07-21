@@ -122,6 +122,7 @@ fun RideDetailScreen(
 ) {
     val strings = LocalAppStrings.current
     val rideWithPoints by viewModel.rideWithPoints.collectAsState()
+    val loadState by viewModel.loadState.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
@@ -299,8 +300,14 @@ fun RideDetailScreen(
         },
     ) { padding ->
         if (rideWithPoints == null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+            if (loadState == RideLoadState.NOT_FOUND) {
+                // The ride no longer exists (e.g. a synced ride was cleared on sign-out). Return
+                // to the list instead of showing an endless spinner.
+                LaunchedEffect(Unit) { navController?.popBackStack() }
+            } else {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             }
         } else {
             val points = rideWithPoints!!.points
