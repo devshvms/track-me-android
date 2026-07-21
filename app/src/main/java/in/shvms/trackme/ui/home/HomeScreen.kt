@@ -105,6 +105,8 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val recoveryNotice by app.recoveryNotice.collectAsState()
     val smsPermissionRevoked by app.smsPermissionRevokedNotice.collectAsState()
+    // B1: durable one-shot post-ride reveal (null unless a good ride was just saved).
+    val pendingReveal by app.pendingRevealStore.pending.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
@@ -138,7 +140,12 @@ fun HomeScreen(
     val receiver = remember {
         object : android.content.BroadcastReceiver() {
             override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
-                android.widget.Toast.makeText(context, strings.rideSaved, android.widget.Toast.LENGTH_SHORT).show()
+                // B1: a good ride shows the reveal dialog instead of this toast. Keep the toast
+                // only as the fallback confirmation for rides that earn no reveal (e.g. a
+                // sub-threshold "junk" ride the user chose to save anyway).
+                if (app.pendingRevealStore.pending.value == null) {
+                    android.widget.Toast.makeText(context, strings.rideSaved, android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -241,6 +248,18 @@ fun HomeScreen(
                 delay(1000)
             }
         }
+    }
+
+    // B1: surface the post-ride reveal once, when Home is composed after a good ride. Telemetry
+    // fires only when the reveal is actually shown (keyed on ride ID → exactly once per reveal).
+    pendingReveal?.let { reveal ->
+        LaunchedEffect(reveal.rideId) {
+            `in`.shvms.trackme.analytics.AnalyticsManager.trackPostRideRevealShown(reveal.revealType)
+        }
+        PostRideRevealDialog(
+            reveal = reveal,
+            onDismiss = { app.pendingRevealStore.consume(reveal.rideId) }
+        )
     }
 
     Scaffold(

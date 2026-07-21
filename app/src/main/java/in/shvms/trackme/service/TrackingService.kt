@@ -601,7 +601,8 @@ class TrackingService : Service() {
                 finalDuration < JUNK_RIDE_DURATION_MILLIS
             if (!isJunkRide) {
                 try {
-                    (application as? TrackMeApp)?.rideStatsStore?.recordGoodRide(
+                    val app = application as? TrackMeApp
+                    val transition = app?.rideStatsStore?.recordGoodRide(
                         `in`.shvms.trackme.domain.stats.GoodRideSummary(
                             rideId = rideId,
                             finishedAtMillis = finishedRide.endTime ?: System.currentTimeMillis(),
@@ -609,6 +610,14 @@ class TrackingService : Service() {
                             distanceMeters = finalDistance
                         )
                     )
+                    // B1: pick the bounded reveal from the transition and persist it as a durable
+                    // one-shot. Home consumes it once when foreground; presentation + telemetry
+                    // happen there, never here. Skipped for idempotent replays (select -> null).
+                    if (transition != null) {
+                        `in`.shvms.trackme.domain.stats.RevealSelector.select(transition)?.let { reveal ->
+                            app.pendingRevealStore.put(reveal)
+                        }
+                    }
                 } catch (t: Throwable) {
                     (application as? TrackMeApp)?.errorLogger?.recordException(t)
                 }
