@@ -1,1 +1,9 @@
-Maps are working again in the signed release. This update restores map tiles, ride routes, current-location display, and map snapshots. It also prevents future release builds from shipping without a configured Maps API key.
+TrackMe 1.6.0 — Engagement, Telemetry & Polish
+
+• A fresh cyan brand look across the app, matching the icon and store artwork.
+• Post-ride recap: a small, gain-framed summary after you finish recording.
+• Weekly recap + active-week streak — celebrated weekly, never nagging.
+• A cleaner, more reliable in-app review prompt after good rides.
+• Behind-the-scenes telemetry and stability improvements.
+
+(Release-notes stub — refine copy before the store submission.)
