@@ -12,15 +12,22 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 class AuthManager {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private val _currentUser = MutableStateFlow<FirebaseUser?>(auth.currentUser)
     val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
+
+    // Fire-and-forget scope for non-blocking side effects (D3 welcome email).
+    private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     init {
         auth.addAuthStateListener { firebaseAuth ->
@@ -66,6 +73,12 @@ class AuthManager {
                     `in`.shvms.trackme.analytics.AnalyticsManager.identifyUser(uid)
                     if (authResult.additionalUserInfo?.isNewUser == true) {
                         `in`.shvms.trackme.analytics.AnalyticsManager.trackUserSignedUp()
+                        // D3: welcome email after the first successful sign-up.
+                        // Fire-and-forget — a missed email must not block sign-in.
+                        ioScope.launch {
+                            `in`.shvms.trackme.data.remote.NotificationManager
+                                .sendTransactional(`in`.shvms.trackme.data.remote.NotificationManager.EmailType.WELCOME)
+                        }
                     } else {
                         `in`.shvms.trackme.analytics.AnalyticsManager.trackUserLoggedIn()
                     }
@@ -92,6 +105,12 @@ class AuthManager {
     suspend fun deleteAccount(): Result<Unit> {
         return try {
             val user = auth.currentUser ?: throw Exception("Not signed in")
+            // D3: send the delete_account email while the token is still valid —
+            // it is revoked once the account is deleted. Best-effort; never blocks.
+            runCatching {
+                `in`.shvms.trackme.data.remote.NotificationManager
+                    .sendTransactional(`in`.shvms.trackme.data.remote.NotificationManager.EmailType.DELETE_ACCOUNT)
+            }
             user.delete().await()
             Result.success(Unit)
         } catch (e: Exception) {
