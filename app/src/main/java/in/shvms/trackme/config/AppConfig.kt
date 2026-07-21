@@ -49,4 +49,9 @@ object AppConfig {
     const val LIVE_SHARE_START_ENDPOINT = "$LIVE_SHARE_API_PATH/start"
     const val LIVE_SHARE_LOCATION_ENDPOINT_TEMPLATE = "$LIVE_SHARE_API_PATH/%s/location"
     const val LIVE_SHARE_STOP_ENDPOINT_TEMPLATE = "$LIVE_SHARE_API_PATH/%s/stop"
+
+    // --- Transactional Email (D3) ---
+    // Same backend host; the endpoint owns the templates and derives the
+    // recipient from the verified Firebase token (client passes only a type).
+    const val NOTIFY_SEND_ENDPOINT = "/api/notify/send"
 }
