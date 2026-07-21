@@ -61,6 +61,10 @@ class TrackMeApp : Application() {
     private val _smsPermissionRevokedNotice = MutableStateFlow(false)
     val smsPermissionRevokedNotice = _smsPermissionRevokedNotice.asStateFlow()
 
+    /** B2: pending weekly recap for a completed week, surfaced once on foreground. */
+    private val _weeklyRecap = MutableStateFlow<`in`.shvms.trackme.domain.stats.WeeklyRecap?>(null)
+    val weeklyRecap = _weeklyRecap.asStateFlow()
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate() {
@@ -144,6 +148,23 @@ class TrackMeApp : Application() {
 
     fun consumeRecoveryNotice() {
         _recoveryNotice.value = null
+    }
+
+    /**
+     * B2: shared foreground trigger (called from [MainActivity.onResume], mirroring the
+     * recovery-notice pattern). Asks the store whether a completed week is worth recapping;
+     * the store computes weeks, this just surfaces the result. Idempotent while one is pending.
+     */
+    fun checkWeeklyRecap() {
+        if (_weeklyRecap.value != null) return
+        _weeklyRecap.value = rideStatsStore.pendingWeeklyRecap()
+    }
+
+    /** B2: acknowledge the recap after it has actually been presented (dedupe by week). */
+    fun consumeWeeklyRecap() {
+        val recap = _weeklyRecap.value ?: return
+        _weeklyRecap.value = null
+        applicationScope.launch { rideStatsStore.acknowledgeWeeklyRecap(recap.weekStartEpochDay) }
     }
 
     fun resumePersistedTrackingIfNeeded() {

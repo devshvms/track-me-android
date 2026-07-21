@@ -6,6 +6,8 @@ import `in`.shvms.trackme.domain.stats.GoodRideSummary
 import `in`.shvms.trackme.domain.stats.RideStats
 import `in`.shvms.trackme.domain.stats.RideStatsReducer
 import `in`.shvms.trackme.domain.stats.RideStatsTransition
+import `in`.shvms.trackme.domain.stats.WeeklyRecap
+import `in`.shvms.trackme.domain.stats.WeeklyRecapSelector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -62,6 +64,30 @@ class RideStatsStore(context: Context) {
         transition
     }
 
+    /**
+     * B2: return the recap for the most-recent completed (rolled-over) active week, or null.
+     *
+     * A pure read — it does NOT mark the recap seen (acknowledge only after the UI actually
+     * presents it, via [acknowledgeWeeklyRecap]) so a foreground race can never lose it. The
+     * completed week is the last active week ([RideStats.currentWeekStartEpochDay]) once "now"
+     * has moved into a later week. Zero-ride weeks are silent (never nag). Gain-framed only.
+     *
+     * @param nowMillis injected for testability; defaults to the wall clock.
+     */
+    fun pendingWeeklyRecap(
+        nowMillis: Long = System.currentTimeMillis(),
+        zone: ZoneId = ZoneId.systemDefault()
+    ): WeeklyRecap? = WeeklyRecapSelector.select(_stats.value, nowMillis, zone)
+
+    /** B2: mark the recap for [weekStartEpochDay] presented, so it never shows again. */
+    suspend fun acknowledgeWeeklyRecap(weekStartEpochDay: Long) = mutex.withLock {
+        val s = _stats.value
+        if (s.lastRecapShownWeekStartEpochDay == weekStartEpochDay) return@withLock
+        val updated = s.copy(lastRecapShownWeekStartEpochDay = weekStartEpochDay)
+        persist(updated)
+        _stats.value = updated
+    }
+
     // --- persistence ---------------------------------------------------------------------
 
     private fun load(): RideStats {
@@ -83,6 +109,8 @@ class RideStatsStore(context: Context) {
                 currentWeekDistanceMeters = json.optDouble("currentWeekDistanceMeters", 0.0),
                 streakWeeks = json.optInt("streakWeeks", 0),
                 lastStreakWeekStartEpochDay = json.optLong("lastStreakWeekStartEpochDay", 0L),
+                freezeAvailable = json.optBoolean("freezeAvailable", true),
+                lastRecapShownWeekStartEpochDay = json.optLong("lastRecapShownWeekStartEpochDay", 0L),
                 processedRideIds = json.optJSONArray("processedRideIds")?.let { arr ->
                     buildList { for (i in 0 until arr.length()) add(arr.optLong(i)) }
                 } ?: emptyList()
@@ -106,6 +134,8 @@ class RideStatsStore(context: Context) {
             put("currentWeekDistanceMeters", stats.currentWeekDistanceMeters)
             put("streakWeeks", stats.streakWeeks)
             put("lastStreakWeekStartEpochDay", stats.lastStreakWeekStartEpochDay)
+            put("freezeAvailable", stats.freezeAvailable)
+            put("lastRecapShownWeekStartEpochDay", stats.lastRecapShownWeekStartEpochDay)
             put("processedRideIds", org.json.JSONArray().apply {
                 stats.processedRideIds.forEach { put(it) }
             })

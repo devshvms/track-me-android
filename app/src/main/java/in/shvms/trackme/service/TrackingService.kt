@@ -617,6 +617,15 @@ class TrackingService : Service() {
                         `in`.shvms.trackme.domain.stats.RevealSelector.select(transition)?.let { reveal ->
                             app.pendingRevealStore.put(reveal)
                         }
+                        // B3: the streak state machine transitions only on the first ride of a
+                        // week — emit weekly_streak_updated then (an attempt-accurate state
+                        // event; `froze` = a single missed week was auto-forgiven this rollover).
+                        if (transition.isFirstRideOfWeek) {
+                            `in`.shvms.trackme.analytics.AnalyticsManager.trackWeeklyStreakUpdated(
+                                streakWeeks = transition.streakWeeks,
+                                froze = transition.streakFroze
+                            )
+                        }
                     }
                 } catch (t: Throwable) {
                     (application as? TrackMeApp)?.errorLogger?.recordException(t)

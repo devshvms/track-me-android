@@ -44,7 +44,8 @@ object RideStatsReducer {
                 weekDistanceMeters = old.currentWeekDistanceMeters,
                 streakWeeks = old.streakWeeks,
                 isFirstRideOfWeek = false,
-                streakAdvanced = false
+                streakAdvanced = false,
+                streakFroze = false
             )
             return old to noOp
         }
@@ -73,20 +74,43 @@ object RideStatsReducer {
             newWeekDistance = summary.distanceMeters
         }
 
-        // --- Weekly streak (consecutive active weeks) ---
+        // --- Weekly streak (consecutive active weeks) with B3 single-miss forgiveness ---
+        // Weeks are Monday epoch-days, so the gap between two active weeks is a multiple of 7:
+        //   7  -> consecutive (extend);  14 -> exactly one week missed (auto-freeze if a token
+        //   is available); >14 or backwards -> reset. A freeze token is consumed by a forgiven
+        //   miss and refilled by any active week, so isolated misses are each forgiven but two
+        //   misses in a row cannot both be. Loss is NEVER surfaced (telemetry-only `froze`).
         var newStreakWeeks = old.streakWeeks
         var newLastStreakWeekStart = old.lastStreakWeekStartEpochDay
+        var newFreezeAvailable = old.freezeAvailable
         var streakAdvanced = false
+        var streakFroze = false
         if (isFirstRideOfWeek) {
-            newStreakWeeks = when {
+            val gapDays = weekStart - old.lastStreakWeekStartEpochDay
+            when {
                 // First ever active week.
-                old.lastStreakWeekStartEpochDay == 0L -> 1
-                // Exactly the following Monday -> extend.
-                weekStart - old.lastStreakWeekStartEpochDay == 7L -> old.streakWeeks + 1
+                old.lastStreakWeekStartEpochDay == 0L -> {
+                    newStreakWeeks = 1
+                    newFreezeAvailable = true
+                }
+                // Consecutive week -> extend; an active week refills the freeze token.
+                gapDays == 7L -> {
+                    newStreakWeeks = old.streakWeeks + 1
+                    newFreezeAvailable = true
+                }
+                // Exactly one missed week -> forgive if a token is available (consume it).
+                gapDays == 14L && old.freezeAvailable -> {
+                    newStreakWeeks = old.streakWeeks + 1
+                    newFreezeAvailable = false
+                    streakFroze = true
+                }
                 // Same anchor (defensive; shouldn't happen when isFirstRideOfWeek) -> keep.
-                weekStart == old.lastStreakWeekStartEpochDay -> old.streakWeeks
-                // Gap of >1 week (or clock moved backwards) -> reset to this week.
-                else -> 1
+                gapDays == 0L -> newStreakWeeks = old.streakWeeks
+                // Two+ missed weeks, or an unforgiven single miss, or clock moved back -> reset.
+                else -> {
+                    newStreakWeeks = 1
+                    newFreezeAvailable = true
+                }
             }
             newLastStreakWeekStart = weekStart
             streakAdvanced = newStreakWeeks > old.streakWeeks
@@ -108,6 +132,7 @@ object RideStatsReducer {
             currentWeekDistanceMeters = newWeekDistance,
             streakWeeks = newStreakWeeks,
             lastStreakWeekStartEpochDay = newLastStreakWeekStart,
+            freezeAvailable = newFreezeAvailable,
             processedRideIds = newProcessed
         )
 
@@ -126,7 +151,8 @@ object RideStatsReducer {
             weekDistanceMeters = newWeekDistance,
             streakWeeks = newStreakWeeks,
             isFirstRideOfWeek = isFirstRideOfWeek,
-            streakAdvanced = streakAdvanced
+            streakAdvanced = streakAdvanced,
+            streakFroze = streakFroze
         )
 
         return newStats to transition

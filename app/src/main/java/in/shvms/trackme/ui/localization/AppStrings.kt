@@ -228,7 +228,15 @@ data class AppStrings(
     val revealMilestoneBody: String = "That's a real milestone. Keep it rolling.",
     val revealDefaultTitle: String = "Ride saved",
     val revealDefaultBody: String = "%s in %s. Great to have you out there.",
-    val revealDismiss: String = "Nice!"
+    val revealDismiss: String = "Nice!",
+
+    // B2 weekly recap + B3 streak (v1.6.0). Gain-framed only. %d = streak weeks.
+    val weeklyRecapTitle: String = "Your week in review",
+    val weeklyRecapRidesLabel: String = "Rides",
+    val weeklyRecapDistanceLabel: String = "Distance",
+    val weeklyRecapStreak: String = "%d weeks active in a row",
+    val weeklyRecapStreakOne: String = "You stayed active this week",
+    val weeklyRecapDismiss: String = "Nice week!"
 )
 
 val LocalAppStrings = staticCompositionLocalOf { AppStrings() }
@@ -407,7 +415,13 @@ fun getAppStrings(languageCode: String): AppStrings {
             revealMilestoneBody = "Todo un hito. Sigue así.",
             revealDefaultTitle = "Viaje guardado",
             revealDefaultBody = "%s en %s. Qué bueno verte en marcha.",
-            revealDismiss = "¡Genial!"
+            revealDismiss = "¡Genial!",
+            weeklyRecapTitle = "Tu semana en resumen",
+            weeklyRecapRidesLabel = "Viajes",
+            weeklyRecapDistanceLabel = "Distancia",
+            weeklyRecapStreak = "%d semanas activas seguidas",
+            weeklyRecapStreakOne = "Estuviste activo esta semana",
+            weeklyRecapDismiss = "¡Buena semana!"
         )
         "fr" -> AppStrings(
             ok = "OK",
@@ -581,7 +595,13 @@ fun getAppStrings(languageCode: String): AppStrings {
             revealMilestoneBody = "Un vrai cap franchi. Continuez comme ça.",
             revealDefaultTitle = "Trajet enregistré",
             revealDefaultBody = "%s en %s. Ravi de vous voir sur la route.",
-            revealDismiss = "Super !"
+            revealDismiss = "Super !",
+            weeklyRecapTitle = "Votre semaine en résumé",
+            weeklyRecapRidesLabel = "Trajets",
+            weeklyRecapDistanceLabel = "Distance",
+            weeklyRecapStreak = "%d semaines actives d'affilée",
+            weeklyRecapStreakOne = "Vous êtes resté actif cette semaine",
+            weeklyRecapDismiss = "Belle semaine !"
         )
         "de" -> AppStrings(
             ok = "OK",
@@ -755,7 +775,13 @@ fun getAppStrings(languageCode: String): AppStrings {
             revealMilestoneBody = "Ein echter Meilenstein. Bleib dran.",
             revealDefaultTitle = "Fahrt gespeichert",
             revealDefaultBody = "%s in %s. Schön, dass du unterwegs warst.",
-            revealDismiss = "Super!"
+            revealDismiss = "Super!",
+            weeklyRecapTitle = "Deine Woche im Rückblick",
+            weeklyRecapRidesLabel = "Fahrten",
+            weeklyRecapDistanceLabel = "Distanz",
+            weeklyRecapStreak = "%d Wochen in Folge aktiv",
+            weeklyRecapStreakOne = "Du warst diese Woche aktiv",
+            weeklyRecapDismiss = "Starke Woche!"
         )
         "hi" -> AppStrings(
             ok = "ठीक है",
@@ -929,7 +955,13 @@ fun getAppStrings(languageCode: String): AppStrings {
             revealMilestoneBody = "यह एक बड़ी उपलब्धि है। यूँ ही चलते रहें।",
             revealDefaultTitle = "राइड सेव हो गई",
             revealDefaultBody = "%s, %s में। आपको सफ़र पर देखकर अच्छा लगा।",
-            revealDismiss = "बढ़िया!"
+            revealDismiss = "बढ़िया!",
+            weeklyRecapTitle = "आपके सप्ताह का सारांश",
+            weeklyRecapRidesLabel = "राइड्स",
+            weeklyRecapDistanceLabel = "दूरी",
+            weeklyRecapStreak = "लगातार %d सप्ताह सक्रिय",
+            weeklyRecapStreakOne = "आप इस सप्ताह सक्रिय रहे",
+            weeklyRecapDismiss = "बढ़िया सप्ताह!"
         )
         "ja" -> AppStrings(
             ok = "OK",
@@ -1103,7 +1135,13 @@ fun getAppStrings(languageCode: String): AppStrings {
             revealMilestoneBody = "大きな節目です。この調子で。",
             revealDefaultTitle = "ライドを保存しました",
             revealDefaultBody = "%s・%s。お出かけお疲れさまでした。",
-            revealDismiss = "いいね！"
+            revealDismiss = "いいね！",
+            weeklyRecapTitle = "今週のふりかえり",
+            weeklyRecapRidesLabel = "ライド数",
+            weeklyRecapDistanceLabel = "距離",
+            weeklyRecapStreak = "%d 週連続でアクティブ",
+            weeklyRecapStreakOne = "今週もアクティブでした",
+            weeklyRecapDismiss = "良い一週間！"
         )
         "zh" -> AppStrings(
             ok = "确定",
@@ -1277,7 +1315,13 @@ fun getAppStrings(languageCode: String): AppStrings {
             revealMilestoneBody = "这是一个重要的里程碑。继续加油。",
             revealDefaultTitle = "已保存骑行",
             revealDefaultBody = "%s，用时 %s。很高兴看到你出行。",
-            revealDismiss = "赞！"
+            revealDismiss = "赞！",
+            weeklyRecapTitle = "本周回顾",
+            weeklyRecapRidesLabel = "骑行次数",
+            weeklyRecapDistanceLabel = "距离",
+            weeklyRecapStreak = "连续 %d 周保持活跃",
+            weeklyRecapStreakOne = "你这周保持了活跃",
+            weeklyRecapDismiss = "美好的一周！"
         )
         else -> AppStrings() // English default
     }
