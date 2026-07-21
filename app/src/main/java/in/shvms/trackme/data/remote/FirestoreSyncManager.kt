@@ -8,8 +8,11 @@ import `in`.shvms.trackme.data.local.entity.PostRideCalculation
 import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.utils.RideUtils
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +35,15 @@ class FirestoreSyncManager(
     private val errorLogger: `in`.shvms.trackme.utils.logger.ErrorLogger
 ) {
     private val firestore = FirebaseFirestore.getInstance()
-    private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // A background sync failure must never kill the process: an unhandled exception
+    // in a launch {} on this scope is fatal on Android (v1.5.11 signed-out crash).
+    private val syncScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, e ->
+            errorLogger.log("Unhandled sync coroutine failure")
+            errorLogger.recordException(e)
+        }
+    )
 
     private val _syncResult = MutableStateFlow<SyncResult>(SyncResult.Idle)
     val syncResult: StateFlow<SyncResult> = _syncResult.asStateFlow()
@@ -80,8 +91,9 @@ class FirestoreSyncManager(
                 val allRides = rideDao.getAllRidesWithPoints().first()
                 val unsyncedRides = allRides.filter { !it.ride.isSynced }
                 for (rideWithPoints in unsyncedRides) {
-                    uploadRideInternal(rideWithPoints.ride.id)
-                    uploaded++
+                    if (uploadRideInternal(rideWithPoints.ride.id)) {
+                        uploaded++
+                    }
                 }
 
                 // --- DOWNSTREAM: Cloud → Local (Full Sync All) ---
@@ -105,8 +117,9 @@ class FirestoreSyncManager(
             val allRides = rideDao.getAllRidesWithPoints().first()
             val unsyncedRides = allRides.filter { !it.ride.isSynced }
             for (rideWithPoints in unsyncedRides) {
-                uploadRideInternal(rideWithPoints.ride.id)
-                uploaded++
+                if (uploadRideInternal(rideWithPoints.ride.id)) {
+                    uploaded++
+                }
             }
 
             // --- DOWNSTREAM: Cloud → Local (Lazy Load Top 10 for Periodic Sync) ---
@@ -247,17 +260,26 @@ class FirestoreSyncManager(
     }
 
     fun uploadRide(rideId: Long) {
-        syncScope.launch {
+        // uploadRideInternal rethrows failures for syncAll()/syncPeriodic() to report;
+        // this fire-and-forget path must swallow them — the ride stays local and is
+        // retried by the next full sync pass.
+        syncScope.launchSyncTask(errorLogger, "uploadRide") {
             uploadRideInternal(rideId)
         }
     }
 
-    private suspend fun uploadRideInternal(rideId: Long) {
-        val user = authManager.currentUser.value ?: throw IllegalStateException("Not signed in")
+    /** @return true if this call uploaded the ride, false if it was skipped. */
+    private suspend fun uploadRideInternal(rideId: Long): Boolean {
+        val user = authManager.currentUser.value ?: run {
+            // Signed-out is a normal state, not an error: the ride is already saved
+            // locally and will sync after the next sign-in.
+            errorLogger.log("Skipped upload of ride $rideId: not signed in")
+            return false
+        }
         try {
             val rideWithPoints = rideDao.getRideWithPointsById(rideId)
                 ?: throw IllegalStateException("Ride $rideId was not found")
-            if (rideWithPoints.ride.isSynced) return
+            if (rideWithPoints.ride.isSynced) return false
 
             val rideDocRef = firestore.collection("users")
                 .document(user.uid)
@@ -291,6 +313,7 @@ class FirestoreSyncManager(
             rideDocRef.set(rideData).await()
             val updatedRide = rideWithPoints.ride.copy(isSynced = true, firestoreId = rideId.toString())
             rideDao.updateRide(updatedRide)
+            return true
         } catch (e: Exception) {
             errorLogger.log("Failed to upload ride $rideId")
             errorLogger.recordException(e)
@@ -460,5 +483,24 @@ class FirestoreSyncManager(
             errorLogger.recordException(e)
             Result.failure(e)
         }
+    }
+}
+
+/**
+ * Launches a fire-and-forget background task that must never crash the process:
+ * an exception escaping a bare launch {} is fatal on Android. Failures are
+ * breadcrumb-logged and swallowed; they are recorded at their throw sites.
+ */
+internal fun CoroutineScope.launchSyncTask(
+    errorLogger: `in`.shvms.trackme.utils.logger.ErrorLogger,
+    taskName: String,
+    block: suspend () -> Unit
+): Job = launch {
+    try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        errorLogger.log("Background task '$taskName' failed: ${e.message}")
     }
 }
