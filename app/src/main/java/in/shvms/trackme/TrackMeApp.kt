@@ -48,6 +48,10 @@ class TrackMeApp : Application() {
     lateinit var rideStatsStore: `in`.shvms.trackme.data.local.RideStatsStore
         private set
 
+    /** B1: durable one-shot post-ride reveal, produced at finalize, consumed once by Home. */
+    lateinit var pendingRevealStore: `in`.shvms.trackme.data.local.PendingRevealStore
+        private set
+
     lateinit var appUpdateChecker: `in`.shvms.trackme.ui.update.AppUpdateChecker
         private set
 
@@ -86,6 +90,7 @@ class TrackMeApp : Application() {
 
         preferencesManager = AppPreferencesManager(this)
         rideStatsStore = `in`.shvms.trackme.data.local.RideStatsStore(this)
+        pendingRevealStore = `in`.shvms.trackme.data.local.PendingRevealStore(this)
 
         database = Room.databaseBuilder(
             this,

@@ -215,7 +215,20 @@ data class AppStrings(
     val groupThisWeek: String = "This Week",
     val groupThisMonth: String = "This Month",
     val groupThisYear: String = "This Year",
-    val groupEarlier: String = "Earlier"
+    val groupEarlier: String = "Earlier",
+
+    // B1 post-ride reveal (v1.6.0). Gain-framed, bounded set. %s = distance/duration, %d = count.
+    val revealFirstRideTitle: String = "First ride saved!",
+    val revealFirstRideBody: String = "Welcome aboard. Every journey starts with one — nicely done.",
+    val revealDistancePrTitle: String = "New distance record!",
+    val revealDistancePrBody: String = "%s — your longest ride yet.",
+    val revealDurationPrTitle: String = "New time record!",
+    val revealDurationPrBody: String = "%s — your longest ride yet.",
+    val revealMilestoneTitle: String = "%d rides!",
+    val revealMilestoneBody: String = "That's a real milestone. Keep it rolling.",
+    val revealDefaultTitle: String = "Ride saved",
+    val revealDefaultBody: String = "%s in %s. Great to have you out there.",
+    val revealDismiss: String = "Nice!"
 )
 
 val LocalAppStrings = staticCompositionLocalOf { AppStrings() }
@@ -383,7 +396,18 @@ fun getAppStrings(languageCode: String): AppStrings {
             groupThisWeek = "Esta semana",
             groupThisMonth = "Este mes",
             groupThisYear = "Este año",
-            groupEarlier = "Anteriores"
+            groupEarlier = "Anteriores",
+            revealFirstRideTitle = "¡Primer viaje guardado!",
+            revealFirstRideBody = "Bienvenido. Todo viaje empieza por el primero: ¡bien hecho!",
+            revealDistancePrTitle = "¡Nuevo récord de distancia!",
+            revealDistancePrBody = "%s: tu viaje más largo hasta ahora.",
+            revealDurationPrTitle = "¡Nuevo récord de tiempo!",
+            revealDurationPrBody = "%s: tu viaje más largo hasta ahora.",
+            revealMilestoneTitle = "¡%d viajes!",
+            revealMilestoneBody = "Todo un hito. Sigue así.",
+            revealDefaultTitle = "Viaje guardado",
+            revealDefaultBody = "%s en %s. Qué bueno verte en marcha.",
+            revealDismiss = "¡Genial!"
         )
         "fr" -> AppStrings(
             ok = "OK",
@@ -546,7 +570,18 @@ fun getAppStrings(languageCode: String): AppStrings {
             groupThisWeek = "Cette semaine",
             groupThisMonth = "Ce mois-ci",
             groupThisYear = "Cette année",
-            groupEarlier = "Plus anciens"
+            groupEarlier = "Plus anciens",
+            revealFirstRideTitle = "Premier trajet enregistré !",
+            revealFirstRideBody = "Bienvenue. Chaque aventure commence par un premier trajet — bravo !",
+            revealDistancePrTitle = "Nouveau record de distance !",
+            revealDistancePrBody = "%s — votre plus long trajet à ce jour.",
+            revealDurationPrTitle = "Nouveau record de durée !",
+            revealDurationPrBody = "%s — votre plus long trajet à ce jour.",
+            revealMilestoneTitle = "%d trajets !",
+            revealMilestoneBody = "Un vrai cap franchi. Continuez comme ça.",
+            revealDefaultTitle = "Trajet enregistré",
+            revealDefaultBody = "%s en %s. Ravi de vous voir sur la route.",
+            revealDismiss = "Super !"
         )
         "de" -> AppStrings(
             ok = "OK",
@@ -709,7 +744,18 @@ fun getAppStrings(languageCode: String): AppStrings {
             groupThisWeek = "Diese Woche",
             groupThisMonth = "Diesen Monat",
             groupThisYear = "Dieses Jahr",
-            groupEarlier = "Älter"
+            groupEarlier = "Älter",
+            revealFirstRideTitle = "Erste Fahrt gespeichert!",
+            revealFirstRideBody = "Willkommen an Bord. Jede Reise beginnt mit der ersten – gut gemacht.",
+            revealDistancePrTitle = "Neuer Distanzrekord!",
+            revealDistancePrBody = "%s – deine längste Fahrt bisher.",
+            revealDurationPrTitle = "Neuer Zeitrekord!",
+            revealDurationPrBody = "%s – deine längste Fahrt bisher.",
+            revealMilestoneTitle = "%d Fahrten!",
+            revealMilestoneBody = "Ein echter Meilenstein. Bleib dran.",
+            revealDefaultTitle = "Fahrt gespeichert",
+            revealDefaultBody = "%s in %s. Schön, dass du unterwegs warst.",
+            revealDismiss = "Super!"
         )
         "hi" -> AppStrings(
             ok = "ठीक है",
@@ -872,7 +918,18 @@ fun getAppStrings(languageCode: String): AppStrings {
             groupThisWeek = "इस सप्ताह",
             groupThisMonth = "इस महीने",
             groupThisYear = "इस वर्ष",
-            groupEarlier = "पहले"
+            groupEarlier = "पहले",
+            revealFirstRideTitle = "पहली राइड सेव हो गई!",
+            revealFirstRideBody = "आपका स्वागत है। हर सफ़र पहली राइड से शुरू होता है — बढ़िया!",
+            revealDistancePrTitle = "नया दूरी रिकॉर्ड!",
+            revealDistancePrBody = "%s — अब तक की आपकी सबसे लंबी राइड।",
+            revealDurationPrTitle = "नया समय रिकॉर्ड!",
+            revealDurationPrBody = "%s — अब तक की आपकी सबसे लंबी राइड।",
+            revealMilestoneTitle = "%d राइड्स!",
+            revealMilestoneBody = "यह एक बड़ी उपलब्धि है। यूँ ही चलते रहें।",
+            revealDefaultTitle = "राइड सेव हो गई",
+            revealDefaultBody = "%s, %s में। आपको सफ़र पर देखकर अच्छा लगा।",
+            revealDismiss = "बढ़िया!"
         )
         "ja" -> AppStrings(
             ok = "OK",
@@ -1035,7 +1092,18 @@ fun getAppStrings(languageCode: String): AppStrings {
             groupThisWeek = "今週",
             groupThisMonth = "今月",
             groupThisYear = "今年",
-            groupEarlier = "それ以前"
+            groupEarlier = "それ以前",
+            revealFirstRideTitle = "初めてのライドを保存しました！",
+            revealFirstRideBody = "ようこそ。すべては最初の一歩から。お疲れさまでした！",
+            revealDistancePrTitle = "距離の新記録！",
+            revealDistancePrBody = "%s — これまでで最長のライドです。",
+            revealDurationPrTitle = "時間の新記録！",
+            revealDurationPrBody = "%s — これまでで最長のライドです。",
+            revealMilestoneTitle = "%d 回のライド！",
+            revealMilestoneBody = "大きな節目です。この調子で。",
+            revealDefaultTitle = "ライドを保存しました",
+            revealDefaultBody = "%s・%s。お出かけお疲れさまでした。",
+            revealDismiss = "いいね！"
         )
         "zh" -> AppStrings(
             ok = "确定",
@@ -1198,7 +1266,18 @@ fun getAppStrings(languageCode: String): AppStrings {
             groupThisWeek = "本周",
             groupThisMonth = "本月",
             groupThisYear = "今年",
-            groupEarlier = "更早"
+            groupEarlier = "更早",
+            revealFirstRideTitle = "已保存首次骑行！",
+            revealFirstRideBody = "欢迎加入。每段旅程都始于第一次——做得好！",
+            revealDistancePrTitle = "距离新纪录！",
+            revealDistancePrBody = "%s——你目前最长的一次骑行。",
+            revealDurationPrTitle = "时间新纪录！",
+            revealDurationPrBody = "%s——你目前最长的一次骑行。",
+            revealMilestoneTitle = "%d 次骑行！",
+            revealMilestoneBody = "这是一个重要的里程碑。继续加油。",
+            revealDefaultTitle = "已保存骑行",
+            revealDefaultBody = "%s，用时 %s。很高兴看到你出行。",
+            revealDismiss = "赞！"
         )
         else -> AppStrings() // English default
     }
