@@ -71,6 +71,13 @@ private fun lastKnownHomeCamera(prefs: android.content.SharedPreferences): Camer
     )
 }
 
+/** Unwrap the hosting Activity from a (possibly wrapped) Compose Context — for the B4 review flow. */
+private tailrec fun android.content.Context.findActivity(): android.app.Activity? = when (this) {
+    is android.app.Activity -> this
+    is android.content.ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 @Composable
 fun HomeScreen(
     onNavigateToEmergencySetup: () -> Unit = {},
@@ -260,7 +267,18 @@ fun HomeScreen(
         }
         PostRideRevealDialog(
             reveal = reveal,
-            onDismiss = { app.pendingRevealStore.consume(reveal.rideId) }
+            onDismiss = {
+                app.pendingRevealStore.consume(reveal.rideId)
+                // B4: dismissing a good-ride reveal is a peak moment — ask an eligible, happy
+                // user for a review (self-gated by ReviewPromptPolicy; OS throttles on top).
+                (context.findActivity())?.let { activity ->
+                    coroutineScope.launch {
+                        `in`.shvms.trackme.ui.review.ReviewPrompter.maybeRequest(
+                            activity, app.rideStatsStore.stats.value.totalRides
+                        )
+                    }
+                }
+            }
         )
     }
 
