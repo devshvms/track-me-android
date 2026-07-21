@@ -461,9 +461,12 @@ fun HomeScreen(
                                 viewModel.stopLiveShare(context)
                                 android.widget.Toast.makeText(context, "Live Location Sharing Stopped", android.widget.Toast.LENGTH_SHORT).show()
                             },
-                            containerColor = TrackMeGreen,
+                            // C1: semantic — green here means "a live share is ACTIVE", not
+                            // brand accent, so it stays green via the named success token
+                            // rather than moving to cyan with the other brand actions.
+                            containerColor = SuccessGreen,
                             // Keep this fixed token pair together under Material You; a
-                            // wallpaper-derived onSecondary may not contrast with GreenGo.
+                            // wallpaper-derived onSecondary may not contrast with SuccessGreen.
                             contentColor = Navy900,
                             shape = androidx.compose.foundation.shape.CircleShape
                         ) {

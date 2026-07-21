@@ -66,13 +66,31 @@ val Slate600 = BrandThemeConfig.slate600
 val Slate700 = BrandThemeConfig.slate700
 val Slate800 = BrandThemeConfig.slate800
 
+// --- Semantic tokens (C1) -----------------------------------------------------------------
+// Brand accent is CYAN and lives on MaterialTheme.colorScheme.primary/secondary. Green is
+// NEVER brand — it only ever means "success / active / positive state". Bind semantic green
+// through these explicitly named tokens, never through Material `secondary` and never through
+// a generic "TrackMeGreen" alias: that ambiguity is what shipped a green Start button in
+// 1.5.11 while the logo and store assets were cyan.
+
+/** Semantic success/active state (live share running, offline shield engaged). NOT brand. */
+val SuccessGreen = GreenGo
+/** Container tint for success surfaces on light/dark respectively. */
+val SuccessContainerLight = GreenContainerLight
+val SuccessContainerDark = GreenContainerDark
+
+/** Data-visualization series colors. Chart hues are data encoding, not brand or state. */
+val ChartSpeed = GreenGo
+val ChartAltitude = AmberWarn
+
 // Compatibility names keep the token migration scoped and low-risk. New UI should
 // use the semantic names above or MaterialTheme.colorScheme.
+// NOTE (C1): the former `TrackMeGreen`/`TrackMeGreenLight`/`TrackMeGreenDark` aliases were
+// removed. They all collapsed to `GreenGo`, which made "brand accent" and "semantic go"
+// indistinguishable at the call site. Use `colorScheme.primary` for brand actions or
+// `SuccessGreen`/`ChartSpeed` for the semantic cases.
 val TrackMeBlue = CyanDeep
 val TrackMeBlueDark = CyanDeep
-val TrackMeGreen = GreenGo
-val TrackMeGreenLight = GreenGo
-val TrackMeGreenDark = GreenGo
 val TrackMeRed = RedSos
 val TrackMeRedLight = RedSos
 val TrackMeAmber = AmberWarn
