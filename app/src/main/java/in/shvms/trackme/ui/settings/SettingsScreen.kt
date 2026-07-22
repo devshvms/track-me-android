@@ -561,7 +561,7 @@ fun SettingsScreen(
                         val app = context.applicationContext as? TrackMeApp
                         app?.let { trackMeApp ->
                             Toast.makeText(context, "Checking Google Play Store...", Toast.LENGTH_SHORT).show()
-                            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 val hasUpdate = trackMeApp.appUpdateChecker.checkForUpdate(forceCheck = true)
                                 if (!hasUpdate) {
                                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
