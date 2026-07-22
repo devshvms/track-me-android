@@ -191,7 +191,7 @@ class EmergencyBroadcastWorker(
                         SmsSendResult.ACCEPTED -> {
                             accepted++
                             firestoreSyncManager.logEmergencyMessage(System.currentTimeMillis(), smsMessage, contact.phoneNumber, "EMERGENCY")
-                            Log.d("EmergencyWorker", "Submitted SMS emergency message to ${contact.phoneNumber}")
+                            Log.d("EmergencyWorker", "Submitted SMS emergency message to ***${contact.phoneNumber.takeLast(4)}")
                         }
                         SmsSendResult.REJECTED, SmsSendResult.UNKNOWN -> failed++
                     }
