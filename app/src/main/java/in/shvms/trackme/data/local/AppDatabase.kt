@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         EmergencyContactEntity::class,
         EmergencySettingsEntity::class
     ], 
-    version = 8, 
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -107,6 +107,12 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE `rides` ADD COLUMN `persona` TEXT DEFAULT 'AUTO' NOT NULL")
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_gps_points_rideId ON gps_points(rideId)")
             }
         }
     }

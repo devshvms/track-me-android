@@ -3,7 +3,7 @@ package `in`.shvms.trackme.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "gps_points")
+@Entity(tableName = "gps_points", indices = [androidx.room.Index("rideId")])
 data class GPSPointEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
