@@ -1,7 +1,5 @@
 package `in`.shvms.trackme.ui.home
 
-import android.content.Context
-import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -16,6 +14,8 @@ import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -48,6 +48,21 @@ class HomeViewModel(
     private val emergencyDao: EmergencyDao,
     private val liveShareManager: LiveShareManager
 ) : ViewModel() {
+
+    // One-shot, Context-free UI events (service commands + toast-worthy outcomes). The
+    // ViewModel must not hold a Context, so it emits data describing WHAT happened; HomeScreen
+    // (which has a real Context/LocalAppStrings) decides how to present it.
+    sealed class UiEvent {
+        data class SendServiceCommand(val action: String) : UiEvent()
+        object LiveShareAuthRequired : UiEvent()
+        data class LiveShareStarted(val isTrackingActive: Boolean) : UiEvent()
+        object LiveShareAuthExpired : UiEvent()
+        data class LiveShareGracefulError(val message: String) : UiEvent()
+        object LiveShareStopped : UiEvent()
+    }
+
+    private val _uiEvent = MutableSharedFlow<UiEvent>()
+    val uiEvent: SharedFlow<UiEvent> = _uiEvent
 
     private val trackingStatsGroup1 = combine(
         trackingManager.trackingState,
@@ -134,28 +149,24 @@ class HomeViewModel(
         return String.format(Locale.getDefault(), "%.1f km/h", speedMps * 3.6f)
     }
 
-    fun startTracking(context: Context, persona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO) {
+    fun startTracking(persona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO) {
         trackingManager.setSelectedPersona(persona)
-        sendCommandToService(context, TrackingService.ACTION_START_OR_RESUME_SERVICE)
+        sendCommandToService(TrackingService.ACTION_START_OR_RESUME_SERVICE)
     }
 
-    fun pauseTracking(context: Context) {
-        sendCommandToService(context, TrackingService.ACTION_PAUSE_SERVICE)
+    fun pauseTracking() {
+        sendCommandToService(TrackingService.ACTION_PAUSE_SERVICE)
     }
 
-    fun stopTracking(context: Context, discardNearEmptyRide: Boolean = false) {
+    fun stopTracking(discardNearEmptyRide: Boolean = false) {
         sendCommandToService(
-            context,
             if (discardNearEmptyRide) TrackingService.ACTION_DISCARD_NEAR_EMPTY_RIDE
             else TrackingService.ACTION_STOP_SERVICE
         )
     }
 
-    private fun sendCommandToService(context: Context, action: String) {
-        val intent = Intent(context, TrackingService::class.java).apply {
-            this.action = action
-        }
-        context.startService(intent)
+    private fun sendCommandToService(action: String) {
+        viewModelScope.launch { _uiEvent.emit(UiEvent.SendServiceCommand(action)) }
     }
 
     private var sosStartTimeMs: Long = 0L
@@ -178,57 +189,39 @@ class HomeViewModel(
         emergencyManager.stopEmergency()
     }
 
-    private fun getStrings(context: Context): `in`.shvms.trackme.ui.localization.AppStrings {
-        val prefs = context.getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
-        val lang = prefs.getString("app_language", "en") ?: "en"
-        return `in`.shvms.trackme.ui.localization.getAppStrings(lang)
-    }
-
-    fun startLiveShare(context: Context, durationMinutes: Int, stopOnRideEnd: Boolean) {
+    fun startLiveShare(durationMinutes: Int, stopOnRideEnd: Boolean) {
         viewModelScope.launch {
             if (authManager.currentUser.value == null) {
-                val strings = getStrings(context)
-                android.widget.Toast.makeText(context, strings.liveShareAuthRequired, android.widget.Toast.LENGTH_LONG).show()
+                _uiEvent.emit(UiEvent.LiveShareAuthRequired)
                 return@launch
             }
             val username = authManager.currentUser.value?.displayName
             val result = liveShareManager.startSession(durationMinutes, username, stopOnRideEnd)
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                val strings = getStrings(context)
-                if (result.isSuccess) {
-                    val isTracking = uiState.value.trackingState == TrackingState.TRACKING || uiState.value.trackingState == TrackingState.PAUSED
-                    val msg = if (isTracking) strings.liveShareReadyActive else strings.liveShareReadyIdle
-                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
-                } else {
-                    val error = result.exceptionOrNull()
-                    val msg = if (LiveShareManager.isAuthenticationError(error)) {
-                        strings.liveShareAuthExpired
-                    } else {
-                        LiveShareManager.formatGracefulError(error)
-                    }
-                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
-                }
+            if (result.isSuccess) {
+                val isTracking = uiState.value.trackingState == TrackingState.TRACKING || uiState.value.trackingState == TrackingState.PAUSED
+                _uiEvent.emit(UiEvent.LiveShareStarted(isTracking))
+            } else {
+                emitLiveShareError(result.exceptionOrNull())
             }
         }
     }
 
-    fun stopLiveShare(context: Context, reason: String = "Live sharing stopped manually by user.") {
+    fun stopLiveShare(reason: String = "Live sharing stopped manually by user.") {
         viewModelScope.launch {
             val result = liveShareManager.stopSession(reason = reason)
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                val strings = getStrings(context)
-                if (result.isSuccess) {
-                    android.widget.Toast.makeText(context, strings.liveShareStoppedToast, android.widget.Toast.LENGTH_SHORT).show()
-                } else {
-                    val error = result.exceptionOrNull()
-                    val msg = if (LiveShareManager.isAuthenticationError(error)) {
-                        strings.liveShareAuthExpired
-                    } else {
-                        LiveShareManager.formatGracefulError(error)
-                    }
-                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
-                }
+            if (result.isSuccess) {
+                _uiEvent.emit(UiEvent.LiveShareStopped)
+            } else {
+                emitLiveShareError(result.exceptionOrNull())
             }
+        }
+    }
+
+    private suspend fun emitLiveShareError(error: Throwable?) {
+        if (LiveShareManager.isAuthenticationError(error)) {
+            _uiEvent.emit(UiEvent.LiveShareAuthExpired)
+        } else {
+            _uiEvent.emit(UiEvent.LiveShareGracefulError(LiveShareManager.formatGracefulError(error)))
         }
     }
 }

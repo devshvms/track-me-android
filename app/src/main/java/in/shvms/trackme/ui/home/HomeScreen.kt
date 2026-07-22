@@ -146,6 +146,34 @@ fun HomeScreen(
         app.consumeRecoveryNotice()
     }
 
+    // HomeViewModel is Context-free; it emits WHAT happened (service commands, live-share
+    // outcomes) and this screen decides how to present it (Intent/Toast), since only the
+    // screen legitimately holds a Context.
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { event ->
+            when (event) {
+                is HomeViewModel.UiEvent.SendServiceCommand -> {
+                    val intent = android.content.Intent(context, `in`.shvms.trackme.service.TrackingService::class.java).apply {
+                        action = event.action
+                    }
+                    context.startService(intent)
+                }
+                HomeViewModel.UiEvent.LiveShareAuthRequired ->
+                    android.widget.Toast.makeText(context, strings.liveShareAuthRequired, android.widget.Toast.LENGTH_LONG).show()
+                is HomeViewModel.UiEvent.LiveShareStarted -> {
+                    val msg = if (event.isTrackingActive) strings.liveShareReadyActive else strings.liveShareReadyIdle
+                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                }
+                HomeViewModel.UiEvent.LiveShareAuthExpired ->
+                    android.widget.Toast.makeText(context, strings.liveShareAuthExpired, android.widget.Toast.LENGTH_LONG).show()
+                is HomeViewModel.UiEvent.LiveShareGracefulError ->
+                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_LONG).show()
+                HomeViewModel.UiEvent.LiveShareStopped ->
+                    android.widget.Toast.makeText(context, strings.liveShareStoppedToast, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     val receiver = remember {
         object : android.content.BroadcastReceiver() {
             override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
@@ -243,7 +271,7 @@ fun HomeScreen(
                 val duration = Duration.between(Instant.now(), uiState.liveShareState.expiresAt)
                 if (duration.isNegative || duration.isZero) {
                     countdownText = strings.expired
-                    viewModel.stopLiveShare(context, "Max ride duration reached, stopping.")
+                    viewModel.stopLiveShare("Max ride duration reached, stopping.")
                     break
                 }
                 val hours = duration.toHours()
@@ -487,7 +515,7 @@ fun HomeScreen(
                                 // Fallback if device doesn't support this intent
                             }
                         }
-                        viewModel.startTracking(context, persona)
+                        viewModel.startTracking(persona)
                     },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -515,7 +543,7 @@ fun HomeScreen(
                     ) {
                         FloatingActionButton(
                             onClick = {
-                                viewModel.stopLiveShare(context)
+                                viewModel.stopLiveShare()
                                 android.widget.Toast.makeText(context, "Live Location Sharing Stopped", android.widget.Toast.LENGTH_SHORT).show()
                             },
                             // C1: semantic — green here means "a live share is ACTIVE", not
@@ -565,9 +593,9 @@ fun HomeScreen(
                     isOffline = isOffline,
                     onPauseToggle = {
                         if (uiState.trackingState == TrackingState.TRACKING) {
-                            viewModel.pauseTracking(context)
+                            viewModel.pauseTracking()
                         } else {
-                            viewModel.startTracking(context, uiState.selectedPersona)
+                            viewModel.startTracking(uiState.selectedPersona)
                         }
                     },
                     onStopRide = {
@@ -576,7 +604,7 @@ fun HomeScreen(
                         ) {
                             showDiscardRideDialog = true
                         } else {
-                            viewModel.stopTracking(context)
+                            viewModel.stopTracking()
                             android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
                         }
                     },
@@ -585,10 +613,10 @@ fun HomeScreen(
                     onOpenEmergencySetup = onNavigateToEmergencySetup,
                     onDismissSosPermissionNotice = { app.setSmsPermissionRevokedNotice(false) },
                     onStartShare = {
-                        viewModel.startLiveShare(context, durationMinutes = 1440, stopOnRideEnd = true)
+                        viewModel.startLiveShare(durationMinutes = 1440, stopOnRideEnd = true)
                     },
                     onStopShare = {
-                        viewModel.stopLiveShare(context)
+                        viewModel.stopLiveShare()
                         android.widget.Toast.makeText(context, "Live Location Sharing Stopped", android.widget.Toast.LENGTH_SHORT).show()
                     },
                     onSendShare = {
@@ -645,7 +673,7 @@ fun HomeScreen(
                     confirmButton = {
                         TextButton(onClick = {
                             showDiscardRideDialog = false
-                            viewModel.stopTracking(context, discardNearEmptyRide = true)
+                            viewModel.stopTracking(discardNearEmptyRide = true)
                         }) {
                             Text(strings.discardRide)
                         }
@@ -653,7 +681,7 @@ fun HomeScreen(
                     dismissButton = {
                         TextButton(onClick = {
                             showDiscardRideDialog = false
-                            viewModel.stopTracking(context)
+                            viewModel.stopTracking()
                             android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
                         }) {
                             Text(strings.saveAnyway)
