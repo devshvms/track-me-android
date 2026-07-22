@@ -139,6 +139,8 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
                     ?: return@withContext Result.failure(Exception("Could not verify your session. Please sign in again."))
                 val url = URL(AppConfig.LIVE_SHARE_BASE_URL + "/api/export/request")
                 val conn = url.openConnection() as HttpURLConnection
+                conn.connectTimeout = 15_000
+                conn.readTimeout = 15_000
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")
                 conn.setRequestProperty("Authorization", "Bearer $idToken")

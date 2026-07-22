@@ -58,6 +58,8 @@ class LiveShareManager {
             val token = firebaseIdToken()
             val url = URL(AppConfig.LIVE_SHARE_BASE_URL + AppConfig.LIVE_SHARE_START_ENDPOINT)
             val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 15_000
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setBearerToken(token)
@@ -129,6 +131,8 @@ class LiveShareManager {
             val endpoint = String.format(AppConfig.LIVE_SHARE_LOCATION_ENDPOINT_TEMPLATE, currentState.sessionId)
             val url = URL(AppConfig.LIVE_SHARE_BASE_URL + endpoint)
             val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 15_000
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setBearerToken(token)
@@ -175,6 +179,8 @@ class LiveShareManager {
             val endpoint = String.format(AppConfig.LIVE_SHARE_STOP_ENDPOINT_TEMPLATE, currentState.sessionId)
             val url = URL(AppConfig.LIVE_SHARE_BASE_URL + endpoint)
             val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 15_000
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setBearerToken(token)

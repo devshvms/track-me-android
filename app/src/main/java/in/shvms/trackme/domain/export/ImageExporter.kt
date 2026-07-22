@@ -55,6 +55,8 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
         val urlString = "${AppConfig.STATIC_MAP_BASE_URL}?size=${reqW}x${reqH}&scale=${AppConfig.HQ_IMAGE_SCALE}&path=color:${AppConfig.MAP_LINE_COLOR}|weight:${AppConfig.MAP_LINE_WEIGHT}|enc:$encodedPath&key=$apiKey"
         
         val connection = URL(urlString).openConnection() as java.net.HttpURLConnection
+        connection.connectTimeout = 15_000
+        connection.readTimeout = 15_000
         connection.setRequestProperty("X-Android-Package", context.packageName)
         connection.setRequestProperty("X-Android-Cert", "CBD91D52A6677AC615872A0CA72E172B9E82062E") 
         
