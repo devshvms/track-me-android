@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.ui.components.icon
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.*
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -343,7 +344,11 @@ fun RideHistoryCard(
     val personaObj = remember(ride.persona) {
         runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
     }
-    val rideTitle = "${personaObj.emoji} " + (ride.title ?: formatDateTime(ride.startTime))
+    // The persona is now conveyed by an icon next to the title (see the header Row below), not
+    // an emoji baked into the title string. The accessibility description still needs it in
+    // words though — a screen reader can't see the icon — so it's added there explicitly
+    // instead of riding along inside rideTitle.
+    val rideTitle = ride.title ?: formatDateTime(ride.startTime)
     val distanceKm = (ride.postRideCalculation?.distance ?: 0.0) / 1000.0
     val distanceText = String.format(Locale.getDefault(), "%.1f km", distanceKm)
     val durationText = formatDuration((ride.endTime ?: ride.startTime) - ride.startTime)
@@ -355,7 +360,7 @@ fun RideHistoryCard(
     val cardDescription = String.format(
         Locale.getDefault(),
         strings.rideCardAccessibilityDescription,
-        rideTitle,
+        "${personaObj.displayName} - $rideTitle",
         formatDateTime(ride.startTime),
         distanceText,
         durationText,
@@ -405,14 +410,25 @@ fun RideHistoryCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = rideTitle,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.weight(1f)
-                    )
+                    ) {
+                        Icon(
+                            imageVector = personaObj.icon(),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = rideTitle,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     Spacer(modifier = Modifier.width(6.dp))
 
                     val isSyncedToCloud = ride.firestoreId != null

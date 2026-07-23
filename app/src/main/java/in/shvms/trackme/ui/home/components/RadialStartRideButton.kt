@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.ui.components.icon
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -171,9 +172,11 @@ fun RadialStartRideButton(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = persona.emoji,
-                        fontSize = 24.sp
+                    Icon(
+                        imageVector = persona.icon(),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(28.dp)
                     )
                 }
             }
@@ -313,45 +316,35 @@ fun RadialStartRideButton(
                 val onStartButton = MaterialTheme.colorScheme.onPrimary
                 val currentLaunch = launchedPersona
                 if (currentLaunch != null) {
-                    Text(
-                        text = currentLaunch.emoji,
-                        fontSize = 20.sp
-                    )
-                    Text(
-                        text = "STARTING",
-                        color = onStartButton,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = currentLaunch.displayName.uppercase(),
-                        color = onStartButton,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black
+                    // A persona has been selected (drag released) and the ride is about to
+                    // start: show just its icon, no text — the outer radar pulse ring plus the
+                    // parent's merged accessibility stateDescription ("Starting X") already
+                    // communicate the confirmation, so a text label here is redundant clutter.
+                    Icon(
+                        imageVector = currentLaunch.icon(),
+                        contentDescription = null,
+                        tint = onStartButton,
+                        modifier = Modifier.size(40.dp)
                     )
                 } else if (isPressed) {
                     val currentHover = hoveredPersona
                     if (currentHover != null) {
-                        Text(
-                            text = currentHover.emoji,
-                            fontSize = 16.sp
-                        )
-                        Text(
-                            text = currentHover.displayName.uppercase(),
-                            color = onStartButton,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black
-                        )
-                        Text(
-                            text = "RELEASE",
-                            color = onStartButton,
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold
+                        // Actively hovering a specific persona while dragging: icon only, no
+                        // text — same reasoning as the launched state above.
+                        Icon(
+                            imageVector = currentHover.icon(),
+                            contentDescription = null,
+                            tint = onStartButton,
+                            modifier = Modifier.size(36.dp)
                         )
                     } else {
-                        Text(
-                            text = "✨",
-                            fontSize = 16.sp
+                        // No persona hovered yet (still over the center = AUTO). This is
+                        // onboarding guidance, not a persona selection, so it keeps its label.
+                        Icon(
+                            imageVector = RidePersona.AUTO.icon(),
+                            contentDescription = null,
+                            tint = onStartButton,
+                            modifier = Modifier.size(24.dp)
                         )
                         Text(
                             text = "AUTO",

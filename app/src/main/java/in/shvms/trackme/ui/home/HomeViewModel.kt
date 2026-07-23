@@ -27,9 +27,13 @@ data class HomeUiState(
     val pathPoints: List<LatLng> = emptyList(),
     val distanceText: String = "0.00 km",
     val durationText: String = "00:00:00",
+    /** Total wall-clock time since start, including paused segments — see [formatElapsedDuration]. */
+    val elapsedDurationText: String = "Total 00:00:00",
     val distanceMeters: Float = 0f,
     val durationMillis: Long = 0L,
     val speedText: String = "0.0 km/h",
+    /** Only meaningful/shown for [in.shvms.trackme.domain.model.RidePersona.WALK] — see [formatPace]. */
+    val paceText: String = "--:-- /km",
     val isEmergencyActive: Boolean = false,
     val isEmergencyReady: Boolean = false,
     val timeSinceLastGps: Long = 0L,
@@ -72,12 +76,21 @@ class HomeViewModel(
         Triple(state, points, distance)
     }
 
+    /** [Triple] can't hold 4 values, so duration/speed/GPS-age/elapsed share one small tuple. */
+    private data class DurationSpeedTuple(
+        val durationMillis: Long,
+        val speedMps: Float,
+        val timeSinceLastGps: Long,
+        val elapsedMillis: Long
+    )
+
     private val trackingStatsGroup2 = combine(
         trackingManager.rideDurationInMillis,
         trackingManager.currentSpeed,
-        trackingManager.timeSinceLastGps
-    ) { duration, speed, timeSinceLastGps ->
-        Triple(duration, speed, timeSinceLastGps)
+        trackingManager.timeSinceLastGps,
+        trackingManager.elapsedDurationInMillis
+    ) { duration, speed, timeSinceLastGps, elapsed ->
+        DurationSpeedTuple(duration, speed, timeSinceLastGps, elapsed)
     }
 
     private val trackingStatsGroup3 = combine(
@@ -97,11 +110,13 @@ class HomeViewModel(
             trackingState = g1.first,
             pathPoints = g1.second,
             distanceText = formatDistance(g1.third),
-            durationText = formatDuration(g2.first),
+            durationText = formatDuration(g2.durationMillis),
+            elapsedDurationText = formatElapsedDuration(g2.elapsedMillis),
             distanceMeters = g1.third,
-            durationMillis = g2.first,
-            speedText = formatSpeed(g2.second),
-            timeSinceLastGps = g2.third,
+            durationMillis = g2.durationMillis,
+            speedText = formatSpeed(g2.speedMps),
+            paceText = formatPace(g2.speedMps),
+            timeSinceLastGps = g2.timeSinceLastGps,
             isAutoPaused = g3.first,
             inferredActivityType = g3.second,
             selectedPersona = g3.third
@@ -147,6 +162,35 @@ class HomeViewModel(
 
     private fun formatSpeed(speedMps: Float): String {
         return String.format(Locale.getDefault(), "%.1f km/h", speedMps * 3.6f)
+    }
+
+    /**
+     * Total wall-clock time since the ride started, including paused segments — shown as a
+     * smaller caption under the (active, paused-excluded) headline DURATION stat, for every
+     * persona. Reuses [formatDuration]'s HH:MM:SS formatting so the two stay visually aligned.
+     */
+    private fun formatElapsedDuration(millis: Long): String {
+        return "Total ${formatDuration(millis)}"
+    }
+
+    /**
+     * Walking pace (minutes:seconds per km) computed from the same live GPS speed that feeds
+     * [formatSpeed] — a real-time pace, matching how fitness apps show "current pace" (not an
+     * average over the whole ride). Shown instead of [formatSpeed] only for
+     * [in.shvms.trackme.domain.model.RidePersona.WALK]; cycling/motorbike/car keep live speed,
+     * where km/h is the natural unit.
+     */
+    private fun formatPace(speedMps: Float): String {
+        // Below ~0.1 m/s (stopped/near-stopped) pace would blow up toward infinity — show a
+        // placeholder instead of a meaningless huge number.
+        if (speedMps < 0.1f) return "--:-- /km"
+        val paceSecondsPerKm = 1000f / speedMps
+        val minutes = (paceSecondsPerKm / 60).toInt()
+        val seconds = (paceSecondsPerKm % 60).toInt()
+        // Guard the same way at the top end (very slow shuffling) so the stat never shows an
+        // absurd triple-digit minute value.
+        if (minutes >= 60) return "--:-- /km"
+        return String.format(Locale.getDefault(), "%d:%02d /km", minutes, seconds)
     }
 
     fun startTracking(persona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO) {

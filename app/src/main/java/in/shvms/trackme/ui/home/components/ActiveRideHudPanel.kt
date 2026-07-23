@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import `in`.shvms.trackme.service.TrackingState
@@ -56,7 +57,12 @@ import kotlin.math.roundToInt
  * Production-ready heads-up display (HUD) panel rendered at the bottom of the active ride screen.
  *
  * Features:
- * - Real-time metrics display: Distance, Duration, and Speed formatted cleanly.
+ * - Real-time metrics display: Distance, Duration (+ total elapsed time), and Speed/Pace
+ *   formatted cleanly. Duration shows a smaller "elapsed" sub-value beneath it — the active
+ *   (moving) time is the headline stat, total wall-clock time (including pauses) is secondary,
+ *   for every persona. WALK shows PACE instead of SPEED as its third stat; all other personas
+ *   keep live speed — see `RadialStartRideButton`/persona docs for why (a walker cares about
+ *   min/km, a cyclist or driver cares about km/h).
  * - Interactive slide-to-stop mechanism with acknowledgement animations and physical haptics.
  * - Pause/Resume toggle with smooth scale bounce feedback.
  * - Persona badge and live share status indicator.
@@ -66,7 +72,11 @@ fun ActiveRideHudPanel(
     trackingState: TrackingState,
     distanceText: String,
     durationText: String,
+    /** Total wall-clock time since the ride started, including any paused segments. */
+    elapsedDurationText: String,
     speedText: String,
+    /** Only shown for [RidePersona.WALK] (replaces [speedText]) — see the class doc. */
+    paceText: String,
     selectedPersona: RidePersona,
     isAutoPaused: Boolean,
     timeSinceLastGps: Long,
@@ -112,13 +122,24 @@ fun ActiveRideHudPanel(
                 shadowElevation = 2.dp,
                 modifier = Modifier.padding(horizontal = 4.dp)
             ) {
-                Text(
-                    text = "${selectedPersona.emoji} ${selectedPersona.displayName}",
-                    color = Color.Black,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                )
+                ) {
+                    Icon(
+                        imageVector = selectedPersona.icon(),
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = selectedPersona.displayName,
+                        color = Color.Black,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             if (trackingState == TrackingState.GPS_LOST || trackingState == TrackingState.GPS_DISABLED || trackingState == TrackingState.STORAGE_LOW) {
@@ -255,8 +276,12 @@ fun ActiveRideHudPanel(
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     StatItem(label = "DISTANCE", value = distanceText)
-                    StatItem(label = "DURATION", value = durationText)
-                    StatItem(label = "SPEED", value = speedText)
+                    StatItem(label = "DURATION", value = durationText, subValue = elapsedDurationText)
+                    if (selectedPersona == RidePersona.WALK) {
+                        StatItem(label = "PACE", value = paceText)
+                    } else {
+                        StatItem(label = "SPEED", value = speedText)
+                    }
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
@@ -356,8 +381,13 @@ fun ActiveRideHudPanel(
     }
 }
 
+/**
+ * @param subValue Optional smaller caption rendered just below [value] — currently used to show
+ * total elapsed (wall-clock) time under the active-duration headline stat. Null for stats that
+ * don't need a secondary line.
+ */
 @Composable
-private fun StatItem(label: String, value: String) {
+private fun StatItem(label: String, value: String, subValue: String? = null) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = label,
@@ -371,6 +401,14 @@ private fun StatItem(label: String, value: String) {
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.ExtraBold
         )
+        if (subValue != null) {
+            Text(
+                text = subValue,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
