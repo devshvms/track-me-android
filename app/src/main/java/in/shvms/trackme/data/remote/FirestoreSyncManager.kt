@@ -21,6 +21,52 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+/**
+ * Coerce a Firestore-decoded value into epoch-milliseconds.
+ * Handles Android-written Long (ms), iOS-written com.google.firebase.Timestamp,
+ * and defensively a numeric Double (seconds vs ms heuristic) or a java.util.Date.
+ * Returns null only when the value is genuinely absent/uninterpretable.
+ */
+internal fun coerceEpochMillis(value: Any?): Long? = when (value) {
+    null -> null
+    is Long -> value
+    is Int -> value.toLong()
+    is com.google.firebase.Timestamp -> value.toDate().time
+    is java.util.Date -> value.time
+    is Double -> {
+        // Firestore may surface a whole number as Double. Disambiguate s vs ms:
+        // anything below ~10^11 is implausible as ms (that's year 1973) → treat as seconds.
+        if (value < 100_000_000_000.0) (value * 1000.0).toLong() else value.toLong()
+    }
+    is Number -> value.toLong()   // fallback for any other numeric wrapper
+    else -> null
+}
+
+// Pure. distanceMeters mirrors GPSProcessor's GeoDistanceCalculator seam so tests inject haversine.
+internal fun computeCalcFromPoints(
+    points: List<GPSPointEntity>,
+    distanceMeters: (a: GPSPointEntity, b: GPSPointEntity) -> Float
+): PostRideCalculation {
+    if (points.size < 2) return PostRideCalculation(0f, 0.0, 0f, 0L)
+    var totalDistance = 0.0
+    var activeTimeMs = 0L
+    var maxSpeed = 0f
+    for (i in 1 until points.size) {
+        val prev = points[i - 1]; val cur = points[i]
+        if (cur.speed > maxSpeed) maxSpeed = cur.speed
+        if (!prev.isPaused && !cur.isPaused) {
+            totalDistance += distanceMeters(prev, cur)
+            val gap = cur.timestamp - prev.timestamp
+            if (gap in 1..60_000) activeTimeMs += gap   // ignore gaps > 60s (matches processor intent)
+        }
+    }
+    if (points[0].speed > maxSpeed) maxSpeed = points[0].speed
+    val avgSpeed = if (activeTimeMs > 0) (totalDistance / (activeTimeMs / 1000f)).toFloat() else 0f
+    val total = points.last().timestamp - points.first().timestamp
+    val pauseMs = maxOf(0L, total - activeTimeMs)
+    return PostRideCalculation(maxSpeed, totalDistance, avgSpeed, pauseMs)
+}
+
 sealed class SyncResult {
     object Idle : SyncResult()
     object Syncing : SyncResult()
@@ -176,6 +222,7 @@ class FirestoreSyncManager(
     }
 
     suspend fun downloadNextBatch(uid: String, batchSize: Int = 10): Int {
+        // TODO(cross-platform sync): Full mixed-type pagination requires a canonical numeric field (startTimeMs: Long). Firestore range filters are type-scoped.
         val existingFirestoreIds = rideDao.getAllRidesWithPoints().first()
             .mapNotNull { it.ride.firestoreId }
             .toSet()
@@ -209,8 +256,8 @@ class FirestoreSyncManager(
     private suspend fun insertRideDocument(doc: com.google.firebase.firestore.DocumentSnapshot): Boolean {
         return try {
             val docId = doc.id
-            val startTime = doc.getLong("startTime") ?: return false
-            val endTime = doc.getLong("endTime")
+            val startTime = coerceEpochMillis(doc.get("startTime")) ?: return false
+            val endTime = coerceEpochMillis(doc.get("endTime"))
             val sourceInfo = doc.getString("sourceInfo") ?: "Cloud Sync"
             val title = doc.getString("title") ?: RideUtils.getDefaultTitle(startTime)
 
@@ -219,7 +266,34 @@ class FirestoreSyncManager(
             val avgSpeed = (doc.getDouble("avgSpeed") ?: 0.0).toFloat()
             val pauseDuration = doc.getLong("pauseDuration") ?: 0L
 
-            val calc = PostRideCalculation(maxSpeed, distance, avgSpeed, pauseDuration)
+            val docHasStats = doc.get("distance") != null
+
+            @Suppress("UNCHECKED_CAST")
+            val pointsList = doc.get("points") as? List<Map<String, Any>> ?: emptyList()
+            val gpsPoints = pointsList.mapIndexed { index, map ->
+                GPSPointEntity(
+                    rideId = 0L,
+                    latitude = (map["lat"] as? Double) ?: 0.0,
+                    longitude = (map["lng"] as? Double) ?: 0.0,
+                    altitude = (map["altitude"] as? Double) ?: 0.0,
+                    accuracy = ((map["accuracy"] as? Double) ?: 0.0).toFloat(),
+                    speed = ((map["speed"] as? Double) ?: 0.0).toFloat(),
+                    timestamp = coerceEpochMillis(map["timestamp"]) ?: (startTime + index * 1000L),
+                    isPaused = (map["isPaused"] as? Boolean) ?: false
+                )
+            }
+
+            val calc = if (docHasStats) {
+                PostRideCalculation(maxSpeed, distance, avgSpeed, pauseDuration)
+            } else if (gpsPoints.isNotEmpty()) {
+                computeCalcFromPoints(gpsPoints) { a, b ->
+                    val r = FloatArray(1)
+                    android.location.Location.distanceBetween(a.latitude, a.longitude, b.latitude, b.longitude, r)
+                    r[0]
+                }
+            } else {
+                PostRideCalculation(0f, 0.0, 0f, 0L)
+            }
 
             val persona = doc.getString("persona") ?: "AUTO"
             val newRide = RideEntity(
@@ -234,22 +308,9 @@ class FirestoreSyncManager(
             )
             val rideId = rideDao.insertRide(newRide)
 
-            @Suppress("UNCHECKED_CAST")
-            val pointsList = doc.get("points") as? List<Map<String, Any>> ?: emptyList()
-            val gpsPoints = pointsList.mapIndexed { index, map ->
-                GPSPointEntity(
-                    rideId = rideId,
-                    latitude = (map["lat"] as? Double) ?: 0.0,
-                    longitude = (map["lng"] as? Double) ?: 0.0,
-                    altitude = (map["altitude"] as? Double) ?: 0.0,
-                    accuracy = ((map["accuracy"] as? Double) ?: 0.0).toFloat(),
-                    speed = ((map["speed"] as? Double) ?: 0.0).toFloat(),
-                    timestamp = (map["timestamp"] as? Long) ?: (startTime + index * 1000L),
-                    isPaused = (map["isPaused"] as? Boolean) ?: false
-                )
-            }
             if (gpsPoints.isNotEmpty()) {
-                rideDao.insertGPSPoints(gpsPoints)
+                val finalGpsPoints = gpsPoints.map { it.copy(rideId = rideId) }
+                rideDao.insertGPSPoints(finalGpsPoints)
             }
             true
         } catch (e: Exception) {
