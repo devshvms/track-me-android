@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.MilitaryTech
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import `in`.shvms.trackme.domain.stats.Reveal
 import `in`.shvms.trackme.domain.stats.RevealKind
+import `in`.shvms.trackme.ui.components.AchievementBadge
 import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import java.util.Locale
@@ -35,7 +39,9 @@ import java.util.Locale
  * Design guardrails:
  *  - Bounded set only ([RevealKind]); never random/slot-machine (trust for a safety app).
  *  - Brand tokens only (`colorScheme`), so it inherits C1 cyan + dark-first automatically.
- *  - No forced animation — an [AlertDialog] respects reduced motion and TalkBack out of the box.
+ *  - Genuine achievements ([RevealKind.FIRST_RIDE]/PR/[RevealKind.MILESTONE]) get the animated
+ *    [AchievementBadge]; an ordinary good ride ([RevealKind.DEFAULT]) stays a small, calm,
+ *    static icon — the badge is reserved for things that are actually earned, never routine.
  *  - Copy is localized (all 6 languages); numbers are formatted here, not stored.
  *  - Dismiss is the only action; it never blocks or repeats.
  */
@@ -52,22 +58,26 @@ fun PostRideRevealDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(56.dp)
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+            if (reveal.kind == RevealKind.DEFAULT) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(56.dp)
                 ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(32.dp)
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
                 }
+            } else {
+                AchievementBadge(icon = icon)
             }
         },
         title = {
@@ -99,8 +109,11 @@ fun PostRideRevealDialog(
 }
 
 private fun revealIcon(kind: RevealKind): ImageVector = when (kind) {
+    RevealKind.FIRST_RIDE -> Icons.Filled.AutoAwesome
+    RevealKind.DISTANCE_PR -> Icons.Filled.EmojiEvents
+    RevealKind.DURATION_PR -> Icons.Filled.MilitaryTech
+    RevealKind.MILESTONE -> Icons.Filled.WorkspacePremium
     RevealKind.DEFAULT -> Icons.Filled.CheckCircle
-    else -> Icons.Filled.Star
 }
 
 private fun revealTitle(reveal: Reveal, s: AppStrings): String = when (reveal.kind) {
