@@ -2,6 +2,8 @@ package `in`.shvms.trackme.ui.review
 
 import android.app.Activity
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import com.google.android.play.core.ktx.launchReview
 import com.google.android.play.core.ktx.requestReview
 import com.google.android.play.core.review.ReviewManagerFactory
@@ -23,8 +25,21 @@ object ReviewPrompter {
     private const val PREFS = "trackme_review"
     private const val KEY_LAST_AT = "last_prompted_at"
     private const val KEY_LAST_VERSION = "last_prompted_version"
+    private const val PLAY_STORE_PACKAGE = "com.android.vending"
 
     suspend fun maybeRequest(activity: Activity, goodRideCount: Int) {
+        // The Play In-App Review API only works for a build installed BY the Play Store. On a
+        // sideloaded/dev-installed build (Android Studio run, adb install, APK share — exactly
+        // how this app is tested pre-launch) requestReview()/launchReview() can't succeed, and
+        // the Play Store app itself then surfaces its own native "Something went wrong" toast —
+        // not something our try/catch below can suppress, since it isn't our exception. Skip the
+        // whole flow up front instead. This is an ENVIRONMENT gate, not a policy decision, so it
+        // must run before touching prefs/eligibility: a tester repeatedly running a dev build
+        // must never burn the one real attempt a Play-installed user gets. Once the app is
+        // actually installed via Play (including internal testing), this check passes through
+        // and the normal flow below is unaffected.
+        if (!isInstalledFromPlayStore(activity)) return
+
         val prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val eligible = ReviewPromptPolicy.isEligible(
             goodRideCount = goodRideCount,
@@ -51,5 +66,19 @@ object ReviewPrompter {
             // OS throttle / no Play Store / transient failure — the attempt is already recorded
             // and telemetry sent; never let a review prompt crash the app.
         }
+    }
+
+    private fun isInstalledFromPlayStore(activity: Activity): Boolean {
+        val installer = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                activity.packageManager.getInstallSourceInfo(activity.packageName).installingPackageName
+            } else {
+                @Suppress("DEPRECATION")
+                activity.packageManager.getInstallerPackageName(activity.packageName)
+            }
+        } catch (e: PackageManager.NameNotFoundException) {
+            null
+        }
+        return installer == PLAY_STORE_PACKAGE
     }
 }
