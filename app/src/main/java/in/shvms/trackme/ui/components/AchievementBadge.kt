@@ -105,7 +105,9 @@ fun AchievementBadge(
     val darkerPrimary = remember(primary) { lerp(primary, Color.Black, 0.35f) }
 
     Box(
-        modifier = modifier.size(size * 1.7f),
+        // Keep the medal itself at the requested size while removing the large
+        // invisible padding that made the reveal card unnecessarily tall.
+        modifier = modifier.size(size * 1.32f),
         contentAlignment = Alignment.Center
     ) {
         Canvas(
