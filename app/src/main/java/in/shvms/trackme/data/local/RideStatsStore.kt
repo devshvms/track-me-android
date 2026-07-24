@@ -88,6 +88,12 @@ class RideStatsStore(context: Context) {
         _stats.value = updated
     }
 
+    /** Clears all persisted ride statistics. Used on account deletion. */
+    suspend fun clear() = mutex.withLock {
+        prefs.edit().remove(KEY_BLOB).apply()
+        _stats.value = RideStats()
+    }
+
     // --- persistence ---------------------------------------------------------------------
 
     private fun load(): RideStats {

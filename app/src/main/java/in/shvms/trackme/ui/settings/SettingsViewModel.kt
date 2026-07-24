@@ -298,6 +298,7 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
             app.database.emergencyDao().deleteSettings()
             app.database.emergencyDao().deleteAllContacts()
             app.emergencyManager.stopEmergency()
+            app.rideStatsStore.clear()
             app.authManager.signOut()
             return Result.success(Unit)
         }
