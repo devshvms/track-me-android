@@ -59,8 +59,8 @@ class SyncDownloadCoercionTest {
     @Test
     fun testComputeCalcFromPoints_Normal() {
         val points = listOf(
-            GPSPointEntity(0L, 0.0, 0.0, 0.0, 0f, 5f, 1000L, false),
-            GPSPointEntity(0L, 0.0, 0.0, 0.0, 0f, 10f, 2000L, false)
+            GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 5f, 1000L, false),
+            GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 10f, 2000L, false)
         )
         val calc = computeCalcFromPoints(points) { a, b -> 100f }
         
@@ -73,9 +73,9 @@ class SyncDownloadCoercionTest {
     @Test
     fun testComputeCalcFromPoints_Paused() {
         val points = listOf(
-            GPSPointEntity(0L, 0.0, 0.0, 0.0, 0f, 5f, 1000L, false),
-            GPSPointEntity(0L, 0.0, 0.0, 0.0, 0f, 0f, 2000L, true),
-            GPSPointEntity(0L, 0.0, 0.0, 0.0, 0f, 8f, 3000L, false)
+            GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 5f, 1000L, false),
+            GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 0f, 2000L, true),
+            GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 8f, 3000L, false)
         )
         val calc = computeCalcFromPoints(points) { a, b -> 100f }
         
@@ -87,7 +87,7 @@ class SyncDownloadCoercionTest {
 
     @Test
     fun testComputeCalcFromPoints_LessThanTwo() {
-        val points = listOf(GPSPointEntity(0L, 0.0, 0.0, 0.0, 0f, 5f, 1000L, false))
+        val points = listOf(GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 5f, 1000L, false))
         val calc = computeCalcFromPoints(points) { a, b -> 100f }
         assertEquals(0.0, calc.distance, 0.001)
         assertEquals(0f, calc.maxSpeed)
@@ -98,8 +98,8 @@ class SyncDownloadCoercionTest {
     @Test
     fun testComputeCalcFromPoints_LargeGap() {
         val points = listOf(
-            GPSPointEntity(0L, 0.0, 0.0, 0.0, 0f, 5f, 1000L, false),
-            GPSPointEntity(0L, 0.0, 0.0, 0.0, 0f, 10f, 100_000L, false) // 99s gap
+            GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 5f, 1000L, false),
+            GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 10f, 100_000L, false) // 99s gap
         )
         val calc = computeCalcFromPoints(points) { a, b -> 100f }
         assertEquals(100.0, calc.distance, 0.001)
