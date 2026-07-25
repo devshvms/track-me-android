@@ -48,7 +48,7 @@ class SyncDownloadCoercionTest {
         assertNull(coerceEpochMillis(null))
         assertNull(coerceEpochMillis("2021-08-24"))
     }
-    
+
     @Test
     fun testCoerceEpochMillis_Parity() {
         val ms = 1629837483500L
@@ -63,7 +63,7 @@ class SyncDownloadCoercionTest {
             GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 10f, 2000L, false)
         )
         val calc = computeCalcFromPoints(points) { a, b -> 100f }
-        
+
         assertEquals(10f, calc.maxSpeed)
         assertEquals(100.0, calc.distance, 0.001)
         assertEquals(100f, calc.avgSpeed)
@@ -78,7 +78,7 @@ class SyncDownloadCoercionTest {
             GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 8f, 3000L, false)
         )
         val calc = computeCalcFromPoints(points) { a, b -> 100f }
-        
+
         assertEquals(0.0, calc.distance, 0.001)
         assertEquals(0f, calc.avgSpeed)
         assertEquals(8f, calc.maxSpeed)
@@ -103,7 +103,7 @@ class SyncDownloadCoercionTest {
         )
         val calc = computeCalcFromPoints(points) { a, b -> 100f }
         assertEquals(100.0, calc.distance, 0.001)
-        assertEquals(0f, calc.avgSpeed) 
+        assertEquals(0f, calc.avgSpeed)
         assertEquals(10f, calc.maxSpeed)
         assertEquals(99_000L, calc.pauseDuration)
     }
