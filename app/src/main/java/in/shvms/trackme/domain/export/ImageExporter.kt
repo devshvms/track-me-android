@@ -31,6 +31,15 @@ interface ImageExporter {
     suspend fun export(rideWithPoints: RideWithPoints, ratioWidth: Int, ratioHeight: Int, context: Context, mapSnapshot: Bitmap? = null, options: ExportOptions = ExportOptions()): File
 }
 
+private fun usesImperialUnits(context: Context): Boolean {
+    val preferences = context.getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
+    val stored = preferences.getString("unit_system", null)
+    if (stored != null) return stored == "imperial"
+
+    // Match AppPreferencesManager's first-launch locale default for exported share cards.
+    return Locale.getDefault().country.uppercase() in setOf("US", "GB", "MM", "LR")
+}
+
 /**
  * Fallback implementation using Google Maps Static API.
  * We are not using this by default because it requires the "Maps Static API" to be enabled
@@ -92,8 +101,10 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
                 textAlign = Paint.Align.LEFT
             }
             
-            val distanceKm = (rideWithPoints.ride.postRideCalculation?.distance ?: 0.0) / 1000.0
-            val distanceStr = String.format(Locale.getDefault(), "%.2f km", distanceKm)
+            val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.distance(
+                rideWithPoints.ride.postRideCalculation?.distance ?: 0.0,
+                usesImperialUnits(context)
+            )
             
             val durationMillis = (rideWithPoints.ride.endTime ?: rideWithPoints.ride.startTime) - rideWithPoints.ride.startTime
             val seconds = durationMillis / 1000
@@ -167,8 +178,10 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
                 textAlign = Paint.Align.LEFT
             }
             
-            val distanceKm = (rideWithPoints.ride.postRideCalculation?.distance ?: 0.0) / 1000.0
-            val distanceStr = String.format(Locale.getDefault(), "%.2f km", distanceKm)
+            val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.distance(
+                rideWithPoints.ride.postRideCalculation?.distance ?: 0.0,
+                usesImperialUnits(context)
+            )
             
             val durationMillis = (rideWithPoints.ride.endTime ?: rideWithPoints.ride.startTime) - rideWithPoints.ride.startTime
             val seconds = durationMillis / 1000

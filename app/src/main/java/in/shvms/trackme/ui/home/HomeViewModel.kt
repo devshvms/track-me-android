@@ -9,6 +9,7 @@ import `in`.shvms.trackme.service.TrackingState
 import `in`.shvms.trackme.service.EmergencyManager
 import `in`.shvms.trackme.auth.AuthManager
 import `in`.shvms.trackme.data.local.dao.EmergencyDao
+import `in`.shvms.trackme.data.local.AppPreferencesManager
 import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
@@ -50,7 +51,8 @@ class HomeViewModel(
     private val emergencyManager: EmergencyManager,
     private val authManager: AuthManager,
     private val emergencyDao: EmergencyDao,
-    private val liveShareManager: LiveShareManager
+    private val liveShareManager: LiveShareManager,
+    private val preferencesManager: AppPreferencesManager
 ) : ViewModel() {
 
     // One-shot, Context-free UI events (service commands + toast-worthy outcomes). The
@@ -104,17 +106,19 @@ class HomeViewModel(
     private val trackingStats = combine(
         trackingStatsGroup1,
         trackingStatsGroup2,
-        trackingStatsGroup3
-    ) { g1, g2, g3 ->
+        trackingStatsGroup3,
+        preferencesManager.unitSystem
+    ) { g1, g2, g3, unitSystem ->
+        val imperial = unitSystem == "imperial"
         HomeUiState(
             trackingState = g1.first,
             pathPoints = g1.second,
-            distanceText = formatDistance(g1.third),
+            distanceText = formatDistance(g1.third, imperial),
             durationText = formatDuration(g2.durationMillis),
             elapsedDurationText = formatElapsedDuration(g2.elapsedMillis),
             distanceMeters = g1.third,
             durationMillis = g2.durationMillis,
-            speedText = formatSpeed(g2.speedMps),
+            speedText = formatSpeed(g2.speedMps, imperial),
             paceText = formatPace(g2.speedMps),
             timeSinceLastGps = g2.timeSinceLastGps,
             isAutoPaused = g3.first,
@@ -146,8 +150,8 @@ class HomeViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
 
-    private fun formatDistance(distanceMeters: Float): String {
-        return String.format(Locale.getDefault(), "%.2f km", distanceMeters / 1000f)
+    private fun formatDistance(distanceMeters: Float, imperial: Boolean): String {
+        return `in`.shvms.trackme.domain.UnitFormatter.distance(distanceMeters.toDouble(), imperial)
     }
 
     private fun formatDuration(millis: Long): String {
@@ -160,8 +164,8 @@ class HomeViewModel(
         return String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
     }
 
-    private fun formatSpeed(speedMps: Float): String {
-        return String.format(Locale.getDefault(), "%.1f km/h", speedMps * 3.6f)
+    private fun formatSpeed(speedMps: Float, imperial: Boolean): String {
+        return `in`.shvms.trackme.domain.UnitFormatter.speed(speedMps.toDouble(), imperial)
     }
 
     /**
@@ -275,12 +279,13 @@ class HomeViewModelFactory(
     private val emergencyManager: EmergencyManager,
     private val authManager: AuthManager,
     private val emergencyDao: EmergencyDao,
-    private val liveShareManager: LiveShareManager
+    private val liveShareManager: LiveShareManager,
+    private val preferencesManager: AppPreferencesManager
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return HomeViewModel(trackingManager, emergencyManager, authManager, emergencyDao, liveShareManager) as T
+            return HomeViewModel(trackingManager, emergencyManager, authManager, emergencyDao, liveShareManager, preferencesManager) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

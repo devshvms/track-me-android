@@ -364,15 +364,14 @@ fun SettingsScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        var unitSystem by remember { mutableStateOf(prefs.getString("unit_system", null) ?: "metric") }
+        val unitSystem by preferencesManager.unitSystem.collectAsState()
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Units", style = MaterialTheme.typography.bodyMedium)
-                Text(if (unitSystem == "imperial") "Miles (mi)" else "Kilometers (km)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(strings.units, style = MaterialTheme.typography.bodyMedium)
+                Text(if (unitSystem == "imperial") strings.miles else strings.kilometers, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Switch(checked = unitSystem == "imperial", onCheckedChange = {
-                unitSystem = if (it) "imperial" else "metric"
-                (context.applicationContext as? TrackMeApp)?.preferencesManager?.setUnitSystem(unitSystem)
+                preferencesManager.setUnitSystem(if (it) "imperial" else "metric")
             })
         }
 

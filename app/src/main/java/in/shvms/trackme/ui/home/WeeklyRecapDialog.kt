@@ -35,10 +35,11 @@ import java.util.Locale
 @Composable
 fun WeeklyRecapDialog(
     recap: WeeklyRecap,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    imperial: Boolean = false
 ) {
     val strings = LocalAppStrings.current
-    val distance = String.format(Locale.getDefault(), "%.1f km", recap.distanceMeters / 1000.0)
+    val distance = `in`.shvms.trackme.domain.UnitFormatter.distance(recap.distanceMeters, imperial, decimals = 1)
 
     AlertDialog(
         onDismissRequest = onDismiss,

@@ -60,6 +60,9 @@ fun HistoryScreen(
     val collapsedGroups by viewModel.collapsedGroups.collectAsState()
 
     val context = LocalContext.current
+    val app = context.applicationContext as `in`.shvms.trackme.TrackMeApp
+    val unitSystem by app.preferencesManager.unitSystem.collectAsState()
+    val imperial = unitSystem == "imperial"
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -178,9 +181,9 @@ fun HistoryScreen(
                     var showDistMenu by remember { mutableStateOf(false) }
                     val distLabel = when (distanceFilter) {
                         DistanceFilterOption.ALL -> strings.distanceAll
-                        DistanceFilterOption.SHORT -> "< 5 km"
-                        DistanceFilterOption.MEDIUM -> "5-20 km"
-                        DistanceFilterOption.LONG -> "> 20 km"
+                        DistanceFilterOption.SHORT -> if (imperial) "< 3 mi" else "< 5 km"
+                        DistanceFilterOption.MEDIUM -> if (imperial) "3-12 mi" else "5-20 km"
+                        DistanceFilterOption.LONG -> if (imperial) "> 12 mi" else "> 20 km"
                     }
                     FilterChip(
                         selected = distanceFilter != DistanceFilterOption.ALL,
@@ -194,9 +197,9 @@ fun HistoryScreen(
                         DistanceFilterOption.values().forEach { opt ->
                             val label = when (opt) {
                                 DistanceFilterOption.ALL -> strings.distanceAll
-                                DistanceFilterOption.SHORT -> "< 5 km"
-                                DistanceFilterOption.MEDIUM -> "5-20 km"
-                                DistanceFilterOption.LONG -> "> 20 km"
+                                DistanceFilterOption.SHORT -> if (imperial) "< 3 mi" else "< 5 km"
+                                DistanceFilterOption.MEDIUM -> if (imperial) "3-12 mi" else "5-20 km"
+                                DistanceFilterOption.LONG -> if (imperial) "> 12 mi" else "> 20 km"
                             }
                             DropdownMenuItem(
                                 text = { Text(label) },
@@ -244,6 +247,7 @@ fun HistoryScreen(
                                 group = timeGroup,
                                 rideList = rideList,
                                 isCollapsed = isCollapsed,
+                                imperial = imperial,
                                 onToggleCollapse = { viewModel.toggleGroupCollapse(timeGroup) }
                             )
                         }
@@ -252,6 +256,7 @@ fun HistoryScreen(
                             items(rideList, key = { it.ride.id }) { rideWithPoints ->
                                 RideHistoryCard(
                                     rideWithPoints = rideWithPoints,
+                                    imperial = imperial,
                                     onClick = { onNavigateToDetail(rideWithPoints.ride.id) }
                                 )
                             }
@@ -281,7 +286,8 @@ fun SectionHeader(
     group: TimeGroup,
     rideList: List<RideWithPoints>,
     isCollapsed: Boolean,
-    onToggleCollapse: () -> Unit
+    onToggleCollapse: () -> Unit,
+    imperial: Boolean = false
 ) {
     val strings = LocalAppStrings.current
     val groupTitle = when (group) {
@@ -293,7 +299,7 @@ fun SectionHeader(
         TimeGroup.EARLIER -> strings.groupEarlier
     }
 
-    val totalDistanceKm = rideList.sumOf { (it.ride.postRideCalculation?.distance ?: 0.0) } / 1000.0
+    val totalDistanceMeters = rideList.sumOf { (it.ride.postRideCalculation?.distance ?: 0.0) }
 
     Surface(
         modifier = Modifier
@@ -325,7 +331,7 @@ fun SectionHeader(
                 )
             }
             Text(
-                text = "${rideList.size} rides • ${String.format(Locale.getDefault(), "%.1f km", totalDistanceKm)}",
+                text = "${rideList.size} rides • ${`in`.shvms.trackme.domain.UnitFormatter.distance(totalDistanceMeters, imperial, decimals = 1)}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -336,7 +342,8 @@ fun SectionHeader(
 @Composable
 fun RideHistoryCard(
     rideWithPoints: RideWithPoints,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    imperial: Boolean = false
 ) {
     val strings = LocalAppStrings.current
     val ride = rideWithPoints.ride
@@ -349,14 +356,9 @@ fun RideHistoryCard(
     // words though — a screen reader can't see the icon — so it's added there explicitly
     // instead of riding along inside rideTitle.
     val rideTitle = ride.title ?: formatDateTime(ride.startTime)
-    val distanceKm = (ride.postRideCalculation?.distance ?: 0.0) / 1000.0
-    val distanceText = String.format(Locale.getDefault(), "%.1f km", distanceKm)
+    val distanceText = `in`.shvms.trackme.domain.UnitFormatter.distance(ride.postRideCalculation?.distance ?: 0.0, imperial, decimals = 1)
     val durationText = formatDuration((ride.endTime ?: ride.startTime) - ride.startTime)
-    val avgSpeedText = String.format(
-        Locale.getDefault(),
-        "%.1f km/h",
-        (ride.postRideCalculation?.avgSpeed ?: 0f) * 3.6f
-    )
+    val avgSpeedText = `in`.shvms.trackme.domain.UnitFormatter.speed(ride.postRideCalculation?.avgSpeed?.toDouble() ?: 0.0, imperial)
     val cardDescription = String.format(
         Locale.getDefault(),
         strings.rideCardAccessibilityDescription,
