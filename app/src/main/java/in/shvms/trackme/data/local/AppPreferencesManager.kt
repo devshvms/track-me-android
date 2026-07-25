@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.Locale
 
 class AppPreferencesManager(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
@@ -20,6 +21,9 @@ class AppPreferencesManager(private val context: Context) {
     // App language code: "en", "es", "fr", "de", "hi", "ja", "zh"
     private val _appLanguage = MutableStateFlow(prefs.getString("app_language", "en") ?: "en")
     val appLanguage: StateFlow<String> = _appLanguage.asStateFlow()
+
+    private val _unitSystem = MutableStateFlow(prefs.getString("unit_system", null) ?: defaultUnitFromLocale())
+    val unitSystem: StateFlow<String> = _unitSystem.asStateFlow()
 
     init {
         updateSystemLocale(_appLanguage.value)
@@ -40,6 +44,14 @@ class AppPreferencesManager(private val context: Context) {
         _appLanguage.value = lang
         updateSystemLocale(lang)
     }
+
+    fun setUnitSystem(system: String) {
+        val normalized = if (system == "imperial") "imperial" else "metric"
+        prefs.edit().putString("unit_system", normalized).apply()
+        _unitSystem.value = normalized
+    }
+
+    private fun defaultUnitFromLocale(): String = if (Locale.getDefault().country.uppercase() in setOf("US", "GB", "MM", "LR")) "imperial" else "metric"
 
     private fun updateSystemLocale(lang: String) {
         try {
