@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import `in`.shvms.trackme.R
+import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import com.google.android.gms.maps.model.LatLng
@@ -32,6 +33,8 @@ interface ImageExporter {
 }
 
 private fun usesImperialUnits(context: Context): Boolean {
+    (context.applicationContext as? TrackMeApp)?.let { return it.preferencesManager.unitSystem.value == "imperial" }
+
     val preferences = context.getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
     val stored = preferences.getString("unit_system", null)
     if (stored != null) return stored == "imperial"
