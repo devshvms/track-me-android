@@ -24,10 +24,12 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.data.remote.FirestoreSyncManager
+import `in`.shvms.trackme.ui.localization.getAppStrings
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import kotlinx.coroutines.tasks.await
 import android.annotation.SuppressLint
+import java.util.Locale
 
 class EmergencyBroadcastWorker(
     private val context: Context,
@@ -260,19 +262,24 @@ class EmergencyBroadcastWorker(
             )
         }
 
+        val language = context.getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
+            .getString("app_language", "en") ?: "en"
+        val strings = getAppStrings(language)
         val message = when {
-            setupFailure -> context.getString(`in`.shvms.trackme.R.string.sos_notification_setup_failure)
-            result == null -> context.getString(`in`.shvms.trackme.R.string.sos_notification_setup_failure)
-            result.accepted > 0 && result.failed == 0 -> context.getString(
-                `in`.shvms.trackme.R.string.sos_notification_submitted,
+            setupFailure -> strings.sosNotifSetupFailure
+            result == null -> strings.sosNotifSetupFailure
+            result.accepted > 0 && result.failed == 0 -> String.format(
+                Locale.getDefault(),
+                strings.sosNotifSubmitted,
                 result.accepted
             )
-            result.accepted > 0 -> context.getString(
-                `in`.shvms.trackme.R.string.sos_notification_partial,
+            result.accepted > 0 -> String.format(
+                Locale.getDefault(),
+                strings.sosNotifPartial,
                 result.accepted,
                 result.failed
             )
-            else -> context.getString(`in`.shvms.trackme.R.string.sos_notification_failed)
+            else -> strings.sosNotifFailed
         }
         val intent = Intent(context, `in`.shvms.trackme.MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -285,7 +292,7 @@ class EmergencyBroadcastWorker(
         )
         val notification = NotificationCompat.Builder(context, TrackingService.SOS_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle(context.getString(`in`.shvms.trackme.R.string.sos_notification_title))
+            .setContentTitle(strings.sosNotifTitle)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setContentIntent(pendingIntent)
