@@ -364,6 +364,18 @@ fun SettingsScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
 
+        var unitSystem by remember { mutableStateOf(prefs.getString("unit_system", null) ?: "metric") }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Units", style = MaterialTheme.typography.bodyMedium)
+                Text(if (unitSystem == "imperial") "Miles (mi)" else "Kilometers (km)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = unitSystem == "imperial", onCheckedChange = {
+                unitSystem = if (it) "imperial" else "metric"
+                (context.applicationContext as? TrackMeApp)?.preferencesManager?.setUnitSystem(unitSystem)
+            })
+        }
+
         // Advanced Settings Card
         var disablePostProcessing by remember { 
             mutableStateOf(prefs.getBoolean("disable_gps_post_processing", false)) 
