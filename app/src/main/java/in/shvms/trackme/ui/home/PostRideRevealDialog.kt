@@ -53,11 +53,12 @@ import java.util.Locale
 @Composable
 fun PostRideRevealDialog(
     reveal: Reveal,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    imperial: Boolean = false
 ) {
     val strings = LocalAppStrings.current
     val title = revealTitle(reveal, strings)
-    val body = revealBody(reveal, strings)
+    val body = revealBody(reveal, strings, imperial)
     val icon = revealIcon(reveal.kind)
 
     AlertDialog(
@@ -146,10 +147,10 @@ private fun revealTitle(reveal: Reveal, s: AppStrings): String = when (reveal.ki
     RevealKind.DEFAULT -> s.revealDefaultTitle
 }
 
-private fun revealBody(reveal: Reveal, s: AppStrings): String = when (reveal.kind) {
+private fun revealBody(reveal: Reveal, s: AppStrings, imperial: Boolean): String = when (reveal.kind) {
     RevealKind.FIRST_RIDE -> s.revealFirstRideBody
     RevealKind.DISTANCE_PR -> String.format(
-        Locale.getDefault(), s.revealDistancePrBody, formatKm(reveal.distanceMeters)
+        Locale.getDefault(), s.revealDistancePrBody, formatKm(reveal.distanceMeters, imperial)
     )
     RevealKind.DURATION_PR -> String.format(
         Locale.getDefault(), s.revealDurationPrBody, formatDuration(reveal.durationMillis)
@@ -157,12 +158,12 @@ private fun revealBody(reveal: Reveal, s: AppStrings): String = when (reveal.kin
     RevealKind.MILESTONE -> s.revealMilestoneBody
     RevealKind.DEFAULT -> String.format(
         Locale.getDefault(), s.revealDefaultBody,
-        formatKm(reveal.distanceMeters), formatDuration(reveal.durationMillis)
+        formatKm(reveal.distanceMeters, imperial), formatDuration(reveal.durationMillis)
     )
 }
 
-private fun formatKm(meters: Double): String =
-    String.format(Locale.getDefault(), "%.1f km", meters / 1000.0)
+private fun formatKm(meters: Double, imperial: Boolean): String =
+    `in`.shvms.trackme.domain.UnitFormatter.distance(meters, imperial, decimals = 1)
 
 /** Compact "1h 20m" / "45m" duration; parity with iOS's reveal formatting. */
 private fun formatDuration(millis: Long): String {

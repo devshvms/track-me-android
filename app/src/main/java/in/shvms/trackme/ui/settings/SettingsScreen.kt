@@ -364,6 +364,17 @@ fun SettingsScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
 
+        val unitSystem by preferencesManager.unitSystem.collectAsState()
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(strings.units, style = MaterialTheme.typography.bodyMedium)
+                Text(if (unitSystem == "imperial") strings.miles else strings.kilometers, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = unitSystem == "imperial", onCheckedChange = {
+                preferencesManager.setUnitSystem(if (it) "imperial" else "metric")
+            })
+        }
+
         // Advanced Settings Card
         var disablePostProcessing by remember { 
             mutableStateOf(prefs.getBoolean("disable_gps_post_processing", false)) 

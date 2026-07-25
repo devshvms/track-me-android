@@ -87,13 +87,15 @@ fun HomeScreen(
             (LocalContext.current.applicationContext as TrackMeApp).emergencyManager,
             (LocalContext.current.applicationContext as TrackMeApp).authManager,
             (LocalContext.current.applicationContext as TrackMeApp).database.emergencyDao(),
-            (LocalContext.current.applicationContext as TrackMeApp).liveShareManager
+            (LocalContext.current.applicationContext as TrackMeApp).liveShareManager,
+            (LocalContext.current.applicationContext as TrackMeApp).preferencesManager
         )
     )
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
     val app = context.applicationContext as TrackMeApp
+    val imperialUnits by app.preferencesManager.unitSystem.collectAsState()
     val uiPreferences = remember {
         context.getSharedPreferences("ui_prefs", android.content.Context.MODE_PRIVATE)
     }
@@ -295,6 +297,7 @@ fun HomeScreen(
         }
         PostRideRevealDialog(
             reveal = reveal,
+            imperial = imperialUnits == "imperial",
             onDismiss = {
                 app.pendingRevealStore.consume(reveal.rideId)
                 // B4: dismissing a good-ride reveal is a peak moment — ask an eligible, happy
@@ -323,6 +326,7 @@ fun HomeScreen(
             }
             WeeklyRecapDialog(
                 recap = recap,
+                imperial = imperialUnits == "imperial",
                 onDismiss = { app.consumeWeeklyRecap() }
             )
         }

@@ -82,9 +82,9 @@ import java.util.Date
 import java.util.Locale
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
-fun formatDistance(meters: Double): String {
-    if (meters < 1000) return String.format("%.0f m", meters)
-    return String.format("%.2f km", meters / 1000)
+fun formatDistance(meters: Double, imperial: Boolean = false): String {
+    if (!imperial && meters < 1000) return String.format("%.0f m", meters)
+    return `in`.shvms.trackme.domain.UnitFormatter.distance(meters, imperial)
 }
 
 // Camera position covering the route, computable before the map has a size so the
@@ -125,6 +125,9 @@ fun RideDetailScreen(
     val rideWithPoints by viewModel.rideWithPoints.collectAsState()
     val loadState by viewModel.loadState.collectAsState()
     val context = LocalContext.current
+    val app = context.applicationContext as `in`.shvms.trackme.TrackMeApp
+    val unitSystem by app.preferencesManager.unitSystem.collectAsState()
+    val imperial = unitSystem == "imperial"
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
@@ -435,7 +438,7 @@ fun RideDetailScreen(
                                 Marker(
                                     state = MarkerState(position = ll),
                                     title = "Paused / Stop",
-                                    snippet = "Speed was 0 km/h",
+                                    snippet = "Speed was ${`in`.shvms.trackme.domain.UnitFormatter.speed(0.0, imperial)}",
                                     icon = pauseCircleIcon,
                                     anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
                                 )
@@ -463,7 +466,7 @@ fun RideDetailScreen(
                                         MarkerState(position = LatLng(p.latitude, p.longitude))
                                     },
                                     title = "Scrub",
-                                    snippet = "Speed: ${String.format(java.util.Locale.getDefault(), "%.1f", p.speed * 3.6f)} km/h",
+                                    snippet = "Speed: ${`in`.shvms.trackme.domain.UnitFormatter.speed(p.speed.toDouble(), imperial)}",
                                     icon = scrubIcon,
                                     anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
                                 )
@@ -531,6 +534,7 @@ fun RideDetailScreen(
                         speedColor = ChartSpeed,
                         altColor = ChartAltitude,
                         scrubIndex = scrubIndex,
+                        imperial = imperial,
                         modifier = Modifier.fillMaxWidth().height(160.dp).padding(horizontal = 16.dp)
                     )
                     
@@ -548,7 +552,7 @@ fun RideDetailScreen(
                     }
                     
                     Text(
-                        text = "Time: $elapsedFormatted  |  Dist: ${String.format(java.util.Locale.getDefault(), "%.2f", distKm)} km",
+                        text = "Time: $elapsedFormatted  |  Dist: ${`in`.shvms.trackme.domain.UnitFormatter.distance(distKm * 1000.0, imperial)}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -625,7 +629,7 @@ fun RideDetailScreen(
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            StatItem(strings.distance, String.format("%.2f km", (ride.postRideCalculation?.distance ?: 0.0) / 1000f), modifier = Modifier.weight(1f))
+                            StatItem(strings.distance, `in`.shvms.trackme.domain.UnitFormatter.distance(ride.postRideCalculation?.distance ?: 0.0, imperial), modifier = Modifier.weight(1f))
                             StatItem(strings.duration, formatDuration((ride.endTime ?: ride.startTime) - ride.startTime), modifier = Modifier.weight(1f))
                             StatItem(strings.gpsPoints, points.size.toString(), modifier = Modifier.weight(1f))
                         }
@@ -638,9 +642,7 @@ fun RideDetailScreen(
                             
                             StatItem("Max G-Force", String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f), modifier = Modifier.weight(1f))
 
-                            val distanceKm = (ride.postRideCalculation?.distance ?: 0.0) / 1000.0
-                            val avgSpeedKmh = (ride.postRideCalculation?.avgSpeed ?: 0f) * 3.6f
-                            StatItem(strings.avgSpeed, String.format("%.1f km/h", avgSpeedKmh), modifier = Modifier.weight(1f))
+                            StatItem(strings.avgSpeed, `in`.shvms.trackme.domain.UnitFormatter.speed((ride.postRideCalculation?.avgSpeed ?: 0f).toDouble(), imperial), modifier = Modifier.weight(1f))
                         }
                     }
                 }
@@ -872,8 +874,7 @@ fun RideDetailScreen(
                                     contentAlignment = Alignment.CenterStart
                                 ) {
                                     Column {
-                                        val distanceKm = (rideWithPoints!!.ride.postRideCalculation?.distance ?: 0.0) / 1000.0
-                                        val distanceStr = String.format(java.util.Locale.getDefault(), "%.2f km", distanceKm)
+                                        val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.distance(rideWithPoints!!.ride.postRideCalculation?.distance ?: 0.0, imperial)
                                         val durationMillis = (rideWithPoints!!.ride.endTime ?: rideWithPoints!!.ride.startTime) - rideWithPoints!!.ride.startTime
                                         val seconds = durationMillis / 1000
                                         val durationStr = String.format(java.util.Locale.getDefault(), "%02d:%02d:%02d", seconds / 3600, (seconds % 3600) / 60, seconds % 60)
@@ -998,6 +999,7 @@ fun CombinedMetricLineChart(
     speedColor: Color,
     altColor: Color,
     scrubIndex: Int? = null,
+    imperial: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     if (points.isEmpty()) return
@@ -1062,7 +1064,7 @@ fun CombinedMetricLineChart(
     Card(
         shape = RoundedCornerShape(8.dp),
         modifier = modifier.semantics {
-            contentDescription = buildChartAccessibilityDescription(points)
+            contentDescription = buildChartAccessibilityDescription(points, imperial)
         },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
@@ -1150,7 +1152,7 @@ fun CombinedMetricLineChart(
                 drawCircle(color = speedColor, radius = 8f, center = Offset(scrubX, sY))
                 drawCircle(color = Color.White, radius = 4f, center = Offset(scrubX, sY))
                 
-                val sText = String.format("%.1f km/h", sVal)
+                val sText = `in`.shvms.trackme.domain.UnitFormatter.speed(p.speed.toDouble(), imperial)
                 val sTextLayout = textMeasurer.measure(sText, style = labelStyle.copy(color = Color.White))
                 val sLabelW = sTextLayout.size.width + 16f
                 val sLabelH = sTextLayout.size.height + 8f
@@ -1193,11 +1195,11 @@ fun CombinedMetricLineChart(
     }
 }
 
-internal fun buildChartAccessibilityDescription(points: List<GPSPointEntity>): String {
+internal fun buildChartAccessibilityDescription(points: List<GPSPointEntity>, imperial: Boolean = false): String {
     if (points.isEmpty()) return "Speed and altitude chart. No GPS data available."
 
     val duration = formatDuration((points.last().timestamp - points.first().timestamp).coerceAtLeast(0L))
-    val averageSpeedKmh = points.map { it.speed * 3.6f }.average()
+    val averageSpeedMps = points.map { it.speed.toDouble() }.average()
     val minAltitude = points.minOf { it.altitude }
     val maxAltitude = points.maxOf { it.altitude }
     val gapCount = points.zipWithNext().count { (previous, current) ->
@@ -1210,7 +1212,7 @@ internal fun buildChartAccessibilityDescription(points: List<GPSPointEntity>): S
     }
 
     return "Speed and altitude chart. Duration $duration. " +
-        "Average speed ${String.format(Locale.getDefault(), "%.1f km/h", averageSpeedKmh)}. " +
+        "Average speed ${`in`.shvms.trackme.domain.UnitFormatter.speed(averageSpeedMps, imperial)}. " +
         "Altitude from ${String.format(Locale.getDefault(), "%.0f", minAltitude)} to " +
         "${String.format(Locale.getDefault(), "%.0f", maxAltitude)} meters. $gapSummary"
 }
