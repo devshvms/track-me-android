@@ -20,6 +20,8 @@ import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import `in`.shvms.trackme.utils.RideUtils
 import `in`.shvms.trackme.utils.StorageHealthMonitor
+import `in`.shvms.trackme.ui.localization.AppStrings
+import `in`.shvms.trackme.ui.localization.getAppStrings
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.maps.model.LatLng
@@ -467,6 +469,7 @@ class TrackingService : Service() {
     }
 
     private fun getNotification(): Notification {
+        val strings = appStrings()
         val intent = android.content.Intent(this, `in`.shvms.trackme.MainActivity::class.java).apply {
             flags = android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
@@ -478,10 +481,17 @@ class TrackingService : Service() {
             .setAutoCancel(false)
             .setOngoing(true)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle("TrackMe is recording your ride")
-            .setContentText("Ongoing Ride")
+            .setContentTitle(strings.notifTrackingTitle)
+            .setContentText(strings.notifTrackingText)
             .setContentIntent(pendingIntent)
             .build()
+    }
+
+    /** Resolves user-facing notification content using the in-app language picker. */
+    private fun appStrings(): AppStrings {
+        val language = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
+            .getString("app_language", "en") ?: "en"
+        return getAppStrings(language)
     }
 
     private fun createNotificationChannels() {
@@ -675,10 +685,11 @@ class TrackingService : Service() {
             activeRideId = rideId
             
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val strings = appStrings()
             val splitNotification = NotificationCompat.Builder(this@TrackingService, SYNC_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-                .setContentTitle("Ride Auto-Split")
-                .setContentText("Your ride reached 9,000 points and was split automatically.")
+                .setContentTitle(strings.notifAutoSplitTitle)
+                .setContentText(strings.notifAutoSplitText)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .build()
             notificationManager.notify(3, splitNotification)
@@ -687,10 +698,11 @@ class TrackingService : Service() {
     
     private fun showPointLimitWarning() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val strings = appStrings()
         val warningNotification = NotificationCompat.Builder(this, SYNC_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle("Long Ride Warning")
-            .setContentText("Approaching limit. Ride will auto-split at 9,000 points.")
+            .setContentTitle(strings.notifLongRideTitle)
+            .setContentText(strings.notifLongRideText)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
         notificationManager.notify(2, warningNotification)
@@ -698,10 +710,11 @@ class TrackingService : Service() {
 
     private fun showStorageLowNotification() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val strings = appStrings()
         val warningNotification = NotificationCompat.Builder(this, SYNC_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle("Storage almost full")
-            .setContentText("Tracking is paused. Free device storage, then tap Resume in TrackMe.")
+            .setContentTitle(strings.notifStorageLowTitle)
+            .setContentText(strings.notifStorageLowText)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .build()
