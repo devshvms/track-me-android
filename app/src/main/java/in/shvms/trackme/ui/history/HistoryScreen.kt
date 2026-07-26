@@ -1,8 +1,10 @@
 package `in`.shvms.trackme.ui.history
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,16 +13,20 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.ui.components.icon
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +42,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
@@ -58,6 +65,12 @@ fun HistoryScreen(
     val syncFilter by viewModel.syncFilter.collectAsState()
     val distanceFilter by viewModel.distanceFilter.collectAsState()
     val collapsedGroups by viewModel.collapsedGroups.collectAsState()
+    val selectedRideIds by viewModel.selectedRideIds.collectAsState()
+    val selectionMode = selectedRideIds.isNotEmpty()
+    val visibleRideIds = remember(groupedRides) {
+        groupedRides.values.flatten().map { it.ride.id }.toSet()
+    }
+    var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
     val app = context.applicationContext as `in`.shvms.trackme.TrackMeApp
@@ -111,6 +124,19 @@ fun HistoryScreen(
             when (event) {
                 is HistoryViewModel.UiEvent.ShowError -> android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
                 is HistoryViewModel.UiEvent.Success -> android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                is HistoryViewModel.UiEvent.BatchDeleteCompleted -> {
+                    val message = if (event.failedCount == 0) {
+                        String.format(Locale.getDefault(), strings.deleteSelectedRidesSuccess, event.deletedCount)
+                    } else {
+                        String.format(
+                            Locale.getDefault(),
+                            strings.deleteSelectedRidesPartialFailure,
+                            event.deletedCount,
+                            event.failedCount
+                        )
+                    }
+                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -118,12 +144,46 @@ fun HistoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(strings.rideHistoryTitle) },
+                title = {
+                    Text(
+                        if (selectionMode) {
+                            String.format(Locale.getDefault(), strings.selectedCount, selectedRideIds.size)
+                        } else {
+                            strings.rideHistoryTitle
+                        }
+                    )
+                },
+                navigationIcon = if (selectionMode) {
+                    {
+                        IconButton(onClick = { viewModel.clearSelection() }) {
+                            Icon(Icons.Default.Close, contentDescription = strings.clearSelection)
+                        }
+                    }
+                } else {
+                    {}
+                },
                 actions = {
-                    TextButton(onClick = { launcher.launch("*/*") }) {
-                        Icon(Icons.Default.Download, contentDescription = strings.importGpx, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(strings.importGpx, color = MaterialTheme.colorScheme.primary)
+                    if (selectionMode) {
+                        TextButton(onClick = { viewModel.toggleSelectAll(visibleRideIds) }) {
+                            Text(
+                                if (selectedRideIds.containsAll(visibleRideIds)) strings.clearSelection else strings.selectAll,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        IconButton(onClick = { showDeleteConfirmation = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = strings.deleteSelectedRides)
+                        }
+                        // Batch sharing is intentionally gated until TASK-103 provides the
+                        // composed comparison artifact; keep the affordance visible but inert.
+                        IconButton(onClick = {}, enabled = false) {
+                            Icon(Icons.Default.Share, contentDescription = strings.shareImage)
+                        }
+                    } else {
+                        TextButton(onClick = { launcher.launch("*/*") }) {
+                            Icon(Icons.Default.Download, contentDescription = strings.importGpx, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(strings.importGpx, color = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
             )
@@ -257,7 +317,15 @@ fun HistoryScreen(
                                 RideHistoryCard(
                                     rideWithPoints = rideWithPoints,
                                     imperial = imperial,
-                                    onClick = { onNavigateToDetail(rideWithPoints.ride.id) }
+                                    selected = selectedRideIds.contains(rideWithPoints.ride.id),
+                                    onClick = {
+                                        if (selectionMode) {
+                                            viewModel.toggleRideSelection(rideWithPoints.ride.id)
+                                        } else {
+                                            onNavigateToDetail(rideWithPoints.ride.id)
+                                        }
+                                    },
+                                    onLongClick = { viewModel.toggleRideSelection(rideWithPoints.ride.id) }
                                 )
                             }
                         }
@@ -278,6 +346,33 @@ fun HistoryScreen(
                 }
             }
         }
+    }
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text(strings.deleteSelectedRides) },
+            text = {
+                Text(
+                    String.format(
+                        Locale.getDefault(),
+                        strings.deleteSelectedRidesMessage,
+                        selectedRideIds.size
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        viewModel.deleteRides(selectedRideIds)
+                    }
+                ) { Text(strings.delete) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text(strings.cancel) }
+            }
+        )
     }
 }
 
@@ -343,6 +438,8 @@ fun SectionHeader(
 fun RideHistoryCard(
     rideWithPoints: RideWithPoints,
     onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
+    selected: Boolean = false,
     imperial: Boolean = false
 ) {
     val strings = LocalAppStrings.current
@@ -368,14 +465,16 @@ fun RideHistoryCard(
         durationText,
         avgSpeedText
     )
+    val selectionDescription = if (selected) strings.selectionSelected else strings.selectionNotSelected
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .height(68.dp)
-            .clickable { onClick() }
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .clearAndSetSemantics {
-                contentDescription = cardDescription
+                contentDescription = "$cardDescription. $selectionDescription"
+                stateDescription = selectionDescription
                 role = Role.Button
                 onClick(label = strings.rideDetailsTitle) {
                     onClick()
@@ -383,7 +482,14 @@ fun RideHistoryCard(
                 }
             },
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        )
     ) {
         Row(
             modifier = Modifier

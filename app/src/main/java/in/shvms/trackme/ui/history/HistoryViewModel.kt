@@ -14,14 +14,33 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.InputStream
 import `in`.shvms.trackme.domain.import.GPXParser
+
+internal data class RideDeleteAttempt(
+    val localDeleted: Boolean,
+    val cloudDeleted: Boolean
+)
+
+internal data class BatchDeleteSummary(
+    val deletedCount: Int,
+    val failedCount: Int
+)
+
+internal fun summarizeBatchDelete(attempts: List<RideDeleteAttempt>): BatchDeleteSummary {
+    val deleted = attempts.count { it.localDeleted && it.cloudDeleted }
+    return BatchDeleteSummary(deletedCount = deleted, failedCount = attempts.size - deleted)
+}
 
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as `in`.shvms.trackme.TrackMeApp
     private val db = app.database
     private val rideDao = db.rideDao()
     private val errorLogger = app.errorLogger
+    private val actionMutex = Mutex()
 
     val rides: StateFlow<List<RideWithPoints>> = rideDao.getAllCompletedRidesWithPoints()
         .stateIn(
@@ -52,6 +71,9 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     private val _uiEvent = MutableSharedFlow<UiEvent>()
     val uiEvent: SharedFlow<UiEvent> = _uiEvent
 
+    private val _selectedRideIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedRideIds: StateFlow<Set<Long>> = _selectedRideIds.asStateFlow()
+
     fun loadMoreRides() {
         if (_isLoadingMore.value || !_hasMoreCloudRides.value) return
         // Signed out → there is no cloud page to fetch. Clear the flag so the paginator stops
@@ -76,19 +98,67 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun deleteRide(rideId: Long) {
-        viewModelScope.launch {
-            val rideWithPoints = rideDao.getRideWithPointsById(rideId)
-            val ride = rideWithPoints?.ride
-            if (ride != null && (ride.endTime == null || ride.endTime <= 0L || `in`.shvms.trackme.service.TrackingService.activeRideId == rideId)) {
-                _uiEvent.emit(UiEvent.ShowError("Cannot delete an ongoing ride."))
-                return@launch
-            }
+        deleteRides(setOf(rideId))
+    }
 
-            if (app.authManager.currentUser.value != null) {
-                val firestoreId = ride?.firestoreId ?: rideId.toString()
-                app.firestoreSyncManager.deleteRide(firestoreId)
+    fun toggleRideSelection(rideId: Long) {
+        _selectedRideIds.update { selected ->
+            selected.toMutableSet().apply {
+                if (!add(rideId)) remove(rideId)
             }
-            rideDao.deleteRide(rideId)
+        }
+    }
+
+    fun toggleSelectAll(visibleRideIds: Set<Long>) {
+        if (visibleRideIds.isEmpty()) return
+        _selectedRideIds.update { selected ->
+            if (selected.containsAll(visibleRideIds)) selected - visibleRideIds else selected + visibleRideIds
+        }
+    }
+
+    fun clearSelection() {
+        _selectedRideIds.value = emptySet()
+    }
+
+    fun deleteRides(rideIds: Set<Long>) {
+        if (rideIds.isEmpty()) return
+        viewModelScope.launch {
+            actionMutex.withLock {
+                var deletedCount = 0
+                var failedCount = 0
+                val attempts = mutableListOf<RideDeleteAttempt>()
+                rideIds.forEach { rideId ->
+                    try {
+                        val ride = rideDao.getRideWithPointsById(rideId)?.ride
+                        if (ride == null || ride.endTime == null || ride.endTime <= 0L ||
+                            `in`.shvms.trackme.service.TrackingService.activeRideId == rideId
+                        ) {
+                            attempts += RideDeleteAttempt(localDeleted = false, cloudDeleted = false)
+                            return@forEach
+                        }
+
+                        val cloudDeleteSucceeded = if (ride.firestoreId != null) {
+                            app.firestoreSyncManager.deleteRide(ride.firestoreId)
+                        } else {
+                            true
+                        }
+                        // GPS points are not declared with a Room foreign key, so remove them
+                        // explicitly before deleting the parent ride to avoid orphaned data.
+                        rideDao.deletePointsForRide(rideId)
+                        rideDao.deleteRide(rideId)
+                        attempts += RideDeleteAttempt(localDeleted = true, cloudDeleted = cloudDeleteSucceeded)
+                    } catch (e: Exception) {
+                        attempts += RideDeleteAttempt(localDeleted = false, cloudDeleted = false)
+                        errorLogger.log("Failed to delete ride $rideId")
+                        errorLogger.recordException(e)
+                    }
+                }
+                val summary = summarizeBatchDelete(attempts)
+                deletedCount = summary.deletedCount
+                failedCount = summary.failedCount
+                _selectedRideIds.value = emptySet()
+                _uiEvent.emit(UiEvent.BatchDeleteCompleted(deletedCount, failedCount))
+            }
         }
     }
 
@@ -304,6 +374,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     sealed class UiEvent {
         data class ShowError(val message: String) : UiEvent()
         data class Success(val message: String) : UiEvent()
+        data class BatchDeleteCompleted(val deletedCount: Int, val failedCount: Int) : UiEvent()
     }
 }
 

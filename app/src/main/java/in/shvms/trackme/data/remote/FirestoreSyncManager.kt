@@ -382,17 +382,20 @@ class FirestoreSyncManager(
         }
     }
 
-    suspend fun deleteRide(firestoreDocId: String) {
-        val user = authManager.currentUser.value ?: throw Exception("User not logged in")
+    suspend fun deleteRide(firestoreDocId: String): Boolean {
+        val user = authManager.currentUser.value ?: return false
         try {
             firestore.collection("users")
                 .document(user.uid)
                 .collection("rides")
                 .document(firestoreDocId)
                 .delete()
+                .await()
+            return true
         } catch (e: Exception) {
             errorLogger.log("Failed to queue ride $firestoreDocId for deletion")
             errorLogger.recordException(e)
+            return false
         }
     }
 
