@@ -278,6 +278,14 @@ open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
     val compareRidesNoGps: String = s("compareRidesNoGps", "The selected rides do not contain map points.")
     val compareRidesSequenceLink: String = s("compareRidesSequenceLink", "Sequence link · dotted line connects consecutive rides")
     val compareRidesLimit: String = s("compareRidesLimit", "You can compare up to 8 rides.")
+    val replayExportTitle: String = s("replayExportTitle", "Persona replay")
+    val replayExportDescription: String = s("replayExportDescription", "Create a 9:16 MP4 replay with your route and persona.")
+    val replayExportButton: String = s("replayExportButton", "Create replay")
+    val replayExportProgress: String = s("replayExportProgress", "Creating replay · %d%%")
+    val replayExportSuccess: String = s("replayExportSuccess", "Replay ready to share")
+    val replayExportFailed: String = s("replayExportFailed", "Couldn’t create the replay. Try again.")
+    val replayExportNotEnoughGps: String = s("replayExportNotEnoughGps", "Not enough GPS data to create a replay.")
+    val replayExportCancel: String = s("replayExportCancel", "Cancel replay")
 }
 
 val LocalAppStrings = staticCompositionLocalOf { AppStrings() }
@@ -500,6 +508,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "compareRidesNoGps" to "Los viajes seleccionados no contienen puntos del mapa.",
             "compareRidesSequenceLink" to "Enlace de secuencia · la línea de puntos conecta viajes consecutivos",
             "compareRidesLimit" to "Puedes comparar hasta 8 viajes.",
+            "replayExportTitle" to "Repetición de persona",
+            "replayExportDescription" to "Crea una repetición MP4 vertical 9:16 con tu ruta y persona.",
+            "replayExportButton" to "Crear repetición",
+            "replayExportProgress" to "Creando repetición · %d%%",
+            "replayExportSuccess" to "Repetición lista para compartir",
+            "replayExportFailed" to "No se pudo crear la repetición. Inténtalo de nuevo.",
+            "replayExportNotEnoughGps" to "No hay suficientes datos GPS para crear una repetición.",
+            "replayExportCancel" to "Cancelar repetición",
         ))
         "fr" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -717,6 +733,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "compareRidesNoGps" to "Les trajets sélectionnés ne contiennent aucun point cartographique.",
             "compareRidesSequenceLink" to "Lien de séquence · la ligne en pointillés relie les trajets consécutifs",
             "compareRidesLimit" to "Vous pouvez comparer jusqu’à 8 trajets.",
+            "replayExportTitle" to "Replay de trajet",
+            "replayExportDescription" to "Créez un replay MP4 vertical 9:16 avec votre trajet et votre persona.",
+            "replayExportButton" to "Créer le replay",
+            "replayExportProgress" to "Création du replay · %d%%",
+            "replayExportSuccess" to "Replay prêt à partager",
+            "replayExportFailed" to "Impossible de créer le replay. Réessayez.",
+            "replayExportNotEnoughGps" to "Pas assez de données GPS pour créer un replay.",
+            "replayExportCancel" to "Annuler le replay",
         ))
         "de" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -934,6 +958,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "compareRidesNoGps" to "Die ausgewählten Fahrten enthalten keine Kartenpunkte.",
             "compareRidesSequenceLink" to "Sequenzverbindung · die Punktlinie verbindet aufeinanderfolgende Fahrten",
             "compareRidesLimit" to "Du kannst bis zu 8 Fahrten vergleichen.",
+            "replayExportTitle" to "Fahrten-Replay",
+            "replayExportDescription" to "Erstelle ein vertikales 9:16-MP4-Replay mit deiner Route und Persona.",
+            "replayExportButton" to "Replay erstellen",
+            "replayExportProgress" to "Replay wird erstellt · %d%%",
+            "replayExportSuccess" to "Replay zum Teilen bereit",
+            "replayExportFailed" to "Replay konnte nicht erstellt werden. Versuche es erneut.",
+            "replayExportNotEnoughGps" to "Nicht genügend GPS-Daten für ein Replay.",
+            "replayExportCancel" to "Replay abbrechen",
         ))
         "hi" -> AppStrings(mapOf(
             "ok" to "ठीक है",
@@ -1151,6 +1183,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "compareRidesNoGps" to "चुनी गई यात्राओं में मानचित्र बिंदु नहीं हैं।",
             "compareRidesSequenceLink" to "क्रम लिंक · बिंदीदार रेखा लगातार यात्राओं को जोड़ती है",
             "compareRidesLimit" to "आप अधिकतम 8 यात्राओं की तुलना कर सकते हैं।",
+            "replayExportTitle" to "पर्सोना रीप्ले",
+            "replayExportDescription" to "अपने मार्ग और पर्सोना के साथ 9:16 MP4 रीप्ले बनाएं।",
+            "replayExportButton" to "रीप्ले बनाएं",
+            "replayExportProgress" to "रीप्ले बन रहा है · %d%%",
+            "replayExportSuccess" to "रीप्ले साझा करने के लिए तैयार है",
+            "replayExportFailed" to "रीप्ले नहीं बन सका। फिर से कोशिश करें।",
+            "replayExportNotEnoughGps" to "रीप्ले बनाने के लिए पर्याप्त GPS डेटा नहीं है।",
+            "replayExportCancel" to "रीप्ले रद्द करें",
         ))
         "ja" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -1368,6 +1408,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "compareRidesNoGps" to "選択したライドには地図ポイントがありません。",
             "compareRidesSequenceLink" to "シーケンスリンク · 点線は連続するライドをつなぎます",
             "compareRidesLimit" to "最大8件のライドを比較できます。",
+            "replayExportTitle" to "ペルソナリプレイ",
+            "replayExportDescription" to "ルートとペルソナを使った9:16 MP4リプレイを作成します。",
+            "replayExportButton" to "リプレイを作成",
+            "replayExportProgress" to "リプレイを作成中 · %d%%",
+            "replayExportSuccess" to "共有するリプレイの準備完了",
+            "replayExportFailed" to "リプレイを作成できませんでした。もう一度お試しください。",
+            "replayExportNotEnoughGps" to "リプレイを作成するにはGPSデータが不足しています。",
+            "replayExportCancel" to "リプレイをキャンセル",
         ))
         "zh" -> AppStrings(mapOf(
             "ok" to "确定",
@@ -1585,6 +1633,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "compareRidesNoGps" to "所选骑行不包含地图点。",
             "compareRidesSequenceLink" to "序列连接 · 虚线连接连续骑行",
             "compareRidesLimit" to "最多可以比较 8 次骑行。",
+            "replayExportTitle" to "轨迹人格回放",
+            "replayExportDescription" to "使用你的路线和人格创建 9:16 MP4 回放。",
+            "replayExportButton" to "创建回放",
+            "replayExportProgress" to "正在创建回放 · %d%%",
+            "replayExportSuccess" to "回放已准备好分享",
+            "replayExportFailed" to "无法创建回放，请重试。",
+            "replayExportNotEnoughGps" to "GPS 数据不足，无法创建回放。",
+            "replayExportCancel" to "取消回放",
         ))
         else -> AppStrings() // English default
     }

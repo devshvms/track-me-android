@@ -1,0 +1,302 @@
+package `in`.shvms.trackme.domain.replay
+
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
+import android.media.MediaCodec
+import android.media.MediaCodecInfo
+import android.media.MediaFormat
+import android.media.MediaMuxer
+import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.RideWithPoints
+import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.ui.history.trimComparisonEndpoints
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.UUID
+import kotlin.coroutines.coroutineContext
+import kotlin.math.max
+import kotlin.math.atan2
+
+data class ReplayExportConfig(
+    val width: Int = 1080,
+    val height: Int = 1920,
+    val fps: Int = 30,
+    val targetDurationSeconds: Int = 20,
+    val applyPrivacyTrim: Boolean = true,
+    val privacyTrimDistanceMeters: Double = 200.0,
+    val persona: RidePersona,
+    val deepLink: String? = null
+) {
+    init {
+        require(width > 0 && height > 0) { "Replay dimensions must be positive" }
+        require(fps in 1..60) { "Replay fps must be between 1 and 60" }
+        require(targetDurationSeconds in 15..30) { "Replay duration must be between 15 and 30 seconds" }
+        require(privacyTrimDistanceMeters >= 0.0) { "Privacy trim must not be negative" }
+    }
+}
+
+data class ReplayStats(
+    val distanceMeters: Double,
+    val durationMillis: Long,
+    val averageSpeedMetersPerSecond: Double
+)
+
+interface ReplayFrameRenderer {
+    fun renderFrame(
+        canvas: Canvas,
+        points: List<GPSPointEntity>,
+        progress: Float,
+        persona: RidePersona,
+        stats: ReplayStats,
+        deepLink: String?
+    )
+}
+
+interface ReplayExporter {
+    suspend fun exportReplay(
+        rideWithPoints: RideWithPoints,
+        config: ReplayExportConfig,
+        outputDirectory: File,
+        onProgress: (Float) -> Unit = {}
+    ): Result<File>
+}
+
+/**
+ * Lightweight Phase 1 renderer. It intentionally has no MapView dependency: every frame is a
+ * deterministic Canvas composition that can run on a worker thread and be encoded offline.
+ */
+class CanvasReplayFrameRenderer : ReplayFrameRenderer {
+    override fun renderFrame(
+        canvas: Canvas,
+        points: List<GPSPointEntity>,
+        progress: Float,
+        persona: RidePersona,
+        stats: ReplayStats,
+        deepLink: String?
+    ) {
+        val width = canvas.width.toFloat()
+        val height = canvas.height.toFloat()
+        canvas.drawColor(Color.rgb(18, 22, 28))
+
+        val routePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(41, 182, 246)
+            style = Paint.Style.STROKE
+            strokeWidth = max(5f, width * 0.006f)
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+        val route = project(points, width, height)
+        if (route.size >= 2) {
+            val path = Path().apply {
+                moveTo(route.first().first, route.first().second)
+                route.drop(1).forEach { lineTo(it.first, it.second) }
+            }
+            canvas.drawPath(path, routePaint)
+            val currentIndex = (progress.coerceIn(0f, 1f) * route.lastIndex).toInt()
+            val moving = route[currentIndex]
+            val personaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                style = Paint.Style.FILL
+            }
+            canvas.drawCircle(moving.first, moving.second, max(14f, width * 0.018f), personaPaint)
+            personaPaint.color = Color.rgb(2, 119, 182)
+            val next = route[(currentIndex + 1).coerceAtMost(route.lastIndex)]
+            val angle = Math.toDegrees(atan2((next.second - moving.second).toDouble(), (next.first - moving.first).toDouble())).toFloat() + 90f
+            canvas.save()
+            canvas.rotate(angle, moving.first, moving.second)
+            val sprite = Path().apply {
+                moveTo(moving.first, moving.second - max(11f, width * 0.014f))
+                lineTo(moving.first - max(8f, width * 0.010f), moving.second + max(8f, width * 0.010f))
+                lineTo(moving.first + max(8f, width * 0.010f), moving.second + max(8f, width * 0.010f))
+                close()
+            }
+            canvas.drawPath(sprite, personaPaint)
+            canvas.restore()
+        }
+
+        val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = max(26f, width * 0.045f)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        canvas.drawText("TrackMe", width * 0.06f, height * 0.08f, titlePaint)
+
+        val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.LTGRAY
+            textSize = max(18f, width * 0.028f)
+        }
+        canvas.drawText(persona.displayName, width * 0.06f, height * 0.12f, bodyPaint)
+        canvas.drawText(
+            "${formatDistance(stats.distanceMeters)}  ·  ${formatDuration(stats.durationMillis)}",
+            width * 0.06f,
+            height * 0.93f,
+            bodyPaint
+        )
+        deepLink?.takeIf { it.startsWith("https://trackme.shvms.in/r/") }?.let {
+            bodyPaint.textSize = max(12f, width * 0.018f)
+            canvas.drawText(it, width * 0.06f, height * 0.965f, bodyPaint)
+        }
+    }
+
+    private fun project(points: List<GPSPointEntity>, width: Float, height: Float): List<Pair<Float, Float>> {
+        if (points.isEmpty()) return emptyList()
+        val minLat = points.minOf { it.latitude }
+        val maxLat = points.maxOf { it.latitude }
+        val minLng = points.minOf { it.longitude }
+        val maxLng = points.maxOf { it.longitude }
+        val latSpan = (maxLat - minLat).takeIf { it > 0.00001 } ?: 0.001
+        val lngSpan = (maxLng - minLng).takeIf { it > 0.00001 } ?: 0.001
+        val left = width * 0.08f
+        val right = width * 0.92f
+        val top = height * 0.18f
+        val bottom = height * 0.84f
+        return points.map { point ->
+            val x = left + ((point.longitude - minLng) / lngSpan).toFloat() * (right - left)
+            val y = bottom - ((point.latitude - minLat) / latSpan).toFloat() * (bottom - top)
+            x to y
+        }
+    }
+
+    private fun formatDistance(meters: Double): String = if (meters >= 1000) "%.1f km".format(meters / 1000.0) else "%.0f m".format(meters)
+
+    private fun formatDuration(durationMillis: Long): String {
+        val seconds = (durationMillis.coerceAtLeast(0L) / 1000L)
+        return "%02d:%02d".format(seconds / 60L, seconds % 60L)
+    }
+}
+
+/** MediaCodec/MediaMuxer implementation for the offline Phase 1 MVP. */
+class MediaCodecReplayExporter(
+    private val renderer: ReplayFrameRenderer = CanvasReplayFrameRenderer()
+) : ReplayExporter {
+    override suspend fun exportReplay(
+        rideWithPoints: RideWithPoints,
+        config: ReplayExportConfig,
+        outputDirectory: File,
+        onProgress: (Float) -> Unit
+    ): Result<File> = withContext(Dispatchers.Default) {
+        var output: File? = null
+        try {
+            coroutineContext.ensureActive()
+            val points = if (config.applyPrivacyTrim) {
+                trimComparisonEndpoints(rideWithPoints.points, config.privacyTrimDistanceMeters)
+            } else {
+                rideWithPoints.points
+            }.sortedBy { it.timestamp }
+            require(points.size >= 2) { "At least two GPS points are required" }
+            outputDirectory.mkdirs()
+            output = File(outputDirectory, "TrackMe_Replay_${UUID.randomUUID()}.mp4")
+            encode(rideWithPoints, points, config, output, onProgress)
+            Result.success(output)
+        } catch (cancelled: CancellationException) {
+            output?.delete()
+            throw cancelled
+        } catch (error: Throwable) {
+            output?.delete()
+            Result.failure(error)
+        }
+    }
+
+    private suspend fun encode(
+        rideWithPoints: RideWithPoints,
+        points: List<GPSPointEntity>,
+        config: ReplayExportConfig,
+        output: File,
+        onProgress: (Float) -> Unit
+    ) {
+        val frameCount = config.targetDurationSeconds * config.fps
+        val stats = ReplayStats(
+            distanceMeters = rideWithPoints.ride.postRideCalculation?.distance ?: 0.0,
+            durationMillis = ((rideWithPoints.ride.endTime ?: rideWithPoints.ride.startTime) - rideWithPoints.ride.startTime).coerceAtLeast(0L),
+            averageSpeedMetersPerSecond = rideWithPoints.ride.postRideCalculation?.avgSpeed?.toDouble() ?: 0.0
+        )
+        val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, config.width, config.height).apply {
+            setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
+            setInteger(MediaFormat.KEY_BIT_RATE, 8_000_000)
+            setInteger(MediaFormat.KEY_FRAME_RATE, config.fps)
+            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+        }
+        val codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+        val muxer = MediaMuxer(output.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+        var inputSurface: android.view.Surface? = null
+        var muxerStarted = false
+        var trackIndex = -1
+        try {
+            codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            inputSurface = codec.createInputSurface()
+            codec.start()
+
+            fun drain(endOfStream: Boolean) {
+                if (endOfStream) codec.signalEndOfInputStream()
+                val info = MediaCodec.BufferInfo()
+                while (true) {
+                    when (val index = codec.dequeueOutputBuffer(info, 10_000)) {
+                        MediaCodec.INFO_TRY_AGAIN_LATER -> if (!endOfStream) return
+                        MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                            check(!muxerStarted) { "Encoder format changed twice" }
+                            trackIndex = muxer.addTrack(codec.outputFormat)
+                            muxer.start()
+                            muxerStarted = true
+                        }
+                        MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED -> Unit
+                        else -> if (index >= 0) {
+                            if (info.size > 0 && muxerStarted) {
+                                codec.getOutputBuffer(index)?.let { buffer ->
+                                    buffer.position(info.offset)
+                                    buffer.limit(info.offset + info.size)
+                                    muxer.writeSampleData(trackIndex, buffer, info)
+                                }
+                            }
+                            codec.releaseOutputBuffer(index, false)
+                            if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) return
+                        }
+                    }
+                }
+            }
+
+            repeat(frameCount) { frame ->
+                coroutineContext.ensureActive()
+                val canvas = inputSurface!!.lockCanvas(null)
+                try {
+                    renderer.renderFrame(
+                        canvas = canvas,
+                        points = points,
+                        progress = progressForFrame(points, frame, frameCount),
+                        persona = config.persona,
+                        stats = stats,
+                        deepLink = config.deepLink
+                    )
+                } finally {
+                    inputSurface.unlockCanvasAndPost(canvas)
+                }
+                drain(false)
+                onProgress((frame + 1).toFloat() / frameCount)
+            }
+            drain(true)
+        } finally {
+            inputSurface?.release()
+            runCatching { codec.stop() }
+            codec.release()
+            if (muxerStarted) runCatching { muxer.stop() }
+            muxer.release()
+        }
+    }
+
+    private fun progressForFrame(points: List<GPSPointEntity>, frame: Int, frameCount: Int): Float {
+        if (points.size < 2 || frameCount <= 1) return 0f
+        val firstTimestamp = points.first().timestamp
+        val lastTimestamp = points.last().timestamp
+        if (lastTimestamp <= firstTimestamp) return frame.toFloat() / (frameCount - 1)
+        val targetTimestamp = firstTimestamp + ((lastTimestamp - firstTimestamp) * frame.toDouble() / (frameCount - 1)).toLong()
+        val upper = points.indexOfFirst { it.timestamp >= targetTimestamp }.coerceAtLeast(1)
+        val lower = upper - 1
+        val span = (points[upper].timestamp - points[lower].timestamp).coerceAtLeast(1L)
+        val fraction = (targetTimestamp - points[lower].timestamp).toFloat() / span
+        return ((lower + fraction) / points.lastIndex).coerceIn(0f, 1f)
+    }
+}
