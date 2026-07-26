@@ -35,6 +35,9 @@ object AppConfig {
     const val GPX_FILE_PREFIX = "TrackMe_Ride_"
     const val IMAGE_FILE_PREFIX = "TrackMe_Share_"
 
+    // Phase 1 persona replay export contract.
+    const val REPLAY_DEEP_LINK_BASE_URL = "https://trackme.shvms.in/r/"
+
     // --- Emergency Configuration ---
     // SOS countdown duration in seconds before broadcasting
     const val SOS_COUNTDOWN_SECONDS = 5

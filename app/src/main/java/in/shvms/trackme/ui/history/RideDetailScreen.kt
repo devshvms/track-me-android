@@ -692,6 +692,11 @@ fun RideDetailScreen(
                                 Text(strings.share)
                             }
 
+                            ReplayExportAction(
+                                rideWithPoints = rideWithPoints!!,
+                                context = context
+                            )
+
                             TextButton(onClick = {
                                 coroutineScope.launch(Dispatchers.IO) {
                                     try {
