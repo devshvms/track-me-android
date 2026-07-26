@@ -64,6 +64,7 @@ import com.google.android.gms.maps.model.Dot
 import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapEffect
 import com.google.maps.android.compose.MapProperties
@@ -262,224 +263,154 @@ fun MultiRideCompareScreen(
     }
 
     if (showPreview) {
-        AggregateRidePreviewDialog(
+        UnifiedAggregateRidePreviewDialog(
             routes = routes,
             visibleRoutes = visibleRoutes,
-            connectors = connectors,
             onDismiss = { showPreview = false }
         )
     }
 }
 
-/**
- * Preview-first export surface for aggregate rides. The map snapshot is captured only after the
- * user confirms Share, so backing out never creates a temporary export file or opens the chooser.
- */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun AggregateRidePreviewDialog(
+private fun UnifiedAggregateRidePreviewDialog(
     routes: List<ComparisonRoute>,
     visibleRoutes: List<ComparisonRoute>,
-    connectors: List<ComparisonConnector>,
     onDismiss: () -> Unit
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var previewMapInstance by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
-    var exportRatio by remember { mutableStateOf(1f) }
-    var exportRatioLabel by remember { mutableStateOf("1:1") }
-    var exportMapType by remember { mutableStateOf(MapType.NORMAL) }
-    var showLegend by remember { mutableStateOf(true) }
-    var showSequence by remember { mutableStateOf(true) }
-    var isSharing by remember { mutableStateOf(false) }
+    var isExporting by remember { mutableStateOf(false) }
+    var exportError by remember { mutableStateOf(false) }
 
-    val allLatLngs = remember(visibleRoutes) {
-        visibleRoutes.flatMap { route -> route.points.map { LatLng(it.latitude, it.longitude) } }
-    }
-    val bounds = remember(allLatLngs) {
-        if (allLatLngs.isEmpty()) null else LatLngBounds.Builder().also { builder ->
-            allLatLngs.forEach(builder::include)
-        }.build()
-    }
-    val cameraPositionState = rememberCameraPositionState {
-        if (bounds != null) position = initialRouteCamera(allLatLngs, bounds)
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                TopAppBar(
-                    title = { Text(strings.aggregatePreviewTitle) },
-                    navigationIcon = {
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.back)
-                        }
+    fun exportPreview(settings: ExportPreviewSettings, share: Boolean) {
+        val map = previewMapInstance
+        if (map == null || isExporting) {
+            toast(context, strings.compareRidesMapNotReady)
+            return
+        }
+        isExporting = true
+        exportError = false
+        map.snapshot { snapshot ->
+            if (snapshot == null) {
+                isExporting = false
+                exportError = true
+                return@snapshot
+            }
+            scope.launch(Dispatchers.IO) {
+                runCatching {
+                    ComparisonImageExporter(
+                        legend = aggregatePreviewLegend(routes, strings.rideHistoryTitle, settings.showLegend)
+                    ).export(snapshot, context)
+                }.onSuccess { file ->
+                    withContext(Dispatchers.Main) {
+                        if (share) shareComparisonFile(context, file) else saveComparisonImage(context, file)
+                        isExporting = false
+                        onDismiss()
                     }
-                )
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(exportRatio)
-                    ) {
-                        GoogleMap(
-                            modifier = Modifier.fillMaxSize(),
-                            cameraPositionState = cameraPositionState,
-                            properties = MapProperties(mapType = exportMapType, isTrafficEnabled = false),
-                            uiSettings = MapUiSettings(zoomControlsEnabled = false, compassEnabled = false)
-                        ) {
-                            MapEffect { map -> previewMapInstance = map }
-                            visibleRoutes.forEachIndexed { index, route ->
-                                val routeColor = comparisonRouteColors[index % comparisonRouteColors.size]
-                                val latLngs = route.points.map { LatLng(it.latitude, it.longitude) }
-                                Polyline(points = latLngs, color = Color(routeColor), width = 8f)
-                                Marker(
-                                    state = remember(route.ride.ride.id) { MarkerState(position = latLngs.first()) },
-                                    icon = remember(route.label, routeColor) {
-                                        letterMarkerIcon(context, route.label, routeColor)
-                                    },
-                                    title = route.label
-                                )
-                            }
-                            if (showSequence) {
-                                connectors.forEach { connector ->
-                                    Polyline(
-                                        points = listOf(
-                                            LatLng(connector.from.latitude, connector.from.longitude),
-                                            LatLng(connector.to.latitude, connector.to.longitude)
-                                        ),
-                                        color = Color.Gray,
-                                        width = 5f,
-                                        pattern = listOf(Dot(), Gap(12f))
-                                    )
-                                }
-                            }
-                        }
-                        LaunchedEffect(bounds, exportRatio) {
-                            if (bounds != null) {
-                                kotlinx.coroutines.delay(200)
-                                cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 72))
-                            }
-                        }
-                    }
-
-                    Text(strings.aspectRatio, style = MaterialTheme.typography.labelLarge)
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf("1:1" to 1f, "4:3" to (4f / 3f), "16:9" to (16f / 9f), "9:16" to (9f / 16f)).forEach { (label, ratio) ->
-                            FilterChip(
-                                selected = exportRatioLabel == label,
-                                onClick = {
-                                    exportRatio = ratio
-                                    exportRatioLabel = label
-                                },
-                                label = { Text(label) }
-                            )
-                        }
-                    }
-
-                    Text(strings.mapStyle, style = MaterialTheme.typography.labelLarge)
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf(
-                            MapType.NORMAL to strings.mapNormal,
-                            MapType.SATELLITE to strings.mapSatellite,
-                            MapType.TERRAIN to strings.mapTerrain
-                        ).forEach { (type, label) ->
-                            FilterChip(
-                                selected = exportMapType == type,
-                                onClick = { exportMapType = type },
-                                label = { Text(label) }
-                            )
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(strings.aggregatePreviewLegend)
-                        Switch(checked = showLegend, onCheckedChange = { showLegend = it })
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(strings.aggregatePreviewSequence)
-                        Switch(checked = showSequence, onCheckedChange = { showSequence = it })
+                }.onFailure {
+                    withContext(Dispatchers.Main) {
+                        isExporting = false
+                        exportError = true
                     }
                 }
+            }
+        }
+    }
 
-                Button(
-                    onClick = {
-                        val map = previewMapInstance
-                        if (map == null || isSharing) {
-                            toast(context, strings.compareRidesMapNotReady)
-                        } else {
-                            isSharing = true
-                            map.snapshot { snapshot ->
-                                if (snapshot == null) {
-                                    isSharing = false
-                                    toast(context, strings.compareRidesMapNotReady)
-                                } else {
-                                    scope.launch(Dispatchers.IO) {
-                                        runCatching {
-                                            ComparisonImageExporter(
-                                                legend = aggregatePreviewLegend(routes, strings.rideHistoryTitle, showLegend)
-                                            ).export(snapshot, context)
-                                        }
-                                            .onSuccess { file ->
-                                                withContext(Dispatchers.Main) {
-                                                    isSharing = false
-                                                    shareComparisonFile(context, file)
-                                                    onDismiss()
-                                                }
-                                            }
-                                            .onFailure {
-                                                withContext(Dispatchers.Main) {
-                                                    isSharing = false
-                                                    toast(context, strings.exportFailed)
-                                                }
-                                            }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    enabled = !isSharing,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
+    ExportPreviewDialog(
+        title = strings.aggregatePreviewTitle,
+        initialRatio = Pair(1, 1),
+        initialShowMarkers = true,
+        initialShowLegend = true,
+        initialShowSequence = true,
+        showAggregateControls = true,
+        canExport = visibleRoutes.isNotEmpty(),
+        isExporting = isExporting,
+        errorMessage = if (exportError) strings.exportFailed else null,
+        onDismiss = onDismiss,
+        onShare = { settings -> exportPreview(settings, share = true) },
+        onSave = { settings -> exportPreview(settings, share = false) },
+        onRetry = { settings -> exportPreview(settings, share = true) }
+    ) { modifier, settings ->
+        val previewRoutes = remember(routes, settings.privacyTrim) {
+            routes.map { route ->
+                if (settings.privacyTrim) route else route.copy(points = route.ride.points)
+            }
+        }.filter { it.points.isNotEmpty() }
+        val previewConnectors = remember(previewRoutes) { comparisonConnectors(previewRoutes) }
+        val allLatLngs = remember(previewRoutes) {
+            previewRoutes.flatMap { route -> route.points.map { LatLng(it.latitude, it.longitude) } }
+        }
+        if (allLatLngs.isEmpty()) {
+            Box(modifier, contentAlignment = Alignment.Center) { Text(strings.compareRidesNoGps) }
+        } else {
+            val bounds = remember(allLatLngs) {
+                LatLngBounds.Builder().also { builder -> allLatLngs.forEach(builder::include) }.build()
+            }
+            val cameraPositionState = rememberCameraPositionState {
+                position = initialRouteCamera(allLatLngs, bounds)
+            }
+            LaunchedEffect(bounds) {
+                kotlinx.coroutines.delay(200)
+                cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 72))
+            }
+            Box(modifier) {
+                GoogleMap(
+                    modifier = Modifier.fillMaxSize(),
+                    cameraPositionState = cameraPositionState,
+                    properties = MapProperties(
+                        mapType = settings.mapType,
+                        isTrafficEnabled = false,
+                        mapStyleOptions = if (settings.hidePlaces) MapStyleOptions("[{\"featureType\":\"poi\",\"stylers\":[{\"visibility\":\"off\"}]}]") else null
+                    ),
+                    uiSettings = MapUiSettings(zoomControlsEnabled = false, compassEnabled = false)
                 ) {
-                    if (isSharing) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(8.dp))
-                    } else {
-                        Icon(Icons.Default.Share, contentDescription = strings.share)
-                        Spacer(Modifier.width(8.dp))
+                    MapEffect { map -> previewMapInstance = map }
+                    previewRoutes.forEachIndexed { index, route ->
+                        val routeColor = comparisonRouteColors[index % comparisonRouteColors.size]
+                        val latLngs = route.points.map { LatLng(it.latitude, it.longitude) }
+                        Polyline(points = latLngs, color = Color(routeColor), width = 8f)
+                        if (settings.showMarkers) {
+                            Marker(
+                                state = remember(route.ride.ride.id) { MarkerState(position = latLngs.first()) },
+                                icon = remember(route.label, routeColor) { letterMarkerIcon(context, route.label, routeColor) },
+                                title = route.label
+                            )
+                        }
                     }
-                    Text(strings.aggregatePreviewShare)
+                    if (settings.showSequence) {
+                        previewConnectors.forEach { connector ->
+                            Polyline(
+                                points = listOf(
+                                    LatLng(connector.from.latitude, connector.from.longitude),
+                                    LatLng(connector.to.latitude, connector.to.longitude)
+                                ),
+                                color = Color.Gray,
+                                width = 5f,
+                                pattern = listOf(Dot(), Gap(12f))
+                            )
+                        }
+                    }
+                }
+                if (settings.showStats) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(42.dp).align(Alignment.BottomCenter),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            previewRoutes.joinToString(" • ") { it.label },
+                            color = if (settings.darkTheme) Color.White else Color.Black,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
                 }
             }
         }
     }
 }
+
 
 private fun letterMarkerIcon(context: Context, label: String, color: Int): BitmapDescriptor {
     val density = context.resources.displayMetrics.density
@@ -506,6 +437,28 @@ private fun shareComparisonFile(context: Context, file: java.io.File) {
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(Intent.createChooser(intent, "TrackMe"))
+}
+
+private fun saveComparisonImage(context: Context, file: java.io.File) {
+    val values = android.content.ContentValues().apply {
+        put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "TrackMe_Aggregate_${System.currentTimeMillis()}.png")
+        put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+        put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/TrackMe")
+        put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
+    }
+    val resolver = context.contentResolver
+    val uri = resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        ?: error("Unable to create gallery entry")
+    try {
+        resolver.openOutputStream(uri)?.use { output -> file.inputStream().use { input -> input.copyTo(output) } }
+            ?: error("Unable to open gallery output")
+        values.clear()
+        values.put(android.provider.MediaStore.Images.Media.IS_PENDING, 0)
+        resolver.update(uri, values, null, null)
+    } catch (error: Throwable) {
+        resolver.delete(uri, null, null)
+        throw error
+    }
 }
 
 private fun toast(context: Context, message: String) {
