@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.style.TextOverflow
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.ui.components.icon
 import androidx.compose.ui.text.font.FontWeight
@@ -227,42 +228,9 @@ fun RideDetailScreen(
     }
 
     val pausedLocations = remember(rideWithPoints?.points) {
-        val pts = rideWithPoints?.points ?: emptyList()
-        val result = mutableListOf<LatLng>()
-        val currentCluster = mutableListOf<GPSPointEntity>()
-
-        for (p in pts) {
-            if (p.isPaused || p.speed <= 0.1f) {
-                if (currentCluster.isEmpty()) {
-                    currentCluster.add(p)
-                } else {
-                    val first = currentCluster.first()
-                    val dist = FloatArray(1)
-                    android.location.Location.distanceBetween(
-                        first.latitude, first.longitude,
-                        p.latitude, p.longitude,
-                        dist
-                    )
-                    if (dist[0] <= 10f) {
-                        currentCluster.add(p)
-                    } else {
-                        if (currentCluster.size >= 3) {
-                            val avgLat = currentCluster.map { it.latitude }.average()
-                            val avgLng = currentCluster.map { it.longitude }.average()
-                            result.add(LatLng(avgLat, avgLng))
-                        }
-                        currentCluster.clear()
-                        currentCluster.add(p)
-                    }
-                }
-            }
+        pausedMarkerLocations(rideWithPoints?.points.orEmpty()).map { marker ->
+            LatLng(marker.latitude, marker.longitude)
         }
-        if (currentCluster.size >= 3) {
-            val avgLat = currentCluster.map { it.latitude }.average()
-            val avgLng = currentCluster.map { it.longitude }.average()
-            result.add(LatLng(avgLat, avgLng))
-        }
-        result
     }
 
     val exportPausedLocations = remember(pausedLocations, exportRoutePoints) {
@@ -686,18 +654,24 @@ fun RideDetailScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         if (points.isNotEmpty()) {
-                            TextButton(onClick = { showExportDialog = true }) {
+                            TextButton(
+                                onClick = { showExportDialog = true },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 4.dp)
+                            ) {
                                 Icon(Icons.Default.Share, contentDescription = strings.share, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(strings.share)
+                                Text(strings.share, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                             }
 
                             ReplayExportAction(
                                 rideWithPoints = rideWithPoints!!,
-                                context = context
+                                context = context,
+                                modifier = Modifier.weight(1f)
                             )
 
-                            TextButton(onClick = {
+                            TextButton(
+                                onClick = {
                                 coroutineScope.launch(Dispatchers.IO) {
                                     try {
                                         val exporter = GPXExporterImpl()
@@ -731,17 +705,24 @@ fun RideDetailScreen(
                                         }
                                     }
                                 }
-                            }) {
+                                },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 4.dp)
+                            ) {
                                 Icon(Icons.Default.Download, contentDescription = strings.exportGpx, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(strings.exportGpx)
+                                Text(strings.exportGpx, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                             }
                         }
 
-                        TextButton(onClick = { showDeleteDialog = true }) {
+                        TextButton(
+                            onClick = { showDeleteDialog = true },
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
                             Icon(Icons.Default.Delete, contentDescription = strings.delete, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(strings.delete, color = MaterialTheme.colorScheme.error)
+                            Text(strings.delete, color = MaterialTheme.colorScheme.error, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
