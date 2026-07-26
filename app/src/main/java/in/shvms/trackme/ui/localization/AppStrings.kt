@@ -266,7 +266,16 @@ data class AppStrings(
     val weeklyRecapDistanceLabel: String = "Distance",
     val weeklyRecapStreak: String = "%d weeks active in a row",
     val weeklyRecapStreakOne: String = "You stayed active this week",
-    val weeklyRecapDismiss: String = "Nice week!"
+    val weeklyRecapDismiss: String = "Nice week!",
+
+    // Multi-ride comparison (v1.6.1). Kept in the app catalog for all supported locales.
+    val compareRidesTitle: String = "Compare rides",
+    val compareRidesShare: String = "Share comparison",
+    val compareRidesMapNotReady: String = "Map is not ready yet",
+    val compareRidesNoSelection: String = "Select at least two rides to compare.",
+    val compareRidesNoGps: String = "The selected rides do not contain map points.",
+    val compareRidesSequenceLink: String = "Sequence link · dotted line connects consecutive rides",
+    val compareRidesLimit: String = "You can compare up to 8 rides."
 )
 
 val LocalAppStrings = staticCompositionLocalOf { AppStrings() }
@@ -481,7 +490,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             weeklyRecapDistanceLabel = "Distancia",
             weeklyRecapStreak = "%d semanas activas seguidas",
             weeklyRecapStreakOne = "Estuviste activo esta semana",
-            weeklyRecapDismiss = "¡Buena semana!"
+            weeklyRecapDismiss = "¡Buena semana!",
+            compareRidesTitle = "Comparar viajes",
+            compareRidesShare = "Compartir comparación",
+            compareRidesMapNotReady = "El mapa aún no está listo",
+            compareRidesNoSelection = "Selecciona al menos dos viajes para comparar.",
+            compareRidesNoGps = "Los viajes seleccionados no contienen puntos del mapa.",
+            compareRidesSequenceLink = "Enlace de secuencia · la línea de puntos conecta viajes consecutivos",
+            compareRidesLimit = "Puedes comparar hasta 8 viajes."
         )
         "fr" -> AppStrings(
             ok = "OK",
@@ -691,7 +707,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             weeklyRecapDistanceLabel = "Distance",
             weeklyRecapStreak = "%d semaines actives d'affilée",
             weeklyRecapStreakOne = "Vous êtes resté actif cette semaine",
-            weeklyRecapDismiss = "Belle semaine !"
+            weeklyRecapDismiss = "Belle semaine !",
+            compareRidesTitle = "Comparer les trajets",
+            compareRidesShare = "Partager la comparaison",
+            compareRidesMapNotReady = "La carte n’est pas encore prête",
+            compareRidesNoSelection = "Sélectionnez au moins deux trajets à comparer.",
+            compareRidesNoGps = "Les trajets sélectionnés ne contiennent aucun point cartographique.",
+            compareRidesSequenceLink = "Lien de séquence · la ligne en pointillés relie les trajets consécutifs",
+            compareRidesLimit = "Vous pouvez comparer jusqu’à 8 trajets."
         )
         "de" -> AppStrings(
             ok = "OK",
@@ -901,7 +924,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             weeklyRecapDistanceLabel = "Distanz",
             weeklyRecapStreak = "%d Wochen in Folge aktiv",
             weeklyRecapStreakOne = "Du warst diese Woche aktiv",
-            weeklyRecapDismiss = "Starke Woche!"
+            weeklyRecapDismiss = "Starke Woche!",
+            compareRidesTitle = "Fahrten vergleichen",
+            compareRidesShare = "Vergleich teilen",
+            compareRidesMapNotReady = "Karte ist noch nicht bereit",
+            compareRidesNoSelection = "Wähle mindestens zwei Fahrten zum Vergleichen aus.",
+            compareRidesNoGps = "Die ausgewählten Fahrten enthalten keine Kartenpunkte.",
+            compareRidesSequenceLink = "Sequenzverbindung · die Punktlinie verbindet aufeinanderfolgende Fahrten",
+            compareRidesLimit = "Du kannst bis zu 8 Fahrten vergleichen."
         )
         "hi" -> AppStrings(
             ok = "ठीक है",
@@ -1111,7 +1141,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             weeklyRecapDistanceLabel = "दूरी",
             weeklyRecapStreak = "लगातार %d सप्ताह सक्रिय",
             weeklyRecapStreakOne = "आप इस सप्ताह सक्रिय रहे",
-            weeklyRecapDismiss = "बढ़िया सप्ताह!"
+            weeklyRecapDismiss = "बढ़िया सप्ताह!",
+            compareRidesTitle = "यात्राओं की तुलना करें",
+            compareRidesShare = "तुलना साझा करें",
+            compareRidesMapNotReady = "मानचित्र अभी तैयार नहीं है",
+            compareRidesNoSelection = "तुलना के लिए कम से कम दो यात्राएं चुनें।",
+            compareRidesNoGps = "चुनी गई यात्राओं में मानचित्र बिंदु नहीं हैं।",
+            compareRidesSequenceLink = "क्रम लिंक · बिंदीदार रेखा लगातार यात्राओं को जोड़ती है",
+            compareRidesLimit = "आप अधिकतम 8 यात्राओं की तुलना कर सकते हैं।"
         )
         "ja" -> AppStrings(
             ok = "OK",
@@ -1321,7 +1358,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             weeklyRecapDistanceLabel = "距離",
             weeklyRecapStreak = "%d 週連続でアクティブ",
             weeklyRecapStreakOne = "今週もアクティブでした",
-            weeklyRecapDismiss = "良い一週間！"
+            weeklyRecapDismiss = "良い一週間！",
+            compareRidesTitle = "ライドを比較",
+            compareRidesShare = "比較を共有",
+            compareRidesMapNotReady = "地図の準備がまだできていません",
+            compareRidesNoSelection = "比較するライドを2つ以上選択してください。",
+            compareRidesNoGps = "選択したライドには地図ポイントがありません。",
+            compareRidesSequenceLink = "シーケンスリンク · 点線は連続するライドをつなぎます",
+            compareRidesLimit = "最大8件のライドを比較できます。"
         )
         "zh" -> AppStrings(
             ok = "确定",
@@ -1531,7 +1575,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             weeklyRecapDistanceLabel = "距离",
             weeklyRecapStreak = "连续 %d 周保持活跃",
             weeklyRecapStreakOne = "你这周保持了活跃",
-            weeklyRecapDismiss = "美好的一周！"
+            weeklyRecapDismiss = "美好的一周！",
+            compareRidesTitle = "比较骑行",
+            compareRidesShare = "分享比较结果",
+            compareRidesMapNotReady = "地图尚未准备好",
+            compareRidesNoSelection = "请选择至少两次骑行进行比较。",
+            compareRidesNoGps = "所选骑行不包含地图点。",
+            compareRidesSequenceLink = "序列连接 · 虚线连接连续骑行",
+            compareRidesLimit = "最多可以比较 8 次骑行。"
         )
         else -> AppStrings() // English default
     }

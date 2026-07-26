@@ -57,6 +57,7 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(
     onNavigateToDetail: (Long) -> Unit,
+    onNavigateToComparison: (List<Long>) -> Unit = {},
     viewModel: HistoryViewModel = viewModel()
 ) {
     val strings = LocalAppStrings.current
@@ -79,6 +80,8 @@ fun HistoryScreen(
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    var selectionMode by rememberSaveable { mutableStateOf(false) }
+    var selectedRideIds by rememberSaveable { mutableStateOf<Set<Long>>(emptySet()) }
 
     LaunchedEffect(listState) {
         snapshotFlow {
@@ -173,9 +176,10 @@ fun HistoryScreen(
                         IconButton(onClick = { showDeleteConfirmation = true }) {
                             Icon(Icons.Default.Delete, contentDescription = strings.deleteSelectedRides)
                         }
-                        // Batch sharing is intentionally gated until TASK-103 provides the
-                        // composed comparison artifact; keep the affordance visible but inert.
-                        IconButton(onClick = {}, enabled = false) {
+                        IconButton(
+                            onClick = { onNavigateToComparison(selectedRideIds.toList()) },
+                            enabled = selectedRideIds.size in 2..8
+                        ) {
                             Icon(Icons.Default.Share, contentDescription = strings.shareImage)
                         }
                     } else {
@@ -317,6 +321,7 @@ fun HistoryScreen(
                                 RideHistoryCard(
                                     rideWithPoints = rideWithPoints,
                                     imperial = imperial,
+                                    selectionMode = selectionMode,
                                     selected = selectedRideIds.contains(rideWithPoints.ride.id),
                                     onClick = {
                                         if (selectionMode) {
@@ -439,6 +444,7 @@ fun RideHistoryCard(
     rideWithPoints: RideWithPoints,
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
+    selectionMode: Boolean = false,
     selected: Boolean = false,
     imperial: Boolean = false
 ) {
@@ -497,6 +503,9 @@ fun RideHistoryCard(
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (selectionMode) {
+                Checkbox(checked = selected, onCheckedChange = { onToggleSelection() })
+            }
             // Sleek Vector Route Preview Thumbnail (compact 52dp x 52dp)
             RoutePreviewThumbnail(
                 points = points,
