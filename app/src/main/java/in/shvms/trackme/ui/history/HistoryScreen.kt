@@ -80,8 +80,6 @@ fun HistoryScreen(
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    var selectionMode by rememberSaveable { mutableStateOf(false) }
-    var selectedRideIds by rememberSaveable { mutableStateOf<Set<Long>>(emptySet()) }
 
     LaunchedEffect(listState) {
         snapshotFlow {
@@ -504,7 +502,7 @@ fun RideHistoryCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (selectionMode) {
-                Checkbox(checked = selected, onCheckedChange = { onToggleSelection() })
+                Checkbox(checked = selected, onCheckedChange = { onClick() })
             }
             // Sleek Vector Route Preview Thumbnail (compact 52dp x 52dp)
             RoutePreviewThumbnail(
