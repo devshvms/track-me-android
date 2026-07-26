@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="128"
+    android:viewportHeight="128">
+    <!-- Transparent canonical mark: route pin + forward motion arrow. -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M0,0h128v128h-128z" />
+    <path
+        android:fillColor="#29B6F6"
+        android:fillType="evenOdd"
+        android:pathData="M36,12C20.5,12 8,24.5 8,40c0,20.7 28,50 28,50s28,-29.3 28,-50C64,24.5 51.5,12 36,12zM36,26c7.7,0 14,6.3 14,14s-6.3,14 -14,14 -14,-6.3 -14,-14 6.3,-14 14,-14z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M82,22l34,0 -12,12 -8,-8 -8,8 -8,-8 -8,8 -8,-8z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,38c7,0 12,4 12,10 0,8 -8,12 -16,16 -7,4 -12,7 -12,12 0,4 4,6 9,6h13v12h-14c-12,0 -21,-7 -21,-17 0,-12 10,-18 19,-23 6,-3 10,-6 10,-8 0,-1 -1,-2 -3,-2h-9v-6z" />
+</vector>
