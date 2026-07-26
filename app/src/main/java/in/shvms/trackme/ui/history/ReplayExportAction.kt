@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.content.FileProvider
 import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
@@ -102,7 +103,10 @@ fun ReplayExportAction(
             text = when {
                 exporting -> strings.replayExportProgress.format((progress * 100).roundToInt())
                 else -> strings.replayExportButton
-            }
+            },
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
