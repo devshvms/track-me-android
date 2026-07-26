@@ -14,7 +14,15 @@ object AppConfig {
     const val HQ_IMAGE_WIDTH = 1080
     const val HQ_IMAGE_RATIO_1_1 = 1080 // 1080x1080
     const val HQ_IMAGE_RATIO_16_9 = 607 // 1080x607
+    const val HQ_IMAGE_RATIO_9_16 = 1920 // 1080x1920 (social-story default)
     const val HQ_IMAGE_SCALE = 2 // Retina scale for Maps API
+
+    // Presentation-only privacy transform for shared images. Source ride/GPS data is unchanged.
+    const val PRIVACY_TRIM_METERS = 200.0
+
+    // TrackMe lockup sizing for exported images.
+    const val LOCKUP_MARGIN_RATIO = 0.04f
+    const val LOCKUP_ICON_RATIO = 0.08f
     
     // Social Template Rendering Constants
     const val OVERLAY_BANNER_HEIGHT_RATIO = 0.2f // Banner takes bottom 20% of image
