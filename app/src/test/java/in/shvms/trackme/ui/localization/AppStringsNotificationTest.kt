@@ -37,4 +37,21 @@ class AppStringsNotificationTest {
             assertTrue("$language partial failure placeholder drifted", partial.contains("1"))
         }
     }
+
+    @Test
+    fun aggregatePreviewCopyIsPresentForEveryLanguage() {
+        supportedLanguages.forEach { language ->
+            val strings = getAppStrings(language)
+            listOf(
+                strings.compareRidesTitle,
+                strings.compareRidesShare,
+                strings.aggregatePreviewTitle,
+                strings.aggregatePreviewShare,
+                strings.aggregatePreviewLegend,
+                strings.aggregatePreviewSequence
+            ).forEach { value ->
+                assertTrue("$language has blank aggregate preview copy", value.isNotBlank())
+            }
+        }
+    }
 }
