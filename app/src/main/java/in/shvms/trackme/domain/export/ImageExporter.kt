@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Typeface
 import `in`.shvms.trackme.R
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.config.AppConfig
@@ -19,13 +20,16 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 data class ExportOptions(
     val showStats: Boolean = true,
     val isDarkTheme: Boolean = true,
     val showDistance: Boolean = true,
     val showDuration: Boolean = true,
-    val showDate: Boolean = true
+    val showDate: Boolean = true,
+    val routePoints: List<`in`.shvms.trackme.data.local.entity.GPSPointEntity>? = null,
+    val includeTrackMeLockup: Boolean = true
 )
 
 interface ImageExporter {
@@ -43,6 +47,21 @@ private fun usesImperialUnits(context: Context): Boolean {
     return Locale.getDefault().country.uppercase() in setOf("US", "GB", "MM", "LR")
 }
 
+internal fun staticMapRequestDimensions(
+    ratioWidth: Int,
+    ratioHeight: Int,
+    maxDimension: Int = 640
+): Pair<Int, Int> {
+    val safeWidth = ratioWidth.coerceAtLeast(1)
+    val safeHeight = ratioHeight.coerceAtLeast(1)
+    val max = maxDimension.coerceAtLeast(1).toFloat()
+    val ratioScale = minOf(max / safeWidth, max / safeHeight)
+    return Pair(
+        (safeWidth * ratioScale).roundToInt().coerceAtLeast(1),
+        (safeHeight * ratioScale).roundToInt().coerceAtLeast(1)
+    )
+}
+
 /**
  * Fallback implementation using Google Maps Static API.
  * We are not using this by default because it requires the "Maps Static API" to be enabled
@@ -51,7 +70,7 @@ private fun usesImperialUnits(context: Context): Boolean {
  */
 class GoogleStaticApiImageExporterImpl : ImageExporter {
     override suspend fun export(rideWithPoints: RideWithPoints, ratioWidth: Int, ratioHeight: Int, context: Context, mapSnapshot: Bitmap?, options: ExportOptions): File = withContext(Dispatchers.IO) {
-        val points = rideWithPoints.points
+        val points = options.routePoints ?: rideWithPoints.points
         val step = maxOf(1, points.size / 300)
         val sampledPoints = points.filterIndexed { index, _ -> index % step == 0 }
             .map { LatLng(it.latitude, it.longitude) }
@@ -59,8 +78,7 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
         val encodedPath = PolyUtil.encode(sampledPoints)
         val apiKey = context.getString(R.string.google_maps_key)
         
-        val reqW = 640
-        val reqH = (640f * (ratioHeight.toFloat() / ratioWidth.toFloat())).toInt().coerceAtMost(640)
+        val (reqW, reqH) = staticMapRequestDimensions(ratioWidth, ratioHeight)
         val realW = reqW * AppConfig.HQ_IMAGE_SCALE
         val realH = reqH * AppConfig.HQ_IMAGE_SCALE
         
@@ -87,6 +105,10 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
         val finalBitmap = Bitmap.createBitmap(realW, realH, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(finalBitmap)
         canvas.drawBitmap(mapBitmap, 0f, 0f, null)
+
+        if (options.includeTrackMeLockup) {
+            drawTrackMeLockup(canvas, context, realW, realH)
+        }
         
         if (options.showStats) {
             val bannerHeight = realH * AppConfig.OVERLAY_BANNER_HEIGHT_RATIO
@@ -161,6 +183,10 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
         
         // Draw the map
         canvas.drawBitmap(mapSnapshot, 0f, 0f, null)
+
+        if (options.includeTrackMeLockup) {
+            drawTrackMeLockup(canvas, context, finalW, finalH)
+        }
         
         if (options.showStats) {
             val bannerHeight = (finalW * AppConfig.OVERLAY_BANNER_HEIGHT_RATIO).toInt()
@@ -218,4 +244,49 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
         
         file
     }
+}
+
+private fun drawTrackMeLockup(canvas: Canvas, context: Context, width: Int, height: Int) {
+    val margin = (width * AppConfig.LOCKUP_MARGIN_RATIO).roundToInt().coerceAtLeast(8)
+    val iconSize = (width * AppConfig.LOCKUP_ICON_RATIO).roundToInt().coerceAtLeast(32)
+    val icon = BitmapFactory.decodeResource(context.resources, R.drawable.ic_trackme_logo) ?: return
+    val scaledIcon = if (icon.width == iconSize && icon.height == iconSize) {
+        icon
+    } else {
+        Bitmap.createScaledBitmap(icon, iconSize, iconSize, true)
+    }
+    val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        textSize = iconSize * 0.42f
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    }
+    val text = "TrackMe"
+    val textWidth = textPaint.measureText(text)
+    val gap = (iconSize * 0.18f).roundToInt()
+    val lockupWidth = iconSize + gap + textWidth
+    val left = (width - margin - lockupWidth).coerceAtLeast(margin.toFloat())
+    val top = margin.toFloat()
+
+    val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.argb(220, 18, 22, 28)
+    }
+    val lockupPadding = (iconSize * 0.16f).roundToInt()
+    canvas.drawRoundRect(
+        android.graphics.RectF(
+            left - lockupPadding,
+            top - lockupPadding,
+            left + lockupWidth + lockupPadding,
+            top + iconSize + lockupPadding
+        ),
+        lockupPadding.toFloat(),
+        lockupPadding.toFloat(),
+        backgroundPaint
+    )
+
+    canvas.drawBitmap(scaledIcon, left, top, null)
+    val baseline = top + iconSize * 0.68f
+    canvas.drawText(text, left + iconSize + gap, baseline, textPaint)
+
+    if (scaledIcon !== icon) scaledIcon.recycle()
+    icon.recycle()
 }

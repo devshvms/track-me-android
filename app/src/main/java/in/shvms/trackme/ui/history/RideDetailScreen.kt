@@ -42,6 +42,7 @@ import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.domain.export.GPXExporterImpl
 import `in`.shvms.trackme.domain.export.GoogleStaticApiImageExporterImpl
 import `in`.shvms.trackme.domain.export.NativeSnapshotImageExporterImpl
+import `in`.shvms.trackme.domain.export.trimGpsPointsForExport
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.config.AppConfig
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -161,7 +162,10 @@ fun RideDetailScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
     var exportShowStats by remember { mutableStateOf(true) }
-    var exportRatio by remember { mutableStateOf(Pair(1, 1)) }
+    var exportRatio by remember { mutableStateOf(Pair(AppConfig.HQ_IMAGE_WIDTH, AppConfig.HQ_IMAGE_RATIO_9_16)) }
+    var exportPrivacyTrim by remember { mutableStateOf(true) }
+    var exportError by remember { mutableStateOf(false) }
+    var lastExportIsShare by remember { mutableStateOf(true) }
     
     var exportMapType by remember { mutableStateOf(MapType.NORMAL) }
     var exportHidePOIs by remember { mutableStateOf(false) }
@@ -172,6 +176,16 @@ fun RideDetailScreen(
     var exportShowDuration by remember { mutableStateOf(true) }
     var exportShowDistance by remember { mutableStateOf(true) }
     var mapInstance by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
+
+    val exportRoutePoints = remember(rideWithPoints?.points, exportPrivacyTrim) {
+        val points = rideWithPoints?.points.orEmpty()
+        if (exportPrivacyTrim) {
+            trimGpsPointsForExport(points, AppConfig.PRIVACY_TRIM_METERS)
+        } else {
+            points
+        }
+    }
+    val exportCanRender = exportRoutePoints.size >= 2
 
     LaunchedEffect(rideId) {
         viewModel.loadRide(rideId)
@@ -249,6 +263,22 @@ fun RideDetailScreen(
             result.add(LatLng(avgLat, avgLng))
         }
         result
+    }
+
+    val exportPausedLocations = remember(pausedLocations, exportRoutePoints) {
+        pausedLocations.filter { location ->
+            exportRoutePoints.any { point ->
+                val distance = FloatArray(1)
+                android.location.Location.distanceBetween(
+                    point.latitude,
+                    point.longitude,
+                    location.latitude,
+                    location.longitude,
+                    distance
+                )
+                distance[0] <= 10f
+            }
+        }
     }
 
     Scaffold(
@@ -738,13 +768,26 @@ fun RideDetailScreen(
     }
 
     if (showExportDialog) {
-        val handleExport = { isShare: Boolean ->
+        val handleExport: (Boolean) -> Unit = export@{ isShare: Boolean ->
+            if (!exportCanRender) {
+                exportError = true
+                return@export
+            }
+            lastExportIsShare = isShare
+            exportError = false
             previewMapInstance?.snapshot { bitmap ->
                 if (bitmap != null) {
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
                             val exporter = `in`.shvms.trackme.domain.export.NativeSnapshotImageExporterImpl()
-                            val options = ExportOptions(exportShowStats, exportOverlayDarkTheme, exportShowDistance, exportShowDuration, exportShowDate)
+                            val options = ExportOptions(
+                                showStats = exportShowStats,
+                                isDarkTheme = exportOverlayDarkTheme,
+                                showDistance = exportShowDistance,
+                                showDuration = exportShowDuration,
+                                showDate = exportShowDate,
+                                routePoints = exportRoutePoints
+                            )
                             val imageFile = exporter.export(rideWithPoints!!, exportRatio.first, exportRatio.second, context, bitmap, options)
                             val rideTitle = rideWithPoints!!.ride.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride"
                             if (isShare) {
@@ -767,15 +810,15 @@ fun RideDetailScreen(
                             }
                         } catch (e: Exception) {
                             withContext(Dispatchers.Main) {
-                                android.widget.Toast.makeText(context, strings.exportFailed, android.widget.Toast.LENGTH_SHORT).show()
+                                exportError = true
                             }
                         }
                     }
                 } else {
-                    android.widget.Toast.makeText(context, "Could not capture map", android.widget.Toast.LENGTH_SHORT).show()
+                    exportError = true
                 }
             } ?: run {
-                android.widget.Toast.makeText(context, "Map not ready", android.widget.Toast.LENGTH_SHORT).show()
+                exportError = true
             }
         }
         
@@ -810,7 +853,8 @@ fun RideDetailScreen(
                                 .aspectRatio(ratioFloat)
                                 .padding(4.dp)
                         ) {
-                            val latLngs = rideWithPoints!!.points.map { LatLng(it.latitude, it.longitude) }
+                            if (exportCanRender) {
+                            val latLngs = exportRoutePoints.map { LatLng(it.latitude, it.longitude) }
                             val bounds = remember(latLngs) {
                                 val builder = LatLngBounds.Builder()
                                 latLngs.forEach { builder.include(it) }
@@ -845,7 +889,7 @@ fun RideDetailScreen(
                                     width = 10f
                                 )
                                 if (exportShowMarkers) {
-                                    pausedLocations.forEach { ll ->
+                                    exportPausedLocations.forEach { ll ->
                                         Marker(
                                             state = MarkerState(position = ll),
                                             icon = pauseCircleIcon,
@@ -858,6 +902,9 @@ fun RideDetailScreen(
                                         icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
                                     )
                                 }
+                            }
+                            } else {
+                                Text(strings.notEnoughGpsDataForExport)
                             }
                             
                             if (exportShowStats) {
@@ -911,7 +958,21 @@ fun RideDetailScreen(
                                 FilterChip(selected = exportRatio == Pair(1, 1), onClick = { exportRatio = Pair(1, 1) }, label = { Text("1:1") })
                                 FilterChip(selected = exportRatio == Pair(4, 3), onClick = { exportRatio = Pair(4, 3) }, label = { Text("4:3") })
                                 FilterChip(selected = exportRatio == Pair(16, 9), onClick = { exportRatio = Pair(16, 9) }, label = { Text("16:9") })
+                                FilterChip(
+                                    selected = exportRatio == Pair(AppConfig.HQ_IMAGE_WIDTH, AppConfig.HQ_IMAGE_RATIO_9_16),
+                                    onClick = { exportRatio = Pair(AppConfig.HQ_IMAGE_WIDTH, AppConfig.HQ_IMAGE_RATIO_9_16) },
+                                    label = { Text("9:16") }
+                                )
                             }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(strings.privacyTrim, fontWeight = FontWeight.SemiBold)
+                            Switch(checked = exportPrivacyTrim, onCheckedChange = { exportPrivacyTrim = it })
                         }
                         
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -953,6 +1014,19 @@ fun RideDetailScreen(
                         }
                     }
                     
+                    if (exportError) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(strings.exportRetryMessage, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { exportError = false; handleExport(lastExportIsShare) }) {
+                                Text(strings.retry)
+                            }
+                        }
+                    }
+
                     HorizontalDivider()
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -960,7 +1034,8 @@ fun RideDetailScreen(
                     ) {
                         OutlinedButton(
                             onClick = { handleExport(true) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            enabled = exportCanRender
                         ) {
                             Icon(Icons.Default.Share, contentDescription = "Share", modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(8.dp))
@@ -968,7 +1043,8 @@ fun RideDetailScreen(
                         }
                         Button(
                             onClick = { handleExport(false) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            enabled = exportCanRender
                         ) {
                             Icon(Icons.Default.Download, contentDescription = "Save", modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(8.dp))
