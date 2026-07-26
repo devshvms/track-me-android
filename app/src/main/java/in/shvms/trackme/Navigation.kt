@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import `in`.shvms.trackme.ui.home.HomeScreen
 import `in`.shvms.trackme.ui.history.HistoryScreen
 import `in`.shvms.trackme.ui.history.RideDetailScreen
+import `in`.shvms.trackme.ui.history.MultiRideCompareRoute
 import `in`.shvms.trackme.ui.settings.SettingsScreen
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
@@ -94,7 +95,19 @@ fun MainNavigation() {
                 HomeScreen(onNavigateToEmergencySetup = { navController.navigate("emergency_setup") })
             }
             composable("history") { 
-                HistoryScreen(onNavigateToDetail = { id -> navController.navigate("ride_detail/$id") }) 
+                HistoryScreen(
+                    onNavigateToDetail = { id -> navController.navigate("ride_detail/$id") },
+                    onNavigateToComparison = { ids ->
+                        navController.navigate("ride_compare/${ids.joinToString(",")}")
+                    }
+                )
+            }
+            composable("ride_compare/{rideIds}") { backStackEntry ->
+                val ids = backStackEntry.arguments?.getString("rideIds")
+                    ?.split(",")
+                    ?.mapNotNull(String::toLongOrNull)
+                    .orEmpty()
+                MultiRideCompareRoute(rideIds = ids, onBack = { navController.popBackStack() })
             }
             composable("ride_detail/{rideId}") { backStackEntry ->
                 val id = backStackEntry.arguments?.getString("rideId")?.toLongOrNull() ?: return@composable

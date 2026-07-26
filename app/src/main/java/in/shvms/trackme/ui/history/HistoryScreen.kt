@@ -17,10 +17,12 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.ui.components.icon
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +52,7 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(
     onNavigateToDetail: (Long) -> Unit,
+    onNavigateToComparison: (List<Long>) -> Unit = {},
     viewModel: HistoryViewModel = viewModel()
 ) {
     val strings = LocalAppStrings.current
@@ -66,6 +69,8 @@ fun HistoryScreen(
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    var selectionMode by rememberSaveable { mutableStateOf(false) }
+    var selectedRideIds by rememberSaveable { mutableStateOf<Set<Long>>(emptySet()) }
 
     LaunchedEffect(listState) {
         snapshotFlow {
@@ -120,6 +125,22 @@ fun HistoryScreen(
             TopAppBar(
                 title = { Text(strings.rideHistoryTitle) },
                 actions = {
+                    if (selectionMode) {
+                        TextButton(
+                            onClick = { onNavigateToComparison(selectedRideIds.toList()) },
+                            enabled = selectedRideIds.size >= 2
+                        ) {
+                            Text("${strings.compareRidesTitle} (${selectedRideIds.size})")
+                        }
+                        TextButton(onClick = {
+                            selectionMode = false
+                            selectedRideIds = emptySet()
+                        }) { Text(strings.cancel) }
+                    } else {
+                        IconButton(onClick = { selectionMode = true }) {
+                            Icon(Icons.Default.Share, contentDescription = strings.compareRidesTitle)
+                        }
+                    }
                     TextButton(onClick = { launcher.launch("*/*") }) {
                         Icon(Icons.Default.Download, contentDescription = strings.importGpx, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(4.dp))
@@ -257,7 +278,42 @@ fun HistoryScreen(
                                 RideHistoryCard(
                                     rideWithPoints = rideWithPoints,
                                     imperial = imperial,
-                                    onClick = { onNavigateToDetail(rideWithPoints.ride.id) }
+                                    selectionMode = selectionMode,
+                                    selected = selectedRideIds.contains(rideWithPoints.ride.id),
+                                    onToggleSelection = {
+                                        val id = rideWithPoints.ride.id
+                                        selectedRideIds = if (selectedRideIds.contains(id)) {
+                                            selectedRideIds - id
+                                        } else if (selectedRideIds.size < MAX_COMPARISON_RIDES) {
+                                            selectedRideIds + id
+                                        } else {
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                strings.compareRidesLimit,
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                            selectedRideIds
+                                        }
+                                    },
+                                    onClick = {
+                                        if (selectionMode) {
+                                            val id = rideWithPoints.ride.id
+                                            selectedRideIds = if (selectedRideIds.contains(id)) {
+                                                selectedRideIds - id
+                                            } else if (selectedRideIds.size < MAX_COMPARISON_RIDES) {
+                                                selectedRideIds + id
+                                            } else {
+                                                android.widget.Toast.makeText(
+                                                    context,
+                                                    strings.compareRidesLimit,
+                                                    android.widget.Toast.LENGTH_SHORT
+                                                ).show()
+                                                selectedRideIds
+                                            }
+                                        } else {
+                                            onNavigateToDetail(rideWithPoints.ride.id)
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -343,7 +399,10 @@ fun SectionHeader(
 fun RideHistoryCard(
     rideWithPoints: RideWithPoints,
     onClick: () -> Unit,
-    imperial: Boolean = false
+    imperial: Boolean = false,
+    selectionMode: Boolean = false,
+    selected: Boolean = false,
+    onToggleSelection: () -> Unit = {}
 ) {
     val strings = LocalAppStrings.current
     val ride = rideWithPoints.ride
@@ -391,6 +450,9 @@ fun RideHistoryCard(
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (selectionMode) {
+                Checkbox(checked = selected, onCheckedChange = { onToggleSelection() })
+            }
             // Sleek Vector Route Preview Thumbnail (compact 52dp x 52dp)
             RoutePreviewThumbnail(
                 points = points,
