@@ -58,6 +58,19 @@ internal fun comparisonConnectors(routes: List<ComparisonRoute>): List<Compariso
         ComparisonConnector(from, to, previous.label, next.label)
     }
 
+/** Builds the export legend without exposing ride titles to analytics or deep-link metadata. */
+internal fun aggregatePreviewLegend(
+    routes: List<ComparisonRoute>,
+    fallbackTitle: String,
+    showLegend: Boolean
+): List<Pair<String, String>> = if (showLegend) {
+    routes.take(MAX_COMPARISON_RIDES).map { route ->
+        route.label to (route.ride.ride.title?.ifBlank { fallbackTitle } ?: fallbackTitle)
+    }
+} else {
+    emptyList()
+}
+
 /**
  * Removes up to 200 m at each endpoint. A sparse/short route is returned unchanged so the map
  * still has a useful marker and never crashes while building bounds.

@@ -42,6 +42,18 @@ class MultiRideComparisonModelTest {
         assertEquals(points, trimComparisonEndpoints(points))
     }
 
+    @Test
+    fun `aggregate preview legend is optional and capped`() {
+        val routes = prepareComparisonRoutes((0L until 10L).map { id ->
+            ride(id, startTime = id, points = listOf(point(id, 50.0 + id, 8.0 + id)))
+        })
+
+        assertTrue(aggregatePreviewLegend(routes, "Ride History", showLegend = false).isEmpty())
+        val legend = aggregatePreviewLegend(routes, "Ride History", showLegend = true)
+        assertEquals(MAX_COMPARISON_RIDES, legend.size)
+        assertEquals("A", legend.first().first)
+    }
+
     private fun ride(id: Long, startTime: Long, points: List<GPSPointEntity> = listOf(point(id, 50.0 + id, 8.0 + id))): RideWithPoints =
         RideWithPoints(RideEntity(id = id, startTime = startTime, endTime = startTime + 1_000), points)
 
