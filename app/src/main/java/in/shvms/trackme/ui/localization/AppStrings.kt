@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.ui.localization
 
 import androidx.compose.runtime.staticCompositionLocalOf
+import `in`.shvms.trackme.domain.model.RidePersona
 
 open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
     private fun s(key: String, default: String): String = overrides[key] ?: default
@@ -300,6 +301,24 @@ open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
     val replayExportFailed: String = s("replayExportFailed", "Couldn’t create the replay. Try again.")
     val replayExportNotEnoughGps: String = s("replayExportNotEnoughGps", "Not enough GPS data to create a replay.")
     val replayExportCancel: String = s("replayExportCancel", "Cancel replay")
+
+    // Ride personas. RidePersona.displayName is an English enum label ("BikeDrive", "CarDrive") and
+    // must never reach a user-facing surface — resolve through personaLabel() instead.
+    val personaAuto: String = s("personaAuto", "Auto")
+    val personaWalk: String = s("personaWalk", "Walk")
+    val personaRun: String = s("personaRun", "Run")
+    val personaCycling: String = s("personaCycling", "Cycling")
+    val personaBikeDrive: String = s("personaBikeDrive", "Motorbike")
+    val personaCarDrive: String = s("personaCarDrive", "Car")
+
+    fun personaLabel(persona: RidePersona): String = when (persona) {
+        RidePersona.AUTO -> personaAuto
+        RidePersona.WALK -> personaWalk
+        RidePersona.RUN -> personaRun
+        RidePersona.CYCLING -> personaCycling
+        RidePersona.BIKE_DRIVE -> personaBikeDrive
+        RidePersona.CAR_DRIVE -> personaCarDrive
+    }
 }
 
 val LocalAppStrings = staticCompositionLocalOf { AppStrings() }
@@ -544,6 +563,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "replayExportFailed" to "No se pudo crear la repetición. Inténtalo de nuevo.",
             "replayExportNotEnoughGps" to "No hay suficientes datos GPS para crear una repetición.",
             "replayExportCancel" to "Cancelar repetición",
+            "personaAuto" to "Automático",
+            "personaWalk" to "Caminata",
+            "personaRun" to "Carrera",
+            "personaCycling" to "Ciclismo",
+            "personaBikeDrive" to "Moto",
+            "personaCarDrive" to "Coche",
         ))
         "fr" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -783,6 +808,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "replayExportFailed" to "Impossible de créer le replay. Réessayez.",
             "replayExportNotEnoughGps" to "Pas assez de données GPS pour créer un replay.",
             "replayExportCancel" to "Annuler le replay",
+            "personaAuto" to "Automatique",
+            "personaWalk" to "Marche",
+            "personaRun" to "Course",
+            "personaCycling" to "Vélo",
+            "personaBikeDrive" to "Moto",
+            "personaCarDrive" to "Voiture",
         ))
         "de" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -1022,6 +1053,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "replayExportFailed" to "Replay konnte nicht erstellt werden. Versuche es erneut.",
             "replayExportNotEnoughGps" to "Nicht genügend GPS-Daten für ein Replay.",
             "replayExportCancel" to "Replay abbrechen",
+            "personaAuto" to "Automatisch",
+            "personaWalk" to "Gehen",
+            "personaRun" to "Laufen",
+            "personaCycling" to "Radfahren",
+            "personaBikeDrive" to "Motorrad",
+            "personaCarDrive" to "Auto",
         ))
         "hi" -> AppStrings(mapOf(
             "ok" to "ठीक है",
@@ -1261,6 +1298,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "replayExportFailed" to "रीप्ले नहीं बन सका। फिर से कोशिश करें।",
             "replayExportNotEnoughGps" to "रीप्ले बनाने के लिए पर्याप्त GPS डेटा नहीं है।",
             "replayExportCancel" to "रीप्ले रद्द करें",
+            "personaAuto" to "स्वचालित",
+            "personaWalk" to "पैदल",
+            "personaRun" to "दौड़",
+            "personaCycling" to "साइकिलिंग",
+            "personaBikeDrive" to "मोटरसाइकिल",
+            "personaCarDrive" to "कार",
         ))
         "ja" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -1500,6 +1543,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "replayExportFailed" to "リプレイを作成できませんでした。もう一度お試しください。",
             "replayExportNotEnoughGps" to "リプレイを作成するにはGPSデータが不足しています。",
             "replayExportCancel" to "リプレイをキャンセル",
+            "personaAuto" to "自動",
+            "personaWalk" to "ウォーキング",
+            "personaRun" to "ランニング",
+            "personaCycling" to "サイクリング",
+            "personaBikeDrive" to "バイク",
+            "personaCarDrive" to "車",
         ))
         "zh" -> AppStrings(mapOf(
             "ok" to "确定",
@@ -1739,6 +1788,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "replayExportFailed" to "无法创建回放，请重试。",
             "replayExportNotEnoughGps" to "GPS 数据不足，无法创建回放。",
             "replayExportCancel" to "取消回放",
+            "personaAuto" to "自动",
+            "personaWalk" to "步行",
+            "personaRun" to "跑步",
+            "personaCycling" to "骑行",
+            "personaBikeDrive" to "摩托车",
+            "personaCarDrive" to "汽车",
         ))
         else -> AppStrings() // English default
     }

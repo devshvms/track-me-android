@@ -24,8 +24,71 @@ class ReplayExportStatsTest {
         assertEquals(0L, start.durationMillis)
         assertTrue(middle.distanceMeters > start.distanceMeters)
         assertTrue(middle.distanceMeters < end.distanceMeters)
-        assertEquals(20_000L, end.durationMillis)
+        assertTrue(middle.durationMillis > start.durationMillis)
+        assertTrue(middle.durationMillis < end.durationMillis)
         assertTrue(end.averageSpeedMetersPerSecond > 0.0)
+    }
+
+    /**
+     * The regression this task exists for: the rendered route is privacy-trimmed, so summing its
+     * geometry left the last frame short of the ride's real totals and the shared video
+     * contradicted the History card. The final frame must land exactly on the stored values.
+     */
+    @Test
+    fun `final frame matches the ride totals shown in the app`() {
+        val fallback = ReplayStats(distanceMeters = 12_345.6, durationMillis = 3_600_000L, averageSpeedMetersPerSecond = 3.4)
+
+        val end = replayStatsAtProgress(points, progress = 1f, fallback = fallback)
+
+        assertEquals(fallback.distanceMeters, end.distanceMeters, 0.001)
+        assertEquals(fallback.durationMillis, end.durationMillis)
+    }
+
+    @Test
+    fun `stats never exceed the ride totals when progress overshoots`() {
+        val fallback = ReplayStats(distanceMeters = 500.0, durationMillis = 60_000L, averageSpeedMetersPerSecond = 8.3)
+
+        val overshoot = replayStatsAtProgress(points, progress = 3f, fallback = fallback)
+
+        assertEquals(500.0, overshoot.distanceMeters, 0.001)
+        assertEquals(60_000L, overshoot.durationMillis)
+    }
+
+    /** Legacy imports and recovered orphans have no stored calculation — render geometry, not 0. */
+    @Test
+    fun `rides without stored totals fall back to route geometry`() {
+        val fallback = ReplayStats(distanceMeters = 0.0, durationMillis = 0L, averageSpeedMetersPerSecond = 0.0)
+
+        val end = replayStatsAtProgress(points, progress = 1f, fallback = fallback)
+
+        assertEquals(geometricRouteDistanceMeters(points), end.distanceMeters, 0.001)
+        assertEquals(20_000L, end.durationMillis)
+        assertTrue(end.distanceMeters > 0.0)
+    }
+
+    /**
+     * Distance advances by distance and duration by elapsed time, so a long mid-route stop moves
+     * the clock without moving the odometer.
+     */
+    @Test
+    fun `a mid-route stop advances duration without advancing distance`() {
+        val stopped = listOf(
+            point(latitude = 0.0, longitude = 0.0, timestamp = 0L),
+            point(latitude = 0.0, longitude = 0.001, timestamp = 10_000L),
+            point(latitude = 0.0, longitude = 0.001, timestamp = 610_000L)
+        )
+
+        // Progress 0.5 lands on the end of the moving segment: all of the distance, none of the stop.
+        val midpoint = replayStatsAtProgress(
+            stopped,
+            progress = 0.5f,
+            fallback = ReplayStats(1_000.0, 610_000L, 0.0)
+        )
+
+        assertEquals(1.0, routeDistanceFraction(stopped, progress = 0.5f), 0.0001)
+        assertEquals(1_000.0, midpoint.distanceMeters, 0.001)
+        assertEquals(10_000L, midpoint.durationMillis)
+        assertTrue(midpoint.durationMillis < 610_000L / 2)
     }
 
     @Test

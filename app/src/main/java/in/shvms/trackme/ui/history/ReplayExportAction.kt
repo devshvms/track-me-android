@@ -8,6 +8,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -33,8 +34,10 @@ import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.domain.replay.MediaCodecReplayExporter
 import `in`.shvms.trackme.domain.replay.ReplayExportConfig
+import `in`.shvms.trackme.domain.replay.ReplayOverlay
 import `in`.shvms.trackme.theme.BrandThemeConfig
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.utils.RideUtils
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -61,6 +64,15 @@ fun ReplayExportAction(
     var exporting by remember { mutableStateOf(false) }
     var exportJob by remember { mutableStateOf<Job?>(null) }
     val hasEnoughPoints = rideWithPoints.points.size >= 2
+    // Overlay text is resolved here, in the UI layer, and passed down — the renderer must not
+    // reach for strings or preferences itself.
+    val app = context.applicationContext as `in`.shvms.trackme.TrackMeApp
+    val unitSystem by app.preferencesManager.unitSystem.collectAsState()
+    val persona = RideUtils.personaFromStoredName(rideWithPoints.ride.persona)
+    val overlay = ReplayOverlay(
+        personaLabel = strings.personaLabel(persona),
+        imperialUnits = unitSystem == "imperial"
+    )
 
     TextButton(
         onClick = {
@@ -86,6 +98,8 @@ fun ReplayExportAction(
                     context = context,
                     snapshot = captured?.bitmap,
                     routeProjection = captured?.routeProjection,
+                    persona = persona,
+                    overlay = overlay,
                     scope = scope,
                     onProgress = { progress = it },
                     onFinished = {
@@ -118,6 +132,8 @@ private fun startExport(
     context: Context,
     snapshot: android.graphics.Bitmap?,
     routeProjection: List<Pair<Float, Float>>?,
+    persona: RidePersona,
+    overlay: ReplayOverlay,
     scope: kotlinx.coroutines.CoroutineScope,
     onProgress: (Float) -> Unit,
     onFinished: () -> Unit,
@@ -125,8 +141,6 @@ private fun startExport(
     onFailure: () -> Unit
 ) {
     val lastPublishedProgress = AtomicReference(-1f)
-    val persona = runCatching { RidePersona.valueOf(rideWithPoints.ride.persona) }
-        .getOrDefault(RidePersona.AUTO)
     val deepLinkId = rideWithPoints.ride.firestoreId?.takeLast(12) ?: rideWithPoints.ride.id.toString()
     onJobCreated(scope.launch {
         try {
@@ -137,7 +151,8 @@ private fun startExport(
                     rideWithPoints = rideWithPoints,
                     config = ReplayExportConfig(
                         persona = persona,
-                        deepLink = "${AppConfig.REPLAY_DEEP_LINK_BASE_URL}$deepLinkId"
+                        deepLink = "${AppConfig.REPLAY_DEEP_LINK_BASE_URL}$deepLinkId",
+                        overlay = overlay
                     ),
                     outputDirectory = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME),
                     mapSnapshot = snapshot,
