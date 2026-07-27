@@ -259,8 +259,6 @@ fun ReplayExportAction(
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
                 )
             }
-                )
-            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
