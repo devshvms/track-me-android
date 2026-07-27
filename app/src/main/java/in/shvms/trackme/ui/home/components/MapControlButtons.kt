@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -149,7 +150,11 @@ fun MapLayerHorizontalDrawerButton(
             shadowElevation = 3.dp,
             modifier = Modifier
                 .size(52.dp)
-                .clickable {
+                .semantics(mergeDescendants = true) {
+                    this.contentDescription = if (isDrawerOpen) strings.close else strings.mapLayers
+                    this.stateDescription = if (isDrawerOpen) strings.mapLayersExpanded else strings.mapLayersCollapsed
+                }
+                .clickable(role = Role.Button) {
                     val now = System.currentTimeMillis()
                     if (now - lastDismissTime > 100L) {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -161,7 +166,7 @@ fun MapLayerHorizontalDrawerButton(
                 if (layersAlpha > 0.01f) {
                     Icon(
                         imageVector = Icons.Default.Layers,
-                        contentDescription = "Map Layers",
+                        contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier
                             .size(24.dp)
@@ -175,7 +180,7 @@ fun MapLayerHorizontalDrawerButton(
                 if (crossAlpha > 0.01f) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
+                        contentDescription = null,
                         tint = Color.Black.copy(alpha = 0.85f),
                         modifier = Modifier
                             .size(26.dp)

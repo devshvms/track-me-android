@@ -229,6 +229,8 @@ open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
     val shareRideText: String = s("shareRideText", "Follow my live location here")
     val shareVia: String = s("shareVia", "Share via")
     val mapLayers: String = s("mapLayers", "Map Layers")
+    val mapLayersExpanded: String = s("mapLayersExpanded", "Expanded")
+    val mapLayersCollapsed: String = s("mapLayersCollapsed", "Collapsed")
 
     // Ride History Filter & Grouping
     val timeFrameAll: String = s("timeFrameAll", "All Time")
@@ -349,6 +351,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "navHistory" to "Historial",
             "navSettings" to "Ajustes",
             "startTracking" to "Iniciar Viaje",
+            "mapLayers" to "Capas del mapa",
+            "mapLayersExpanded" to "Expandido",
+            "mapLayersCollapsed" to "Contraído",
             "mapLayerNormal" to "Mapa normal",
             "mapLayerSatellite" to "Mapa satelital",
             "mapLayerTerrain" to "Mapa de terreno",
@@ -605,6 +610,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "navHistory" to "Historique",
             "navSettings" to "Paramètres",
             "startTracking" to "Démarrer Trajet",
+            "mapLayers" to "Couches de carte",
+            "mapLayersExpanded" to "Ouvert",
+            "mapLayersCollapsed" to "Fermé",
             "mapLayerNormal" to "Carte normale",
             "mapLayerSatellite" to "Carte satellite",
             "mapLayerTerrain" to "Carte du terrain",
@@ -861,6 +869,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "navHistory" to "Verlauf",
             "navSettings" to "Einstellungen",
             "startTracking" to "Fahrt Starten",
+            "mapLayers" to "Kartenebenen",
+            "mapLayersExpanded" to "Geöffnet",
+            "mapLayersCollapsed" to "Geschlossen",
             "mapLayerNormal" to "Normale Karte",
             "mapLayerSatellite" to "Satellitenkarte",
             "mapLayerTerrain" to "Geländekarte",
@@ -1117,6 +1128,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "navHistory" to "इतिहास",
             "navSettings" to "सेटिंग्स",
             "startTracking" to "यात्रा शुरू करें",
+            "mapLayers" to "मानचित्र परतें",
+            "mapLayersExpanded" to "विस्तृत",
+            "mapLayersCollapsed" to "संकुचित",
             "mapLayerNormal" to "सामान्य मानचित्र",
             "mapLayerSatellite" to "सैटेलाइट मानचित्र",
             "mapLayerTerrain" to "भू-भाग मानचित्र",
@@ -1373,6 +1387,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "navHistory" to "履歴",
             "navSettings" to "設定",
             "startTracking" to "記録を開始",
+            "mapLayers" to "地図レイヤー",
+            "mapLayersExpanded" to "展開",
+            "mapLayersCollapsed" to "折りたたみ",
             "mapLayerNormal" to "標準地図",
             "mapLayerSatellite" to "衛星地図",
             "mapLayerTerrain" to "地形図",
@@ -1629,6 +1646,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "navHistory" to "历史",
             "navSettings" to "设置",
             "startTracking" to "开始记录",
+            "mapLayers" to "地图图层",
+            "mapLayersExpanded" to "已展开",
+            "mapLayersCollapsed" to "已折叠",
             "mapLayerNormal" to "普通地图",
             "mapLayerSatellite" to "卫星地图",
             "mapLayerTerrain" to "地形图",
