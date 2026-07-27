@@ -658,16 +658,31 @@ fun HomeScreen(
                         .fillMaxSize()
                         .border(4.dp, TrackMeRed)
                 ) {
-                    Text(
-                        text = strings.emergencyBroadcastActive,
-                        color = Color.White,
+                    Column(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
-                            .padding(top = 16.dp)
-                            .border(2.dp, TrackMeRed)
-                            .padding(8.dp),
-                        style = MaterialTheme.typography.labelLarge
-                    )
+                            .padding(top = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = strings.emergencyBroadcastActive,
+                            color = Color.White,
+                            modifier = Modifier
+                                .border(2.dp, TrackMeRed)
+                                .padding(8.dp),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        OutlinedButton(
+                            onClick = { viewModel.stopEmergency() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                contentColor = TrackMeRed
+                            ),
+                            border = BorderStroke(2.dp, TrackMeRed)
+                        ) {
+                            Text(strings.stopEmergencyBroadcast)
+                        }
+                    }
                 }
             }
 

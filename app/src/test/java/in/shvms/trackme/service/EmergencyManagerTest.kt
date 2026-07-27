@@ -2,6 +2,9 @@ package `in`.shvms.trackme.service
 
 import android.content.SharedPreferences
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -68,6 +71,52 @@ class EmergencyManagerTest {
 
         val resolvedManager = EmergencyManager(preferences)
         assertFalse(resolvedManager.isEmergencyActive.value)
+        assertNull(resolvedManager.emergencyStartedAtMillis.value)
+    }
+
+    @Test
+    fun freshManager_restoresEmergencyStartTime() {
+        val preferences = InMemorySharedPreferences()
+        val firstManager = EmergencyManager(preferences)
+
+        firstManager.triggerEmergency()
+        val startedAt = firstManager.emergencyStartedAtMillis.value
+
+        val restoredManager = EmergencyManager(preferences)
+
+        assertNotNull(startedAt)
+        assertEquals(startedAt, restoredManager.emergencyStartedAtMillis.value)
+    }
+
+    @Test
+    fun triggerEmergency_doesNotResetAnActiveStartTime() {
+        val manager = manager()
+
+        manager.triggerEmergency()
+        val startedAt = manager.emergencyStartedAtMillis.value
+        manager.triggerEmergency()
+
+        assertEquals(startedAt, manager.emergencyStartedAtMillis.value)
+    }
+
+    @Test
+    fun activeEmergencyCreatedBeforeTimestamp_migratesToBoundedStartTime() {
+        val preferences = InMemorySharedPreferences()
+        preferences.edit().putBoolean("emergency_active", true).apply()
+        val manager = EmergencyManager(preferences)
+
+        val startedAt = manager.ensureEmergencyStartedAt()
+
+        assertNotNull(startedAt)
+        assertEquals(startedAt, EmergencyManager(preferences).emergencyStartedAtMillis.value)
+    }
+
+    @Test
+    fun broadcastPolicy_usesElapsedTimeForCadenceAndStopsAtTwentyFourHours() {
+        assertEquals(2 * 60 * 1000L, EmergencyBroadcastPolicy.delayMillis(0))
+        assertEquals(10 * 60 * 1000L, EmergencyBroadcastPolicy.delayMillis(10))
+        assertEquals(60 * 60 * 1000L, EmergencyBroadcastPolicy.delayMillis(60))
+        assertNull(EmergencyBroadcastPolicy.delayMillis(EmergencyBroadcastPolicy.MAX_DURATION_MINUTES))
     }
 
     private fun manager(): EmergencyManager = EmergencyManager(InMemorySharedPreferences())
