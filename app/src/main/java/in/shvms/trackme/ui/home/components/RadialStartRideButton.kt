@@ -53,6 +53,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -232,18 +233,19 @@ fun RadialStartRideButton(
                 .background(MaterialTheme.colorScheme.primary)
                 .border(2.dp, Color.White.copy(alpha = 0.4f), CircleShape)
                 .semantics(mergeDescendants = true) {
-                    contentDescription = "Start ride. Drag to choose an activity."
-                    stateDescription = if (launchedPersona == null) {
-                        "Activity selection available"
+                    val currentLaunch = launchedPersona
+                    contentDescription = strings.startRideAccessibility
+                    stateDescription = if (currentLaunch == null) {
+                        strings.activitySelectionAvailable
                     } else {
                         String.format(
                             Locale.getDefault(),
                             strings.startingPersona,
-                            strings.personaLabel(launchedPersona!!)
+                            strings.personaLabel(currentLaunch)
                         )
                     }
                     role = Role.Button
-                    onClick(label = "Start ride") {
+                    onClick(label = strings.startRideAction) {
                         if (launchedPersona == null) {
                             launchedPersona = RidePersona.AUTO
                             true
@@ -360,16 +362,22 @@ fun RadialStartRideButton(
                             modifier = Modifier.size(24.dp)
                         )
                         Text(
-                            text = "AUTO",
+                            text = strings.personaLabel(RidePersona.AUTO),
                             color = onStartButton,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "DRAG TO SELECT",
+                            text = strings.dragToSelect.uppercase(Locale.getDefault()),
                             color = onStartButton,
                             fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 } else {

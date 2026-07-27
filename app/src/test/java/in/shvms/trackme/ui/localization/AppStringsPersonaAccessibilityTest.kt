@@ -21,6 +21,8 @@ class AppStringsPersonaAccessibilityTest {
 
     @Test
     fun `persona accessibility templates resolve in every supported language`() {
+        val english = getAppStrings("en")
+
         supportedLanguages.forEach { language ->
             val strings = getAppStrings(language)
             RidePersona.entries.forEach { persona ->
@@ -34,6 +36,16 @@ class AppStringsPersonaAccessibilityTest {
                 assertTrue("$language/$persona start label omitted persona", start.contains(label))
                 assertFalse("$language/$persona left a format placeholder", starting.contains("%1"))
                 assertFalse("$language/$persona left a format placeholder", start.contains("%1"))
+            }
+
+            if (language != "en") {
+                assertFalse("$language fell back for startingPersona", strings.startingPersona == english.startingPersona)
+                assertFalse("$language fell back for startPersona", strings.startPersona == english.startPersona)
+                assertFalse("$language fell back for personaAuto", strings.personaAuto == english.personaAuto)
+                assertFalse("$language fell back for dragToSelect", strings.dragToSelect == english.dragToSelect)
+                assertFalse("$language fell back for startRideAccessibility", strings.startRideAccessibility == english.startRideAccessibility)
+                assertFalse("$language fell back for activitySelectionAvailable", strings.activitySelectionAvailable == english.activitySelectionAvailable)
+                assertFalse("$language fell back for startRideAction", strings.startRideAction == english.startRideAction)
             }
         }
     }
