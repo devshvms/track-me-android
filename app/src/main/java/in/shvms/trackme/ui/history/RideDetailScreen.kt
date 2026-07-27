@@ -85,9 +85,11 @@ import java.util.Date
 import java.util.Locale
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
+// Currently has no callers. Kept, but pinned to the canonical ride-summary precision so it cannot
+// reintroduce TASK-109's screen-vs-shared-artifact mismatch the moment someone does call it.
 fun formatDistance(meters: Double, imperial: Boolean = false): String {
     if (!imperial && meters < 1000) return String.format("%.0f m", meters)
-    return `in`.shvms.trackme.domain.UnitFormatter.distance(meters, imperial)
+    return `in`.shvms.trackme.domain.UnitFormatter.rideDistance(meters, imperial)
 }
 
 // Camera position covering the route, computable before the map has a size so the
@@ -537,7 +539,7 @@ fun RideDetailScreen(
                     }
                     
                     Text(
-                        text = "Time: $elapsedFormatted  |  Dist: ${`in`.shvms.trackme.domain.UnitFormatter.distance(distKm * 1000.0, imperial)}",
+                        text = "Time: $elapsedFormatted  |  Dist: ${`in`.shvms.trackme.domain.UnitFormatter.rideDistance(distKm * 1000.0, imperial)}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -614,7 +616,7 @@ fun RideDetailScreen(
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            StatItem(strings.distance, `in`.shvms.trackme.domain.UnitFormatter.distance(ride.postRideCalculation?.distance ?: 0.0, imperial), modifier = Modifier.weight(1f))
+                            StatItem(strings.distance, `in`.shvms.trackme.domain.UnitFormatter.rideDistance(ride.postRideCalculation?.distance ?: 0.0, imperial), modifier = Modifier.weight(1f))
                             StatItem(strings.duration, formatDuration((ride.endTime ?: ride.startTime) - ride.startTime), modifier = Modifier.weight(1f))
                             StatItem(strings.gpsPoints, points.size.toString(), modifier = Modifier.weight(1f))
                         }
@@ -876,7 +878,7 @@ fun RideDetailScreen(
                         }
                     }
                     if (settings.showStats) {
-                        val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.distance(rideWithPoints?.ride?.postRideCalculation?.distance ?: 0.0, imperial)
+                        val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(rideWithPoints?.ride?.postRideCalculation?.distance ?: 0.0, imperial)
                         val durationMillis = (rideWithPoints?.ride?.endTime ?: rideWithPoints?.ride?.startTime ?: 0L) - (rideWithPoints?.ride?.startTime ?: 0L)
                         val seconds = durationMillis / 1000
                         val durationStr = String.format(java.util.Locale.getDefault(), "%02d:%02d:%02d", seconds / 3600, (seconds % 3600) / 60, seconds % 60)
