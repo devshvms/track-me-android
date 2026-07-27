@@ -99,6 +99,7 @@ fun ExportPreviewDialog(
     onShare: (ExportPreviewSettings) -> Unit,
     onSave: ((ExportPreviewSettings) -> Unit)? = null,
     onRetry: ((ExportPreviewSettings) -> Unit)? = null,
+    videoAction: (@Composable (ExportPreviewSettings) -> Unit)? = null,
     preview: @Composable (Modifier, ExportPreviewSettings) -> Unit
 ) {
     val strings = LocalAppStrings.current
@@ -177,6 +178,8 @@ fun ExportPreviewDialog(
                         onSelected = { ratio = it },
                         portraitRatio = Pair(1080, 1920)
                     )
+
+                    videoAction?.invoke(settings)
 
                     Text(strings.mapStyle, style = MaterialTheme.typography.labelLarge)
                     Row(

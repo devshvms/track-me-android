@@ -23,6 +23,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
+import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.GoogleMapOptions
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.MapView
@@ -56,6 +57,7 @@ private data class CapturedMapSnapshot(
 fun ReplayExportAction(
     rideWithPoints: RideWithPoints,
     context: Context,
+    settings: ExportPreviewSettings,
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
@@ -86,16 +88,24 @@ fun ReplayExportAction(
             }
             exporting = true
             progress = 0f
-            val trimmedPoints = trimComparisonEndpoints(rideWithPoints.points).sortedBy { it.timestamp }
-            if (trimmedPoints.size < 2) {
+            val routePoints = replayRoutePoints(rideWithPoints.points, settings.privacyTrim)
+            if (routePoints.size < 2) {
                 exporting = false
                 android.widget.Toast.makeText(context, strings.replayExportFailed, android.widget.Toast.LENGTH_SHORT).show()
                 return@TextButton
             }
-            capturePrivacyTrimmedSnapshot(context, trimmedPoints) { captured ->
+            val frameSize = replayFrameSize(settings.ratio)
+            captureRouteSnapshot(
+                context = context,
+                points = routePoints,
+                size = replaySnapshotSize(frameSize),
+                mapType = settings.mapType
+            ) { captured ->
                 startExport(
                     rideWithPoints = rideWithPoints,
                     context = context,
+                    frameSize = frameSize,
+                    applyPrivacyTrim = settings.privacyTrim,
                     snapshot = captured?.bitmap,
                     routeProjection = captured?.routeProjection,
                     persona = persona,
@@ -130,6 +140,8 @@ fun ReplayExportAction(
 private fun startExport(
     rideWithPoints: RideWithPoints,
     context: Context,
+    frameSize: Pair<Int, Int>,
+    applyPrivacyTrim: Boolean,
     snapshot: android.graphics.Bitmap?,
     routeProjection: List<Pair<Float, Float>>?,
     persona: RidePersona,
@@ -150,6 +162,10 @@ private fun startExport(
                 ).exportReplay(
                     rideWithPoints = rideWithPoints,
                     config = ReplayExportConfig(
+                        width = frameSize.first,
+                        height = frameSize.second,
+                        applyPrivacyTrim = applyPrivacyTrim,
+                        privacyTrimDistanceMeters = COMPARISON_PRIVACY_TRIM_METERS,
                         persona = persona,
                         deepLink = "${AppConfig.REPLAY_DEEP_LINK_BASE_URL}$deepLinkId",
                         overlay = overlay
@@ -177,15 +193,17 @@ private fun startExport(
     })
 }
 
-/** Captures only the privacy-trimmed route on a temporary 9:16 map surface. */
-private fun capturePrivacyTrimmedSnapshot(
+/** Captures only the selected route on a ratio-matched temporary map surface. */
+private fun captureRouteSnapshot(
     context: Context,
     points: List<`in`.shvms.trackme.data.local.entity.GPSPointEntity>,
+    size: Pair<Int, Int>,
+    mapType: com.google.maps.android.compose.MapType,
     onResult: (CapturedMapSnapshot?) -> Unit
 ) {
-    val width = 540
-    val height = 960
-    val mapView = MapView(context.applicationContext, GoogleMapOptions().mapType(com.google.android.gms.maps.GoogleMap.MAP_TYPE_NORMAL))
+    val width = size.first
+    val height = size.second
+    val mapView = MapView(context.applicationContext, GoogleMapOptions().mapType(googleMapTypeFor(mapType)))
     mapView.layoutParams = ViewGroup.LayoutParams(width, height)
     mapView.measure(
         View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
@@ -238,6 +256,53 @@ private fun capturePrivacyTrimmedSnapshot(
             }
         }.onFailure { finish(null) }
     }
+}
+
+/** Maps the preview's ratio to an even H.264 frame size in the 1080p class. */
+internal fun replayFrameSize(ratio: Pair<Int, Int>): Pair<Int, Int> {
+    val ratioWidth = ratio.first.toFloat()
+    val ratioHeight = ratio.second.toFloat()
+    if (ratioWidth <= 0f || ratioHeight <= 0f) return 1080 to 1080
+
+    val shortEdge = 1080f
+    val ratioScale = shortEdge / minOf(ratioWidth, ratioHeight)
+    var width = ratioWidth * ratioScale
+    var height = ratioHeight * ratioScale
+    val longEdge = maxOf(width, height)
+    if (longEdge > 1920f) {
+        val capScale = 1920f / longEdge
+        width *= capScale
+        height *= capScale
+    }
+    return evenPixels(width) to evenPixels(height)
+}
+
+/** Captures at half the frame dimensions, preserving the default 540x960 memory profile. */
+internal fun replaySnapshotSize(frameSize: Pair<Int, Int>): Pair<Int, Int> =
+    (frameSize.first / 2).coerceAtLeast(2) to (frameSize.second / 2).coerceAtLeast(2)
+
+/** Converts maps-compose styles to the SDK values accepted by [GoogleMapOptions]. */
+internal fun googleMapTypeFor(mapType: com.google.maps.android.compose.MapType): Int = when (mapType) {
+    com.google.maps.android.compose.MapType.SATELLITE -> GoogleMap.MAP_TYPE_SATELLITE
+    com.google.maps.android.compose.MapType.TERRAIN -> GoogleMap.MAP_TYPE_TERRAIN
+    com.google.maps.android.compose.MapType.HYBRID -> GoogleMap.MAP_TYPE_HYBRID
+    else -> GoogleMap.MAP_TYPE_NORMAL
+}
+
+/** Uses the exact endpoint-trim rule shared by the preview and replay exporter. */
+internal fun replayRoutePoints(
+    points: List<`in`.shvms.trackme.data.local.entity.GPSPointEntity>,
+    applyPrivacyTrim: Boolean
+): List<`in`.shvms.trackme.data.local.entity.GPSPointEntity> =
+    (if (applyPrivacyTrim) {
+        trimComparisonEndpoints(points, COMPARISON_PRIVACY_TRIM_METERS)
+    } else {
+        points
+    }).sortedBy { it.timestamp }
+
+private fun evenPixels(value: Float): Int {
+    val rounded = kotlin.math.ceil(value - 0.5f).toInt().coerceAtLeast(2)
+    return if (rounded % 2 == 0) rounded else rounded + 1
 }
 
 private fun shareReplay(context: Context, file: File) {

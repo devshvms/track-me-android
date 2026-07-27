@@ -651,12 +651,6 @@ fun RideDetailScreen(
                                 Text(strings.share, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                             }
 
-                            ReplayExportAction(
-                                rideWithPoints = rideWithPoints!!,
-                                context = context,
-                                modifier = Modifier.weight(1f)
-                            )
-
                             TextButton(
                                 onClick = {
                                 coroutineScope.launch(Dispatchers.IO) {
@@ -823,6 +817,14 @@ fun RideDetailScreen(
             onRetry = { settings ->
                 exportError = false
                 handleExport(settings, share = true)
+            },
+            videoAction = { videoSettings ->
+                ReplayExportAction(
+                    rideWithPoints = rideWithPoints!!,
+                    context = context,
+                    settings = videoSettings,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         ) { modifier, settings ->
             val routePoints = remember(rideWithPoints?.points, settings.privacyTrim) {
