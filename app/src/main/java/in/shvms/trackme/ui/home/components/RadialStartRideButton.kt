@@ -45,6 +45,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -69,6 +70,15 @@ import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
+internal fun selectedPersonaForRelease(
+    hoveredPersona: RidePersona?,
+    dragDistancePx: Float,
+    touchSlopPx: Float
+): RidePersona? {
+    if (dragDistancePx <= touchSlopPx) return null
+    return hoveredPersona ?: RidePersona.AUTO
+}
+
 @Composable
 fun RadialStartRideButton(
     onStartRide: (RidePersona) -> Unit,
@@ -77,6 +87,7 @@ fun RadialStartRideButton(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
+    val touchSlopPx = LocalViewConfiguration.current.touchSlop
     val strings = LocalAppStrings.current
 
     val personas = remember {
@@ -273,7 +284,7 @@ fun RadialStartRideButton(
                         }
                     }
                 }
-                .pointerInput(Unit) {
+                .pointerInput(touchSlopPx) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val centerPx = Offset(size.width / 2f, size.height / 2f)
@@ -285,12 +296,17 @@ fun RadialStartRideButton(
                         isPressed = true
                         hoveredPersona = null
                         lastVibratedPersona = null
+                        var dragDistancePx = 0f
                         triggerHaptic()
 
                         do {
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull() ?: break
                             val pos = change.position
+                            dragDistancePx = maxOf(
+                                dragDistancePx,
+                                hypot(pos.x - down.position.x, pos.y - down.position.y)
+                            )
                             val relPos = pos - centerPx
 
                             // Check which persona circle is closest/hovered
@@ -313,11 +329,17 @@ fun RadialStartRideButton(
                             }
                         } while (event.changes.any { it.pressed })
 
-                        val selected = hoveredPersona ?: RidePersona.AUTO
+                        val selected = selectedPersonaForRelease(
+                            hoveredPersona = hoveredPersona,
+                            dragDistancePx = dragDistancePx,
+                            touchSlopPx = touchSlopPx
+                        )
                         isPressed = false
                         hoveredPersona = null
                         lastVibratedPersona = null
-                        launchedPersona = selected
+                        if (selected != null) {
+                            launchedPersona = selected
+                        }
                     }
                 },
             contentAlignment = Alignment.Center
