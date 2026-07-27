@@ -49,6 +49,11 @@ open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
     val elevation: String = s("elevation", "Elevation")
     val swipeToSos: String = s("swipeToSos", "Swipe to Trigger Emergency SOS")
     val sosTriggered: String = s("sosTriggered", "EMERGENCY SOS TRIGGERED!")
+    val mapLayerNormal: String = s("mapLayerNormal", "Normal map")
+    val mapLayerSatellite: String = s("mapLayerSatellite", "Satellite map")
+    val mapLayerTerrain: String = s("mapLayerTerrain", "Terrain map")
+    val mapLayerHybrid: String = s("mapLayerHybrid", "Hybrid map")
+    val mapLayerTraffic: String = s("mapLayerTraffic", "Traffic")
     // Notification content (the OS channel labels remain native resources).
     val notifTrackingTitle: String = s("notifTrackingTitle", "TrackMe is recording your ride")
     val notifTrackingText: String = s("notifTrackingText", "Ongoing Ride")
@@ -344,6 +349,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "navHistory" to "Historial",
             "navSettings" to "Ajustes",
             "startTracking" to "Iniciar Viaje",
+            "mapLayerNormal" to "Mapa normal",
+            "mapLayerSatellite" to "Mapa satelital",
+            "mapLayerTerrain" to "Mapa de terreno",
+            "mapLayerHybrid" to "Mapa híbrido",
+            "mapLayerTraffic" to "Tráfico",
             "pauseTracking" to "Pausar Viaje",
             "resumeTracking" to "Reanudar Viaje",
             "stopTracking" to "Detener Viaje",
@@ -595,6 +605,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "navHistory" to "Historique",
             "navSettings" to "Paramètres",
             "startTracking" to "Démarrer Trajet",
+            "mapLayerNormal" to "Carte normale",
+            "mapLayerSatellite" to "Carte satellite",
+            "mapLayerTerrain" to "Carte du terrain",
+            "mapLayerHybrid" to "Carte hybride",
+            "mapLayerTraffic" to "Trafic",
             "pauseTracking" to "Pause Trajet",
             "resumeTracking" to "Reprendre Trajet",
             "stopTracking" to "Arrêter Trajet",
@@ -846,6 +861,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "navHistory" to "Verlauf",
             "navSettings" to "Einstellungen",
             "startTracking" to "Fahrt Starten",
+            "mapLayerNormal" to "Normale Karte",
+            "mapLayerSatellite" to "Satellitenkarte",
+            "mapLayerTerrain" to "Geländekarte",
+            "mapLayerHybrid" to "Hybridkarte",
+            "mapLayerTraffic" to "Verkehr",
             "pauseTracking" to "Fahrt Pausieren",
             "resumeTracking" to "Fahrt Fortsetzen",
             "stopTracking" to "Fahrt Beenden",
@@ -1097,6 +1117,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "navHistory" to "इतिहास",
             "navSettings" to "सेटिंग्स",
             "startTracking" to "यात्रा शुरू करें",
+            "mapLayerNormal" to "सामान्य मानचित्र",
+            "mapLayerSatellite" to "सैटेलाइट मानचित्र",
+            "mapLayerTerrain" to "भू-भाग मानचित्र",
+            "mapLayerHybrid" to "हाइब्रिड मानचित्र",
+            "mapLayerTraffic" to "ट्रैफ़िक",
             "pauseTracking" to "रोकें",
             "resumeTracking" to "फिर से शुरू करें",
             "stopTracking" to "यात्रा समाप्त करें",
@@ -1348,6 +1373,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "navHistory" to "履歴",
             "navSettings" to "設定",
             "startTracking" to "記録を開始",
+            "mapLayerNormal" to "標準地図",
+            "mapLayerSatellite" to "衛星地図",
+            "mapLayerTerrain" to "地形図",
+            "mapLayerHybrid" to "ハイブリッド地図",
+            "mapLayerTraffic" to "交通情報",
             "pauseTracking" to "一時停止",
             "resumeTracking" to "再開",
             "stopTracking" to "記録を終了",
@@ -1599,6 +1629,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "navHistory" to "历史",
             "navSettings" to "设置",
             "startTracking" to "开始记录",
+            "mapLayerNormal" to "普通地图",
+            "mapLayerSatellite" to "卫星地图",
+            "mapLayerTerrain" to "地形图",
+            "mapLayerHybrid" to "混合地图",
+            "mapLayerTraffic" to "交通状况",
             "pauseTracking" to "暂停记录",
             "resumeTracking" to "恢复记录",
             "stopTracking" to "结束记录",
