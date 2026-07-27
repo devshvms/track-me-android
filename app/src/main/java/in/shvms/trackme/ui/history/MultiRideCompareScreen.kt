@@ -459,7 +459,10 @@ private fun AggregateLegendPanel(
 
 private fun letterMarkerIcon(context: Context, label: String, color: Int): BitmapDescriptor {
     val density = context.resources.displayMetrics.density
-    val size = (48f * density).toInt().coerceAtLeast(48)
+    // Keep comparison markers close to the native location-dot visual scale. These markers are
+    // informational (there is no marker click action), so the map remains readable when several
+    // rides start near one another while the letter stays legible inside the filled circle.
+    val size = (24f * density).toInt().coerceAtLeast(24)
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color; style = Paint.Style.FILL }
