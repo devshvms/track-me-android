@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -305,9 +306,14 @@ private fun UnifiedAggregateRidePreviewDialog(
                     ).export(snapshot, context)
                 }.onSuccess { file ->
                     withContext(Dispatchers.Main) {
-                        if (share) shareComparisonFile(context, file) else saveComparisonImage(context, file)
+                        val saved = if (share) {
+                            shareComparisonFile(context, file)
+                            true
+                        } else {
+                            saveComparisonImage(context, file)
+                        }
                         isExporting = false
-                        onDismiss()
+                        if (saved) onDismiss() else exportError = true
                     }
                 }.onFailure {
                     withContext(Dispatchers.Main) {
@@ -329,6 +335,7 @@ private fun UnifiedAggregateRidePreviewDialog(
         canExport = visibleRoutes.isNotEmpty(),
         isExporting = isExporting,
         errorMessage = if (exportError) strings.exportFailed else null,
+        shareLabel = strings.aggregatePreviewShare,
         onDismiss = onDismiss,
         onShare = { settings -> exportPreview(settings, share = true) },
         onSave = { settings -> exportPreview(settings, share = false) },
@@ -394,16 +401,33 @@ private fun UnifiedAggregateRidePreviewDialog(
                         }
                     }
                 }
-                if (settings.showStats) {
+                if (settings.showStats || settings.showLegend) {
+                    val legendRows = remember(previewRoutes) {
+                        aggregatePreviewLegend(previewRoutes, strings.rideHistoryTitle, showLegend = true)
+                    }
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(42.dp).align(Alignment.BottomCenter),
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight().align(Alignment.BottomCenter),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            previewRoutes.joinToString(" • ") { it.label },
-                            color = if (settings.darkTheme) Color.White else Color.Black,
-                            style = MaterialTheme.typography.labelMedium
-                        )
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (settings.showStats) {
+                                Text(
+                                    previewRoutes.joinToString(" • ") { it.label },
+                                    color = if (settings.darkTheme) Color.White else Color.Black,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                            if (settings.showLegend) {
+                                Text(
+                                    legendRows.joinToString(" • ") { (label, title) -> "$label: $title" },
+                                    color = if (settings.darkTheme) Color.White else Color.Black,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -439,27 +463,8 @@ private fun shareComparisonFile(context: Context, file: java.io.File) {
     context.startActivity(Intent.createChooser(intent, "TrackMe"))
 }
 
-private fun saveComparisonImage(context: Context, file: java.io.File) {
-    val values = android.content.ContentValues().apply {
-        put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "TrackMe_Aggregate_${System.currentTimeMillis()}.png")
-        put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
-        put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/TrackMe")
-        put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
-    }
-    val resolver = context.contentResolver
-    val uri = resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-        ?: error("Unable to create gallery entry")
-    try {
-        resolver.openOutputStream(uri)?.use { output -> file.inputStream().use { input -> input.copyTo(output) } }
-            ?: error("Unable to open gallery output")
-        values.clear()
-        values.put(android.provider.MediaStore.Images.Media.IS_PENDING, 0)
-        resolver.update(uri, values, null, null)
-    } catch (error: Throwable) {
-        resolver.delete(uri, null, null)
-        throw error
-    }
-}
+private fun saveComparisonImage(context: Context, file: java.io.File): Boolean =
+    saveImageToGallery(context, file, "Aggregate")
 
 private fun toast(context: Context, message: String) {
     android.os.Handler(android.os.Looper.getMainLooper()).post {

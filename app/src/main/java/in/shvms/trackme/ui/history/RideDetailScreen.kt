@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
+import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
@@ -226,8 +227,8 @@ fun RideDetailScreen(
             null
         }
     }
-    val startCircleIcon = remember { markerCircleIcon(0xFF2E7D32.toInt()) }
-    val finishCircleIcon = remember { markerCircleIcon(0xFFC62828.toInt()) }
+    val startCircleIcon = remember { markerCircleIcon(GreenGo.toArgb()) }
+    val finishCircleIcon = remember { markerCircleIcon(CyanBright.toArgb()) }
 
     val pausedLocations = remember(rideWithPoints?.points) {
         pausedMarkerLocations(rideWithPoints?.points.orEmpty()).map { marker ->
@@ -430,7 +431,7 @@ fun RideDetailScreen(
 
                             Marker(
                                 state = remember(latLngs.last()) { MarkerState(position = latLngs.last()) },
-                                title = "Finish",
+                                title = strings.mapFinish,
                                 snippet = "End of Ride",
                                 icon = finishFlagIcon,
                                 anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
@@ -808,7 +809,7 @@ fun RideDetailScreen(
         }
 
         ExportPreviewDialog(
-            title = "Export Preview",
+            title = strings.exportPreviewTitle,
             initialRatio = Pair(AppConfig.HQ_IMAGE_WIDTH, AppConfig.HQ_IMAGE_RATIO_9_16),
             initialPrivacyTrim = true,
             canExport = exportCanRender,
@@ -849,7 +850,7 @@ fun RideDetailScreen(
                         routePoints.any { point ->
                             val distance = FloatArray(1)
                             android.location.Location.distanceBetween(point.latitude, point.longitude, location.latitude, location.longitude, distance)
-                            distance[0] <= 30f
+                            distance[0] <= 10f
                         }
                     }
                 }
@@ -870,8 +871,8 @@ fun RideDetailScreen(
                             pausedForRoute.forEach { location ->
                                 Marker(state = MarkerState(position = location), icon = pauseCircleIcon, anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f))
                             }
-                            Marker(state = remember(latLngs.first()) { MarkerState(position = latLngs.first()) }, title = "Start", icon = startCircleIcon)
-                            Marker(state = remember(latLngs.last()) { MarkerState(position = latLngs.last()) }, title = "Finish", icon = finishCircleIcon)
+                            Marker(state = remember(latLngs.first()) { MarkerState(position = latLngs.first()) }, title = strings.mapStart, icon = startCircleIcon)
+                            Marker(state = remember(latLngs.last()) { MarkerState(position = latLngs.last()) }, title = strings.mapFinish, icon = finishCircleIcon)
                         }
                     }
                     if (settings.showStats) {
@@ -1146,20 +1147,4 @@ private fun formatDuration(durationMillis: Long): String {
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
     return String.format(java.util.Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
-}
-
-fun saveImageToGallery(context: Context, imageFile: java.io.File, rideTitle: String) {
-    val values = ContentValues().apply {
-        put(MediaStore.Images.Media.DISPLAY_NAME, "TrackMe_${rideTitle}_${System.currentTimeMillis()}.png")
-        put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-        put(MediaStore.Images.Media.DATE_ADDED, System.currentTimeMillis() / 1000)
-    }
-    val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-    if (uri != null) {
-        context.contentResolver.openOutputStream(uri)?.use { out ->
-            FileInputStream(imageFile).use { input ->
-                input.copyTo(out)
-            }
-        }
-    }
 }

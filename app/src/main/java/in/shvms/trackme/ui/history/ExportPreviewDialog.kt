@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -92,6 +94,7 @@ fun ExportPreviewDialog(
     canExport: Boolean = true,
     isExporting: Boolean = false,
     errorMessage: String? = null,
+    shareLabel: String? = null,
     onDismiss: () -> Unit,
     onShare: (ExportPreviewSettings) -> Unit,
     onSave: ((ExportPreviewSettings) -> Unit)? = null,
@@ -153,7 +156,8 @@ fun ExportPreviewDialog(
                     BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(420.dp),
+                            .heightIn(max = 420.dp)
+                            .wrapContentHeight(),
                         contentAlignment = Alignment.Center
                     ) {
                         val maxPreviewHeight = 420.dp
@@ -193,19 +197,21 @@ fun ExportPreviewDialog(
                     }
 
                     ToggleRow(strings.privacyTrim, privacyTrim) { privacyTrim = it }
-                    ToggleRow("Hide Places", hidePlaces, enabled = mapType == MapType.NORMAL) { hidePlaces = it }
-                    ToggleRow("Show Markers", showMarkers) { showMarkers = it }
+                    ToggleRow(strings.hidePlaces, hidePlaces, enabled = mapType == MapType.NORMAL) { hidePlaces = it }
+                    ToggleRow(strings.showMarkers, showMarkers) { showMarkers = it }
                     ToggleRow(strings.statsOverlay, showStats) { showStats = it }
 
                     if (showStats) {
-                        ToggleRow("Dark Theme", darkTheme) { darkTheme = it }
-                        Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            FilterChip(selected = showDistance, onClick = { showDistance = !showDistance }, label = { Text("Dist") })
-                            FilterChip(selected = showDuration, onClick = { showDuration = !showDuration }, label = { Text("Dur") })
-                            FilterChip(selected = showDate, onClick = { showDate = !showDate }, label = { Text("Date") })
+                        ToggleRow(strings.darkTheme, darkTheme) { darkTheme = it }
+                        if (!showAggregateControls) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                FilterChip(selected = showDistance, onClick = { showDistance = !showDistance }, label = { Text(strings.distanceShortLabel) })
+                                FilterChip(selected = showDuration, onClick = { showDuration = !showDuration }, label = { Text(strings.durationShortLabel) })
+                                FilterChip(selected = showDate, onClick = { showDate = !showDate }, label = { Text(strings.dateShortLabel) })
+                            }
                         }
                     }
 
@@ -245,7 +251,7 @@ fun ExportPreviewDialog(
                             Icon(Icons.Default.Share, contentDescription = strings.share, modifier = Modifier.size(20.dp))
                         }
                         Spacer(Modifier.width(8.dp))
-                        Text(strings.share)
+                        Text(shareLabel ?: strings.share)
                     }
                     if (onSave != null) {
                         Button(

@@ -2,10 +2,7 @@ package `in`.shvms.trackme.ui.history
 
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
+import `in`.shvms.trackme.domain.export.trimGpsPointsForExport
 
 /** The comparison surface deliberately has a small, deterministic upper bound. */
 internal const val MAX_COMPARISON_RIDES = 8
@@ -78,34 +75,4 @@ internal fun aggregatePreviewLegend(
 internal fun trimComparisonEndpoints(
     points: List<GPSPointEntity>,
     trimMeters: Double = COMPARISON_PRIVACY_TRIM_METERS
-): List<GPSPointEntity> {
-    if (points.size < 3 || trimMeters <= 0.0) return points
-    val totalDistance = points.zipWithNext().sumOf { (a, b) -> distanceMeters(a, b) }
-    if (totalDistance <= trimMeters * 2.0) return points
-
-    var startDistance = 0.0
-    var startIndex = 0
-    while (startIndex < points.lastIndex && startDistance < trimMeters) {
-        startDistance += distanceMeters(points[startIndex], points[startIndex + 1])
-        startIndex++
-    }
-
-    var endDistance = 0.0
-    var endIndex = points.lastIndex
-    while (endIndex > startIndex && endDistance < trimMeters) {
-        endDistance += distanceMeters(points[endIndex - 1], points[endIndex])
-        endIndex--
-    }
-    return points.subList(startIndex, endIndex + 1)
-}
-
-private fun distanceMeters(a: GPSPointEntity, b: GPSPointEntity): Double {
-    val earthRadius = 6_371_000.0
-    val dLat = Math.toRadians(b.latitude - a.latitude)
-    val dLon = Math.toRadians(b.longitude - a.longitude)
-    val lat1 = Math.toRadians(a.latitude)
-    val lat2 = Math.toRadians(b.latitude)
-    val h = sin(dLat / 2) * sin(dLat / 2) +
-        cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2)
-    return earthRadius * 2.0 * atan2(sqrt(h), sqrt(1.0 - h))
-}
+): List<GPSPointEntity> = trimGpsPointsForExport(points, trimMeters)

@@ -1,12 +1,20 @@
 package `in`.shvms.trackme.domain.export
 
-import android.location.Location
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
-private fun gpsDistanceMeters(from: GPSPointEntity, to: GPSPointEntity): Double {
-    val result = FloatArray(1)
-    Location.distanceBetween(from.latitude, from.longitude, to.latitude, to.longitude, result)
-    return result[0].toDouble()
+internal fun gpsDistanceMeters(from: GPSPointEntity, to: GPSPointEntity): Double {
+    val earthRadius = 6_371_000.0
+    val dLat = Math.toRadians(to.latitude - from.latitude)
+    val dLon = Math.toRadians(to.longitude - from.longitude)
+    val lat1 = Math.toRadians(from.latitude)
+    val lat2 = Math.toRadians(to.latitude)
+    val h = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2)
+    return earthRadius * 2.0 * atan2(sqrt(h), sqrt(1.0 - h))
 }
 
 /**
