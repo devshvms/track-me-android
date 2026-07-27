@@ -99,7 +99,7 @@ fun ExportPreviewDialog(
     onShare: (ExportPreviewSettings) -> Unit,
     onSave: ((ExportPreviewSettings) -> Unit)? = null,
     onRetry: ((ExportPreviewSettings) -> Unit)? = null,
-    videoAction: (@Composable () -> Unit)? = null,
+    videoAction: (@Composable (ExportPreviewSettings) -> Unit)? = null,
     preview: @Composable (Modifier, ExportPreviewSettings) -> Unit
 ) {
     val strings = LocalAppStrings.current
@@ -179,6 +179,8 @@ fun ExportPreviewDialog(
                         portraitRatio = Pair(1080, 1920)
                     )
 
+                    videoAction?.invoke(settings)
+
                     Text(strings.mapStyle, style = MaterialTheme.typography.labelLarge)
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -248,7 +250,7 @@ fun ExportPreviewDialog(
                             .fillMaxWidth()
                             .padding(start = 16.dp, end = 16.dp, top = 8.dp)
                     ) {
-                        videoAction()
+                        videoAction(settings)
                     }
                 }
 

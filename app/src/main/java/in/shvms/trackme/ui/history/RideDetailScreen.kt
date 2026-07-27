@@ -657,7 +657,6 @@ fun RideDetailScreen(
                             // (see the ExportPreviewDialog `videoAction` slot below). This row is
                             // deliberately back to three stable-width items — Share / Export GPX /
                             // Delete — so no growing label can squeeze its neighbours.
-
                             TextButton(
                                 onClick = {
                                 coroutineScope.launch(Dispatchers.IO) {
@@ -812,8 +811,15 @@ fun RideDetailScreen(
         // E9: replay-video export now lives inside the preview rather than Ride Detail's action
         // row. Null when the ride has no loaded points, so the slot is absent rather than inert.
         val currentRideWithPoints = rideWithPoints
-        val replayVideoAction: (@Composable () -> Unit)? = if (currentRideWithPoints != null) {
-            { ReplayExportAction(rideWithPoints = currentRideWithPoints, context = context) }
+        val replayVideoAction: (@Composable (ExportPreviewSettings) -> Unit)? = if (currentRideWithPoints != null) {
+            { videoSettings ->
+                ReplayExportAction(
+                    rideWithPoints = currentRideWithPoints,
+                    context = context,
+                    settings = videoSettings,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         } else {
             null
         }
