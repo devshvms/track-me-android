@@ -31,6 +31,17 @@ import kotlinx.coroutines.tasks.await
 import android.annotation.SuppressLint
 import java.util.Locale
 
+internal object EmergencyBroadcastPolicy {
+    const val MAX_DURATION_MINUTES = 24L * 60
+
+    fun delayMillis(elapsedMinutes: Long): Long? = when {
+        elapsedMinutes < 10 -> 2 * 60 * 1000L // 2 min for first 10 min
+        elapsedMinutes < 60 -> 10 * 60 * 1000L // 10 min for next 1 hour
+        elapsedMinutes < MAX_DURATION_MINUTES -> 60 * 60 * 1000L // 1 hour for next 24 hours
+        else -> null
+    }
+}
+
 class EmergencyBroadcastWorker(
     private val context: Context,
     private val emergencyDao: EmergencyDao,
@@ -93,10 +104,19 @@ class EmergencyBroadcastWorker(
                 return@launch
             }
 
-            val emergencyStartTime = System.currentTimeMillis()
+            val emergencyStartTime = emergencyManager.ensureEmergencyStartedAt()
+                ?: return@launch
+            if (elapsedMinutesSince(emergencyStartTime) >= EmergencyBroadcastPolicy.MAX_DURATION_MINUTES) {
+                emergencyManager.stopEmergency()
+                return@launch
+            }
             var messagesSentThisSession = 0
 
             while (isActive) {
+                if (elapsedMinutesSince(emergencyStartTime) >= EmergencyBroadcastPolicy.MAX_DURATION_MINUTES) {
+                    emergencyManager.stopEmergency()
+                    return@launch
+                }
                 val result = broadcast(settings, contacts)
                 messagesSentThisSession += result.accepted
                 if (messagesSentThisSession <= AppConfig.MAX_HAPTIC_MESSAGES && result.accepted > 0) {
@@ -105,19 +125,18 @@ class EmergencyBroadcastWorker(
                 postEmergencyNotification(result)
                 
                 val elapsedMinutes = (System.currentTimeMillis() - emergencyStartTime) / 60000
-                val delayMs = when {
-                    elapsedMinutes < 10 -> 2 * 60 * 1000L // 2 min for first 10 min
-                    elapsedMinutes < 60 -> 10 * 60 * 1000L // 10 min for next 1 hour
-                    elapsedMinutes < 1440 -> 60 * 60 * 1000L // 1 hour for next 24 hours
-                    else -> {
+                val delayMs = EmergencyBroadcastPolicy.delayMillis(elapsedMinutes)
+                    ?: run {
                         emergencyManager.stopEmergency()
                         return@launch
                     }
-                }
                 delay(delayMs)
             }
         }
     }
+
+    private fun elapsedMinutesSince(startedAt: Long): Long =
+        (System.currentTimeMillis() - startedAt) / 60000L
 
     private fun stopBroadcastLoop() {
         broadcastJob?.cancel()

@@ -217,10 +217,7 @@ class HomeViewModel(
         viewModelScope.launch { _uiEvent.emit(UiEvent.SendServiceCommand(action)) }
     }
 
-    private var sosStartTimeMs: Long = 0L
-
     fun triggerEmergency() {
-        sosStartTimeMs = System.currentTimeMillis()
         `in`.shvms.trackme.analytics.AnalyticsManager.trackSosTriggered(
             triggerMethod = "in_app_button"
         )
@@ -228,12 +225,16 @@ class HomeViewModel(
     }
 
     fun stopEmergency(falseAlarm: Boolean = false) {
-        val duration = if (sosStartTimeMs > 0) (System.currentTimeMillis() - sosStartTimeMs) / 1000L else 0L
+        val startedAt = emergencyManager.emergencyStartedAtMillis.value
+        val duration = if (startedAt != null) {
+            ((System.currentTimeMillis() - startedAt) / 1000L).coerceAtLeast(0L)
+        } else {
+            0L
+        }
         `in`.shvms.trackme.analytics.AnalyticsManager.trackSosResolved(
             resolutionTimeSeconds = duration,
             falseAlarm = falseAlarm
         )
-        sosStartTimeMs = 0L
         emergencyManager.stopEmergency()
     }
 
