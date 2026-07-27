@@ -52,11 +52,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import `in`.shvms.trackme.domain.export.ComparisonImageExporter
+import `in`.shvms.trackme.theme.BrandThemeConfig
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
@@ -402,35 +404,54 @@ private fun UnifiedAggregateRidePreviewDialog(
                     }
                 }
                 if (settings.showStats || settings.showLegend) {
-                    val legendRows = remember(previewRoutes) {
+                    val legendRows = remember(previewRoutes, strings.rideHistoryTitle) {
                         aggregatePreviewLegend(previewRoutes, strings.rideHistoryTitle, showLegend = true)
                     }
                     Box(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight().align(Alignment.BottomCenter),
-                        contentAlignment = Alignment.Center
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight().align(Alignment.BottomCenter)
                     ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
                             if (settings.showStats) {
                                 Text(
                                     previewRoutes.joinToString(" • ") { it.label },
                                     color = if (settings.darkTheme) Color.White else Color.Black,
-                                    style = MaterialTheme.typography.labelMedium
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
                             }
                             if (settings.showLegend) {
-                                Text(
-                                    legendRows.joinToString(" • ") { (label, title) -> "$label: $title" },
-                                    color = if (settings.darkTheme) Color.White else Color.Black,
-                                    style = MaterialTheme.typography.labelSmall
-                                )
+                                AggregateLegendPanel(legendRows)
                             }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AggregateLegendPanel(
+    legendRows: List<Pair<String, String>>,
+    modifier: Modifier = Modifier
+) {
+    if (legendRows.isEmpty()) return
+    Column(
+        modifier = modifier
+            .background(BrandThemeConfig.navy800.copy(alpha = 0.87f))
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        legendRows.take(MAX_COMPARISON_RIDES).forEach { (label, title) ->
+            Text(
+                text = "$label  $title",
+                color = Color.White,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
