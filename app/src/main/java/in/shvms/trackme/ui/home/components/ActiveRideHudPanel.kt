@@ -40,6 +40,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -68,6 +74,28 @@ import kotlin.math.roundToInt
  * - Pause/Resume toggle with smooth scale bounce feedback.
  * - Persona badge and live share status indicator.
  */
+internal object SosButtonAccessibility {
+    fun contentDescription(
+        isReady: Boolean,
+        isActive: Boolean,
+        strings: `in`.shvms.trackme.ui.localization.AppStrings
+    ): String = when {
+        !isReady -> strings.emergencySosUnavailable
+        isActive -> strings.stopEmergencyBroadcast
+        else -> strings.triggerEmergencyAccessibility
+    }
+
+    fun stateDescription(
+        isReady: Boolean,
+        isActive: Boolean,
+        strings: `in`.shvms.trackme.ui.localization.AppStrings
+    ): String = when {
+        !isReady -> strings.emergencySosUnavailable
+        isActive -> strings.emergencySosActive
+        else -> strings.emergencySosReady
+    }
+}
+
 @Composable
 fun ActiveRideHudPanel(
     trackingState: TrackingState,
@@ -422,6 +450,7 @@ private fun SosButton(
     onStop: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalAppStrings.current
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val buttonScale = remember { Animatable(1f) }
@@ -462,6 +491,12 @@ private fun SosButton(
                 } else {
                     onTrigger()
                 }
+            }
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = SosButtonAccessibility.contentDescription(isReady, isActive, strings)
+                stateDescription = SosButtonAccessibility.stateDescription(isReady, isActive, strings)
+                if (!isReady) disabled()
             }
     ) {
         Text(
