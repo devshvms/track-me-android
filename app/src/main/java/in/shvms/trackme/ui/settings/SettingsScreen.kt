@@ -252,9 +252,10 @@ fun SettingsScreen(
             (context.applicationContext as TrackMeApp).preferencesManager
         }
 
-        // App Preferences Card (Theme & Language)
+        // App Preferences Card (Theme, Language & Units)
         var themeMode by remember { mutableStateOf(prefs.getInt("theme_mode", 0)) } // 0: System, 1: Light, 2: Dark
         val dynamicColor by preferencesManager.dynamicColor.collectAsState()
+        val unitSystem by preferencesManager.unitSystem.collectAsState()
         var appLanguage by remember { mutableStateOf(prefs.getString("app_language", "en") ?: "en") }
         var showLangDropdown by remember { mutableStateOf(false) }
 
@@ -359,21 +360,38 @@ fun SettingsScreen(
                         }
                     }
                 }
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
 
-        val unitSystem by preferencesManager.unitSystem.collectAsState()
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(strings.units, style = MaterialTheme.typography.bodyMedium)
-                Text(if (unitSystem == "imperial") strings.miles else strings.kilometers, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                // 3. Units
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = unitSystem == "imperial",
+                            role = Role.Switch,
+                            onValueChange = { isImperial ->
+                                preferencesManager.setUnitSystem(if (isImperial) "imperial" else "metric")
+                            }
+                        )
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                        Text(strings.units, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            text = if (unitSystem == "imperial") strings.miles else strings.kilometers,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = unitSystem == "imperial", onCheckedChange = null)
+                }
             }
-            Switch(checked = unitSystem == "imperial", onCheckedChange = {
-                preferencesManager.setUnitSystem(if (it) "imperial" else "metric")
-            })
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Advanced Settings Card
         var disablePostProcessing by remember { 
