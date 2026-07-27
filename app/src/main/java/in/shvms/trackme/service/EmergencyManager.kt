@@ -9,10 +9,13 @@ class EmergencyManager(
     private val trackingPreferences: SharedPreferences,
 ) {
     companion object {
+        private const val EMERGENCY_ACTIVE_KEY = "emergency_active"
         private const val EMERGENCY_TRIGGERED_FOR_RIDE_KEY = "emergency_triggered_for_ride"
     }
 
-    private val _isEmergencyActive = MutableStateFlow(false)
+    private val _isEmergencyActive = MutableStateFlow(
+        trackingPreferences.getBoolean(EMERGENCY_ACTIVE_KEY, false)
+    )
     val isEmergencyActive: StateFlow<Boolean> = _isEmergencyActive.asStateFlow()
 
     /**
@@ -35,12 +38,14 @@ class EmergencyManager(
     fun triggerEmergency() {
         emergencyTriggeredForRide = true
         _isEmergencyActive.value = true
+        persistEmergencyActive()
         persistSuppression()
     }
 
     @Synchronized
     fun stopEmergency() {
         _isEmergencyActive.value = false
+        persistEmergencyActive()
     }
 
     /** Consume the per-ride suppression bit exactly once at finalization. */
@@ -57,6 +62,13 @@ class EmergencyManager(
         trackingPreferences
             .edit()
             .putBoolean(EMERGENCY_TRIGGERED_FOR_RIDE_KEY, emergencyTriggeredForRide)
+            .apply()
+    }
+
+    private fun persistEmergencyActive() {
+        trackingPreferences
+            .edit()
+            .putBoolean(EMERGENCY_ACTIVE_KEY, _isEmergencyActive.value)
             .apply()
     }
 }

@@ -54,6 +54,22 @@ class EmergencyManagerTest {
         assertFalse(restoredManager.consumeRideSuppression())
     }
 
+    @Test
+    fun freshManager_restoresActiveEmergencyAndStopPersistsResolution() {
+        val preferences = InMemorySharedPreferences()
+        val firstManager = EmergencyManager(preferences)
+
+        firstManager.triggerEmergency()
+
+        val restoredManager = EmergencyManager(preferences)
+        assertTrue(restoredManager.isEmergencyActive.value)
+
+        restoredManager.stopEmergency()
+
+        val resolvedManager = EmergencyManager(preferences)
+        assertFalse(resolvedManager.isEmergencyActive.value)
+    }
+
     private fun manager(): EmergencyManager = EmergencyManager(InMemorySharedPreferences())
 
     private class InMemorySharedPreferences : SharedPreferences {
