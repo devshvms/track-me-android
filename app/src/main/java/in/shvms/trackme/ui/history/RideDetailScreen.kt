@@ -605,7 +605,7 @@ fun RideDetailScreen(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = ridePersona.displayName,
+                                        text = strings.personaLabel(ridePersona),
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )

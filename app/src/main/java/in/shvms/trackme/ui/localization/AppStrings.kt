@@ -304,12 +304,14 @@ open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
 
     // Ride personas. RidePersona.displayName is an English enum label ("BikeDrive", "CarDrive") and
     // must never reach a user-facing surface — resolve through personaLabel() instead.
-    val personaAuto: String = s("personaAuto", "Auto")
+    val personaAuto: String = s("personaAuto", "Automatic")
     val personaWalk: String = s("personaWalk", "Walk")
     val personaRun: String = s("personaRun", "Run")
     val personaCycling: String = s("personaCycling", "Cycling")
     val personaBikeDrive: String = s("personaBikeDrive", "Motorbike")
     val personaCarDrive: String = s("personaCarDrive", "Car")
+    val startingPersona: String = s("startingPersona", "Starting %1\$s")
+    val startPersona: String = s("startPersona", "Start %1\$s")
 
     fun personaLabel(persona: RidePersona): String = when (persona) {
         RidePersona.AUTO -> personaAuto
@@ -569,6 +571,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "personaCycling" to "Ciclismo",
             "personaBikeDrive" to "Moto",
             "personaCarDrive" to "Coche",
+            "startingPersona" to "Iniciando %1\$s",
+            "startPersona" to "Iniciar %1\$s",
         ))
         "fr" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -814,6 +818,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "personaCycling" to "Vélo",
             "personaBikeDrive" to "Moto",
             "personaCarDrive" to "Voiture",
+            "startingPersona" to "Démarrage de %1\$s",
+            "startPersona" to "Démarrer %1\$s",
         ))
         "de" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -1059,6 +1065,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "personaCycling" to "Radfahren",
             "personaBikeDrive" to "Motorrad",
             "personaCarDrive" to "Auto",
+            "startingPersona" to "%1\$s wird gestartet",
+            "startPersona" to "%1\$s starten",
         ))
         "hi" -> AppStrings(mapOf(
             "ok" to "ठीक है",
@@ -1304,6 +1312,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "personaCycling" to "साइकिलिंग",
             "personaBikeDrive" to "मोटरसाइकिल",
             "personaCarDrive" to "कार",
+            "startingPersona" to "%1\$s शुरू हो रहा है",
+            "startPersona" to "%1\$s शुरू करें",
         ))
         "ja" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -1549,6 +1559,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "personaCycling" to "サイクリング",
             "personaBikeDrive" to "バイク",
             "personaCarDrive" to "車",
+            "startingPersona" to "%1\$sを開始中",
+            "startPersona" to "%1\$sを開始",
         ))
         "zh" -> AppStrings(mapOf(
             "ok" to "确定",
@@ -1794,6 +1806,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "personaCycling" to "骑行",
             "personaBikeDrive" to "摩托车",
             "personaCarDrive" to "汽车",
+            "startingPersona" to "正在开始%1\$s",
+            "startPersona" to "开始%1\$s",
         ))
         else -> AppStrings() // English default
     }

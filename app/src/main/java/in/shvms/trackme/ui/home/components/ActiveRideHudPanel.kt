@@ -49,6 +49,7 @@ import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import `in`.shvms.trackme.service.TrackingState
+import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -103,6 +104,7 @@ fun ActiveRideHudPanel(
     onCopyShare: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalAppStrings.current
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -134,7 +136,7 @@ fun ActiveRideHudPanel(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = selectedPersona.displayName,
+                        text = strings.personaLabel(selectedPersona),
                         color = Color.Black,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold

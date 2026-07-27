@@ -463,7 +463,7 @@ fun RideHistoryCard(
     val cardDescription = String.format(
         Locale.getDefault(),
         strings.rideCardAccessibilityDescription,
-        "${personaObj.displayName} - $rideTitle",
+        "${strings.personaLabel(personaObj)} - $rideTitle",
         formatDateTime(ride.startTime),
         distanceText,
         durationText,

@@ -58,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.ui.components.icon
+import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -71,6 +73,7 @@ fun RadialStartRideButton(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
+    val strings = LocalAppStrings.current
 
     val personas = remember {
         listOf(
@@ -233,7 +236,11 @@ fun RadialStartRideButton(
                     stateDescription = if (launchedPersona == null) {
                         "Activity selection available"
                     } else {
-                        "Starting ${launchedPersona?.displayName}"
+                        String.format(
+                            Locale.getDefault(),
+                            strings.startingPersona,
+                            strings.personaLabel(launchedPersona!!)
+                        )
                     }
                     role = Role.Button
                     onClick(label = "Start ride") {
@@ -245,7 +252,13 @@ fun RadialStartRideButton(
                         }
                     }
                     customActions = personas.map { persona ->
-                        CustomAccessibilityAction("Start ${persona.displayName}") {
+                        CustomAccessibilityAction(
+                            String.format(
+                                Locale.getDefault(),
+                                strings.startPersona,
+                                strings.personaLabel(persona)
+                            )
+                        ) {
                             if (launchedPersona == null) {
                                 launchedPersona = persona
                                 true
