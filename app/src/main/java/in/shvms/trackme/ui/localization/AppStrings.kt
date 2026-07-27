@@ -282,6 +282,16 @@ open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
     val aggregatePreviewShare: String = s("aggregatePreviewShare", "Share aggregate")
     val aggregatePreviewLegend: String = s("aggregatePreviewLegend", "Show ride legend")
     val aggregatePreviewSequence: String = s("aggregatePreviewSequence", "Show sequence links")
+    val hidePlaces: String = s("hidePlaces", "Hide places")
+    val showMarkers: String = s("showMarkers", "Show markers")
+    val darkTheme: String = s("darkTheme", "Dark theme")
+    val distanceShortLabel: String = s("distanceShortLabel", "Dist")
+    val durationShortLabel: String = s("durationShortLabel", "Dur")
+    val dateShortLabel: String = s("dateShortLabel", "Date")
+    val exportPreviewTitle: String = s("exportPreviewTitle", "Export preview")
+    val mapStart: String = s("mapStart", "Start")
+    val mapFinish: String = s("mapFinish", "Finish")
+    val scrub: String = s("scrub", "Scrub")
     val replayExportTitle: String = s("replayExportTitle", "Persona replay")
     val replayExportDescription: String = s("replayExportDescription", "Create a 9:16 MP4 replay with your route and persona.")
     val replayExportButton: String = s("replayExportButton", "Create replay")
@@ -516,6 +526,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "aggregatePreviewShare" to "Compartir agregado",
             "aggregatePreviewLegend" to "Mostrar leyenda de viajes",
             "aggregatePreviewSequence" to "Mostrar enlaces de secuencia",
+            "hidePlaces" to "Ocultar lugares",
+            "showMarkers" to "Mostrar marcadores",
+            "darkTheme" to "Tema oscuro",
+            "distanceShortLabel" to "Dist.",
+            "durationShortLabel" to "Dur.",
+            "dateShortLabel" to "Fecha",
+            "exportPreviewTitle" to "Vista previa de exportación",
+            "mapStart" to "Inicio",
+            "mapFinish" to "Final",
+            "scrub" to "Revisar",
             "replayExportTitle" to "Repetición de persona",
             "replayExportDescription" to "Crea una repetición MP4 vertical 9:16 con tu ruta y persona.",
             "replayExportButton" to "Crear repetición",
@@ -745,6 +765,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "aggregatePreviewShare" to "Partager l’agrégat",
             "aggregatePreviewLegend" to "Afficher la légende des trajets",
             "aggregatePreviewSequence" to "Afficher les liens de séquence",
+            "hidePlaces" to "Masquer les lieux",
+            "showMarkers" to "Afficher les marqueurs",
+            "darkTheme" to "Thème sombre",
+            "distanceShortLabel" to "Dist.",
+            "durationShortLabel" to "Dur.",
+            "dateShortLabel" to "Date",
+            "exportPreviewTitle" to "Aperçu de l’export",
+            "mapStart" to "Départ",
+            "mapFinish" to "Arrivée",
+            "scrub" to "Curseur",
             "replayExportTitle" to "Replay de trajet",
             "replayExportDescription" to "Créez un replay MP4 vertical 9:16 avec votre trajet et votre persona.",
             "replayExportButton" to "Créer le replay",
@@ -974,6 +1004,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "aggregatePreviewShare" to "Aggregat teilen",
             "aggregatePreviewLegend" to "Fahrtenlegende anzeigen",
             "aggregatePreviewSequence" to "Sequenzverbindungen anzeigen",
+            "hidePlaces" to "Orte ausblenden",
+            "showMarkers" to "Marker anzeigen",
+            "darkTheme" to "Dunkles Design",
+            "distanceShortLabel" to "Dist.",
+            "durationShortLabel" to "Dauer",
+            "dateShortLabel" to "Datum",
+            "exportPreviewTitle" to "Exportvorschau",
+            "mapStart" to "Start",
+            "mapFinish" to "Ziel",
+            "scrub" to "Scrubben",
             "replayExportTitle" to "Fahrten-Replay",
             "replayExportDescription" to "Erstelle ein vertikales 9:16-MP4-Replay mit deiner Route und Persona.",
             "replayExportButton" to "Replay erstellen",
@@ -1203,6 +1243,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "aggregatePreviewShare" to "एकत्रीकरण साझा करें",
             "aggregatePreviewLegend" to "यात्रा लेजेंड दिखाएं",
             "aggregatePreviewSequence" to "क्रम लिंक दिखाएं",
+            "hidePlaces" to "स्थान छिपाएं",
+            "showMarkers" to "मार्कर दिखाएं",
+            "darkTheme" to "डार्क थीम",
+            "distanceShortLabel" to "दूरी",
+            "durationShortLabel" to "अवधि",
+            "dateShortLabel" to "तारीख",
+            "exportPreviewTitle" to "निर्यात पूर्वावलोकन",
+            "mapStart" to "शुरुआत",
+            "mapFinish" to "समाप्ति",
+            "scrub" to "स्क्रब",
             "replayExportTitle" to "पर्सोना रीप्ले",
             "replayExportDescription" to "अपने मार्ग और पर्सोना के साथ 9:16 MP4 रीप्ले बनाएं।",
             "replayExportButton" to "रीप्ले बनाएं",
@@ -1432,6 +1482,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "aggregatePreviewShare" to "集約を共有",
             "aggregatePreviewLegend" to "ライドの凡例を表示",
             "aggregatePreviewSequence" to "シーケンスリンクを表示",
+            "hidePlaces" to "場所を非表示",
+            "showMarkers" to "マーカーを表示",
+            "darkTheme" to "ダークテーマ",
+            "distanceShortLabel" to "距離",
+            "durationShortLabel" to "時間",
+            "dateShortLabel" to "日付",
+            "exportPreviewTitle" to "エクスポートプレビュー",
+            "mapStart" to "開始",
+            "mapFinish" to "終了",
+            "scrub" to "スクラブ",
             "replayExportTitle" to "ペルソナリプレイ",
             "replayExportDescription" to "ルートとペルソナを使った9:16 MP4リプレイを作成します。",
             "replayExportButton" to "リプレイを作成",
@@ -1661,6 +1721,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "aggregatePreviewShare" to "分享汇总",
             "aggregatePreviewLegend" to "显示骑行图例",
             "aggregatePreviewSequence" to "显示序列连接",
+            "hidePlaces" to "隐藏地点",
+            "showMarkers" to "显示标记",
+            "darkTheme" to "深色主题",
+            "distanceShortLabel" to "距离",
+            "durationShortLabel" to "时长",
+            "dateShortLabel" to "日期",
+            "exportPreviewTitle" to "导出预览",
+            "mapStart" to "起点",
+            "mapFinish" to "终点",
+            "scrub" to "拖动查看",
             "replayExportTitle" to "轨迹人格回放",
             "replayExportDescription" to "使用你的路线和人格创建 9:16 MP4 回放。",
             "replayExportButton" to "创建回放",

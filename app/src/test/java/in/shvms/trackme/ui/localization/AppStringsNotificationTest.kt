@@ -48,7 +48,17 @@ class AppStringsNotificationTest {
                 strings.aggregatePreviewTitle,
                 strings.aggregatePreviewShare,
                 strings.aggregatePreviewLegend,
-                strings.aggregatePreviewSequence
+                strings.aggregatePreviewSequence,
+                strings.hidePlaces,
+                strings.showMarkers,
+                strings.darkTheme,
+                strings.distanceShortLabel,
+                strings.durationShortLabel,
+                strings.dateShortLabel,
+                strings.exportPreviewTitle,
+                strings.mapStart,
+                strings.mapFinish,
+                strings.scrub
             ).forEach { value ->
                 assertTrue("$language has blank aggregate preview copy", value.isNotBlank())
             }
