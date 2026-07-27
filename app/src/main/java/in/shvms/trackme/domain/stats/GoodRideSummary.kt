@@ -18,5 +18,10 @@ data class GoodRideSummary(
     /** Active (non-paused) ride duration in millis. */
     val durationMillis: Long,
     /** Filtered ride distance in meters (as persisted on the ride). */
-    val distanceMeters: Double
+    val distanceMeters: Double,
+    /**
+     * True when SOS was entered at any point during this ride. The ride still contributes to
+     * history aggregates, but downstream celebratory surfaces must be suppressed.
+     */
+    val suppressPostRideCelebrations: Boolean = false
 )

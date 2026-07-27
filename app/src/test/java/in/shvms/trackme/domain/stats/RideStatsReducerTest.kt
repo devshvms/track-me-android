@@ -28,6 +28,15 @@ class RideStatsReducerTest {
     private fun summary(id: Long, at: Long, durationMs: Long = 60_000L, distM: Double = 1000.0) =
         GoodRideSummary(rideId = id, finishedAtMillis = at, durationMillis = durationMs, distanceMeters = distM)
 
+    private fun emergencySummary(id: Long, at: Long) =
+        GoodRideSummary(
+            rideId = id,
+            finishedAtMillis = at,
+            durationMillis = 60_000L,
+            distanceMeters = 1000.0,
+            suppressPostRideCelebrations = true
+        )
+
     @Test
     fun firstRide_isFirstRide_noPr_streakStartsAtOne() {
         val (stats, t) = RideStatsReducer.reduce(
@@ -76,6 +85,14 @@ class RideStatsReducerTest {
         assertTrue(t.alreadyProcessed)
         assertEquals(1, after.totalRides) // unchanged
         assertEquals(stats, after)
+    }
+
+    @Test
+    fun emergencyRide_updatesHistoryButCarriesCelebrationSuppression() {
+        val (_, transition) = RideStatsReducer.reduce(
+            RideStats(), emergencySummary(1, millis(LocalDate.of(2026, 7, 20))), utc
+        )
+        assertTrue(transition.suppressPostRideCelebrations)
     }
 
     @Test

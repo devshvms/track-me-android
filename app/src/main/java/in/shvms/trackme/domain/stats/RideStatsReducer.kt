@@ -45,7 +45,8 @@ object RideStatsReducer {
                 streakWeeks = old.streakWeeks,
                 isFirstRideOfWeek = false,
                 streakAdvanced = false,
-                streakFroze = false
+                streakFroze = false,
+                suppressPostRideCelebrations = summary.suppressPostRideCelebrations
             )
             return old to noOp
         }
@@ -152,7 +153,8 @@ object RideStatsReducer {
             streakWeeks = newStreakWeeks,
             isFirstRideOfWeek = isFirstRideOfWeek,
             streakAdvanced = streakAdvanced,
-            streakFroze = streakFroze
+            streakFroze = streakFroze,
+            suppressPostRideCelebrations = summary.suppressPostRideCelebrations
         )
 
         return newStats to transition
