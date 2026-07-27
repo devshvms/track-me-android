@@ -302,7 +302,7 @@ private fun UnifiedAggregateRidePreviewDialog(
             scope.launch(Dispatchers.IO) {
                 runCatching {
                     ComparisonImageExporter(
-                        legend = aggregatePreviewLegend(routes, strings.rideHistoryTitle, settings.showLegend)
+                        legend = aggregatePreviewLegend(visibleRoutes, strings.rideHistoryTitle, settings.showLegend)
                     ).export(snapshot, context)
                 }.onSuccess { file ->
                     withContext(Dispatchers.Main) {

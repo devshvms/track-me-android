@@ -215,7 +215,7 @@ fun RideDetailScreen(
             val paint = android.graphics.Paint().apply {
                 isAntiAlias = true
                 style = android.graphics.Paint.Style.FILL
-                color = android.graphics.Color.argb(51, 211, 47, 47)
+                color = AmberWarn.copy(alpha = 0.2f).toArgb()
             }
             canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2f, paint)
             paint.style = android.graphics.Paint.Style.STROKE
@@ -422,8 +422,8 @@ fun RideDetailScreen(
                             pausedLocations.forEach { ll ->
                                 Marker(
                                     state = MarkerState(position = ll),
-                                    title = "Paused / Stop",
-                                    snippet = "Speed was ${`in`.shvms.trackme.domain.UnitFormatter.speed(0.0, imperial)}",
+                                    title = strings.statusPaused,
+                                    snippet = "${strings.speed}: ${`in`.shvms.trackme.domain.UnitFormatter.speed(0.0, imperial)}",
                                     icon = pauseCircleIcon,
                                     anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
                                 )
@@ -432,7 +432,7 @@ fun RideDetailScreen(
                             Marker(
                                 state = remember(latLngs.last()) { MarkerState(position = latLngs.last()) },
                                 title = strings.mapFinish,
-                                snippet = "End of Ride",
+                                snippet = strings.whenRideEnds,
                                 icon = finishFlagIcon,
                                 anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
                             )
@@ -450,8 +450,8 @@ fun RideDetailScreen(
                                     state = remember(p.latitude, p.longitude) {
                                         MarkerState(position = LatLng(p.latitude, p.longitude))
                                     },
-                                    title = "Scrub",
-                                    snippet = "Speed: ${`in`.shvms.trackme.domain.UnitFormatter.speed(p.speed.toDouble(), imperial)}",
+                                    title = strings.scrub,
+                                    snippet = "${strings.speed}: ${`in`.shvms.trackme.domain.UnitFormatter.speed(p.speed.toDouble(), imperial)}",
                                     icon = scrubIcon,
                                     anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f)
                                 )

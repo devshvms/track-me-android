@@ -291,6 +291,7 @@ open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
     val exportPreviewTitle: String = s("exportPreviewTitle", "Export preview")
     val mapStart: String = s("mapStart", "Start")
     val mapFinish: String = s("mapFinish", "Finish")
+    val scrub: String = s("scrub", "Scrub")
     val replayExportTitle: String = s("replayExportTitle", "Persona replay")
     val replayExportDescription: String = s("replayExportDescription", "Create a 9:16 MP4 replay with your route and persona.")
     val replayExportButton: String = s("replayExportButton", "Create replay")
@@ -534,6 +535,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportPreviewTitle" to "Vista previa de exportación",
             "mapStart" to "Inicio",
             "mapFinish" to "Final",
+            "scrub" to "Revisar",
             "replayExportTitle" to "Repetición de persona",
             "replayExportDescription" to "Crea una repetición MP4 vertical 9:16 con tu ruta y persona.",
             "replayExportButton" to "Crear repetición",
@@ -772,6 +774,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportPreviewTitle" to "Aperçu de l’export",
             "mapStart" to "Départ",
             "mapFinish" to "Arrivée",
+            "scrub" to "Curseur",
             "replayExportTitle" to "Replay de trajet",
             "replayExportDescription" to "Créez un replay MP4 vertical 9:16 avec votre trajet et votre persona.",
             "replayExportButton" to "Créer le replay",
@@ -1010,6 +1013,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportPreviewTitle" to "Exportvorschau",
             "mapStart" to "Start",
             "mapFinish" to "Ziel",
+            "scrub" to "Scrubben",
             "replayExportTitle" to "Fahrten-Replay",
             "replayExportDescription" to "Erstelle ein vertikales 9:16-MP4-Replay mit deiner Route und Persona.",
             "replayExportButton" to "Replay erstellen",
@@ -1248,6 +1252,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportPreviewTitle" to "निर्यात पूर्वावलोकन",
             "mapStart" to "शुरुआत",
             "mapFinish" to "समाप्ति",
+            "scrub" to "स्क्रब",
             "replayExportTitle" to "पर्सोना रीप्ले",
             "replayExportDescription" to "अपने मार्ग और पर्सोना के साथ 9:16 MP4 रीप्ले बनाएं।",
             "replayExportButton" to "रीप्ले बनाएं",
@@ -1486,6 +1491,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportPreviewTitle" to "エクスポートプレビュー",
             "mapStart" to "開始",
             "mapFinish" to "終了",
+            "scrub" to "スクラブ",
             "replayExportTitle" to "ペルソナリプレイ",
             "replayExportDescription" to "ルートとペルソナを使った9:16 MP4リプレイを作成します。",
             "replayExportButton" to "リプレイを作成",
@@ -1724,6 +1730,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportPreviewTitle" to "导出预览",
             "mapStart" to "起点",
             "mapFinish" to "终点",
+            "scrub" to "拖动查看",
             "replayExportTitle" to "轨迹人格回放",
             "replayExportDescription" to "使用你的路线和人格创建 9:16 MP4 回放。",
             "replayExportButton" to "创建回放",
