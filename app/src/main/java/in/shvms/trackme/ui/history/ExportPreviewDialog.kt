@@ -99,6 +99,7 @@ fun ExportPreviewDialog(
     onShare: (ExportPreviewSettings) -> Unit,
     onSave: ((ExportPreviewSettings) -> Unit)? = null,
     onRetry: ((ExportPreviewSettings) -> Unit)? = null,
+    videoAction: (@Composable () -> Unit)? = null,
     preview: @Composable (Modifier, ExportPreviewSettings) -> Unit
 ) {
     val strings = LocalAppStrings.current
@@ -233,6 +234,21 @@ fun ExportPreviewDialog(
                                 Text(strings.retry)
                             }
                         }
+                    }
+                }
+
+                // Video export gets its own full-width row above the image actions. Aggregate
+                // (multi-ride) previews never show it: replay video is a single-route,
+                // single-persona concept with no defined multi-ride semantics, so it is absent
+                // rather than visible-and-inert. Callers in aggregate mode simply pass null; the
+                // `showAggregateControls` guard keeps that true even if a future caller forgets.
+                if (videoAction != null && !showAggregateControls) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 16.dp, top = 8.dp)
+                    ) {
+                        videoAction()
                     }
                 }
 
