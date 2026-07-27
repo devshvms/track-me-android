@@ -36,6 +36,20 @@ class ReplayExportStatsTest {
         assertEquals(fallback, result)
     }
 
+    @Test
+    fun `map projection follows center crop used for snapshot`() {
+        val center = mapProjectionToFrame(
+            normalized = 0.5f to 0.5f,
+            snapshotWidth = 540,
+            snapshotHeight = 960,
+            frameWidth = 1080f,
+            frameHeight = 1080f
+        )
+
+        assertEquals(540f, center.first, 0.001f)
+        assertEquals(540f, center.second, 0.001f)
+    }
+
     private fun point(latitude: Double, longitude: Double, timestamp: Long) = GPSPointEntity(
         rideId = 1L,
         latitude = latitude,

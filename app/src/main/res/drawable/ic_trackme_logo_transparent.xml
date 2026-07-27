@@ -1,20 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TrackMe canonical mark — transparent, mark-only (no navy field baked in).
+  Cyan location pin + white route trail. The consuming surface supplies the navy backing.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="128dp"
     android:height="128dp"
     android:viewportWidth="128"
     android:viewportHeight="128">
-    <!-- Transparent canonical mark: route pin + forward motion arrow. -->
     <path
-        android:fillColor="@android:color/transparent"
-        android:pathData="M0,0h128v128h-128z" />
+        android:pathData="M44,110 C44,110 18,74 18,52 C18,37.6 29.6,26 44,26 C58.4,26 70,37.6 70,52 C70,74 44,110 44,110 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#29B6F6"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
     <path
-        android:fillColor="#29B6F6"
-        android:fillType="evenOdd"
-        android:pathData="M36,12C20.5,12 8,24.5 8,40c0,20.7 28,50 28,50s28,-29.3 28,-50C64,24.5 51.5,12 36,12zM36,26c7.7,0 14,6.3 14,14s-6.3,14 -14,14 -14,-6.3 -14,-14 6.3,-14 14,-14z" />
+        android:pathData="M44,42 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8" />
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M82,22l34,0 -12,12 -8,-8 -8,8 -8,-8 -8,8 -8,-8z" />
+        android:pathData="M48,104 L62,104 C73,104 79,97 84,89 C89,81 91,74 85,68 C79,62 80,54 88,47"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M70,38c7,0 12,4 12,10 0,8 -8,12 -16,16 -7,4 -12,7 -12,12 0,4 4,6 9,6h13v12h-14c-12,0 -21,-7 -21,-17 0,-12 10,-18 19,-23 6,-3 10,-6 10,-8 0,-1 -1,-2 -3,-2h-9v-6z" />
+        android:pathData="M79,51 L88,42 L97,51"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M104,28 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5" />
 </vector>

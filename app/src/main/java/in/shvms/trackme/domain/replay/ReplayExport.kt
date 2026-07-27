@@ -108,8 +108,14 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
     ) {
         val width = canvas.width.toFloat()
         val height = canvas.height.toFloat()
-        if (mapSnapshot != null && !mapSnapshot.isRecycled) {
-            drawMapSnapshot(canvas, mapSnapshot, width, height)
+        val usableProjection = routeProjection?.takeIf { it.size == points.size }
+        // A map is only safe when its SDK projection corresponds one-to-one with the points
+        // being rendered. Never draw a letterboxed bitmap under an independently-derived route.
+        val usableSnapshot = mapSnapshot?.takeIf {
+            !it.isRecycled && usableProjection != null
+        }
+        if (usableSnapshot != null) {
+            drawMapSnapshot(canvas, usableSnapshot, width, height)
             // Keep the route and text legible without changing the captured map itself.
             canvas.drawColor(Color.argb(92, 18, 22, 28))
         } else {
@@ -123,10 +129,19 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
         }
-        val route = routeProjection
-            ?.takeIf { it.size == points.size }
-            ?.map { (x, y) -> x * width to y * height }
-            ?: project(points, width, height, mapSnapshot != null)
+        val route = usableProjection?.map { projection ->
+            if (usableSnapshot != null) {
+                mapProjectionToFrame(
+                    normalized = projection,
+                    snapshotWidth = usableSnapshot.width,
+                    snapshotHeight = usableSnapshot.height,
+                    frameWidth = width,
+                    frameHeight = height
+                )
+            } else {
+                projection.first * width to projection.second * height
+            }
+        } ?: project(points, width, height, usableSnapshot != null)
         if (route.size >= 2) {
             val path = Path().apply {
                 moveTo(route.first().first, route.first().second)
@@ -177,15 +192,14 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
     }
 
     private fun drawMapSnapshot(canvas: Canvas, snapshot: Bitmap, width: Float, height: Float) {
-        val scale = max(width / snapshot.width.toFloat(), height / snapshot.height.toFloat())
+        val transform = snapshotTransform(snapshot.width, snapshot.height, width, height)
+        val scale = transform.scale
         val drawnWidth = snapshot.width * scale
         val drawnHeight = snapshot.height * scale
-        val left = (width - drawnWidth) / 2f
-        val top = (height - drawnHeight) / 2f
         canvas.drawBitmap(
             snapshot,
             null,
-            RectF(left, top, left + drawnWidth, top + drawnHeight),
+            RectF(transform.left, transform.top, transform.left + drawnWidth, transform.top + drawnHeight),
             Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
         )
     }
@@ -291,6 +305,43 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
         val seconds = (durationMillis.coerceAtLeast(0L) / 1000L)
         return "%02d:%02d".format(seconds / 60L, seconds % 60L)
     }
+}
+
+private data class SnapshotTransform(
+    val scale: Float,
+    val left: Float,
+    val top: Float
+)
+
+private fun snapshotTransform(
+    snapshotWidth: Int,
+    snapshotHeight: Int,
+    frameWidth: Float,
+    frameHeight: Float
+): SnapshotTransform {
+    require(snapshotWidth > 0 && snapshotHeight > 0) { "Snapshot dimensions must be positive" }
+    val scale = max(frameWidth / snapshotWidth.toFloat(), frameHeight / snapshotHeight.toFloat())
+    return SnapshotTransform(
+        scale = scale,
+        left = (frameWidth - snapshotWidth * scale) / 2f,
+        top = (frameHeight - snapshotHeight * scale) / 2f
+    )
+}
+
+/** Maps SDK-normalized screen coordinates through the exact center-crop used for the bitmap. */
+internal fun mapProjectionToFrame(
+    normalized: Pair<Float, Float>,
+    snapshotWidth: Int,
+    snapshotHeight: Int,
+    frameWidth: Float,
+    frameHeight: Float
+): Pair<Float, Float> {
+    val transform = snapshotTransform(snapshotWidth, snapshotHeight, frameWidth, frameHeight)
+    return (
+        transform.left + normalized.first * snapshotWidth * transform.scale
+    ) to (
+        transform.top + normalized.second * snapshotHeight * transform.scale
+    )
 }
 
 /** MediaCodec/MediaMuxer implementation for the offline Phase 1 MVP. */
