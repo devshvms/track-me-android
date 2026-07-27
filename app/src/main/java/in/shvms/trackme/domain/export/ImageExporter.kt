@@ -126,7 +126,7 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
                 textAlign = Paint.Align.LEFT
             }
             
-            val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.distance(
+            val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(
                 rideWithPoints.ride.postRideCalculation?.distance ?: 0.0,
                 usesImperialUnits(context)
             )
@@ -207,7 +207,7 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
                 textAlign = Paint.Align.LEFT
             }
             
-            val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.distance(
+            val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(
                 rideWithPoints.ride.postRideCalculation?.distance ?: 0.0,
                 usesImperialUnits(context)
             )
