@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.content.FileProvider
 import android.os.Handler
@@ -32,6 +33,7 @@ import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.domain.replay.MediaCodecReplayExporter
 import `in`.shvms.trackme.domain.replay.ReplayExportConfig
+import `in`.shvms.trackme.theme.BrandThemeConfig
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +43,11 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.roundToInt
+
+private data class CapturedMapSnapshot(
+    val bitmap: android.graphics.Bitmap?,
+    val routeProjection: List<Pair<Float, Float>>
+)
 
 @Composable
 fun ReplayExportAction(
@@ -73,11 +80,12 @@ fun ReplayExportAction(
                 android.widget.Toast.makeText(context, strings.replayExportFailed, android.widget.Toast.LENGTH_SHORT).show()
                 return@TextButton
             }
-            capturePrivacyTrimmedSnapshot(context, trimmedPoints) { snapshot ->
+            capturePrivacyTrimmedSnapshot(context, trimmedPoints) { captured ->
                 startExport(
                     rideWithPoints = rideWithPoints,
                     context = context,
-                    snapshot = snapshot,
+                    snapshot = captured?.bitmap,
+                    routeProjection = captured?.routeProjection,
                     scope = scope,
                     onProgress = { progress = it },
                     onFinished = {
@@ -109,6 +117,7 @@ private fun startExport(
     rideWithPoints: RideWithPoints,
     context: Context,
     snapshot: android.graphics.Bitmap?,
+    routeProjection: List<Pair<Float, Float>>?,
     scope: kotlinx.coroutines.CoroutineScope,
     onProgress: (Float) -> Unit,
     onFinished: () -> Unit,
@@ -132,6 +141,7 @@ private fun startExport(
                     ),
                     outputDirectory = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME),
                     mapSnapshot = snapshot,
+                    routeProjection = routeProjection,
                     onProgress = { value ->
                         val previous = lastPublishedProgress.get()
                         if ((value == 1f || value - previous >= 0.02f) &&
@@ -156,7 +166,7 @@ private fun startExport(
 private fun capturePrivacyTrimmedSnapshot(
     context: Context,
     points: List<`in`.shvms.trackme.data.local.entity.GPSPointEntity>,
-    onResult: (android.graphics.Bitmap?) -> Unit
+    onResult: (CapturedMapSnapshot?) -> Unit
 ) {
     val width = 540
     val height = 960
@@ -182,16 +192,16 @@ private fun capturePrivacyTrimmedSnapshot(
         }
     }
     mainHandler.postDelayed(timeout, 5_000L)
-    fun finish(bitmap: android.graphics.Bitmap?) {
+    fun finish(captured: CapturedMapSnapshot?) {
         if (!completed.compareAndSet(false, true)) {
-            if (bitmap != null && !bitmap.isRecycled) bitmap.recycle()
+            captured?.bitmap?.let { bitmap -> if (!bitmap.isRecycled) bitmap.recycle() }
             return
         }
         mainHandler.removeCallbacks(timeout)
         mapView.onPause()
         mapView.onStop()
         mapView.onDestroy()
-        onResult(bitmap)
+        onResult(captured)
     }
     mapView.getMapAsync { map ->
         val latLngs = points.map { LatLng(it.latitude, it.longitude) }
@@ -199,14 +209,19 @@ private fun capturePrivacyTrimmedSnapshot(
         map.uiSettings.isMapToolbarEnabled = false
         map.uiSettings.isZoomControlsEnabled = false
         map.uiSettings.isCompassEnabled = false
-        map.addPolyline(PolylineOptions().addAll(latLngs).color(android.graphics.Color.rgb(41, 182, 246)).width(8f))
-        map.setOnMapLoadedCallback {
-            runCatching {
-                map.snapshot { finish(it) }
-            }.onFailure { finish(null) }
-        }
-        runCatching { map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0)) }
-            .onFailure { finish(null) }
+        map.addPolyline(PolylineOptions().addAll(latLngs).color(BrandThemeConfig.cyanBright.toArgb()).width(8f))
+        runCatching {
+            map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0))
+            map.setOnMapLoadedCallback {
+                runCatching {
+                    val normalized = latLngs.map { latLng ->
+                        val point = map.projection.toScreenLocation(latLng)
+                        point.x / width.toFloat() to point.y / height.toFloat()
+                    }
+                    map.snapshot { bitmap -> finish(CapturedMapSnapshot(bitmap, normalized)) }
+                }.onFailure { finish(null) }
+            }
+        }.onFailure { finish(null) }
     }
 }
 

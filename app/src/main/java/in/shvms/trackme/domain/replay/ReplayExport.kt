@@ -67,7 +67,8 @@ interface ReplayFrameRenderer {
         persona: RidePersona,
         stats: ReplayStats,
         deepLink: String?,
-        mapSnapshot: Bitmap? = null
+        mapSnapshot: Bitmap? = null,
+        routeProjection: List<Pair<Float, Float>>? = null
     )
 }
 
@@ -77,7 +78,8 @@ interface ReplayExporter {
         config: ReplayExportConfig,
         outputDirectory: File,
         mapSnapshot: Bitmap? = null,
-        onProgress: (Float) -> Unit = {}
+        onProgress: (Float) -> Unit = {},
+        routeProjection: List<Pair<Float, Float>>? = null
     ): Result<File>
 }
 
@@ -101,7 +103,8 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
         persona: RidePersona,
         stats: ReplayStats,
         deepLink: String?,
-        mapSnapshot: Bitmap?
+        mapSnapshot: Bitmap?,
+        routeProjection: List<Pair<Float, Float>>?
     ) {
         val width = canvas.width.toFloat()
         val height = canvas.height.toFloat()
@@ -114,13 +117,16 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
         }
 
         val routePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(41, 182, 246)
+            color = BrandThemeConfig.cyanBright.toArgb()
             style = Paint.Style.STROKE
             strokeWidth = max(5f, width * 0.006f)
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
         }
-        val route = project(points, width, height, mapSnapshot != null)
+        val route = routeProjection
+            ?.takeIf { it.size == points.size }
+            ?.map { (x, y) -> x * width to y * height }
+            ?: project(points, width, height, mapSnapshot != null)
         if (route.size >= 2) {
             val path = Path().apply {
                 moveTo(route.first().first, route.first().second)
@@ -186,21 +192,52 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
 
     private fun drawEndpointPin(canvas: Canvas, point: Pair<Float, Float>, color: Int, ringed: Boolean, width: Float) {
         val radius = max(17f, width * 0.022f)
-        val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
-            style = Paint.Style.FILL
-        }
         if (ringed) {
-            fill.style = Paint.Style.STROKE
-            fill.strokeWidth = max(4f, width * 0.005f)
+            canvas.drawCircle(
+                point.first,
+                point.second,
+                radius,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    this.color = Color.WHITE
+                    style = Paint.Style.FILL
+                }
+            )
+            canvas.drawCircle(
+                point.first,
+                point.second,
+                radius,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    this.color = color
+                    style = Paint.Style.STROKE
+                    strokeWidth = max(4f, width * 0.005f)
+                }
+            )
+            canvas.drawCircle(
+                point.first,
+                point.second,
+                radius * 0.45f,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    this.color = color
+                    style = Paint.Style.FILL
+                }
+            )
+            return
         }
-        canvas.drawCircle(point.first, point.second, radius, fill)
+        canvas.drawCircle(
+            point.first,
+            point.second,
+            radius,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = color
+                style = Paint.Style.FILL
+            }
+        )
         val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = Color.WHITE
             style = Paint.Style.STROKE
             strokeWidth = max(3f, width * 0.004f)
         }
-        canvas.drawCircle(point.first, point.second, radius, ring)
+        canvas.drawCircle(point.first, point.second, radius + ring.strokeWidth * 0.5f, ring)
     }
 
     private fun drawTrackMeLockup(canvas: Canvas, width: Int) {
@@ -265,7 +302,8 @@ class MediaCodecReplayExporter(
         config: ReplayExportConfig,
         outputDirectory: File,
         mapSnapshot: Bitmap?,
-        onProgress: (Float) -> Unit
+        onProgress: (Float) -> Unit,
+        routeProjection: List<Pair<Float, Float>>?
     ): Result<File> = withContext(Dispatchers.Default) {
         var output: File? = null
         try {
@@ -278,7 +316,7 @@ class MediaCodecReplayExporter(
             require(points.size >= 2) { "At least two GPS points are required" }
             outputDirectory.mkdirs()
             output = File(outputDirectory, "TrackMe_Replay_${UUID.randomUUID()}.mp4")
-            encode(rideWithPoints, points, config, output, mapSnapshot, onProgress)
+            encode(rideWithPoints, points, config, output, mapSnapshot, routeProjection, onProgress)
             Result.success(output)
         } catch (cancelled: CancellationException) {
             output?.delete()
@@ -295,6 +333,7 @@ class MediaCodecReplayExporter(
         config: ReplayExportConfig,
         output: File,
         mapSnapshot: Bitmap?,
+        routeProjection: List<Pair<Float, Float>>?,
         onProgress: (Float) -> Unit
     ) {
         val frameCount = config.targetDurationSeconds * config.fps
@@ -359,7 +398,8 @@ class MediaCodecReplayExporter(
                         persona = config.persona,
                         stats = replayStatsAtProgress(points, progress, stats),
                         deepLink = config.deepLink,
-                        mapSnapshot = mapSnapshot
+                        mapSnapshot = mapSnapshot,
+                        routeProjection = routeProjection
                     )
                 } finally {
                     inputSurface.unlockCanvasAndPost(canvas)
