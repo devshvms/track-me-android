@@ -245,6 +245,7 @@ class TrackingService : Service() {
         serviceScope.launch {
             try {
                 if (!restorePersistedRide()) {
+                    (application as TrackMeApp).emergencyManager.beginRideSession()
                     val startTime = System.currentTimeMillis()
                     val rideId = rideDao.insertRide(
                         RideEntity(
@@ -530,6 +531,11 @@ class TrackingService : Service() {
         finalDuration: Long,
         discardNearEmptyRide: Boolean = false
     ) {
+        // Consume the single per-ride SOS bit before any early return. History still records a
+        // valid ride, while the transition prevents B1 from creating a reveal (and therefore B4
+        // from chaining a review request) after an emergency flow.
+        val suppressPostRideCelebrations = (application as TrackMeApp).emergencyManager
+            .consumeRideSuppression()
         val rideWithPoints = rideDao.getRideWithPointsById(rideId)
         if (rideWithPoints != null) {
             val ride = rideWithPoints.ride
@@ -617,7 +623,8 @@ class TrackingService : Service() {
                             rideId = rideId,
                             finishedAtMillis = finishedRide.endTime ?: System.currentTimeMillis(),
                             durationMillis = activeTimeMs,
-                            distanceMeters = finalDistance
+                            distanceMeters = finalDistance,
+                            suppressPostRideCelebrations = suppressPostRideCelebrations
                         )
                     )
                     // B1: pick the bounded reveal from the transition and persist it as a durable
@@ -672,6 +679,8 @@ class TrackingService : Service() {
             oldRideId?.let { rideId ->
                 finalizeRide(rideId, finalDistance, finalDuration)
             }
+
+            (application as TrackMeApp).emergencyManager.beginRideSession()
             
             val startTime = System.currentTimeMillis()
             val rideId = rideDao.insertRide(
