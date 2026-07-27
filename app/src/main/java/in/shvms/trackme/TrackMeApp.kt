@@ -106,7 +106,12 @@ class TrackMeApp : Application() {
         .build()
         
         trackingManager = TrackingManager()
-        emergencyManager = EmergencyManager()
+        emergencyManager = EmergencyManager(
+            getSharedPreferences(
+                `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
+                MODE_PRIVATE
+            )
+        )
         authManager = AuthManager()
         liveShareManager = LiveShareManager()
 
