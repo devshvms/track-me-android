@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class EmergencyManager(
-    private val trackingPreferences: SharedPreferences? = null,
+    private val trackingPreferences: SharedPreferences,
 ) {
     companion object {
         private const val EMERGENCY_TRIGGERED_FOR_RIDE_KEY = "emergency_triggered_for_ride"
@@ -21,19 +21,13 @@ class EmergencyManager(
      * celebratory post-ride surfaces must remain suppressed for that ride.
      */
     private var emergencyTriggeredForRide = trackingPreferences
-        ?.getBoolean(EMERGENCY_TRIGGERED_FOR_RIDE_KEY, false)
-        ?: false
+        .getBoolean(EMERGENCY_TRIGGERED_FOR_RIDE_KEY, false)
 
     @Synchronized
     fun beginRideSession() {
         // Carry an already-active SOS across a ride split; otherwise the new segment could
         // incorrectly earn a celebratory reveal while the emergency flow is still running.
-        emergencyTriggeredForRide = if (trackingPreferences != null) {
-            trackingPreferences.getBoolean(EMERGENCY_TRIGGERED_FOR_RIDE_KEY, false) ||
-                _isEmergencyActive.value
-        } else {
-            _isEmergencyActive.value
-        }
+        emergencyTriggeredForRide = _isEmergencyActive.value
         persistSuppression()
     }
 
@@ -53,17 +47,16 @@ class EmergencyManager(
     @Synchronized
     fun consumeRideSuppression(): Boolean {
         val wasTriggered = trackingPreferences
-            ?.getBoolean(EMERGENCY_TRIGGERED_FOR_RIDE_KEY, false)
-            ?: emergencyTriggeredForRide
+            .getBoolean(EMERGENCY_TRIGGERED_FOR_RIDE_KEY, false)
         emergencyTriggeredForRide = false
-        trackingPreferences?.edit()?.remove(EMERGENCY_TRIGGERED_FOR_RIDE_KEY)?.apply()
+        trackingPreferences.edit().remove(EMERGENCY_TRIGGERED_FOR_RIDE_KEY).apply()
         return wasTriggered
     }
 
     private fun persistSuppression() {
         trackingPreferences
-            ?.edit()
-            ?.putBoolean(EMERGENCY_TRIGGERED_FOR_RIDE_KEY, emergencyTriggeredForRide)
-            ?.apply()
+            .edit()
+            .putBoolean(EMERGENCY_TRIGGERED_FOR_RIDE_KEY, emergencyTriggeredForRide)
+            .apply()
     }
 }

@@ -9,7 +9,7 @@ class EmergencyManagerTest {
 
     @Test
     fun triggerThenResolve_isConsumedAsRideSuppression() {
-        val manager = EmergencyManager()
+        val manager = manager()
 
         manager.beginRideSession()
         manager.triggerEmergency()
@@ -21,7 +21,7 @@ class EmergencyManagerTest {
 
     @Test
     fun beginRideSession_doesNotClearAnActiveEmergency() {
-        val manager = EmergencyManager()
+        val manager = manager()
         manager.triggerEmergency()
 
         manager.beginRideSession()
@@ -31,7 +31,7 @@ class EmergencyManagerTest {
 
     @Test
     fun beginRideSession_afterResolvedEmergency_startsClean() {
-        val manager = EmergencyManager()
+        val manager = manager()
         manager.triggerEmergency()
         manager.stopEmergency()
 
@@ -53,6 +53,8 @@ class EmergencyManagerTest {
         assertTrue(restoredManager.consumeRideSuppression())
         assertFalse(restoredManager.consumeRideSuppression())
     }
+
+    private fun manager(): EmergencyManager = EmergencyManager(InMemorySharedPreferences())
 
     private class InMemorySharedPreferences : SharedPreferences {
         private val values = mutableMapOf<String, Any?>()
