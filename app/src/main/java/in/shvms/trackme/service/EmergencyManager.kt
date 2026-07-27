@@ -58,7 +58,9 @@ class EmergencyManager(
     fun stopEmergency() {
         _isEmergencyActive.value = false
         _emergencyStartedAtMillis.value = null
-        persistEmergencyState(commit = false)
+        // A user cancellation is safety-critical too: losing this write after STOP can resurrect
+        // the broadcast on the next process start, overriding the user's explicit resolution.
+        persistEmergencyState(commit = true)
     }
 
     /**

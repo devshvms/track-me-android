@@ -23,6 +23,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import `in`.shvms.trackme.config.AppConfig
+import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.data.remote.FirestoreSyncManager
 import `in`.shvms.trackme.ui.localization.getAppStrings
 import com.google.android.gms.location.LocationServices
@@ -107,14 +108,14 @@ class EmergencyBroadcastWorker(
             val emergencyStartTime = emergencyManager.ensureEmergencyStartedAt()
                 ?: return@launch
             if (elapsedMinutesSince(emergencyStartTime) >= EmergencyBroadcastPolicy.MAX_DURATION_MINUTES) {
-                emergencyManager.stopEmergency()
+                resolveEmergency(emergencyStartTime)
                 return@launch
             }
             var messagesSentThisSession = 0
 
             while (isActive) {
                 if (elapsedMinutesSince(emergencyStartTime) >= EmergencyBroadcastPolicy.MAX_DURATION_MINUTES) {
-                    emergencyManager.stopEmergency()
+                    resolveEmergency(emergencyStartTime)
                     return@launch
                 }
                 val result = broadcast(settings, contacts)
@@ -127,12 +128,21 @@ class EmergencyBroadcastWorker(
                 val elapsedMinutes = (System.currentTimeMillis() - emergencyStartTime) / 60000
                 val delayMs = EmergencyBroadcastPolicy.delayMillis(elapsedMinutes)
                     ?: run {
-                        emergencyManager.stopEmergency()
+                        resolveEmergency(emergencyStartTime)
                         return@launch
                     }
                 delay(delayMs)
             }
         }
+    }
+
+    private fun resolveEmergency(startedAt: Long) {
+        val durationSeconds = ((System.currentTimeMillis() - startedAt) / 1000L).coerceAtLeast(0L)
+        AnalyticsManager.trackSosResolved(
+            resolutionTimeSeconds = durationSeconds,
+            falseAlarm = false
+        )
+        emergencyManager.stopEmergency()
     }
 
     private fun elapsedMinutesSince(startedAt: Long): Long =

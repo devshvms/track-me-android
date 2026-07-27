@@ -672,12 +672,13 @@ fun HomeScreen(
                                 .padding(8.dp),
                             style = MaterialTheme.typography.labelLarge
                         )
-                        Button(
+                        OutlinedButton(
                             onClick = { viewModel.stopEmergency() },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = TrackMeRed,
-                                contentColor = Color.White
-                            )
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                contentColor = TrackMeRed
+                            ),
+                            border = BorderStroke(2.dp, TrackMeRed)
                         ) {
                             Text(strings.stopEmergencyBroadcast)
                         }
