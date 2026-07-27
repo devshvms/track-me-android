@@ -4,9 +4,12 @@ import android.content.Context
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import `in`.shvms.trackme.ui.components.HapticFeedbackUtils.triggerPhysicalVibrate
+import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +27,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -101,6 +107,7 @@ fun MapLayerHorizontalDrawerButton(
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val density = LocalDensity.current
+    val strings = LocalAppStrings.current
 
     val layersAlpha by animateFloatAsState(
         targetValue = if (isDrawerOpen) 0f else 1f,
@@ -210,8 +217,9 @@ fun MapLayerHorizontalDrawerButton(
                     ) {
                         MapLayerOptionButton(
                             icon = Icons.Default.Map,
-                            contentDescription = "Normal Map",
+                            contentDescription = strings.mapLayerNormal,
                             isActive = currentMapType == MapType.NORMAL,
+                            role = Role.RadioButton,
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onMapTypeSelected(MapType.NORMAL)
@@ -220,8 +228,9 @@ fun MapLayerHorizontalDrawerButton(
                         )
                         MapLayerOptionButton(
                             icon = Icons.Default.Public,
-                            contentDescription = "Satellite Map",
+                            contentDescription = strings.mapLayerSatellite,
                             isActive = currentMapType == MapType.SATELLITE,
+                            role = Role.RadioButton,
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onMapTypeSelected(MapType.SATELLITE)
@@ -230,8 +239,9 @@ fun MapLayerHorizontalDrawerButton(
                         )
                         MapLayerOptionButton(
                             icon = Icons.Default.Terrain,
-                            contentDescription = "Terrain Map",
+                            contentDescription = strings.mapLayerTerrain,
                             isActive = currentMapType == MapType.TERRAIN,
+                            role = Role.RadioButton,
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onMapTypeSelected(MapType.TERRAIN)
@@ -240,8 +250,9 @@ fun MapLayerHorizontalDrawerButton(
                         )
                         MapLayerOptionButton(
                             icon = Icons.Default.Layers,
-                            contentDescription = "Hybrid Map",
+                            contentDescription = strings.mapLayerHybrid,
                             isActive = currentMapType == MapType.HYBRID,
+                            role = Role.RadioButton,
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onMapTypeSelected(MapType.HYBRID)
@@ -255,8 +266,9 @@ fun MapLayerHorizontalDrawerButton(
                         )
                         MapLayerOptionButton(
                             icon = Icons.Default.Traffic,
-                            contentDescription = "Traffic Toggle",
+                            contentDescription = strings.mapLayerTraffic,
                             isActive = isTrafficEnabled,
+                            role = Role.Switch,
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onTrafficToggle()
@@ -276,10 +288,24 @@ private fun MapLayerOptionButton(
     icon: ImageVector,
     contentDescription: String,
     isActive: Boolean,
+    role: Role,
     onClick: () -> Unit
 ) {
     val bgColor = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
     val iconColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val interactionModifier = when (role) {
+        Role.RadioButton -> Modifier.selectable(
+            selected = isActive,
+            role = role,
+            onClick = onClick
+        )
+        Role.Switch -> Modifier.toggleable(
+            value = isActive,
+            role = role,
+            onValueChange = { onClick() }
+        )
+        else -> Modifier.clickable(onClick = onClick)
+    }
 
     Surface(
         shape = CircleShape,
@@ -287,12 +313,15 @@ private fun MapLayerOptionButton(
         shadowElevation = 2.dp,
         modifier = Modifier
             .size(42.dp)
-            .clickable(onClick = onClick)
+            .semantics(mergeDescendants = true) {
+                this.contentDescription = contentDescription
+            }
+            .then(interactionModifier)
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 imageVector = icon,
-                contentDescription = contentDescription,
+                contentDescription = null,
                 tint = iconColor,
                 modifier = Modifier.size(24.dp)
             )
