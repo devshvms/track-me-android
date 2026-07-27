@@ -19,6 +19,8 @@ import androidx.core.content.res.ResourcesCompat
 import `in`.shvms.trackme.R
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
+import `in`.shvms.trackme.domain.UnitFormatter
+import `in`.shvms.trackme.domain.export.gpsDistanceMeters
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.ui.history.trimComparisonEndpoints
 import `in`.shvms.trackme.theme.BrandThemeConfig
@@ -27,13 +29,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Locale
 import java.util.UUID
 import kotlin.coroutines.coroutineContext
 import kotlin.math.max
 import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 data class ReplayExportConfig(
     val width: Int = 1080,
@@ -43,7 +43,12 @@ data class ReplayExportConfig(
     val applyPrivacyTrim: Boolean = true,
     val privacyTrimDistanceMeters: Double = 200.0,
     val persona: RidePersona,
-    val deepLink: String? = null
+    val deepLink: String? = null,
+    /**
+     * Localized text baked into every frame. Defaulted so existing call sites and tests keep
+     * compiling; UI call sites must supply it, otherwise the overlay falls back to English metric.
+     */
+    val overlay: ReplayOverlay = ReplayOverlay()
 ) {
     init {
         require(width > 0 && height > 0) { "Replay dimensions must be positive" }
@@ -59,6 +64,19 @@ data class ReplayStats(
     val averageSpeedMetersPerSecond: Double
 )
 
+/**
+ * Presentation text for the burned-in overlay. The renderer must never resolve strings or
+ * preferences itself — the exported MP4 is a shared artifact, so its text has to match exactly what
+ * the user sees in-app, in their language and their unit system.
+ *
+ * [personaLabel] must come from `AppStrings.personaLabel(persona)`. When null the renderer falls
+ * back to the English `RidePersona.displayName`, which is a bug on any user-facing surface.
+ */
+data class ReplayOverlay(
+    val personaLabel: String? = null,
+    val imperialUnits: Boolean = false
+)
+
 interface ReplayFrameRenderer {
     fun renderFrame(
         canvas: Canvas,
@@ -68,7 +86,8 @@ interface ReplayFrameRenderer {
         stats: ReplayStats,
         deepLink: String?,
         mapSnapshot: Bitmap? = null,
-        routeProjection: List<Pair<Float, Float>>? = null
+        routeProjection: List<Pair<Float, Float>>? = null,
+        overlay: ReplayOverlay = ReplayOverlay()
     )
 }
 
@@ -104,7 +123,8 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
         stats: ReplayStats,
         deepLink: String?,
         mapSnapshot: Bitmap?,
-        routeProjection: List<Pair<Float, Float>>?
+        routeProjection: List<Pair<Float, Float>>?,
+        overlay: ReplayOverlay
     ) {
         val width = canvas.width.toFloat()
         val height = canvas.height.toFloat()
@@ -178,9 +198,15 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
             color = Color.LTGRAY
             textSize = max(18f, width * 0.028f)
         }
-        canvas.drawText(persona.displayName, width * 0.06f, height * 0.12f, bodyPaint)
         canvas.drawText(
-            "${formatDistance(stats.distanceMeters)}  ·  ${formatDuration(stats.durationMillis)}",
+            overlay.personaLabel?.takeIf { it.isNotBlank() } ?: persona.displayName,
+            width * 0.06f,
+            height * 0.12f,
+            bodyPaint
+        )
+        canvas.drawText(
+            "${formatReplayDistance(stats.distanceMeters, overlay.imperialUnits)}" +
+                "  ·  ${formatReplayDuration(stats.durationMillis)}",
             width * 0.06f,
             height * 0.93f,
             bodyPaint
@@ -298,13 +324,29 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
             x to y
         }
     }
+}
 
-    private fun formatDistance(meters: Double): String = if (meters >= 1000) "%.1f km".format(meters / 1000.0) else "%.0f m".format(meters)
+/**
+ * Distance for the burned-in overlay. Routed through [UnitFormatter] so the shared MP4 honours the
+ * user's unit preference and reads identically to the History card (`decimals = 1`).
+ */
+internal fun formatReplayDistance(meters: Double, imperial: Boolean): String =
+    UnitFormatter.distance(meters.coerceAtLeast(0.0), imperial, decimals = 1)
 
-    private fun formatDuration(durationMillis: Long): String {
-        val seconds = (durationMillis.coerceAtLeast(0L) / 1000L)
-        return "%02d:%02d".format(seconds / 60L, seconds % 60L)
-    }
+/**
+ * `HH:MM:SS`, matching `HistoryScreen`/`RideDetailScreen`. The previous `"%02d:%02d"` had no hours
+ * field, so a 2h44m ride rendered as `"164:47"` — a minutes value no reader parses as a duration.
+ */
+internal fun formatReplayDuration(durationMillis: Long): String {
+    if (durationMillis <= 0L) return "00:00:00"
+    val totalSeconds = durationMillis / 1000L
+    return String.format(
+        Locale.getDefault(),
+        "%02d:%02d:%02d",
+        totalSeconds / 3600L,
+        (totalSeconds % 3600L) / 60L,
+        totalSeconds % 60L
+    )
 }
 
 private data class SnapshotTransform(
@@ -388,6 +430,11 @@ class MediaCodecReplayExporter(
         onProgress: (Float) -> Unit
     ) {
         val frameCount = config.targetDurationSeconds * config.fps
+        // Authoritative ride totals; replayStatsAtProgress scales these by route fraction so the
+        // final frame equals what the History card shows. Duration is deliberately wall-clock
+        // (endTime - startTime) and does NOT subtract postRideCalculation.pauseDuration, because
+        // every other surface in the app (HistoryScreen, RideDetailScreen) shows wall-clock —
+        // subtracting pause here would fix nothing and create a fresh app-vs-video mismatch.
         val stats = ReplayStats(
             distanceMeters = rideWithPoints.ride.postRideCalculation?.distance ?: 0.0,
             durationMillis = ((rideWithPoints.ride.endTime ?: rideWithPoints.ride.startTime) - rideWithPoints.ride.startTime).coerceAtLeast(0L),
@@ -450,7 +497,8 @@ class MediaCodecReplayExporter(
                         stats = replayStatsAtProgress(points, progress, stats),
                         deepLink = config.deepLink,
                         mapSnapshot = mapSnapshot,
-                        routeProjection = routeProjection
+                        routeProjection = routeProjection,
+                        overlay = config.overlay
                     )
                 } finally {
                     inputSurface.unlockCanvasAndPost(canvas)
@@ -482,36 +530,71 @@ class MediaCodecReplayExporter(
     }
 }
 
-/** Computes route stats for the currently visible fraction of the replay. */
+/**
+ * Computes the stats shown on the current replay frame.
+ *
+ * The rendered route is the *privacy-trimmed* subset (200 m removed at each end), so summing its
+ * geometry directly produced a final frame whose distance and duration both undershot the ride's
+ * own totals — the shared video contradicted the History card for the same ride. Instead the
+ * animation interpolates *fractions* of the route and scales the ride's authoritative totals by
+ * them, so the last frame lands exactly on the numbers shown in-app.
+ *
+ * Distance advances by distance travelled and duration by elapsed time, so a long mid-route stop
+ * moves the clock without moving the odometer. Rides with no stored calculation (legacy imports,
+ * recovered orphans) fall back to route geometry rather than rendering zeroes.
+ */
 internal fun replayStatsAtProgress(
     points: List<GPSPointEntity>,
     progress: Float,
     fallback: ReplayStats
 ): ReplayStats {
     if (points.size < 2) return fallback
-    val position = progress.coerceIn(0f, 1f) * points.lastIndex
-    val lower = position.toInt().coerceIn(0, points.lastIndex)
-    val fraction = (position - lower).coerceIn(0f, 1f)
-    var distance = 0.0
-    for (index in 0 until lower) distance += distanceMeters(points[index], points[index + 1])
-    if (lower < points.lastIndex) distance += distanceMeters(points[lower], points[lower + 1]) * fraction
-    val duration = if (lower >= points.lastIndex) {
-        (points.last().timestamp - points.first().timestamp).coerceAtLeast(0L)
-    } else {
-        val span = points[lower + 1].timestamp - points[lower].timestamp
-        (points.first().timestamp.let { points[lower].timestamp - it } + (span * fraction).toLong()).coerceAtLeast(0L)
-    }
+    val totalDistance = fallback.distanceMeters.takeIf { it > 0.0 }
+        ?: geometricRouteDistanceMeters(points)
+    val totalDuration = fallback.durationMillis.takeIf { it > 0L }
+        ?: (points.last().timestamp - points.first().timestamp).coerceAtLeast(0L)
+
+    val distance = totalDistance * routeDistanceFraction(points, progress)
+    val duration = (totalDuration * routeTimeFraction(points, progress)).toLong().coerceAtLeast(0L)
     val averageSpeed = if (duration > 0L) distance / (duration / 1000.0) else 0.0
     return ReplayStats(distance, duration, averageSpeed)
 }
 
-private fun distanceMeters(a: GPSPointEntity, b: GPSPointEntity): Double {
-    val earthRadius = 6_371_000.0
-    val dLat = Math.toRadians(b.latitude - a.latitude)
-    val dLon = Math.toRadians(b.longitude - a.longitude)
-    val lat1 = Math.toRadians(a.latitude)
-    val lat2 = Math.toRadians(b.latitude)
-    val h = sin(dLat / 2) * sin(dLat / 2) +
-        cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2)
-    return earthRadius * 2.0 * atan2(sqrt(h), sqrt(1.0 - h))
+/** Total geometric length of the rendered (already trimmed) route. */
+internal fun geometricRouteDistanceMeters(points: List<GPSPointEntity>): Double {
+    if (points.size < 2) return 0.0
+    var total = 0.0
+    for (index in 0 until points.lastIndex) total += gpsDistanceMeters(points[index], points[index + 1])
+    return total
+}
+
+/** Fraction of the route's length covered at [progress], in 0..1. */
+internal fun routeDistanceFraction(points: List<GPSPointEntity>, progress: Float): Double {
+    if (points.size < 2) return 0.0
+    val total = geometricRouteDistanceMeters(points)
+    if (total <= 0.0) return progress.coerceIn(0f, 1f).toDouble()
+    val position = progress.coerceIn(0f, 1f) * points.lastIndex
+    val lower = position.toInt().coerceIn(0, points.lastIndex)
+    val fraction = (position - lower).coerceIn(0f, 1f)
+    var travelled = 0.0
+    for (index in 0 until lower) travelled += gpsDistanceMeters(points[index], points[index + 1])
+    if (lower < points.lastIndex) travelled += gpsDistanceMeters(points[lower], points[lower + 1]) * fraction
+    return (travelled / total).coerceIn(0.0, 1.0)
+}
+
+/** Fraction of the route's elapsed time covered at [progress], in 0..1. */
+internal fun routeTimeFraction(points: List<GPSPointEntity>, progress: Float): Double {
+    if (points.size < 2) return 0.0
+    val span = points.last().timestamp - points.first().timestamp
+    if (span <= 0L) return progress.coerceIn(0f, 1f).toDouble()
+    val position = progress.coerceIn(0f, 1f) * points.lastIndex
+    val lower = position.toInt().coerceIn(0, points.lastIndex)
+    val fraction = (position - lower).coerceIn(0f, 1f)
+    val elapsed = if (lower >= points.lastIndex) {
+        span
+    } else {
+        (points[lower].timestamp - points.first().timestamp) +
+            ((points[lower + 1].timestamp - points[lower].timestamp) * fraction).toLong()
+    }
+    return (elapsed.toDouble() / span).coerceIn(0.0, 1.0)
 }
