@@ -2,11 +2,28 @@ package `in`.shvms.trackme.ui.history
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -15,9 +32,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import android.os.Handler
 import android.os.Looper
@@ -52,6 +77,67 @@ private data class CapturedMapSnapshot(
     val routeProjection: List<Pair<Float, Float>>
 )
 
+/** The three mutually-exclusive things the wide replay button can be showing. */
+internal enum class ReplayExportLabel { IDLE, IN_PROGRESS, UNAVAILABLE }
+
+/**
+ * Pure presentation state for the wide replay-export button.
+ *
+ * [fillFraction] drives a progress fill drawn *inside* the button's own fixed bounds, which is why
+ * the button's measured width never depends on the label. That is the structural fix behind E9:
+ * the old design grew a text label ("Creating replay · NN%") inside a shared four-button row and
+ * squeezed its siblings. A constant-width container with an internal fill cannot do that.
+ */
+internal data class ReplayExportButtonState(
+    val enabled: Boolean,
+    val fillFraction: Float,
+    val percent: Int,
+    val label: ReplayExportLabel
+) {
+    val isExporting: Boolean get() = label == ReplayExportLabel.IN_PROGRESS
+}
+
+/**
+ * Derives the button's state. Kept free of Compose and Android types so it is unit-testable.
+ *
+ * - Not enough GPS points → disabled, with the reason surfaced as supporting text rather than a
+ *   toast the user only sees after tapping a button that looked available (E9 edge case).
+ * - Exporting → stays enabled, because tapping cancels the in-flight export (behavior preserved
+ *   from the pre-E9 button).
+ */
+internal fun replayExportButtonState(
+    exporting: Boolean,
+    progress: Float,
+    hasEnoughPoints: Boolean
+): ReplayExportButtonState {
+    if (exporting) {
+        val clamped = progress.coerceIn(0f, 1f)
+        return ReplayExportButtonState(
+            enabled = true,
+            fillFraction = clamped,
+            percent = (clamped * 100).roundToInt(),
+            label = ReplayExportLabel.IN_PROGRESS
+        )
+    }
+    return ReplayExportButtonState(
+        enabled = hasEnoughPoints,
+        fillFraction = 0f,
+        percent = 0,
+        label = if (hasEnoughPoints) ReplayExportLabel.IDLE else ReplayExportLabel.UNAVAILABLE
+    )
+}
+
+private val ReplayButtonHeight = 56.dp
+private val ReplayButtonShape = RoundedCornerShape(28.dp)
+
+/**
+ * Wide, full-width replay-video export action.
+ *
+ * Lives inside the shared export preview (see [ExportPreviewDialog]'s `videoAction` slot), not in
+ * Ride Detail's action row. Cancellation on preview dismissal is automatic: the export job is
+ * launched from [rememberCoroutineScope], so leaving composition cancels it and the exporter's
+ * `finally` block recycles the map snapshot.
+ */
 @Composable
 fun ReplayExportAction(
     rideWithPoints: RideWithPoints,
@@ -74,56 +160,133 @@ fun ReplayExportAction(
         imperialUnits = unitSystem == "imperial"
     )
 
-    TextButton(
-        onClick = {
-            if (exporting) {
-                exportJob?.cancel()
-                return@TextButton
-            }
-            if (!hasEnoughPoints) {
-                android.widget.Toast.makeText(context, strings.replayExportNotEnoughGps, android.widget.Toast.LENGTH_SHORT).show()
-                return@TextButton
-            }
-            exporting = true
-            progress = 0f
-            val trimmedPoints = trimComparisonEndpoints(rideWithPoints.points).sortedBy { it.timestamp }
-            if (trimmedPoints.size < 2) {
-                exporting = false
-                android.widget.Toast.makeText(context, strings.replayExportFailed, android.widget.Toast.LENGTH_SHORT).show()
-                return@TextButton
-            }
-            capturePrivacyTrimmedSnapshot(context, trimmedPoints) { captured ->
-                startExport(
-                    rideWithPoints = rideWithPoints,
-                    context = context,
-                    snapshot = captured?.bitmap,
-                    routeProjection = captured?.routeProjection,
-                    persona = persona,
-                    overlay = overlay,
-                    scope = scope,
-                    onProgress = { progress = it },
-                    onFinished = {
-                        exporting = false
-                        exportJob = null
-                    },
-                    onJobCreated = { exportJob = it },
-                    onFailure = { android.widget.Toast.makeText(context, strings.replayExportFailed, android.widget.Toast.LENGTH_SHORT).show() }
+    val state = replayExportButtonState(
+        exporting = exporting,
+        progress = progress,
+        hasEnoughPoints = hasEnoughPoints
+    )
+
+    val onClick: () -> Unit = onClick@{
+        if (state.isExporting) {
+            exportJob?.cancel()
+            return@onClick
+        }
+        exporting = true
+        progress = 0f
+        val trimmedPoints = trimComparisonEndpoints(rideWithPoints.points).sortedBy { it.timestamp }
+        if (trimmedPoints.size < 2) {
+            exporting = false
+            android.widget.Toast.makeText(context, strings.replayExportFailed, android.widget.Toast.LENGTH_SHORT).show()
+            return@onClick
+        }
+        capturePrivacyTrimmedSnapshot(context, trimmedPoints) { captured ->
+            startExport(
+                rideWithPoints = rideWithPoints,
+                context = context,
+                snapshot = captured?.bitmap,
+                routeProjection = captured?.routeProjection,
+                persona = persona,
+                overlay = overlay,
+                scope = scope,
+                onProgress = { progress = it },
+                onFinished = {
+                    exporting = false
+                    exportJob = null
+                },
+                onJobCreated = { exportJob = it },
+                onFailure = { android.widget.Toast.makeText(context, strings.replayExportFailed, android.widget.Toast.LENGTH_SHORT).show() }
+            )
+        }
+    }
+
+    val label = when (state.label) {
+        ReplayExportLabel.IN_PROGRESS -> strings.replayExportProgress.format(state.percent)
+        ReplayExportLabel.IDLE, ReplayExportLabel.UNAVAILABLE -> strings.replayExportButton
+    }
+    // Smooths the 2%-quantised progress callbacks into a continuous fill instead of visible steps.
+    val animatedFill by animateFloatAsState(
+        targetValue = state.fillFraction,
+        animationSpec = tween(durationMillis = 220),
+        label = "replayExportFill"
+    )
+    // Brand hierarchy (BRAND_SYSTEM.md, "one accent per screen"): Share/Save already carry the cyan
+    // CTA weight in this dialog, so the video button rests on the neutral `surfaceVariant` and only
+    // *earns* cyan while it is working — the progress fill is `primary` (CyanBright on dark,
+    // CyanDeep on light). Both composites clear 7:1 against `onSurface`, so the label stays legible
+    // as the fill sweeps under it in either theme.
+    val trackColor = if (state.enabled) {
+        MaterialTheme.colorScheme.surfaceVariant
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    }
+    val contentColor = if (state.enabled) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(ReplayButtonHeight)
+                .clip(ReplayButtonShape)
+                .background(trackColor)
+                .clickable(
+                    enabled = state.enabled,
+                    onClickLabel = if (state.isExporting) strings.replayExportCancel else strings.replayExportButton,
+                    role = Role.Button,
+                    onClick = onClick
+                )
+                .semantics(mergeDescendants = true) {
+                    contentDescription = strings.replayExportTitle
+                    if (state.isExporting) {
+                        stateDescription = strings.replayExportProgress.format(state.percent)
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            if (state.isExporting) {
+                // Progress is painted inside the button's own bounds — it can never change the
+                // button's measured width, so no sibling control can be squeezed by it.
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(animatedFill.coerceIn(0f, 1f))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
                 )
             }
-        },
-        enabled = !exporting || hasEnoughPoints,
-        modifier = modifier
-    ) {
-        Icon(Icons.Default.Movie, contentDescription = strings.replayExportTitle)
-        Text(
-            text = when {
-                exporting -> strings.replayExportProgress.format((progress * 100).roundToInt())
-                else -> strings.replayExportButton
-            },
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Ellipsis
-        )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                Icon(
+                    imageVector = if (state.isExporting) Icons.Default.Close else Icons.Default.Movie,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = label,
+                    color = contentColor,
+                    style = MaterialTheme.typography.labelLarge,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (state.label == ReplayExportLabel.UNAVAILABLE) {
+            Text(
+                text = strings.replayExportNotEnoughGps,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
     }
 }
 
@@ -142,7 +305,7 @@ private fun startExport(
 ) {
     val lastPublishedProgress = AtomicReference(-1f)
     val deepLinkId = rideWithPoints.ride.firestoreId?.takeLast(12) ?: rideWithPoints.ride.id.toString()
-    onJobCreated(scope.launch {
+    val job = scope.launch {
         try {
             val result = withContext(Dispatchers.Default) {
                 MediaCodecReplayExporter(
@@ -170,11 +333,18 @@ private fun startExport(
             result.onSuccess { file -> shareReplay(context, file) }.onFailure { onFailure() }
         } catch (_: CancellationException) {
             throw CancellationException()
-        } finally {
-            if (snapshot != null && !snapshot.isRecycled) snapshot.recycle()
-            onFinished()
         }
-    })
+    }
+    // E9: dismissing the export preview mid-generation cancels the composition scope, which can
+    // cancel this job *before its body ever runs* — a `finally` inside the coroutine would then
+    // never execute and the captured map snapshot would be orphaned. `invokeOnCompletion` fires in
+    // every terminal case (success, failure, and never-started cancellation), so the bitmap is
+    // always released and the button always returns to its idle state.
+    job.invokeOnCompletion {
+        if (snapshot != null && !snapshot.isRecycled) snapshot.recycle()
+        onFinished()
+    }
+    onJobCreated(job)
 }
 
 /** Captures only the privacy-trimmed route on a temporary 9:16 map surface. */

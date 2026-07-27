@@ -653,11 +653,10 @@ fun RideDetailScreen(
                                 Text(strings.share, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                             }
 
-                            ReplayExportAction(
-                                rideWithPoints = rideWithPoints!!,
-                                context = context,
-                                modifier = Modifier.weight(1f)
-                            )
+                            // E9: the replay-video action moved into the shared export preview
+                            // (see the ExportPreviewDialog `videoAction` slot below). This row is
+                            // deliberately back to three stable-width items — Share / Export GPX /
+                            // Delete — so no growing label can squeeze its neighbours.
 
                             TextButton(
                                 onClick = {
@@ -810,6 +809,15 @@ fun RideDetailScreen(
             }
         }
 
+        // E9: replay-video export now lives inside the preview rather than Ride Detail's action
+        // row. Null when the ride has no loaded points, so the slot is absent rather than inert.
+        val currentRideWithPoints = rideWithPoints
+        val replayVideoAction: (@Composable () -> Unit)? = if (currentRideWithPoints != null) {
+            { ReplayExportAction(rideWithPoints = currentRideWithPoints, context = context) }
+        } else {
+            null
+        }
+
         ExportPreviewDialog(
             title = strings.exportPreviewTitle,
             initialRatio = Pair(AppConfig.HQ_IMAGE_WIDTH, AppConfig.HQ_IMAGE_RATIO_9_16),
@@ -825,7 +833,8 @@ fun RideDetailScreen(
             onRetry = { settings ->
                 exportError = false
                 handleExport(settings, share = true)
-            }
+            },
+            videoAction = replayVideoAction
         ) { modifier, settings ->
             val routePoints = remember(rideWithPoints?.points, settings.privacyTrim) {
                 val points = rideWithPoints?.points.orEmpty()
