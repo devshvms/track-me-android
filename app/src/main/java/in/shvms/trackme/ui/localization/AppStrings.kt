@@ -195,6 +195,10 @@ open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
     val grantPermission: String = s("grantPermission", "Grant Permission")
     val openSettings: String = s("openSettings", "Open Settings")
     val stopEmergencyBroadcast: String = s("stopEmergencyBroadcast", "STOP EMERGENCY BROADCAST")
+    val triggerEmergencyAccessibility: String = s("triggerEmergencyAccessibility", "Trigger emergency SOS")
+    val emergencySosReady: String = s("emergencySosReady", "Emergency SOS ready")
+    val emergencySosActive: String = s("emergencySosActive", "Emergency SOS is active")
+    val emergencySosUnavailable: String = s("emergencySosUnavailable", "Emergency SOS unavailable")
     val mapNormal: String = s("mapNormal", "Normal")
     val mapSatellite: String = s("mapSatellite", "Satellite")
     val mapTerrain: String = s("mapTerrain", "Terrain")
@@ -383,6 +387,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "elevation" to "Altitud",
             "swipeToSos" to "Desliza para SOS de Emergencia",
             "sosTriggered" to "¡SOS DE EMERGENCIA ACTIVADO!",
+            "stopEmergencyBroadcast" to "Detener transmisión de emergencia",
+            "triggerEmergencyAccessibility" to "Activar SOS de emergencia",
+            "emergencySosReady" to "SOS de emergencia listo",
+            "emergencySosActive" to "SOS de emergencia activo",
+            "emergencySosUnavailable" to "SOS de emergencia no disponible",
             "notifTrackingTitle" to "TrackMe está grabando tu viaje",
             "notifTrackingText" to "Viaje en curso",
             "notifAutoSplitTitle" to "División automática del viaje",
@@ -642,6 +651,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "elevation" to "Altitude",
             "swipeToSos" to "Glissez pour SOS Urgence",
             "sosTriggered" to "SOS URGENCE DÉCLENCHÉ !",
+            "stopEmergencyBroadcast" to "Arrêter la diffusion d'urgence",
+            "triggerEmergencyAccessibility" to "Déclencher le SOS d'urgence",
+            "emergencySosReady" to "SOS d'urgence prêt",
+            "emergencySosActive" to "SOS d'urgence actif",
+            "emergencySosUnavailable" to "SOS d'urgence indisponible",
             "notifTrackingTitle" to "TrackMe enregistre votre trajet",
             "notifTrackingText" to "Trajet en cours",
             "notifAutoSplitTitle" to "Découpage automatique du trajet",
@@ -901,6 +915,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "elevation" to "Höhe",
             "swipeToSos" to "Wischen für Notfall-SOS",
             "sosTriggered" to "NOTFALL-SOS AUSGELÖST!",
+            "stopEmergencyBroadcast" to "Notfallübertragung stoppen",
+            "triggerEmergencyAccessibility" to "Notfall-SOS auslösen",
+            "emergencySosReady" to "Notfall-SOS bereit",
+            "emergencySosActive" to "Notfall-SOS aktiv",
+            "emergencySosUnavailable" to "Notfall-SOS nicht verfügbar",
             "notifTrackingTitle" to "TrackMe zeichnet deine Fahrt auf",
             "notifTrackingText" to "Fahrt läuft",
             "notifAutoSplitTitle" to "Fahrt automatisch geteilt",
@@ -1160,6 +1179,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "elevation" to "ऊंचाई",
             "swipeToSos" to "आपातकालीन SOS के लिए स्वाइप करें",
             "sosTriggered" to "आपातकालीन SOS सक्रिय!",
+            "stopEmergencyBroadcast" to "आपातकालीन प्रसारण रोकें",
+            "triggerEmergencyAccessibility" to "आपातकालीन SOS सक्रिय करें",
+            "emergencySosReady" to "आपातकालीन SOS तैयार है",
+            "emergencySosActive" to "आपातकालीन SOS सक्रिय है",
+            "emergencySosUnavailable" to "आपातकालीन SOS उपलब्ध नहीं है",
             "notifTrackingTitle" to "TrackMe आपकी राइड रिकॉर्ड कर रहा है",
             "notifTrackingText" to "राइड जारी है",
             "notifAutoSplitTitle" to "राइड अपने-आप विभाजित",
@@ -1419,6 +1443,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "elevation" to "標高",
             "swipeToSos" to "スワイプして緊急SOSを発動",
             "sosTriggered" to "緊急SOSが発動されました！",
+            "stopEmergencyBroadcast" to "緊急通知の配信を停止",
+            "triggerEmergencyAccessibility" to "緊急SOSを発動",
+            "emergencySosReady" to "緊急SOSの準備ができています",
+            "emergencySosActive" to "緊急SOSは有効です",
+            "emergencySosUnavailable" to "緊急SOSは利用できません",
             "notifTrackingTitle" to "TrackMeがライドを記録しています",
             "notifTrackingText" to "ライド進行中",
             "notifAutoSplitTitle" to "ライドを自動分割",
@@ -1678,6 +1707,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "elevation" to "海拔",
             "swipeToSos" to "滑动触发紧急SOS",
             "sosTriggered" to "紧急SOS已触发！",
+            "stopEmergencyBroadcast" to "停止紧急广播",
+            "triggerEmergencyAccessibility" to "触发紧急SOS",
+            "emergencySosReady" to "紧急SOS已准备就绪",
+            "emergencySosActive" to "紧急SOS已激活",
+            "emergencySosUnavailable" to "紧急SOS不可用",
             "notifTrackingTitle" to "TrackMe正在记录你的骑行",
             "notifTrackingText" to "骑行进行中",
             "notifAutoSplitTitle" to "骑行自动分段",
