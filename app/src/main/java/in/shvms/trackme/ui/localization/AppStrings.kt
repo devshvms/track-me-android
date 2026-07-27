@@ -25,6 +25,10 @@ open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
     // Home / Dashboard
     val startTracking: String = s("startTracking", "Start Tracking")
     val startRideHint: String = s("startRideHint", "Tap and hold Start Ride, then drag to choose an activity.")
+    val startRideAccessibility: String = s("startRideAccessibility", "Start ride. Drag to choose an activity.")
+    val activitySelectionAvailable: String = s("activitySelectionAvailable", "Activity selection available")
+    val startRideAction: String = s("startRideAction", "Start ride")
+    val dragToSelect: String = s("dragToSelect", "Drag to select")
     val dismissStartRideHint: String = s("dismissStartRideHint", "Got it")
     val pauseTracking: String = s("pauseTracking", "Pause Tracking")
     val resumeTracking: String = s("resumeTracking", "Resume Tracking")
@@ -423,6 +427,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "minutes5" to "5 minutos",
             "accountManagement" to "Gestión de Cuenta",
             "startRideHint" to "Mantén pulsado Iniciar viaje y arrastra para elegir una actividad.",
+            "startRideAccessibility" to "Iniciar viaje. Arrastra para elegir una actividad.",
+            "activitySelectionAvailable" to "Selección de actividad disponible",
+            "startRideAction" to "Iniciar viaje",
+            "dragToSelect" to "Arrastra para seleccionar",
             "dismissStartRideHint" to "Entendido",
             "dataExportFailed" to "No se pudo crear o descargar el archivo. Comprueba la conexión y el almacenamiento disponible e inténtalo de nuevo.",
             "emergencySetup" to "Configuración SOS de Emergencia",
@@ -670,6 +678,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "minutes5" to "5 minutes",
             "accountManagement" to "Gestion du Compte",
             "startRideHint" to "Maintenez « Démarrer le trajet » appuyé, puis faites glisser pour choisir une activité.",
+            "startRideAccessibility" to "Démarrer le trajet. Faites glisser pour choisir une activité.",
+            "activitySelectionAvailable" to "Sélection d’activité disponible",
+            "startRideAction" to "Démarrer le trajet",
+            "dragToSelect" to "Faire glisser pour sélectionner",
             "dismissStartRideHint" to "Compris",
             "dataExportFailed" to "Impossible de créer ou de télécharger l'archive. Vérifiez votre connexion et l'espace de stockage disponible, puis réessayez.",
             "emergencySetup" to "Configuration SOS Urgence",
@@ -917,6 +929,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "minutes5" to "5 Minuten",
             "accountManagement" to "Konto-Verwaltung",
             "startRideHint" to "Halte „Fahrt starten“ gedrückt und ziehe, um eine Aktivität auszuwählen.",
+            "startRideAccessibility" to "Fahrt starten. Ziehe, um eine Aktivität auszuwählen.",
+            "activitySelectionAvailable" to "Aktivitätsauswahl verfügbar",
+            "startRideAction" to "Fahrt starten",
+            "dragToSelect" to "Zum Auswählen ziehen",
             "dismissStartRideHint" to "Verstanden",
             "dataExportFailed" to "Das Archiv konnte nicht erstellt oder heruntergeladen werden. Prüfen Sie die Verbindung und den verfügbaren Speicher und versuchen Sie es erneut.",
             "emergencySetup" to "Notfall-SOS Einrichtung",
@@ -1164,6 +1180,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "minutes5" to "5 मिनट",
             "accountManagement" to "खाता प्रबंधन",
             "startRideHint" to "राइड शुरू करें बटन को दबाकर रखें और गतिविधि चुनने के लिए खींचें।",
+            "startRideAccessibility" to "राइड शुरू करें। गतिविधि चुनने के लिए खींचें।",
+            "activitySelectionAvailable" to "गतिविधि चयन उपलब्ध है",
+            "startRideAction" to "राइड शुरू करें",
+            "dragToSelect" to "चुनने के लिए खींचें",
             "dismissStartRideHint" to "समझ गया",
             "dataExportFailed" to "आर्काइव बनाया या डाउनलोड नहीं किया जा सका। कनेक्शन और उपलब्ध स्टोरेज जांचकर फिर प्रयास करें।",
             "emergencySetup" to "आपातकालीन SOS सेटअप",
@@ -1411,6 +1431,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "minutes5" to "5分",
             "accountManagement" to "アカウント管理",
             "startRideHint" to "「ライドを開始」を長押しして、ドラッグでアクティビティを選択します。",
+            "startRideAccessibility" to "ライドを開始。ドラッグしてアクティビティを選択します。",
+            "activitySelectionAvailable" to "アクティビティを選択できます",
+            "startRideAction" to "ライドを開始",
+            "dragToSelect" to "ドラッグして選択",
             "dismissStartRideHint" to "了解",
             "dataExportFailed" to "アーカイブを作成またはダウンロードできませんでした。接続と空き容量を確認して再試行してください。",
             "emergencySetup" to "緊急SOS設定",
@@ -1658,6 +1682,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "minutes5" to "5 分钟",
             "accountManagement" to "账号管理",
             "startRideHint" to "长按“开始骑行”，然后拖动选择活动。",
+            "startRideAccessibility" to "开始骑行。拖动以选择活动。",
+            "activitySelectionAvailable" to "可选择活动",
+            "startRideAction" to "开始骑行",
+            "dragToSelect" to "拖动选择",
             "dismissStartRideHint" to "知道了",
             "dataExportFailed" to "无法创建或下载存档。请检查网络连接和可用存储空间后重试。",
             "emergencySetup" to "紧急SOS设置",
