@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TrackMe canonical mark — transparent, mark-only (no navy field baked in).
+  Authored 2026-07-27 by Claude (Product · CX · Design) in response to the E6
+  asset request in .ai/comms/inbox/product.md.
+
+  Traced from brand/logo/trackme_logo_1024.png and BRAND_SYSTEM.md → "Logo":
+  cyan location pin + white route trail. The navy circle backing is deliberately
+  NOT baked in — the replay renderer already draws its own dark backing plate
+  behind the lockup, and baking a second field would create the exact seam
+  BRAND_SYSTEM.md warns about. Any surface that uses this asset MUST supply a
+  navy backing (BRAND_SYSTEM.md: "never place the icon on a busy photo without
+  the navy circle backing") and keep clear space = 25% of icon width.
+
+  Colors are the locked tokens: cyan/bright #29B6F6 (theme/Color.kt
+  BrandThemeConfig.cyanBright) and #FFFFFF. Do not recolor.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="128"
+    android:viewportHeight="128">
+
+    <!-- Location pin, outline only — cyan/bright #29B6F6 -->
+    <path
+        android:pathData="M44,110 C44,110 18,74 18,52 C18,37.6 29.6,26 44,26 C58.4,26 70,37.6 70,52 C70,74 44,110 44,110 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#29B6F6"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Pin aperture ring — hollow so the host surface (navy) shows through -->
+    <path
+        android:pathData="M44,42 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8" />
+
+    <!-- Route trail -->
+    <path
+        android:pathData="M48,104 L62,104 C73,104 79,97 84,89 C89,81 91,74 85,68 C79,62 80,54 88,47"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Forward arrowhead -->
+    <path
+        android:pathData="M79,51 L88,42 L97,51"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Waypoint dot -->
+    <path
+        android:pathData="M104,28 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5" />
+</vector>

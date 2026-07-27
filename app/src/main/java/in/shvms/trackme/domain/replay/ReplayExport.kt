@@ -1,17 +1,27 @@
 package `in`.shvms.trackme.domain.replay
 
+import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
+import `in`.shvms.trackme.R
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.ui.history.trimComparisonEndpoints
+import `in`.shvms.trackme.theme.BrandThemeConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -21,6 +31,9 @@ import java.util.UUID
 import kotlin.coroutines.coroutineContext
 import kotlin.math.max
 import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 data class ReplayExportConfig(
     val width: Int = 1080,
@@ -53,7 +66,9 @@ interface ReplayFrameRenderer {
         progress: Float,
         persona: RidePersona,
         stats: ReplayStats,
-        deepLink: String?
+        deepLink: String?,
+        mapSnapshot: Bitmap? = null,
+        routeProjection: List<Pair<Float, Float>>? = null
     )
 }
 
@@ -62,41 +77,79 @@ interface ReplayExporter {
         rideWithPoints: RideWithPoints,
         config: ReplayExportConfig,
         outputDirectory: File,
-        onProgress: (Float) -> Unit = {}
+        mapSnapshot: Bitmap? = null,
+        onProgress: (Float) -> Unit = {},
+        routeProjection: List<Pair<Float, Float>>? = null
     ): Result<File>
 }
 
 /**
- * Lightweight Phase 1 renderer. It intentionally has no MapView dependency: every frame is a
- * deterministic Canvas composition that can run on a worker thread and be encoded offline.
+ * Lightweight Phase 1 renderer. Map tiles are supplied as one optional bitmap captured before
+ * encoding; every frame remains a deterministic Canvas composition that can run on a worker
+ * thread and be encoded offline.
  */
-class CanvasReplayFrameRenderer : ReplayFrameRenderer {
+class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRenderer {
+    private val watermarkDrawable: Drawable? = appContext?.let {
+        ContextCompat.getDrawable(it, R.drawable.ic_trackme_logo_transparent)
+    }
+    private val watermarkTypeface: Typeface = appContext?.let {
+        ResourcesCompat.getFont(it, R.font.inter_variable)
+    } ?: Typeface.DEFAULT_BOLD
+
     override fun renderFrame(
         canvas: Canvas,
         points: List<GPSPointEntity>,
         progress: Float,
         persona: RidePersona,
         stats: ReplayStats,
-        deepLink: String?
+        deepLink: String?,
+        mapSnapshot: Bitmap?,
+        routeProjection: List<Pair<Float, Float>>?
     ) {
         val width = canvas.width.toFloat()
         val height = canvas.height.toFloat()
-        canvas.drawColor(Color.rgb(18, 22, 28))
+        val usableProjection = routeProjection?.takeIf { it.size == points.size }
+        // A map is only safe when its SDK projection corresponds one-to-one with the points
+        // being rendered. Never draw a letterboxed bitmap under an independently-derived route.
+        val usableSnapshot = mapSnapshot?.takeIf {
+            !it.isRecycled && usableProjection != null
+        }
+        if (usableSnapshot != null) {
+            drawMapSnapshot(canvas, usableSnapshot, width, height)
+            // Keep the route and text legible without changing the captured map itself.
+            canvas.drawColor(Color.argb(92, 18, 22, 28))
+        } else {
+            canvas.drawColor(Color.rgb(18, 22, 28))
+        }
 
         val routePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(41, 182, 246)
+            color = BrandThemeConfig.cyanBright.toArgb()
             style = Paint.Style.STROKE
             strokeWidth = max(5f, width * 0.006f)
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
         }
-        val route = project(points, width, height)
+        val route = usableProjection?.map { projection ->
+            if (usableSnapshot != null) {
+                mapProjectionToFrame(
+                    normalized = projection,
+                    snapshotWidth = usableSnapshot.width,
+                    snapshotHeight = usableSnapshot.height,
+                    frameWidth = width,
+                    frameHeight = height
+                )
+            } else {
+                projection.first * width to projection.second * height
+            }
+        } ?: project(points, width, height, usableSnapshot != null)
         if (route.size >= 2) {
             val path = Path().apply {
                 moveTo(route.first().first, route.first().second)
                 route.drop(1).forEach { lineTo(it.first, it.second) }
             }
             canvas.drawPath(path, routePaint)
+            drawEndpointPin(canvas, route.first(), BrandThemeConfig.greenGo.toArgb(), false, width)
+            drawEndpointPin(canvas, route.last(), BrandThemeConfig.cyanBright.toArgb(), true, width)
             val currentIndex = (progress.coerceIn(0f, 1f) * route.lastIndex).toInt()
             val moving = route[currentIndex]
             val personaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -119,12 +172,7 @@ class CanvasReplayFrameRenderer : ReplayFrameRenderer {
             canvas.restore()
         }
 
-        val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = max(26f, width * 0.045f)
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-        }
-        canvas.drawText("TrackMe", width * 0.06f, height * 0.08f, titlePaint)
+        drawTrackMeLockup(canvas, width.toInt())
 
         val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.LTGRAY
@@ -143,7 +191,96 @@ class CanvasReplayFrameRenderer : ReplayFrameRenderer {
         }
     }
 
-    private fun project(points: List<GPSPointEntity>, width: Float, height: Float): List<Pair<Float, Float>> {
+    private fun drawMapSnapshot(canvas: Canvas, snapshot: Bitmap, width: Float, height: Float) {
+        val transform = snapshotTransform(snapshot.width, snapshot.height, width, height)
+        val scale = transform.scale
+        val drawnWidth = snapshot.width * scale
+        val drawnHeight = snapshot.height * scale
+        canvas.drawBitmap(
+            snapshot,
+            null,
+            RectF(transform.left, transform.top, transform.left + drawnWidth, transform.top + drawnHeight),
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
+        )
+    }
+
+    private fun drawEndpointPin(canvas: Canvas, point: Pair<Float, Float>, color: Int, ringed: Boolean, width: Float) {
+        val radius = max(17f, width * 0.022f)
+        if (ringed) {
+            canvas.drawCircle(
+                point.first,
+                point.second,
+                radius,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    this.color = Color.WHITE
+                    style = Paint.Style.FILL
+                }
+            )
+            canvas.drawCircle(
+                point.first,
+                point.second,
+                radius,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    this.color = color
+                    style = Paint.Style.STROKE
+                    strokeWidth = max(4f, width * 0.005f)
+                }
+            )
+            canvas.drawCircle(
+                point.first,
+                point.second,
+                radius * 0.45f,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    this.color = color
+                    style = Paint.Style.FILL
+                }
+            )
+            return
+        }
+        canvas.drawCircle(
+            point.first,
+            point.second,
+            radius,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = color
+                style = Paint.Style.FILL
+            }
+        )
+        val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = max(3f, width * 0.004f)
+        }
+        canvas.drawCircle(point.first, point.second, radius + ring.strokeWidth * 0.5f, ring)
+    }
+
+    private fun drawTrackMeLockup(canvas: Canvas, width: Int) {
+        val icon = watermarkDrawable ?: return
+        val margin = (width * 0.045f).toInt().coerceAtLeast(8)
+        val iconSize = (width * 0.075f).toInt().coerceAtLeast(32)
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = iconSize * 0.42f
+            typeface = watermarkTypeface
+        }
+        val textWidth = textPaint.measureText("TrackMe")
+        val gap = (iconSize * 0.18f).toInt()
+        val lockupWidth = iconSize + gap + textWidth
+        val left = (width - margin - lockupWidth).coerceAtLeast(margin.toFloat())
+        val top = margin.toFloat()
+        val padding = (iconSize * 0.16f).toInt().coerceAtLeast(4)
+        canvas.drawRoundRect(
+            RectF(left - padding, top - padding, left + lockupWidth + padding, top + iconSize + padding),
+            padding.toFloat(),
+            padding.toFloat(),
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(220, 18, 22, 28) }
+        )
+        icon.setBounds(left.toInt(), top.toInt(), left.toInt() + iconSize, top.toInt() + iconSize)
+        icon.draw(canvas)
+        canvas.drawText("TrackMe", left + iconSize + gap, top + iconSize * 0.68f, textPaint)
+    }
+
+    private fun project(points: List<GPSPointEntity>, width: Float, height: Float, fullFrame: Boolean): List<Pair<Float, Float>> {
         if (points.isEmpty()) return emptyList()
         val minLat = points.minOf { it.latitude }
         val maxLat = points.maxOf { it.latitude }
@@ -151,10 +288,10 @@ class CanvasReplayFrameRenderer : ReplayFrameRenderer {
         val maxLng = points.maxOf { it.longitude }
         val latSpan = (maxLat - minLat).takeIf { it > 0.00001 } ?: 0.001
         val lngSpan = (maxLng - minLng).takeIf { it > 0.00001 } ?: 0.001
-        val left = width * 0.08f
-        val right = width * 0.92f
-        val top = height * 0.18f
-        val bottom = height * 0.84f
+        val left = if (fullFrame) 0f else width * 0.08f
+        val right = if (fullFrame) width else width * 0.92f
+        val top = if (fullFrame) 0f else height * 0.18f
+        val bottom = if (fullFrame) height else height * 0.84f
         return points.map { point ->
             val x = left + ((point.longitude - minLng) / lngSpan).toFloat() * (right - left)
             val y = bottom - ((point.latitude - minLat) / latSpan).toFloat() * (bottom - top)
@@ -170,6 +307,43 @@ class CanvasReplayFrameRenderer : ReplayFrameRenderer {
     }
 }
 
+private data class SnapshotTransform(
+    val scale: Float,
+    val left: Float,
+    val top: Float
+)
+
+private fun snapshotTransform(
+    snapshotWidth: Int,
+    snapshotHeight: Int,
+    frameWidth: Float,
+    frameHeight: Float
+): SnapshotTransform {
+    require(snapshotWidth > 0 && snapshotHeight > 0) { "Snapshot dimensions must be positive" }
+    val scale = max(frameWidth / snapshotWidth.toFloat(), frameHeight / snapshotHeight.toFloat())
+    return SnapshotTransform(
+        scale = scale,
+        left = (frameWidth - snapshotWidth * scale) / 2f,
+        top = (frameHeight - snapshotHeight * scale) / 2f
+    )
+}
+
+/** Maps SDK-normalized screen coordinates through the exact center-crop used for the bitmap. */
+internal fun mapProjectionToFrame(
+    normalized: Pair<Float, Float>,
+    snapshotWidth: Int,
+    snapshotHeight: Int,
+    frameWidth: Float,
+    frameHeight: Float
+): Pair<Float, Float> {
+    val transform = snapshotTransform(snapshotWidth, snapshotHeight, frameWidth, frameHeight)
+    return (
+        transform.left + normalized.first * snapshotWidth * transform.scale
+    ) to (
+        transform.top + normalized.second * snapshotHeight * transform.scale
+    )
+}
+
 /** MediaCodec/MediaMuxer implementation for the offline Phase 1 MVP. */
 class MediaCodecReplayExporter(
     private val renderer: ReplayFrameRenderer = CanvasReplayFrameRenderer()
@@ -178,7 +352,9 @@ class MediaCodecReplayExporter(
         rideWithPoints: RideWithPoints,
         config: ReplayExportConfig,
         outputDirectory: File,
-        onProgress: (Float) -> Unit
+        mapSnapshot: Bitmap?,
+        onProgress: (Float) -> Unit,
+        routeProjection: List<Pair<Float, Float>>?
     ): Result<File> = withContext(Dispatchers.Default) {
         var output: File? = null
         try {
@@ -191,7 +367,7 @@ class MediaCodecReplayExporter(
             require(points.size >= 2) { "At least two GPS points are required" }
             outputDirectory.mkdirs()
             output = File(outputDirectory, "TrackMe_Replay_${UUID.randomUUID()}.mp4")
-            encode(rideWithPoints, points, config, output, onProgress)
+            encode(rideWithPoints, points, config, output, mapSnapshot, routeProjection, onProgress)
             Result.success(output)
         } catch (cancelled: CancellationException) {
             output?.delete()
@@ -207,6 +383,8 @@ class MediaCodecReplayExporter(
         points: List<GPSPointEntity>,
         config: ReplayExportConfig,
         output: File,
+        mapSnapshot: Bitmap?,
+        routeProjection: List<Pair<Float, Float>>?,
         onProgress: (Float) -> Unit
     ) {
         val frameCount = config.targetDurationSeconds * config.fps
@@ -261,15 +439,18 @@ class MediaCodecReplayExporter(
 
             repeat(frameCount) { frame ->
                 coroutineContext.ensureActive()
+                val progress = progressForFrame(points, frame, frameCount)
                 val canvas = inputSurface!!.lockCanvas(null)
                 try {
                     renderer.renderFrame(
                         canvas = canvas,
                         points = points,
-                        progress = progressForFrame(points, frame, frameCount),
+                        progress = progress,
                         persona = config.persona,
-                        stats = stats,
-                        deepLink = config.deepLink
+                        stats = replayStatsAtProgress(points, progress, stats),
+                        deepLink = config.deepLink,
+                        mapSnapshot = mapSnapshot,
+                        routeProjection = routeProjection
                     )
                 } finally {
                     inputSurface.unlockCanvasAndPost(canvas)
@@ -299,4 +480,38 @@ class MediaCodecReplayExporter(
         val fraction = (targetTimestamp - points[lower].timestamp).toFloat() / span
         return ((lower + fraction) / points.lastIndex).coerceIn(0f, 1f)
     }
+}
+
+/** Computes route stats for the currently visible fraction of the replay. */
+internal fun replayStatsAtProgress(
+    points: List<GPSPointEntity>,
+    progress: Float,
+    fallback: ReplayStats
+): ReplayStats {
+    if (points.size < 2) return fallback
+    val position = progress.coerceIn(0f, 1f) * points.lastIndex
+    val lower = position.toInt().coerceIn(0, points.lastIndex)
+    val fraction = (position - lower).coerceIn(0f, 1f)
+    var distance = 0.0
+    for (index in 0 until lower) distance += distanceMeters(points[index], points[index + 1])
+    if (lower < points.lastIndex) distance += distanceMeters(points[lower], points[lower + 1]) * fraction
+    val duration = if (lower >= points.lastIndex) {
+        (points.last().timestamp - points.first().timestamp).coerceAtLeast(0L)
+    } else {
+        val span = points[lower + 1].timestamp - points[lower].timestamp
+        (points.first().timestamp.let { points[lower].timestamp - it } + (span * fraction).toLong()).coerceAtLeast(0L)
+    }
+    val averageSpeed = if (duration > 0L) distance / (duration / 1000.0) else 0.0
+    return ReplayStats(distance, duration, averageSpeed)
+}
+
+private fun distanceMeters(a: GPSPointEntity, b: GPSPointEntity): Double {
+    val earthRadius = 6_371_000.0
+    val dLat = Math.toRadians(b.latitude - a.latitude)
+    val dLon = Math.toRadians(b.longitude - a.longitude)
+    val lat1 = Math.toRadians(a.latitude)
+    val lat2 = Math.toRadians(b.latitude)
+    val h = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2)
+    return earthRadius * 2.0 * atan2(sqrt(h), sqrt(1.0 - h))
 }
