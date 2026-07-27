@@ -248,6 +248,11 @@ fun MapLayerHorizontalDrawerButton(
                                 isDrawerOpen = false
                             }
                         )
+                        VerticalDivider(
+                            modifier = Modifier.height(42.dp),
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
+                        )
                         MapLayerOptionButton(
                             icon = Icons.Default.Traffic,
                             contentDescription = "Traffic Toggle",
