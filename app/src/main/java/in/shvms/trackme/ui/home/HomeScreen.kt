@@ -688,7 +688,10 @@ fun HomeScreen(
 
             if (showDiscardRideDialog) {
                 AlertDialog(
-                    onDismissRequest = { showDiscardRideDialog = false },
+                    // Blocking dialog: an outside tap or back press must not silently close this
+                    // without picking a side. Neither stopTracking() branch would run, leaving the
+                    // stop action frozen mid-flight since the ride was never actually stopped.
+                    onDismissRequest = { /* Blocking dialog, do nothing */ },
                     title = { Text(strings.discardRideTitle) },
                     text = { Text(strings.discardRideMessage) },
                     confirmButton = {
