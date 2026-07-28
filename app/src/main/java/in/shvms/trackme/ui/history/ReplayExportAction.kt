@@ -356,7 +356,24 @@ private fun startExport(
     onJobCreated(job)
 }
 
-/** Captures only the selected route on a ratio-matched temporary map surface. */
+/** Walks the ContextWrapper chain to find the hosting Activity, if any. */
+private fun Context.findActivity(): android.app.Activity? {
+    var ctx = this
+    while (ctx is android.content.ContextWrapper) {
+        if (ctx is android.app.Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
+/**
+ * Captures only the selected route on a ratio-matched temporary map surface.
+ *
+ * The map view is briefly attached to the host activity's window, off-screen via
+ * [View.setTranslationX]. Google Maps' underlying GL/texture surface only renders once attached to
+ * a real window; a [MapView] that is merely measured/laid out without ever joining the view
+ * hierarchy produces a blank tile snapshot even though `snapshot()` still calls back successfully.
+ */
 private fun captureRouteSnapshot(
     context: Context,
     points: List<`in`.shvms.trackme.data.local.entity.GPSPointEntity>,
@@ -366,8 +383,15 @@ private fun captureRouteSnapshot(
 ) {
     val width = size.first
     val height = size.second
-    val mapView = MapView(context.applicationContext, GoogleMapOptions().mapType(googleMapTypeFor(mapType)))
+    val rootView = context.findActivity()?.window?.decorView as? ViewGroup
+    val mapView = MapView(context, GoogleMapOptions().mapType(googleMapTypeFor(mapType)))
     mapView.layoutParams = ViewGroup.LayoutParams(width, height)
+    if (rootView != null) {
+        // Pushed off the visible frame rather than hidden with alpha/visibility, both of which
+        // stop the surface from actually rendering tiles on some devices.
+        mapView.translationX = -(width * 2).toFloat()
+        rootView.addView(mapView)
+    }
     mapView.measure(
         View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
         View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
@@ -379,11 +403,15 @@ private fun captureRouteSnapshot(
 
     val completed = java.util.concurrent.atomic.AtomicBoolean(false)
     val mainHandler = Handler(Looper.getMainLooper())
+    fun detach() {
+        mapView.onPause()
+        mapView.onStop()
+        mapView.onDestroy()
+        rootView?.removeView(mapView)
+    }
     val timeout = Runnable {
         if (completed.compareAndSet(false, true)) {
-            mapView.onPause()
-            mapView.onStop()
-            mapView.onDestroy()
+            detach()
             onResult(null)
         }
     }
@@ -394,9 +422,7 @@ private fun captureRouteSnapshot(
             return
         }
         mainHandler.removeCallbacks(timeout)
-        mapView.onPause()
-        mapView.onStop()
-        mapView.onDestroy()
+        detach()
         onResult(captured)
     }
     mapView.getMapAsync { map ->
