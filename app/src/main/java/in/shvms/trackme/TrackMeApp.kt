@@ -156,12 +156,32 @@ class TrackMeApp : Application() {
     }
 
     /**
+     * TASK-119: the live "is now a calm moment to celebrate" snapshot, built from the app-scoped
+     * sources of truth. This is the one place the `TrackingState.IDLE` mapping is made outside the
+     * UI layer; `HomeScreen` builds the equivalent moment from its already-collected UI state so
+     * the dialog also disappears if the app leaves idle while a recap is queued.
+     */
+    fun currentCalmMoment(): `in`.shvms.trackme.domain.stats.CalmMomentGate.AppMoment =
+        `in`.shvms.trackme.domain.stats.CalmMomentGate.AppMoment(
+            isTrackingIdle = trackingManager.trackingState.value ==
+                `in`.shvms.trackme.service.TrackingState.IDLE,
+            isEmergencyActive = emergencyManager.isEmergencyActive.value,
+            hasPendingReveal = pendingRevealStore.pending.value != null
+        )
+
+    /**
      * B2: shared foreground trigger (called from [MainActivity.onResume], mirroring the
      * recovery-notice pattern). Asks the store whether a completed week is worth recapping;
      * the store computes weeks, this just surfaces the result. Idempotent while one is pending.
+     *
+     * TASK-119: prompt 09 requires this to fire only when the app is calmly idle. Foregrounding
+     * mid-ride, mid-SOS, or into a GPS-lost/storage-low state must skip the cycle. Skipping does
+     * NOT consume the recap — nothing is acknowledged here — so it stays eligible for the rest of
+     * its week and surfaces on the next calm foreground.
      */
     fun checkWeeklyRecap() {
         if (_weeklyRecap.value != null) return
+        if (!`in`.shvms.trackme.domain.stats.CalmMomentGate.isCalm(currentCalmMoment())) return
         _weeklyRecap.value = rideStatsStore.pendingWeeklyRecap()
     }
 

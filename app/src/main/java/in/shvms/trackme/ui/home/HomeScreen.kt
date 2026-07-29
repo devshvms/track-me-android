@@ -314,9 +314,21 @@ fun HomeScreen(
     }
 
     // B2/B3: weekly recap (with the streak line). Emitted once when actually shown, then acked.
-    // Suppressed while a post-ride reveal is up, so the two celebrations never stack.
+    // TASK-119: shown only while the app is calmly idle — never over a live/paused ride, an active
+    // SOS, a GPS-lost/storage-low state, or a post-ride reveal (prompt 09, "Trigger"). This is the
+    // render-time half of the gate; `TrackMeApp.checkWeeklyRecap()` is the check-time half. It has
+    // to be re-evaluated here because the user can leave idle *after* a recap was queued. Skipping
+    // never consumes the recap — it is acked only in `onDismiss` — so it returns on the next calm
+    // frame, still within its week.
     weeklyRecap?.let { recap ->
-        if (pendingReveal == null) {
+        val isCalmMoment = `in`.shvms.trackme.domain.stats.CalmMomentGate.isCalm(
+            `in`.shvms.trackme.domain.stats.CalmMomentGate.AppMoment(
+                isTrackingIdle = uiState.trackingState == TrackingState.IDLE,
+                isEmergencyActive = uiState.isEmergencyActive,
+                hasPendingReveal = pendingReveal != null
+            )
+        )
+        if (isCalmMoment) {
             LaunchedEffect(recap.weekStartEpochDay) {
                 `in`.shvms.trackme.analytics.AnalyticsManager.trackWeeklyRecapShown(
                     weekKey = recap.weekKey,
