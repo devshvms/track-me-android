@@ -14,14 +14,24 @@ import com.posthog.PostHog
 
 object AnalyticsManager {
     private const val TAG = "AnalyticsManager"
+    private const val PREFS_NAME = "trackme_prefs"
+    private const val PREF_KEY_LOCAL_CONSENT = "telemetry_enabled"
     private var isInitialized = false
     private var configListener: ListenerRegistration? = null
-    
-    private val _isTelemetryEnabled = MutableStateFlow(true)
+
+    // Local consent is read synchronously from the same store Settings writes. The remote flag
+    // remains an emergency kill switch, but it can never grant consent that the user did not give.
+    private val _localConsent = MutableStateFlow(false)
+    private val _remoteAllowed = MutableStateFlow(true)
+    private val _isTelemetryEnabled = MutableStateFlow(false)
     val isTelemetryEnabled: StateFlow<Boolean> = _isTelemetryEnabled.asStateFlow()
 
     fun init(application: Application) {
         if (isInitialized) return
+
+        val prefs = application.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        _localConsent.value = prefs.getBoolean(PREF_KEY_LOCAL_CONSENT, false)
+        recomputeEffective()
 
         // 1. Setup Firestore Config Listener
         val firestore = FirebaseFirestore.getInstance()
@@ -33,19 +43,13 @@ object AnalyticsManager {
                 }
 
                 if (snapshot != null && snapshot.exists()) {
-                    val enabled = snapshot.getBoolean("isTelemetryEnabled") ?: true
-                    _isTelemetryEnabled.value = enabled
-                    
-                    if (!enabled) {
-                        PostHog.optOut()
-                    } else {
-                        PostHog.optIn()
-                    }
-                    Log.d(TAG, "Telemetry enabled state updated: $enabled")
+                    _remoteAllowed.value = snapshot.getBoolean("isTelemetryEnabled") ?: true
+                    recomputeEffective()
+                    Log.d(TAG, "Remote telemetry allow-state updated: ${_remoteAllowed.value}")
                 } else {
-                    Log.d(TAG, "telemetry_settings document does not exist, defaulting to true")
-                    _isTelemetryEnabled.value = true
-                    PostHog.optIn()
+                    Log.d(TAG, "telemetry_settings document does not exist, remote allow-state defaults to true")
+                    _remoteAllowed.value = true
+                    recomputeEffective()
                 }
             }
 
@@ -59,12 +63,27 @@ object AnalyticsManager {
         }
         
         PostHogAndroid.setup(application, config)
-        
-        if (!_isTelemetryEnabled.value) {
-            PostHog.optOut()
-        }
-
         isInitialized = true
+        applyOptState()
+    }
+
+    /** Update local consent immediately after the Settings toggle changes. */
+    fun updateLocalConsent(enabled: Boolean) {
+        _localConsent.value = enabled
+        recomputeEffective()
+    }
+
+    private fun recomputeEffective() {
+        _isTelemetryEnabled.value = TelemetryConsentState(
+            localConsent = _localConsent.value,
+            remoteAllowed = _remoteAllowed.value
+        ).isEnabled
+        applyOptState()
+    }
+
+    private fun applyOptState() {
+        if (!isInitialized) return
+        if (_isTelemetryEnabled.value) PostHog.optIn() else PostHog.optOut()
     }
 
     // Authentication
@@ -231,4 +250,12 @@ object AnalyticsManager {
             )
         )
     }
+}
+
+/** Pure consent contract used by [AnalyticsManager] and its JVM tests. */
+internal data class TelemetryConsentState(
+    val localConsent: Boolean,
+    val remoteAllowed: Boolean
+) {
+    val isEnabled: Boolean get() = localConsent && remoteAllowed
 }

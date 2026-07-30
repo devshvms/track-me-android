@@ -108,6 +108,9 @@ open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
     val units: String = s("units", "Units")
     val kilometers: String = s("kilometers", "Kilometers (km)")
     val miles: String = s("miles", "Miles (mi)")
+    val privacyAndAnalytics: String = s("privacyAndAnalytics", "Privacy & Analytics")
+    val shareAnalyticsData: String = s("shareAnalyticsData", "Share Analytics Data")
+    val shareAnalyticsDataDescription: String = s("shareAnalyticsDataDescription", "Help us improve by securely sharing anonymous app usage data (e.g., ride durations, crashes). No identifiable personal data is ever shared.")
     val advancedSettings: String = s("advancedSettings", "Advanced Settings")
     val disableGpsPostProcessing: String = s("disableGpsPostProcessing", "Disable GPS Post-Processing")
     val disableGpsDesc: String = s("disableGpsDesc", "Turn on to save raw, uncompressed data. Skipping processing increases storage and keeps glitches.")
@@ -433,6 +436,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "appPreferences" to "Preferencias",
             "theme" to "Tema",
             "units" to "Unidades",
+            "privacyAndAnalytics" to "Privacidad y análisis",
+            "shareAnalyticsData" to "Compartir datos de análisis",
+            "shareAnalyticsDataDescription" to "Ayúdanos a mejorar compartiendo de forma segura datos de uso anónimos de la app (p. ej., duración de los trayectos, fallos). Nunca se comparten datos personales identificables.",
             "kilometers" to "Kilómetros (km)",
             "miles" to "Millas (mi)",
             "themeSystem" to "Sistema",
@@ -697,6 +703,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "appPreferences" to "Préférences",
             "theme" to "Thème",
             "units" to "Unités",
+            "privacyAndAnalytics" to "Confidentialité et analyses",
+            "shareAnalyticsData" to "Partager les données d'analyse",
+            "shareAnalyticsDataDescription" to "Aidez-nous à nous améliorer en partageant en toute sécurité des données d'utilisation anonymes de l'application (par ex. durée des trajets, plantages). Aucune donnée personnelle identifiable n'est jamais partagée.",
             "kilometers" to "Kilomètres (km)",
             "miles" to "Miles (mi)",
             "themeSystem" to "Système",
@@ -961,6 +970,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "appPreferences" to "App-Einstellungen",
             "theme" to "Design",
             "units" to "Einheiten",
+            "privacyAndAnalytics" to "Datenschutz & Analyse",
+            "shareAnalyticsData" to "Analysedaten teilen",
+            "shareAnalyticsDataDescription" to "Hilf uns, die App zu verbessern, indem du anonyme Nutzungsdaten sicher teilst (z. B. Fahrtdauer, Abstürze). Es werden niemals identifizierbare personenbezogene Daten geteilt.",
             "kilometers" to "Kilometer (km)",
             "miles" to "Meilen (mi)",
             "themeSystem" to "System",
@@ -1225,6 +1237,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "appPreferences" to "ऐप प्राथमिकताएं",
             "theme" to "थीम",
             "units" to "इकाइयाँ",
+            "privacyAndAnalytics" to "गोपनीयता और एनालिटिक्स",
+            "shareAnalyticsData" to "एनालिटिक्स डेटा साझा करें",
+            "shareAnalyticsDataDescription" to "गुमनाम ऐप उपयोग डेटा (जैसे राइड की अवधि, क्रैश) को सुरक्षित रूप से साझा करके हमें बेहतर बनाने में मदद करें। कोई भी पहचान योग्य व्यक्तिगत डेटा कभी साझा नहीं किया जाता।",
             "kilometers" to "किलोमीटर (किमी)",
             "miles" to "मील (mi)",
             "themeSystem" to "सिस्टम",
@@ -1489,6 +1504,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "appPreferences" to "アプリ設定",
             "theme" to "テーマ",
             "units" to "単位",
+            "privacyAndAnalytics" to "プライバシーと分析",
+            "shareAnalyticsData" to "利用状況データを共有",
+            "shareAnalyticsDataDescription" to "匿名の利用状況データ(走行時間やクラッシュなど)を安全に共有することでアプリの改善にご協力ください。個人を特定できるデータが共有されることは一切ありません。",
             "kilometers" to "キロメートル (km)",
             "miles" to "マイル (mi)",
             "themeSystem" to "システム",
@@ -1753,6 +1771,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "appPreferences" to "应用偏好设置",
             "theme" to "主题外观",
             "units" to "单位",
+            "privacyAndAnalytics" to "隐私与分析",
+            "shareAnalyticsData" to "共享分析数据",
+            "shareAnalyticsDataDescription" to "通过安全地共享匿名应用使用数据(例如骑行时长、崩溃信息)帮助我们改进。绝不会共享任何可识别个人身份的数据。",
             "kilometers" to "公里 (km)",
             "miles" to "英里 (mi)",
             "themeSystem" to "跟随系统",

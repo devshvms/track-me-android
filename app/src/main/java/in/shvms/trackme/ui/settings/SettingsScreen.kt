@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Sync
 import `in`.shvms.trackme.TrackMeApp
+import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.data.remote.SyncResult
 import kotlinx.coroutines.launch
 import android.Manifest
@@ -255,6 +256,7 @@ fun SettingsScreen(
         // App Preferences Card (Theme, Language & Units)
         var themeMode by remember { mutableStateOf(prefs.getInt("theme_mode", 0)) } // 0: System, 1: Light, 2: Dark
         val dynamicColor by preferencesManager.dynamicColor.collectAsState()
+        val telemetryEnabled by preferencesManager.telemetryEnabled.collectAsState()
         val unitSystem by preferencesManager.unitSystem.collectAsState()
         var appLanguage by remember { mutableStateOf(prefs.getString("app_language", "en") ?: "en") }
         var showLangDropdown by remember { mutableStateOf(false) }
@@ -387,6 +389,40 @@ fun SettingsScreen(
                         )
                     }
                     Switch(checked = unitSystem == "imperial", onCheckedChange = null)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(strings.privacyAndAnalytics, style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = telemetryEnabled,
+                            role = Role.Switch,
+                            onValueChange = { enabled ->
+                                preferencesManager.setTelemetryEnabled(enabled)
+                                AnalyticsManager.updateLocalConsent(enabled)
+                            }
+                        )
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                        Text(strings.shareAnalyticsData, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            text = strings.shareAnalyticsDataDescription,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = telemetryEnabled, onCheckedChange = null)
                 }
             }
         }

@@ -18,6 +18,11 @@ class AppPreferencesManager(private val context: Context) {
     private val _dynamicColor = MutableStateFlow(prefs.getBoolean("dynamic_color", false))
     val dynamicColor: StateFlow<Boolean> = _dynamicColor.asStateFlow()
 
+    // Product analytics are opt-in. A missing key defaults to false so fresh installs and
+    // existing installs upgrading from the pre-toggle build do not send telemetry implicitly.
+    private val _telemetryEnabled = MutableStateFlow(prefs.getBoolean("telemetry_enabled", false))
+    val telemetryEnabled: StateFlow<Boolean> = _telemetryEnabled.asStateFlow()
+
     // App language code: "en", "es", "fr", "de", "hi", "ja", "zh"
     private val _appLanguage = MutableStateFlow(prefs.getString("app_language", "en") ?: "en")
     val appLanguage: StateFlow<String> = _appLanguage.asStateFlow()
@@ -37,6 +42,11 @@ class AppPreferencesManager(private val context: Context) {
     fun setDynamicColor(enabled: Boolean) {
         prefs.edit().putBoolean("dynamic_color", enabled).apply()
         _dynamicColor.value = enabled
+    }
+
+    fun setTelemetryEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("telemetry_enabled", enabled).apply()
+        _telemetryEnabled.value = enabled
     }
 
     fun setAppLanguage(lang: String) {
