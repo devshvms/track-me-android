@@ -209,18 +209,13 @@ fun HomeScreen(
         }
     )
 
-    LaunchedEffect(Unit) {
-        if (!hasLocationPermission) {
-            val permissionsToRequest = mutableListOf(
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
-            }
-            locationPermissionLauncher.launch(permissionsToRequest.toTypedArray())
-        }
-    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { /* Notification access is optional; ride tracking still proceeds. */ }
+    )
+
+    // The location AlertDialog below is the primer and sole trigger for the native
+    // location prompt. Do not request permissions from a cold composition.
 
     // Seeded from the last persisted camera (country-level default before the first
     // fix) so the map never composes at the world view; rememberCameraPositionState
@@ -382,14 +377,11 @@ fun HomeScreen(
                     text = { Text(strings.locationPermissionDesc) },
                     confirmButton = {
                         Button(onClick = {
-                            val permissionsToRequest = mutableListOf(
+                            val permissionsToRequest = arrayOf(
                                 Manifest.permission.ACCESS_COARSE_LOCATION,
                                 Manifest.permission.ACCESS_FINE_LOCATION
                             )
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
-                            }
-                            locationPermissionLauncher.launch(permissionsToRequest.toTypedArray())
+                            locationPermissionLauncher.launch(permissionsToRequest)
                         }) {
                             Text(strings.grantPermission)
                         }
@@ -520,6 +512,14 @@ fun HomeScreen(
                     onStartRide = { persona ->
                         showStartRideHint = false
                         uiPreferences.edit().putBoolean("start_ride_hint_seen", true).apply()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                            ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.POST_NOTIFICATIONS
+                            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                        ) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
                         val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
                         if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
                             try {
