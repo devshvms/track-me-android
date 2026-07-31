@@ -19,6 +19,9 @@ import `in`.shvms.trackme.ui.localization.getAppStrings
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import androidx.core.content.ContextCompat
+import `in`.shvms.trackme.data.AgeSignalDecision
+import `in`.shvms.trackme.ui.agegate.AgeRestrictedScreen
+import `in`.shvms.trackme.ui.agegate.AgeSignalCheckingScreen
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,19 +43,31 @@ class MainActivity : ComponentActivity() {
       val appLanguage by app.preferencesManager.appLanguage.collectAsState()
       val appStrings = remember(appLanguage) { getAppStrings(appLanguage) }
       val updateInfo by app.appUpdateChecker.updateInfo.collectAsState()
+      val ageDecision by app.ageSignalManager.decision().collectAsState()
 
       CompositionLocalProvider(LocalAppStrings provides appStrings) {
         TrackMeTheme(themeMode = themeMode, dynamicColor = dynamicColor) {
           Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            MainNavigation()
-            updateInfo?.let { info ->
-              `in`.shvms.trackme.ui.update.AppUpdateDialog(
-                updateInfo = info,
-                onDismiss = { app.appUpdateChecker.dismissUpdate(info.latestVersionCode) }
-              )
+            when (ageDecision) {
+              null -> AgeSignalCheckingScreen()
+              AgeSignalDecision.BLOCKED -> AgeRestrictedScreen()
+              AgeSignalDecision.ALLOWED -> {
+                MainNavigation()
+                updateInfo?.let { info ->
+                  `in`.shvms.trackme.ui.update.AppUpdateDialog(
+                    updateInfo = info,
+                    onDismiss = { app.appUpdateChecker.dismissUpdate(info.latestVersionCode) }
+                  )
+                }
+              }
             }
           }
         }
+      }
+    }
+    if (!app.ageSignalManager.hasCheckedBefore()) {
+      lifecycleScope.launch {
+        app.ageSignalManager.checkAndPersist(this@MainActivity)
       }
     }
   }

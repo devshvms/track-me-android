@@ -18,6 +18,7 @@ room = "2.6.1"
 mapsCompose = "6.1.0"
 playServicesMaps = "19.0.0"
 playServicesLocation = "21.3.0"
+playAgeSignals = "0.0.4"
 vico = "2.0.0-alpha.28"
 firebaseBom = "33.1.2"
 googleServices = "4.4.2"
@@ -56,6 +57,7 @@ room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "mapsCompose" }
 play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
+play-age-signals = { module = "com.google.android.play:age-signals", version.ref = "playAgeSignals" }
 play-review-ktx = { module = "com.google.android.play:review-ktx", version = "2.0.2" }
 vico-compose = { module = "com.patrykandpatrick.vico:compose", version.ref = "vico" }
 vico-compose-m3 = { module = "com.patrykandpatrick.vico:compose-m3", version.ref = "vico" }
