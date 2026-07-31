@@ -96,6 +96,16 @@ object AnalyticsManager {
         PostHog.capture("data_download_requested")
     }
 
+    fun trackHelpOpened() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("help_opened")
+    }
+
+    fun trackSupportContactStarted(faqExpandedCount: Int) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("support_contact_started", properties = mapOf("faq_expanded_count" to faqExpandedCount))
+    }
+
     // Core Rides
     fun trackRideStarted(rideId: String) {
         if (!_isTelemetryEnabled.value) return
