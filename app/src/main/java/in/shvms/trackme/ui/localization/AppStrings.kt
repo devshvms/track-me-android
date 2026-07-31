@@ -176,6 +176,17 @@ open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
     val helpPermissionGranted: String = s("helpPermissionGranted", "granted")
     val helpPermissionDenied: String = s("helpPermissionDenied", "denied")
     val helpUnknown: String = s("helpUnknown", "unknown")
+    val helpDiagnosticAppVersion: String = s("helpDiagnosticAppVersion", "App version")
+    val helpDiagnosticAndroidVersion: String = s("helpDiagnosticAndroidVersion", "Android version")
+    val helpDiagnosticDevice: String = s("helpDiagnosticDevice", "Device")
+    val helpDiagnosticAppLanguage: String = s("helpDiagnosticAppLanguage", "App language")
+    val helpDiagnosticDeviceLocale: String = s("helpDiagnosticDeviceLocale", "Device locale")
+    val helpDiagnosticUnits: String = s("helpDiagnosticUnits", "Units")
+    val helpDiagnosticInstallSource: String = s("helpDiagnosticInstallSource", "Install source")
+    val helpDiagnosticLocationPermission: String = s("helpDiagnosticLocationPermission", "Location permission")
+    val helpDiagnosticNotificationPermission: String = s("helpDiagnosticNotificationPermission", "Notification permission")
+    val helpDiagnosticBatteryOptimization: String = s("helpDiagnosticBatteryOptimization", "Battery optimization")
+    val helpDiagnosticSignedIn: String = s("helpDiagnosticSignedIn", "Signed in")
     val guest: String = s("guest", "Guest")
     val rideHistoryLocalOnly: String = s("rideHistoryLocalOnly", "Ride history is saved locally only.")
     val signInWithGoogle: String = s("signInWithGoogle", "Sign in with Google")
@@ -662,6 +673,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpPermissionGranted" to "concedido",
             "helpPermissionDenied" to "denegado",
             "helpUnknown" to "desconocido",
+            "helpDiagnosticAppVersion" to "Versión de la aplicación",
+            "helpDiagnosticAndroidVersion" to "Versión de Android",
+            "helpDiagnosticDevice" to "Dispositivo",
+            "helpDiagnosticAppLanguage" to "Idioma de la aplicación",
+            "helpDiagnosticDeviceLocale" to "Locale del dispositivo",
+            "helpDiagnosticUnits" to "Unidades",
+            "helpDiagnosticInstallSource" to "Origen de instalación",
+            "helpDiagnosticLocationPermission" to "Permiso de ubicación",
+            "helpDiagnosticNotificationPermission" to "Permiso de notificaciones",
+            "helpDiagnosticBatteryOptimization" to "Optimización de batería",
+            "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
         "fr" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -954,6 +976,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpPermissionGranted" to "accordée",
             "helpPermissionDenied" to "refusée",
             "helpUnknown" to "inconnu",
+            "helpDiagnosticAppVersion" to "Version de l'application",
+            "helpDiagnosticAndroidVersion" to "Version d'Android",
+            "helpDiagnosticDevice" to "Appareil",
+            "helpDiagnosticAppLanguage" to "Langue de l'application",
+            "helpDiagnosticDeviceLocale" to "Paramètres régionaux de l'appareil",
+            "helpDiagnosticUnits" to "Unités",
+            "helpDiagnosticInstallSource" to "Source d'installation",
+            "helpDiagnosticLocationPermission" to "Autorisation de position",
+            "helpDiagnosticNotificationPermission" to "Autorisation de notifications",
+            "helpDiagnosticBatteryOptimization" to "Optimisation de la batterie",
+            "helpDiagnosticSignedIn" to "Session ouverte",
         ))
         "de" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -1246,6 +1279,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpPermissionGranted" to "erlaubt",
             "helpPermissionDenied" to "abgelehnt",
             "helpUnknown" to "unbekannt",
+            "helpDiagnosticAppVersion" to "App-Version",
+            "helpDiagnosticAndroidVersion" to "Android-Version",
+            "helpDiagnosticDevice" to "Gerät",
+            "helpDiagnosticAppLanguage" to "App-Sprache",
+            "helpDiagnosticDeviceLocale" to "Gerätesprache",
+            "helpDiagnosticUnits" to "Einheiten",
+            "helpDiagnosticInstallSource" to "Installationsquelle",
+            "helpDiagnosticLocationPermission" to "Standortberechtigung",
+            "helpDiagnosticNotificationPermission" to "Benachrichtigungsberechtigung",
+            "helpDiagnosticBatteryOptimization" to "Akkuoptimierung",
+            "helpDiagnosticSignedIn" to "Angemeldet",
         ))
         "hi" -> AppStrings(mapOf(
             "ok" to "ठीक है",
@@ -1538,6 +1582,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpPermissionGranted" to "अनुमत",
             "helpPermissionDenied" to "अस्वीकृत",
             "helpUnknown" to "अज्ञात",
+            "helpDiagnosticAppVersion" to "ऐप संस्करण",
+            "helpDiagnosticAndroidVersion" to "Android संस्करण",
+            "helpDiagnosticDevice" to "डिवाइस",
+            "helpDiagnosticAppLanguage" to "ऐप भाषा",
+            "helpDiagnosticDeviceLocale" to "डिवाइस लोकेल",
+            "helpDiagnosticUnits" to "इकाइयां",
+            "helpDiagnosticInstallSource" to "इंस्टॉल स्रोत",
+            "helpDiagnosticLocationPermission" to "स्थान अनुमति",
+            "helpDiagnosticNotificationPermission" to "सूचना अनुमति",
+            "helpDiagnosticBatteryOptimization" to "बैटरी अनुकूलन",
+            "helpDiagnosticSignedIn" to "साइन इन",
         ))
         "ja" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -1830,6 +1885,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpPermissionGranted" to "許可",
             "helpPermissionDenied" to "拒否",
             "helpUnknown" to "不明",
+            "helpDiagnosticAppVersion" to "アプリのバージョン",
+            "helpDiagnosticAndroidVersion" to "Androidバージョン",
+            "helpDiagnosticDevice" to "デバイス",
+            "helpDiagnosticAppLanguage" to "アプリの言語",
+            "helpDiagnosticDeviceLocale" to "デバイスのロケール",
+            "helpDiagnosticUnits" to "単位",
+            "helpDiagnosticInstallSource" to "インストール元",
+            "helpDiagnosticLocationPermission" to "位置情報の権限",
+            "helpDiagnosticNotificationPermission" to "通知の権限",
+            "helpDiagnosticBatteryOptimization" to "バッテリー最適化",
+            "helpDiagnosticSignedIn" to "サインイン済み",
         ))
         "zh" -> AppStrings(mapOf(
             "ok" to "确定",
@@ -2122,6 +2188,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpPermissionGranted" to "已允许",
             "helpPermissionDenied" to "已拒绝",
             "helpUnknown" to "未知",
+            "helpDiagnosticAppVersion" to "应用版本",
+            "helpDiagnosticAndroidVersion" to "Android 版本",
+            "helpDiagnosticDevice" to "设备",
+            "helpDiagnosticAppLanguage" to "应用语言",
+            "helpDiagnosticDeviceLocale" to "设备区域",
+            "helpDiagnosticUnits" to "单位",
+            "helpDiagnosticInstallSource" to "安装来源",
+            "helpDiagnosticLocationPermission" to "位置权限",
+            "helpDiagnosticNotificationPermission" to "通知权限",
+            "helpDiagnosticBatteryOptimization" to "电池优化",
+            "helpDiagnosticSignedIn" to "已登录",
         ))
         else -> AppStrings() // English default
     }

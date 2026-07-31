@@ -15,18 +15,32 @@ data class SupportDiagnosticsInput(
     val signedIn: Boolean
 )
 
+data class SupportDiagnosticsLabels(
+    val appVersion: String = "App version",
+    val androidVersion: String = "Android version",
+    val device: String = "Device",
+    val appLanguage: String = "App language",
+    val deviceLocale: String = "Device locale",
+    val units: String = "Units",
+    val installSource: String = "Install source",
+    val locationPermission: String = "Location permission",
+    val notificationPermission: String = "Notification permission",
+    val batteryOptimization: String = "Battery optimization",
+    val signedIn: String = "Signed in"
+)
+
 object SupportDiagnostics {
-    fun render(input: SupportDiagnosticsInput): String = buildString {
-        appendLine("App version: ${input.appVersion}")
-        appendLine("Android version: ${input.androidVersion}")
-        appendLine("Device: ${input.device}")
-        appendLine("App language: ${input.appLanguage}")
-        appendLine("Device locale: ${input.deviceLocale}")
-        appendLine("Units: ${input.units}")
-        appendLine("Install source: ${input.installSource}")
-        appendLine("Location permission: ${input.locationPermission}")
-        appendLine("Notification permission: ${input.notificationPermission}")
-        appendLine("Battery optimization: ${input.batteryOptimization}")
-        append("Signed in: ${input.signedIn}")
+    fun render(input: SupportDiagnosticsInput, labels: SupportDiagnosticsLabels = SupportDiagnosticsLabels()): String = buildString {
+        appendLine("${labels.appVersion}: ${input.appVersion}")
+        appendLine("${labels.androidVersion}: ${input.androidVersion}")
+        appendLine("${labels.device}: ${input.device}")
+        appendLine("${labels.appLanguage}: ${input.appLanguage}")
+        appendLine("${labels.deviceLocale}: ${input.deviceLocale}")
+        appendLine("${labels.units}: ${input.units}")
+        appendLine("${labels.installSource}: ${input.installSource}")
+        appendLine("${labels.locationPermission}: ${input.locationPermission}")
+        appendLine("${labels.notificationPermission}: ${input.notificationPermission}")
+        appendLine("${labels.batteryOptimization}: ${input.batteryOptimization}")
+        append("${labels.signedIn}: ${input.signedIn}")
     }
 }

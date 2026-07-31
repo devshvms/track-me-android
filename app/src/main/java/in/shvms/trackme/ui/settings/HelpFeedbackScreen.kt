@@ -58,6 +58,7 @@ import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.support.SupportContact
 import `in`.shvms.trackme.support.SupportDiagnostics
 import `in`.shvms.trackme.support.SupportDiagnosticsInput
+import `in`.shvms.trackme.support.SupportDiagnosticsLabels
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -224,6 +225,19 @@ private fun buildSupportBody(
             notificationPermission = notification,
             batteryOptimization = if (power?.isIgnoringBatteryOptimizations(context.packageName) == true) strings.helpPermissionGranted else strings.helpPermissionDenied,
             signedIn = FirebaseAuth.getInstance().currentUser?.isAnonymous == false
+        ),
+        SupportDiagnosticsLabels(
+            appVersion = strings.helpDiagnosticAppVersion,
+            androidVersion = strings.helpDiagnosticAndroidVersion,
+            device = strings.helpDiagnosticDevice,
+            appLanguage = strings.helpDiagnosticAppLanguage,
+            deviceLocale = strings.helpDiagnosticDeviceLocale,
+            units = strings.helpDiagnosticUnits,
+            installSource = strings.helpDiagnosticInstallSource,
+            locationPermission = strings.helpDiagnosticLocationPermission,
+            notificationPermission = strings.helpDiagnosticNotificationPermission,
+            batteryOptimization = strings.helpDiagnosticBatteryOptimization,
+            signedIn = strings.helpDiagnosticSignedIn
         )
     )
     return "${strings.helpDiagnosticInstruction}\n\n${strings.helpDiagnosticSeparator}\n$diagnostics"
