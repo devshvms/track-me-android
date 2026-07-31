@@ -21,14 +21,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,6 +64,7 @@ import java.util.Locale
 
 private data class FaqItem(val question: String, val answer: String, val batterySettings: Boolean = false)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HelpFeedbackScreen(navController: NavController? = null) {
     val context = LocalContext.current
@@ -79,15 +86,27 @@ fun HelpFeedbackScreen(navController: NavController? = null) {
 
     LaunchedEffect(Unit) { AnalyticsManager.trackHelpOpened() }
 
-    Column(
-        modifier = Modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(strings.helpFeedbackTitle, style = MaterialTheme.typography.headlineSmall)
-        Text(strings.helpFeedbackDescription, style = MaterialTheme.typography.bodyMedium)
-        faqs.forEachIndexed { index, faq ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(strings.helpFeedbackTitle) },
+                navigationIcon = {
+                    IconButton(onClick = { navController?.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.back)
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(strings.helpFeedbackDescription, style = MaterialTheme.typography.bodyMedium)
+            faqs.forEachIndexed { index, faq ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -117,16 +136,17 @@ fun HelpFeedbackScreen(navController: NavController? = null) {
                     }
                 }
             }
-        }
-        Spacer(Modifier.height(4.dp))
-        Button(
-            modifier = Modifier.fillMaxWidth(),
-            onClick = {
-                val body = buildSupportBody(context, strings)
-                AnalyticsManager.trackSupportContactStarted(expanded.size)
-                openSupportEmail(context, strings, body, snackbarHostState, scope)
             }
-        ) { Text(strings.contactSupport) }
+            Spacer(Modifier.height(4.dp))
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    val body = buildSupportBody(context, strings)
+                    AnalyticsManager.trackSupportContactStarted(expanded.size)
+                    openSupportEmail(context, strings, body, snackbarHostState, scope)
+                }
+            ) { Text(strings.contactSupport) }
+        }
     }
 }
 
