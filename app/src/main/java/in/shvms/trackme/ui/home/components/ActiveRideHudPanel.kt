@@ -55,46 +55,11 @@ import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import `in`.shvms.trackme.service.TrackingState
+import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-
-/**
- * Production-ready heads-up display (HUD) panel rendered at the bottom of the active ride screen.
- *
- * Features:
- * - Real-time metrics display: Distance, Duration (+ total elapsed time), and Speed/Pace
- *   formatted cleanly. Duration shows a smaller "elapsed" sub-value beneath it — the active
- *   (moving) time is the headline stat, total wall-clock time (including pauses) is secondary,
- *   for every persona. WALK shows PACE instead of SPEED as its third stat; all other personas
- *   keep live speed — see `RadialStartRideButton`/persona docs for why (a walker cares about
- *   min/km, a cyclist or driver cares about km/h).
- * - Interactive slide-to-stop mechanism with acknowledgement animations and physical haptics.
- * - Pause/Resume toggle with smooth scale bounce feedback.
- * - Persona badge and live share status indicator.
- */
-internal object SosButtonAccessibility {
-    fun contentDescription(
-        isReady: Boolean,
-        isActive: Boolean,
-        strings: `in`.shvms.trackme.ui.localization.AppStrings
-    ): String = when {
-        !isReady -> strings.emergencySosUnavailable
-        isActive -> strings.stopEmergencyBroadcast
-        else -> strings.triggerEmergencyAccessibility
-    }
-
-    fun stateDescription(
-        isReady: Boolean,
-        isActive: Boolean,
-        strings: `in`.shvms.trackme.ui.localization.AppStrings
-    ): String = when {
-        !isReady -> strings.emergencySosUnavailable
-        isActive -> strings.emergencySosActive
-        else -> strings.emergencySosReady
-    }
-}
 
 @Composable
 fun ActiveRideHudPanel(
@@ -408,6 +373,32 @@ fun ActiveRideHudPanel(
                 }
             }
         }
+    }
+}
+
+/**
+ * Pure copy selection for the SOS control's accessibility semantics.
+ * Kept below [ActiveRideHudPanel] so the panel's KDoc remains attached to the public composable.
+ */
+internal object SosButtonAccessibility {
+    fun contentDescription(
+        isReady: Boolean,
+        isActive: Boolean,
+        strings: AppStrings
+    ): String = when {
+        !isReady -> strings.emergencySosUnavailable
+        isActive -> strings.stopSosBroadcastAccessibility
+        else -> strings.triggerEmergencyAccessibility
+    }
+
+    fun stateDescription(
+        isReady: Boolean,
+        isActive: Boolean,
+        strings: AppStrings
+    ): String = when {
+        !isReady -> strings.emergencySosUnavailable
+        isActive -> strings.emergencySosActive
+        else -> strings.emergencySosReady
     }
 }
 

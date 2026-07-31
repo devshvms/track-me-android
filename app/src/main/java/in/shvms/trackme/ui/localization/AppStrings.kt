@@ -197,7 +197,8 @@ open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
     val locationPermissionDesc: String = s("locationPermissionDesc", "TrackMe needs location access to track your rides and send your location in an emergency. Please grant the permission to use the app.")
     val grantPermission: String = s("grantPermission", "Grant Permission")
     val openSettings: String = s("openSettings", "Open Settings")
-    val stopEmergencyBroadcast: String = s("stopEmergencyBroadcast", "STOP EMERGENCY BROADCAST")
+    val stopEmergencyBroadcast: String = s("stopEmergencyBroadcast", "Stop emergency broadcast")
+    val stopSosBroadcastAccessibility: String = s("stopSosBroadcastAccessibility", "Stop SOS emergency broadcast")
     val triggerEmergencyAccessibility: String = s("triggerEmergencyAccessibility", "Trigger emergency SOS")
     val emergencySosReady: String = s("emergencySosReady", "Emergency SOS ready")
     val emergencySosActive: String = s("emergencySosActive", "Emergency SOS is active")
@@ -391,6 +392,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "swipeToSos" to "Desliza para SOS de Emergencia",
             "sosTriggered" to "¡SOS DE EMERGENCIA ACTIVADO!",
             "stopEmergencyBroadcast" to "Detener transmisión de emergencia",
+            "stopSosBroadcastAccessibility" to "Detener la transmisión del SOS de emergencia",
             "triggerEmergencyAccessibility" to "Activar SOS de emergencia",
             "emergencySosReady" to "SOS de emergencia listo",
             "emergencySosActive" to "SOS de emergencia activo",
@@ -658,6 +660,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "swipeToSos" to "Glissez pour SOS Urgence",
             "sosTriggered" to "SOS URGENCE DÉCLENCHÉ !",
             "stopEmergencyBroadcast" to "Arrêter la diffusion d'urgence",
+            "stopSosBroadcastAccessibility" to "Arrêter la diffusion du SOS d'urgence",
             "triggerEmergencyAccessibility" to "Déclencher le SOS d'urgence",
             "emergencySosReady" to "SOS d'urgence prêt",
             "emergencySosActive" to "SOS d'urgence actif",
@@ -925,6 +928,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "swipeToSos" to "Wischen für Notfall-SOS",
             "sosTriggered" to "NOTFALL-SOS AUSGELÖST!",
             "stopEmergencyBroadcast" to "Notfallübertragung stoppen",
+            "stopSosBroadcastAccessibility" to "SOS-Notfallübertragung stoppen",
             "triggerEmergencyAccessibility" to "Notfall-SOS auslösen",
             "emergencySosReady" to "Notfall-SOS bereit",
             "emergencySosActive" to "Notfall-SOS aktiv",
@@ -1192,6 +1196,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "swipeToSos" to "आपातकालीन SOS के लिए स्वाइप करें",
             "sosTriggered" to "आपातकालीन SOS सक्रिय!",
             "stopEmergencyBroadcast" to "आपातकालीन प्रसारण रोकें",
+            "stopSosBroadcastAccessibility" to "आपातकालीन SOS प्रसारण रोकें",
             "triggerEmergencyAccessibility" to "आपातकालीन SOS सक्रिय करें",
             "emergencySosReady" to "आपातकालीन SOS तैयार है",
             "emergencySosActive" to "आपातकालीन SOS सक्रिय है",
@@ -1459,6 +1464,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "swipeToSos" to "スワイプして緊急SOSを発動",
             "sosTriggered" to "緊急SOSが発動されました！",
             "stopEmergencyBroadcast" to "緊急通知の配信を停止",
+            "stopSosBroadcastAccessibility" to "緊急SOSの配信を停止",
             "triggerEmergencyAccessibility" to "緊急SOSを発動",
             "emergencySosReady" to "緊急SOSの準備ができています",
             "emergencySosActive" to "緊急SOSは有効です",
@@ -1726,6 +1732,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "swipeToSos" to "滑动触发紧急SOS",
             "sosTriggered" to "紧急SOS已触发！",
             "stopEmergencyBroadcast" to "停止紧急广播",
+            "stopSosBroadcastAccessibility" to "停止紧急SOS广播",
             "triggerEmergencyAccessibility" to "触发紧急SOS",
             "emergencySosReady" to "紧急SOS已准备就绪",
             "emergencySosActive" to "紧急SOS已激活",
