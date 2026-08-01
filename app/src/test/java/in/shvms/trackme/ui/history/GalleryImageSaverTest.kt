@@ -3,9 +3,24 @@ package `in`.shvms.trackme.ui.history
 import java.io.File
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GalleryImageSaverTest {
+    @Test
+    fun `document launch failure is reported instead of thrown`() {
+        val launched = tryLaunchGalleryDocument {
+            throw IllegalStateException("no document provider")
+        }
+
+        assertFalse(launched)
+    }
+
+    @Test
+    fun `document launch success is reported`() {
+        assertTrue(tryLaunchGalleryDocument { })
+    }
+
     @Test
     fun `media store security failure is reported instead of thrown`() {
         val writer = GalleryImageWriter { _, _, _ -> throw SecurityException("provider denied insert") }

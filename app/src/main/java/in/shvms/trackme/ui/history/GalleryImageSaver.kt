@@ -43,6 +43,10 @@ internal fun shouldUseGalleryDocumentPicker(sdkInt: Int = Build.VERSION.SDK_INT)
 internal fun galleryImageDisplayName(nameHint: String, nowMillis: Long = System.currentTimeMillis()): String =
     "TrackMe_${nameHint}_${nowMillis}.png"
 
+/** Activity-result contracts can throw when no document provider handles the intent. */
+internal inline fun tryLaunchGalleryDocument(launch: () -> Unit): Boolean =
+    runCatching(launch).isSuccess
+
 /**
  * Writes through MediaStore on Android 10+. Older releases must use the SAF document picker,
  * which avoids adding legacy external-storage permissions.

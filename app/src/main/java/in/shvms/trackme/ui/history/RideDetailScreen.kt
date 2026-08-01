@@ -159,7 +159,7 @@ fun RideDetailScreen(
     var pendingGalleryFile by remember { mutableStateOf<java.io.File?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
-    var exportError by remember { mutableStateOf(false) }
+    var exportFailure by remember { mutableStateOf<ExportPreviewFailure?>(null) }
     var exportInProgress by remember { mutableStateOf(false) }
 
     val gpxSaveLauncher = rememberLauncherForActivityResult(
@@ -195,7 +195,7 @@ fun RideDetailScreen(
             exportInProgress = false
         } else if (sourceFile == null) {
             exportInProgress = false
-            exportError = true
+            exportFailure = ExportPreviewFailure.Save
         } else {
             coroutineScope.launch(Dispatchers.IO) {
                 val saved = saveImageToDocument(context, sourceFile, uri)
@@ -205,7 +205,7 @@ fun RideDetailScreen(
                         android.widget.Toast.makeText(context, "Saved to gallery", android.widget.Toast.LENGTH_SHORT).show()
                         showExportDialog = false
                     } else {
-                        exportError = true
+                        exportFailure = ExportPreviewFailure.Save
                     }
                 }
             }
@@ -776,15 +776,15 @@ fun RideDetailScreen(
                 ride.points
             }
             if (routePoints.size < 2) {
-                exportError = true
+                exportFailure = ExportPreviewFailure.Render
                 return
             }
-            exportError = false
+            exportFailure = null
             exportInProgress = true
             previewMapInstance?.snapshot { bitmap ->
                 if (bitmap == null) {
                     exportInProgress = false
-                    exportError = true
+                    exportFailure = ExportPreviewFailure.Render
                     return@snapshot
                 }
                 coroutineScope.launch(Dispatchers.IO) {
@@ -821,7 +821,14 @@ fun RideDetailScreen(
                         } else if (shouldUseGalleryDocumentPicker()) {
                             withContext(Dispatchers.Main) {
                                 pendingGalleryFile = imageFile
-                                gallerySaveLauncher.launch(galleryImageDisplayName(title))
+                                val launched = tryLaunchGalleryDocument {
+                                    gallerySaveLauncher.launch(galleryImageDisplayName(title))
+                                }
+                                if (!launched) {
+                                    pendingGalleryFile = null
+                                    exportInProgress = false
+                                    exportFailure = ExportPreviewFailure.Save
+                                }
                             }
                         } else {
                             val saved = saveImageToGallery(context, imageFile, title)
@@ -831,20 +838,20 @@ fun RideDetailScreen(
                                     android.widget.Toast.makeText(context, "Saved to gallery", android.widget.Toast.LENGTH_SHORT).show()
                                     showExportDialog = false
                                 } else {
-                                    exportError = true
+                                    exportFailure = ExportPreviewFailure.Save
                                 }
                             }
                         }
                     }.onFailure {
                         withContext(Dispatchers.Main) {
                             exportInProgress = false
-                            exportError = true
+                            exportFailure = ExportPreviewFailure.Render
                         }
                     }
                 }
             } ?: run {
                 exportInProgress = false
-                exportError = true
+                exportFailure = ExportPreviewFailure.Render
             }
         }
 
@@ -870,14 +877,18 @@ fun RideDetailScreen(
             initialPrivacyTrim = true,
             canExport = exportCanRender,
             isExporting = exportInProgress,
-            errorMessage = if (exportError) strings.exportFailed else null,
+            errorMessage = when (exportFailure) {
+                ExportPreviewFailure.Render -> strings.exportRetryMessage
+                ExportPreviewFailure.Save -> strings.exportFailed
+                null -> null
+            },
             onDismiss = { showExportDialog = false },
             onShare = { settings -> handleExport(settings, share = true) },
             onSave = { settings ->
                 handleExport(settings, share = false)
             },
             onRetry = { settings ->
-                exportError = false
+                exportFailure = null
                 handleExport(settings, share = true)
             },
             videoAction = replayVideoAction

@@ -287,7 +287,7 @@ private fun UnifiedAggregateRidePreviewDialog(
     val scope = rememberCoroutineScope()
     var previewMapInstance by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
     var isExporting by remember { mutableStateOf(false) }
-    var exportError by remember { mutableStateOf(false) }
+    var exportFailure by remember { mutableStateOf<ExportPreviewFailure?>(null) }
     var pendingGalleryFile by remember { mutableStateOf<java.io.File?>(null) }
 
     val gallerySaveLauncher = rememberLauncherForActivityResult(
@@ -299,7 +299,7 @@ private fun UnifiedAggregateRidePreviewDialog(
             isExporting = false
         } else if (sourceFile == null) {
             isExporting = false
-            exportError = true
+            exportFailure = ExportPreviewFailure.Save
         } else {
             scope.launch(Dispatchers.IO) {
                 val saved = saveImageToDocument(context, sourceFile, uri)
@@ -309,7 +309,7 @@ private fun UnifiedAggregateRidePreviewDialog(
                         toast(context, "Saved to gallery")
                         onDismiss()
                     } else {
-                        exportError = true
+                        exportFailure = ExportPreviewFailure.Save
                     }
                 }
             }
@@ -323,11 +323,11 @@ private fun UnifiedAggregateRidePreviewDialog(
             return
         }
         isExporting = true
-        exportError = false
+        exportFailure = null
         map.snapshot { snapshot ->
             if (snapshot == null) {
                 isExporting = false
-                exportError = true
+                exportFailure = ExportPreviewFailure.Render
                 return@snapshot
             }
             scope.launch(Dispatchers.IO) {
@@ -345,7 +345,14 @@ private fun UnifiedAggregateRidePreviewDialog(
                     } else if (shouldUseGalleryDocumentPicker()) {
                         withContext(Dispatchers.Main) {
                             pendingGalleryFile = file
-                            gallerySaveLauncher.launch(galleryImageDisplayName("Aggregate"))
+                            val launched = tryLaunchGalleryDocument {
+                                gallerySaveLauncher.launch(galleryImageDisplayName("Aggregate"))
+                            }
+                            if (!launched) {
+                                pendingGalleryFile = null
+                                isExporting = false
+                                exportFailure = ExportPreviewFailure.Save
+                            }
                         }
                     } else {
                         val saved = saveComparisonImage(context, file)
@@ -355,14 +362,14 @@ private fun UnifiedAggregateRidePreviewDialog(
                                 toast(context, "Saved to gallery")
                                 onDismiss()
                             } else {
-                                exportError = true
+                                exportFailure = ExportPreviewFailure.Save
                             }
                         }
                     }
                 }.onFailure {
                     withContext(Dispatchers.Main) {
                         isExporting = false
-                        exportError = true
+                        exportFailure = ExportPreviewFailure.Render
                     }
                 }
             }
@@ -378,7 +385,11 @@ private fun UnifiedAggregateRidePreviewDialog(
         showAggregateControls = true,
         canExport = visibleRoutes.isNotEmpty(),
         isExporting = isExporting,
-        errorMessage = if (exportError) strings.exportFailed else null,
+        errorMessage = when (exportFailure) {
+            ExportPreviewFailure.Render -> strings.exportRetryMessage
+            ExportPreviewFailure.Save -> strings.exportFailed
+            null -> null
+        },
         shareLabel = strings.aggregatePreviewShare,
         onDismiss = onDismiss,
         onShare = { settings -> exportPreview(settings, share = true) },
