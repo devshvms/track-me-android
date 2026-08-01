@@ -24,7 +24,6 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     val app = applicationContext as TrackMeApp
-    app.resumePersistedTrackingIfNeeded()
     lifecycleScope.launch {
         app.authManager.currentUser.collect { user ->
             if (user != null) {
@@ -60,6 +59,16 @@ class MainActivity : ComponentActivity() {
   override fun onResume() {
       super.onResume()
       val app = applicationContext as TrackMeApp
+      // Service restoration belongs to the foreground lifecycle. Starting from onCreate can
+      // race the activity launch and is rejected by Android 12+ background-start policy.
+      app.resumePersistedTrackingIfNeeded()
+      val locationPermissionGranted = ContextCompat.checkSelfPermission(
+          this@MainActivity,
+          android.Manifest.permission.ACCESS_FINE_LOCATION
+      ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+      if (locationPermissionGranted) {
+          app.setLocationPermissionRevokedNotice(false)
+      }
       // B2: surface a weekly recap for a just-completed week (shared foreground trigger).
       app.checkWeeklyRecap()
       lifecycleScope.launch {

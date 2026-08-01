@@ -13,11 +13,16 @@ class LocationHelper(private val context: Context) {
     private val client: FusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
 
     @SuppressLint("MissingPermission")
-    fun startLocationTracking(callback: LocationCallback) {
+    fun startLocationTracking(callback: LocationCallback): Boolean {
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2000L)
             .setMinUpdateIntervalMillis(1000L)
             .build()
-        client.requestLocationUpdates(request, callback, Looper.getMainLooper())
+        return try {
+            client.requestLocationUpdates(request, callback, Looper.getMainLooper())
+            true
+        } catch (_: SecurityException) {
+            false
+        }
     }
 
     fun stopLocationTracking(callback: LocationCallback) {

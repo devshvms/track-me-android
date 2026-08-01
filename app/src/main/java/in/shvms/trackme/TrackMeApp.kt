@@ -5,6 +5,8 @@ import android.os.StrictMode
 import androidx.room.Room
 import `in`.shvms.trackme.data.local.AppDatabase
 import `in`.shvms.trackme.service.TrackingManager
+import `in`.shvms.trackme.service.ForegroundStartOutcome
+import `in`.shvms.trackme.service.ForegroundStartPolicy
 
 import `in`.shvms.trackme.auth.AuthManager
 import `in`.shvms.trackme.data.local.AppPreferencesManager
@@ -61,6 +63,9 @@ class TrackMeApp : Application() {
     private val _smsPermissionRevokedNotice = MutableStateFlow(false)
     val smsPermissionRevokedNotice = _smsPermissionRevokedNotice.asStateFlow()
 
+    private val _locationPermissionRevokedNotice = MutableStateFlow(false)
+    val locationPermissionRevokedNotice = _locationPermissionRevokedNotice.asStateFlow()
+
     /** B2: pending weekly recap for a completed week, surfaced once on foreground. */
     private val _weeklyRecap = MutableStateFlow<`in`.shvms.trackme.domain.stats.WeeklyRecap?>(null)
     val weeklyRecap = _weeklyRecap.asStateFlow()
@@ -87,6 +92,8 @@ class TrackMeApp : Application() {
 
         _smsPermissionRevokedNotice.value = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
             .getBoolean("sos_permission_revoked_notice", false)
+        _locationPermissionRevokedNotice.value = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
+            .getBoolean("location_permission_revoked_notice", false)
         
         errorLogger = CrashlyticsErrorLogger()
         errorLogger.init()
@@ -204,8 +211,40 @@ class TrackMeApp : Application() {
             val intent = android.content.Intent(this, `in`.shvms.trackme.service.TrackingService::class.java).apply {
                 action = `in`.shvms.trackme.service.TrackingService.ACTION_START_OR_RESUME_SERVICE
             }
-            androidx.core.content.ContextCompat.startForegroundService(this, intent)
+            try {
+                androidx.core.content.ContextCompat.startForegroundService(this, intent)
+            } catch (e: Exception) {
+                errorLogger.recordException(e)
+                val outcome = ForegroundStartPolicy.classify(e, android.os.Build.VERSION.SDK_INT)
+                abandonPersistedTrackingSession(outcome)
+            }
         }
+    }
+
+    /**
+     * Clears only the persisted service flags after a failed start. The unfinished ride itself is
+     * intentionally retained so OrphanedRideRecoveryManager can recover it on the next launch.
+     */
+    fun abandonPersistedTrackingSession(outcome: ForegroundStartOutcome) {
+        getSharedPreferences(
+            `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
+            MODE_PRIVATE
+        ).edit()
+            .putBoolean(`in`.shvms.trackme.service.TrackingService.ACTIVE_TRACKING_SESSION_KEY, false)
+            .putBoolean(`in`.shvms.trackme.service.TrackingService.PAUSED_TRACKING_SESSION_KEY, false)
+            .apply()
+
+        if (outcome.shouldShowLocationPermissionRevokedNotice) {
+            setLocationPermissionRevokedNotice(true)
+        }
+    }
+
+    fun setLocationPermissionRevokedNotice(isRevoked: Boolean) {
+        _locationPermissionRevokedNotice.value = isRevoked
+        getSharedPreferences("trackme_prefs", MODE_PRIVATE)
+            .edit()
+            .putBoolean("location_permission_revoked_notice", isRevoked)
+            .apply()
     }
 
     fun setSmsPermissionRevokedNotice(isRevoked: Boolean) {

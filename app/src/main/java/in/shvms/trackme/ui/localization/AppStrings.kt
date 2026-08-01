@@ -208,6 +208,8 @@ open class AppStrings(private val overrides: Map<String, String> = emptyMap()) {
     val rideStats: String = s("rideStats", "Ride Stats")
     val locationPermissionRequired: String = s("locationPermissionRequired", "Location Permission Required")
     val locationPermissionDesc: String = s("locationPermissionDesc", "TrackMe needs location access to track your rides and send your location in an emergency. Please grant the permission to use the app.")
+    val locationPermissionRevokedTitle: String = s("locationPermissionRevokedTitle", "Location access was turned off")
+    val locationPermissionRevokedBody: String = s("locationPermissionRevokedBody", "Your ride was stopped because TrackMe no longer has location access. Tap to re-enable it in Settings.")
     val grantPermission: String = s("grantPermission", "Grant Permission")
     val openSettings: String = s("openSettings", "Open Settings")
     val stopEmergencyBroadcast: String = s("stopEmergencyBroadcast", "Stop emergency broadcast")
@@ -367,6 +369,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gotIt" to "Entendido",
             "understood" to "Comprendido",
             "close" to "Cerrar",
+            "openSettings" to "Abrir ajustes",
+            "locationPermissionRevokedTitle" to "El permiso de ubicación está desactivado",
+            "locationPermissionRevokedBody" to "TrackMe detuvo el viaje sin terminar porque se retiró el acceso a la ubicación. Vuelve a activarlo en Ajustes para seguir registrando.",
             "back" to "Atrás",
             "navHome" to "Inicio",
             "navHistory" to "Historial",
@@ -648,6 +653,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gotIt" to "Compris",
             "understood" to "Compris",
             "close" to "Fermer",
+            "openSettings" to "Ouvrir les réglages",
+            "locationPermissionRevokedTitle" to "L'autorisation de localisation est désactivée",
+            "locationPermissionRevokedBody" to "TrackMe a arrêté le trajet non terminé car l'accès à la position a été retiré. Réactivez-le dans les réglages pour reprendre le suivi.",
             "back" to "Retour",
             "navHome" to "Accueil",
             "navHistory" to "Historique",
@@ -929,6 +937,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gotIt" to "Verstanden",
             "understood" to "Verstanden",
             "close" to "Schließen",
+            "openSettings" to "Einstellungen öffnen",
+            "locationPermissionRevokedTitle" to "Standortberechtigung ist deaktiviert",
+            "locationPermissionRevokedBody" to "TrackMe hat die unfertige Fahrt sicher gestoppt, weil der Standortzugriff entzogen wurde. Aktivieren Sie ihn in den Einstellungen, um wieder aufzuzeichnen.",
             "back" to "Zurück",
             "navHome" to "Start",
             "navHistory" to "Verlauf",
@@ -1210,6 +1221,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gotIt" to "समझ गया",
             "understood" to "समझ गए",
             "close" to "बंद करें",
+            "openSettings" to "सेटिंग्स खोलें",
+            "locationPermissionRevokedTitle" to "स्थान अनुमति बंद है",
+            "locationPermissionRevokedBody" to "स्थान की अनुमति हटाए जाने पर TrackMe ने अधूरी यात्रा सुरक्षित रूप से रोक दी। फिर से ट्रैक करने के लिए सेटिंग्स में इसे चालू करें।",
             "back" to "पीछे",
             "navHome" to "होम",
             "navHistory" to "इतिहास",
@@ -1491,6 +1505,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gotIt" to "了解",
             "understood" to "了承しました",
             "close" to "閉じる",
+            "openSettings" to "設定を開く",
+            "locationPermissionRevokedTitle" to "位置情報の権限がオフです",
+            "locationPermissionRevokedBody" to "位置情報へのアクセスが取り消されたため、TrackMe は未完了のライドを安全に停止しました。再び記録するには設定で有効にしてください。",
             "back" to "戻る",
             "navHome" to "ホーム",
             "navHistory" to "履歴",
@@ -1772,6 +1789,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gotIt" to "知道了",
             "understood" to "明白",
             "close" to "关闭",
+            "openSettings" to "打开设置",
+            "locationPermissionRevokedTitle" to "位置权限已关闭",
+            "locationPermissionRevokedBody" to "由于位置访问权限被撤销，TrackMe 已安全停止未完成的行程。请在设置中重新开启权限以继续记录。",
             "back" to "返回",
             "navHome" to "首页",
             "navHistory" to "历史",
