@@ -6,6 +6,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -286,6 +288,33 @@ private fun UnifiedAggregateRidePreviewDialog(
     var previewMapInstance by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
     var isExporting by remember { mutableStateOf(false) }
     var exportError by remember { mutableStateOf(false) }
+    var pendingGalleryFile by remember { mutableStateOf<java.io.File?>(null) }
+
+    val gallerySaveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("image/png")
+    ) { uri ->
+        val sourceFile = pendingGalleryFile
+        pendingGalleryFile = null
+        if (uri == null) {
+            isExporting = false
+        } else if (sourceFile == null) {
+            isExporting = false
+            exportError = true
+        } else {
+            scope.launch(Dispatchers.IO) {
+                val saved = saveImageToDocument(context, sourceFile, uri)
+                withContext(Dispatchers.Main) {
+                    isExporting = false
+                    if (saved) {
+                        toast(context, "Saved to gallery")
+                        onDismiss()
+                    } else {
+                        exportError = true
+                    }
+                }
+            }
+        }
+    }
 
     fun exportPreview(settings: ExportPreviewSettings, share: Boolean) {
         val map = previewMapInstance
@@ -307,15 +336,28 @@ private fun UnifiedAggregateRidePreviewDialog(
                         legend = aggregatePreviewLegend(visibleRoutes, strings.rideHistoryTitle, settings.showLegend)
                     ).export(snapshot, context)
                 }.onSuccess { file ->
-                    withContext(Dispatchers.Main) {
-                        val saved = if (share) {
+                    if (share) {
+                        withContext(Dispatchers.Main) {
                             shareComparisonFile(context, file)
-                            true
-                        } else {
-                            saveComparisonImage(context, file)
+                            isExporting = false
+                            onDismiss()
                         }
-                        isExporting = false
-                        if (saved) onDismiss() else exportError = true
+                    } else if (shouldUseGalleryDocumentPicker()) {
+                        withContext(Dispatchers.Main) {
+                            pendingGalleryFile = file
+                            gallerySaveLauncher.launch(galleryImageDisplayName("Aggregate"))
+                        }
+                    } else {
+                        val saved = saveComparisonImage(context, file)
+                        withContext(Dispatchers.Main) {
+                            isExporting = false
+                            if (saved) {
+                                toast(context, "Saved to gallery")
+                                onDismiss()
+                            } else {
+                                exportError = true
+                            }
+                        }
                     }
                 }.onFailure {
                     withContext(Dispatchers.Main) {

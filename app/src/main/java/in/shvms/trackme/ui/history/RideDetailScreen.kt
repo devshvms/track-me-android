@@ -156,6 +156,11 @@ fun RideDetailScreen(
 
     var previewMapInstance by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
     var pendingGpxFile by remember { mutableStateOf<java.io.File?>(null) }
+    var pendingGalleryFile by remember { mutableStateOf<java.io.File?>(null) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
+    var exportError by remember { mutableStateOf(false) }
+    var exportInProgress by remember { mutableStateOf(false) }
 
     val gpxSaveLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/gpx+xml")
@@ -180,11 +185,33 @@ fun RideDetailScreen(
             }
         }
     }
-    
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var showExportDialog by remember { mutableStateOf(false) }
-    var exportError by remember { mutableStateOf(false) }
-    var exportInProgress by remember { mutableStateOf(false) }
+
+    val gallerySaveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("image/png")
+    ) { uri ->
+        val sourceFile = pendingGalleryFile
+        pendingGalleryFile = null
+        if (uri == null) {
+            exportInProgress = false
+        } else if (sourceFile == null) {
+            exportInProgress = false
+            exportError = true
+        } else {
+            coroutineScope.launch(Dispatchers.IO) {
+                val saved = saveImageToDocument(context, sourceFile, uri)
+                withContext(Dispatchers.Main) {
+                    exportInProgress = false
+                    if (saved) {
+                        android.widget.Toast.makeText(context, "Saved to gallery", android.widget.Toast.LENGTH_SHORT).show()
+                        showExportDialog = false
+                    } else {
+                        exportError = true
+                    }
+                }
+            }
+        }
+    }
+
     var mapInstance by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
 
     val exportCanRender = remember(rideWithPoints?.points) {
@@ -778,9 +805,9 @@ fun RideDetailScreen(
                             )
                         )
                     }.onSuccess { imageFile ->
-                        withContext(Dispatchers.Main) {
-                            val title = ride.ride.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride"
-                            if (share) {
+                        val title = ride.ride.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride"
+                        if (share) {
+                            withContext(Dispatchers.Main) {
                                 val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", imageFile)
                                 val intent = Intent(Intent.ACTION_SEND).apply {
                                     type = "image/png"
@@ -788,12 +815,25 @@ fun RideDetailScreen(
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
                                 context.startActivity(Intent.createChooser(intent, "Share Image"))
-                            } else {
-                                saveImageToGallery(context, imageFile, title)
-                                android.widget.Toast.makeText(context, "Saved to gallery", android.widget.Toast.LENGTH_SHORT).show()
+                                exportInProgress = false
+                                showExportDialog = false
                             }
-                            exportInProgress = false
-                            showExportDialog = false
+                        } else if (shouldUseGalleryDocumentPicker()) {
+                            withContext(Dispatchers.Main) {
+                                pendingGalleryFile = imageFile
+                                gallerySaveLauncher.launch(galleryImageDisplayName(title))
+                            }
+                        } else {
+                            val saved = saveImageToGallery(context, imageFile, title)
+                            withContext(Dispatchers.Main) {
+                                exportInProgress = false
+                                if (saved) {
+                                    android.widget.Toast.makeText(context, "Saved to gallery", android.widget.Toast.LENGTH_SHORT).show()
+                                    showExportDialog = false
+                                } else {
+                                    exportError = true
+                                }
+                            }
                         }
                     }.onFailure {
                         withContext(Dispatchers.Main) {
@@ -830,7 +870,7 @@ fun RideDetailScreen(
             initialPrivacyTrim = true,
             canExport = exportCanRender,
             isExporting = exportInProgress,
-            errorMessage = if (exportError) strings.exportRetryMessage else null,
+            errorMessage = if (exportError) strings.exportFailed else null,
             onDismiss = { showExportDialog = false },
             onShare = { settings -> handleExport(settings, share = true) },
             onSave = { settings ->
