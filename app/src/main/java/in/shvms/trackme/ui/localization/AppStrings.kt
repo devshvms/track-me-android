@@ -357,6 +357,17 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
 
 val LocalAppStrings = staticCompositionLocalOf { AppStrings() }
 
+/**
+ * Every language the in-app picker offers, in picker order. `"en"` is the base class and supplies
+ * no override map; the rest each have a `mapOf` arm below and are required by
+ * `AppStringsLocaleCoverageTest` to supply every declared key.
+ *
+ * Adding a language means: add it here, add a `when` arm below with a complete override map, and
+ * add its display name to the picker in `SettingsScreen.kt`. The coverage test enforces the
+ * second of those and cross-checks the third.
+ */
+val SUPPORTED_LANGUAGE_CODES: List<String> = listOf("en", "es", "fr", "de", "hi", "ja", "zh")
+
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
         "es" -> AppStrings(mapOf(
