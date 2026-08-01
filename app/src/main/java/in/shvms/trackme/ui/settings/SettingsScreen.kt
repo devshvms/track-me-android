@@ -32,9 +32,20 @@ import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.draw.clip
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.ui.localization.SUPPORTED_LANGUAGE_CODES
 import `in`.shvms.trackme.ui.components.OfflineShieldBanner
 import `in`.shvms.trackme.ui.components.rememberIsOffline
 import android.widget.Toast
+
+private val languageDisplayNames = mapOf(
+    "en" to "English",
+    "es" to "Español",
+    "fr" to "Français",
+    "de" to "Deutsch",
+    "hi" to "हिन्दी",
+    "ja" to "日本語",
+    "zh" to "中文",
+)
 
 @Composable
 fun SettingsScreen(
@@ -261,15 +272,7 @@ fun SettingsScreen(
         var appLanguage by remember { mutableStateOf(prefs.getString("app_language", "en") ?: "en") }
         var showLangDropdown by remember { mutableStateOf(false) }
 
-        val languages = listOf(
-            "en" to "English",
-            "es" to "Español",
-            "fr" to "Français",
-            "de" to "Deutsch",
-            "hi" to "हिन्दी",
-            "ja" to "日本語",
-            "zh" to "中文"
-        )
+        val languages = SUPPORTED_LANGUAGE_CODES.map { it to (languageDisplayNames[it] ?: it) }
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
