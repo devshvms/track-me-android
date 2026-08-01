@@ -32,9 +32,4 @@ object ForegroundStartPolicy {
             ForegroundStartOutcome.BACKGROUND_START_BLOCKED
         else -> ForegroundStartOutcome.OTHER
     }
-
-    fun shouldAbandonSession(failure: ForegroundStartFailure): Boolean = true
-
-    fun shouldShowRevokedNotice(failure: ForegroundStartFailure): Boolean =
-        failure == ForegroundStartFailure.PERMISSION_REVOKED
 }

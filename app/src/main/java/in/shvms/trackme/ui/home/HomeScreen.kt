@@ -22,6 +22,9 @@ import androidx.compose.ui.graphics.Color
 import `in`.shvms.trackme.theme.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.content.ContextCompat
@@ -493,7 +496,8 @@ fun HomeScreen(
                     Surface(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
-                            .padding(top = topPadding + 16.dp, start = 12.dp, end = 12.dp),
+                            .padding(top = topPadding + 16.dp, start = 12.dp, end = 12.dp)
+                            .semantics { liveRegion = LiveRegionMode.Polite },
                         color = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         shape = RoundedCornerShape(12.dp),
@@ -524,7 +528,7 @@ fun HomeScreen(
                             TextButton(onClick = { openAppSettings(context) }) {
                                 Text(strings.openSettings)
                             }
-                            IconButton(onClick = { app.setLocationPermissionRevokedNotice(false) }) {
+                            IconButton(onClick = { app.dismissLocationPermissionRevokedNoticeForSession() }) {
                                 Icon(Icons.Default.Close, contentDescription = strings.close)
                             }
                         }

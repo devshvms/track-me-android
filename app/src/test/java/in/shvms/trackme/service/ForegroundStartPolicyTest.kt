@@ -6,13 +6,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ForegroundStartPolicyTest {
+    // Abandonment is unconditional for every failure class; see
+    // TrackMeApp.abandonPersistedTrackingSession, which takes no decision.
+
     @Test
     fun securityExceptionIsPermissionRevoked() {
         val outcome = ForegroundStartPolicy.classify(SecurityException("permission"), 34)
 
         assertEquals(ForegroundStartOutcome.PERMISSION_REVOKED, outcome)
-        assertTrue(ForegroundStartPolicy.shouldAbandonSession(outcome))
-        assertTrue(ForegroundStartPolicy.shouldShowRevokedNotice(outcome))
         assertTrue(outcome.shouldShowLocationPermissionRevokedNotice)
     }
 
@@ -24,19 +25,18 @@ class ForegroundStartPolicyTest {
         )
 
         assertEquals(ForegroundStartOutcome.BACKGROUND_START_BLOCKED, outcome)
-        assertTrue(ForegroundStartPolicy.shouldAbandonSession(outcome))
-        assertFalse(ForegroundStartPolicy.shouldShowRevokedNotice(outcome))
         assertFalse(outcome.shouldShowLocationPermissionRevokedNotice)
     }
 
     @Test
     fun illegalStateExceptionIsOther() {
+        val outcome = ForegroundStartPolicy.classify(IllegalStateException("OEM"), 34)
+
         assertEquals(
             ForegroundStartOutcome.OTHER,
-            ForegroundStartPolicy.classify(IllegalStateException("OEM"), 34)
+            outcome
         )
-        assertTrue(ForegroundStartPolicy.shouldAbandonSession(ForegroundStartOutcome.OTHER))
-        assertFalse(ForegroundStartPolicy.shouldShowRevokedNotice(ForegroundStartOutcome.OTHER))
+        assertFalse(outcome.shouldShowLocationPermissionRevokedNotice)
     }
 
     @Test

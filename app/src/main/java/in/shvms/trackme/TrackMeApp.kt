@@ -247,6 +247,15 @@ class TrackMeApp : Application() {
             .apply()
     }
 
+    /**
+     * Hides the location-revoked banner for this app session only. The persisted flag is left
+     * untouched so the notice returns on the next launch while location is still denied; the
+     * permanent clear happens in MainActivity.onResume once the permission is actually granted.
+     */
+    fun dismissLocationPermissionRevokedNoticeForSession() {
+        _locationPermissionRevokedNotice.value = false
+    }
+
     fun setSmsPermissionRevokedNotice(isRevoked: Boolean) {
         _smsPermissionRevokedNotice.value = isRevoked
         getSharedPreferences("trackme_prefs", MODE_PRIVATE)
