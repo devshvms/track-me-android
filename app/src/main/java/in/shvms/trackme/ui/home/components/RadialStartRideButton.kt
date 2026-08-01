@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -72,12 +73,18 @@ import kotlin.math.sin
 
 internal fun selectedPersonaForRelease(
     hoveredPersona: RidePersona?,
-    dragDistancePx: Float,
-    touchSlopPx: Float
+    didExceedTouchSlop: Boolean,
+    releasedInsideCenter: Boolean
 ): RidePersona? {
-    if (dragDistancePx <= touchSlopPx) return null
-    return hoveredPersona ?: RidePersona.AUTO
+    if (hoveredPersona != null) return hoveredPersona
+    return if (!didExceedTouchSlop && releasedInsideCenter) RidePersona.AUTO else null
 }
+
+internal fun hasExceededTouchSlop(
+    previouslyExceeded: Boolean,
+    distanceFromDownPx: Float,
+    touchSlopPx: Float
+): Boolean = previouslyExceeded || distanceFromDownPx > touchSlopPx
 
 @Composable
 fun RadialStartRideButton(
@@ -110,6 +117,7 @@ fun RadialStartRideButton(
     var hoveredPersona by remember { mutableStateOf<RidePersona?>(null) }
     var lastVibratedPersona by remember { mutableStateOf<RidePersona?>(null) }
     var launchedPersona by remember { mutableStateOf<RidePersona?>(null) }
+    var didExceedTouchSlop by remember { mutableStateOf(false) }
 
     // Helper to trigger haptic feedback
     fun triggerHaptic() {
@@ -248,15 +256,16 @@ fun RadialStartRideButton(
                 .border(2.dp, Color.White.copy(alpha = 0.4f), CircleShape)
                 .semantics(mergeDescendants = true) {
                     val currentLaunch = launchedPersona
+                    val isCancelState = isPressed && didExceedTouchSlop && hoveredPersona == null
                     contentDescription = strings.startRideAccessibility
-                    stateDescription = if (currentLaunch == null) {
-                        strings.activitySelectionAvailable
-                    } else {
-                        String.format(
+                    stateDescription = when {
+                        currentLaunch != null -> String.format(
                             Locale.getDefault(),
                             strings.startingPersona,
                             strings.personaLabel(currentLaunch)
                         )
+                        isCancelState -> strings.cancel
+                        else -> strings.activitySelectionAvailable
                     }
                     role = Role.Button
                     onClick(label = strings.startRideAction) {
@@ -296,17 +305,27 @@ fun RadialStartRideButton(
                         isPressed = true
                         hoveredPersona = null
                         lastVibratedPersona = null
-                        var dragDistancePx = 0f
+                        didExceedTouchSlop = false
+                        var releasedInsideCenter = true
                         triggerHaptic()
 
                         do {
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull() ?: break
                             val pos = change.position
-                            dragDistancePx = maxOf(
-                                dragDistancePx,
-                                hypot(pos.x - down.position.x, pos.y - down.position.y)
+                            val distanceFromDown = hypot(
+                                pos.x - down.position.x,
+                                pos.y - down.position.y
                             )
+                            didExceedTouchSlop = hasExceededTouchSlop(
+                                previouslyExceeded = didExceedTouchSlop,
+                                distanceFromDownPx = distanceFromDown,
+                                touchSlopPx = touchSlopPx
+                            )
+                            releasedInsideCenter = hypot(
+                                pos.x - centerPx.x,
+                                pos.y - centerPx.y
+                            ) <= centerPx.x
                             val relPos = pos - centerPx
 
                             // Check which persona circle is closest/hovered
@@ -331,12 +350,13 @@ fun RadialStartRideButton(
 
                         val selected = selectedPersonaForRelease(
                             hoveredPersona = hoveredPersona,
-                            dragDistancePx = dragDistancePx,
-                            touchSlopPx = touchSlopPx
+                            didExceedTouchSlop = didExceedTouchSlop,
+                            releasedInsideCenter = releasedInsideCenter
                         )
                         isPressed = false
                         hoveredPersona = null
                         lastVibratedPersona = null
+                        didExceedTouchSlop = false
                         if (selected != null) {
                             launchedPersona = selected
                         }
@@ -374,6 +394,16 @@ fun RadialStartRideButton(
                         // text — same reasoning as the launched state above.
                         Icon(
                             imageVector = currentHover.icon(),
+                            contentDescription = null,
+                            tint = onStartButton,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    } else if (didExceedTouchSlop) {
+                        // Once the gesture becomes a drag, releasing without a hovered persona
+                        // cancels. Keep this state icon-only so the fixed center circle remains
+                        // robust at larger font scales; semantics announces the localized label.
+                        Icon(
+                            imageVector = Icons.Default.Close,
                             contentDescription = null,
                             tint = onStartButton,
                             modifier = Modifier.size(36.dp)
