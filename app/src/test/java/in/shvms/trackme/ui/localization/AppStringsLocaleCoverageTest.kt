@@ -20,7 +20,7 @@ class AppStringsLocaleCoverageTest {
      * the moment the owning branch merges and tells you which two lines to delete. Do not add to it
      * as a way of silencing a missing translation.
      */
-    private val dependencyOwnedKeys = setOf("openSettings")
+    private val dependencyOwnedKeys = emptySet<String>()
 
     /**
      * Locale entries that are byte-identical to the English default. Legitimate (`ok`, `Normal`,
