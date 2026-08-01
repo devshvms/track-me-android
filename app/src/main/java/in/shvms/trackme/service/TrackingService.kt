@@ -18,6 +18,7 @@ import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.data.remote.LiveShareStatus
+import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.utils.RideUtils
 import `in`.shvms.trackme.utils.StorageHealthMonitor
 import `in`.shvms.trackme.ui.localization.AppStrings
@@ -32,6 +33,12 @@ import kotlinx.coroutines.flow.firstOrNull
 enum class TrackingState {
     IDLE, TRACKING, PAUSED, GPS_LOST, GPS_DISABLED, STORAGE_LOW
 }
+
+/** Pure transition predicates keep GPS telemetry edge-triggered and unit-testable. */
+internal fun shouldEmitGpsPauseTelemetry(state: TrackingState): Boolean = state == TrackingState.TRACKING
+
+internal fun shouldEmitGpsResumeTelemetry(state: TrackingState): Boolean =
+    state == TrackingState.GPS_LOST || state == TrackingState.GPS_DISABLED
 
 class TrackingService : Service() {
 
@@ -66,8 +73,9 @@ class TrackingService : Service() {
                 return
             }
 
-            if (currentState == TrackingState.GPS_LOST || currentState == TrackingState.GPS_DISABLED) {
+            if (shouldEmitGpsResumeTelemetry(currentState)) {
                 updateState(TrackingState.TRACKING)
+                AnalyticsManager.trackLocationUpdatesResumed()
             }
 
             if (currentState == TrackingState.STORAGE_LOW) {
@@ -440,9 +448,13 @@ class TrackingService : Service() {
                     val timeSinceLastGps = System.currentTimeMillis() - lastGpsTimeMs
                     trackingManager.updateTimeSinceLastGps(timeSinceLastGps)
                     if (timeSinceLastGps >= GPS_LOSS_TIMEOUT_MS) {
+                        val wasAlreadyStale = !shouldEmitGpsPauseTelemetry(currentState)
                         updateState(
                             if (isLocationServiceEnabled()) TrackingState.GPS_LOST else TrackingState.GPS_DISABLED
                         )
+                        if (!wasAlreadyStale) {
+                            AnalyticsManager.trackLocationUpdatesPaused()
+                        }
                     }
                 } else {
                     trackingManager.updateTimeSinceLastGps(0L)

@@ -115,6 +115,42 @@ object AnalyticsManager {
         PostHog.capture("data_download_requested")
     }
 
+    // App Performance & Errors — taxonomy parity with iOS. These remain unwired until a
+    // crash handler/ANR watchdog is deliberately introduced on both platforms.
+    fun trackAppCrashDetected(errorMessage: String, errorStack: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "app_crash_detected",
+            properties = mapOf(
+                "error_message" to errorMessage,
+                "error_stack" to errorStack
+            )
+        )
+    }
+
+    fun trackScreenStuckDetected(screenName: String, stuckDurationSeconds: Long) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "screen_stuck_detected",
+            properties = mapOf(
+                "screen_name" to screenName,
+                "stuck_duration_seconds" to stuckDurationSeconds
+            )
+        )
+    }
+
+    // Background Tracking Reliability — Android's GPS-staleness watchdog is the equivalent
+    // of iOS's CLLocationManager pause/resume callbacks. These have no event properties.
+    fun trackLocationUpdatesPaused() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("location_updates_paused")
+    }
+
+    fun trackLocationUpdatesResumed() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("location_updates_resumed")
+    }
+
     // Core Rides
     fun trackRideStarted(rideId: String) {
         if (!_isTelemetryEnabled.value) return
