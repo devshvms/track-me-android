@@ -103,7 +103,7 @@ fun AccountManagementScreen(
                 if (user?.photoUrl != null) {
                     Image(
                         painter = rememberAsyncImagePainter(user?.photoUrl),
-                        contentDescription = "Profile Picture",
+                        contentDescription = null,
                         modifier = Modifier
                             .size(100.dp)
                             .clip(CircleShape)
@@ -114,7 +114,7 @@ fun AccountManagementScreen(
                         color = MaterialTheme.colorScheme.primaryContainer,
                         modifier = Modifier.size(100.dp)
                     ) {
-                        Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.padding(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.padding(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -160,7 +160,7 @@ fun AccountManagementScreen(
                         Text(strings.privacyAndSecurity, style = MaterialTheme.typography.titleMedium)
                         Icon(
                             if (isPrivacyExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = "Expand"
+                            contentDescription = strings.expand
                         )
                     }
                     

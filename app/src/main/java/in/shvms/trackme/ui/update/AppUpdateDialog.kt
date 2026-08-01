@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
 @Composable
 fun AppUpdateDialog(
@@ -28,6 +29,7 @@ fun AppUpdateDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
 
     Dialog(
         onDismissRequest = {
@@ -64,7 +66,7 @@ fun AppUpdateDialog(
                 ) {
                     Icon(
                         imageVector = Icons.Default.NewReleases,
-                        contentDescription = "New Version Available",
+                        contentDescription = strings.newVersionAvailable,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(32.dp)
                     )
@@ -73,7 +75,7 @@ fun AppUpdateDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Update Available",
+                    text = strings.updateAvailable,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface

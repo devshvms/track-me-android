@@ -425,7 +425,7 @@ fun HomeScreen(
 
                 MapControlCircleButton(
                     icon = Icons.Default.MyLocation,
-                    contentDescription = "Recenter",
+                    contentDescription = strings.recenterMap,
                     onClick = {
                         val target = uiState.pathPoints.lastOrNull()
                         if (target != null) {
@@ -467,7 +467,7 @@ fun HomeScreen(
 
                 MapControlCircleButton(
                     icon = Icons.Default.Explore,
-                    contentDescription = "Compass North",
+                    contentDescription = strings.compassNorth,
                     onClick = {
                         coroutineScope.launch {
                             cameraPositionState.animate(
