@@ -178,7 +178,7 @@ fun InteractiveShareLocationButton(
                 if (isDisabled) {
                     Icon(
                         imageVector = Icons.Default.Block,
-                        contentDescription = "Live sharing unavailable. Sign in to share your live location.",
+                        contentDescription = strings.liveShareAuthRequired,
                         tint = Color.Black.copy(alpha = 0.6f),
                         modifier = Modifier.size(27.dp)
                     )
