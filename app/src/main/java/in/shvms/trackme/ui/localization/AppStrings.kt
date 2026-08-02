@@ -16,6 +16,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val understood: String = s("understood", "Understood")
     val close: String = s("close", "Close")
     val back: String = s("back", "Back")
+    val ageRestrictedTitle: String = s("ageRestrictedTitle", "TrackMe is for adults")
+    val ageRestrictedBody: String = s("ageRestrictedBody", "TrackMe is intended for an adult audience and isn't available to users under 18, per our Privacy Policy. If you believe this is a mistake, please contact us.")
 
     // Navigation
     val navHome: String = s("navHome", "Home")
@@ -387,6 +389,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "locationPermissionRevokedTitle" to "El permiso de ubicación está desactivado",
             "locationPermissionRevokedBody" to "TrackMe detuvo el viaje sin terminar porque se retiró el acceso a la ubicación. Vuelve a activarlo en Ajustes para seguir registrando.",
             "back" to "Atrás",
+            "ageRestrictedTitle" to "TrackMe es para adultos",
+            "ageRestrictedBody" to "TrackMe está destinado a un público adulto y no está disponible para menores de 18 años, según nuestra Política de privacidad. Si crees que se trata de un error, ponte en contacto con nosotros.",
             "navHome" to "Inicio",
             "navHistory" to "Historial",
             "navSettings" to "Ajustes",
@@ -706,6 +710,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "locationPermissionRevokedTitle" to "L'autorisation de localisation est désactivée",
             "locationPermissionRevokedBody" to "TrackMe a arrêté le trajet non terminé car l'accès à la position a été retiré. Réactivez-le dans les réglages pour reprendre le suivi.",
             "back" to "Retour",
+            "ageRestrictedTitle" to "TrackMe est réservé aux adultes",
+            "ageRestrictedBody" to "TrackMe est destiné à un public adulte et n'est pas disponible pour les moins de 18 ans, conformément à notre Politique de confidentialité. Si vous pensez qu'il s'agit d'une erreur, contactez-nous.",
             "navHome" to "Accueil",
             "navHistory" to "Historique",
             "navSettings" to "Paramètres",
@@ -1025,6 +1031,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "locationPermissionRevokedTitle" to "Standortberechtigung ist deaktiviert",
             "locationPermissionRevokedBody" to "TrackMe hat die unfertige Fahrt sicher gestoppt, weil der Standortzugriff entzogen wurde. Aktivieren Sie ihn in den Einstellungen, um wieder aufzuzeichnen.",
             "back" to "Zurück",
+            "ageRestrictedTitle" to "TrackMe ist für Erwachsene",
+            "ageRestrictedBody" to "TrackMe richtet sich an ein erwachsenes Publikum und ist gemäß unserer Datenschutzrichtlinie nicht für Personen unter 18 Jahren verfügbar. Wenn du glaubst, dass dies ein Fehler ist, kontaktiere uns bitte.",
             "navHome" to "Start",
             "navHistory" to "Verlauf",
             "navSettings" to "Einstellungen",
@@ -1344,6 +1352,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "locationPermissionRevokedTitle" to "स्थान अनुमति बंद है",
             "locationPermissionRevokedBody" to "स्थान की अनुमति हटाए जाने पर TrackMe ने अधूरी यात्रा सुरक्षित रूप से रोक दी। फिर से ट्रैक करने के लिए सेटिंग्स में इसे चालू करें।",
             "back" to "पीछे",
+            "ageRestrictedTitle" to "TrackMe वयस्कों के लिए है",
+            "ageRestrictedBody" to "TrackMe वयस्क दर्शकों के लिए है और हमारी गोपनीयता नीति के अनुसार 18 वर्ष से कम उम्र के उपयोगकर्ताओं के लिए उपलब्ध नहीं है। यदि आपको लगता है कि यह गलती है, तो कृपया हमसे संपर्क करें।",
             "navHome" to "होम",
             "navHistory" to "इतिहास",
             "navSettings" to "सेटिंग्स",
@@ -1663,6 +1673,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "locationPermissionRevokedTitle" to "位置情報の権限がオフです",
             "locationPermissionRevokedBody" to "位置情報へのアクセスが取り消されたため、TrackMe は未完了のライドを安全に停止しました。再び記録するには設定で有効にしてください。",
             "back" to "戻る",
+            "ageRestrictedTitle" to "TrackMe は成人向けです",
+            "ageRestrictedBody" to "TrackMe は成人向けであり、プライバシーポリシーにより18歳未満の方は利用できません。誤りだと思われる場合は、お問い合わせください。",
             "navHome" to "ホーム",
             "navHistory" to "履歴",
             "navSettings" to "設定",
@@ -1982,6 +1994,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "locationPermissionRevokedTitle" to "位置权限已关闭",
             "locationPermissionRevokedBody" to "由于位置访问权限被撤销，TrackMe 已安全停止未完成的行程。请在设置中重新开启权限以继续记录。",
             "back" to "返回",
+            "ageRestrictedTitle" to "TrackMe 仅适用于成人",
+            "ageRestrictedBody" to "TrackMe 面向成人用户，根据我们的隐私政策，未满 18 岁的用户无法使用。如果你认为这是错误，请联系我们。",
             "navHome" to "首页",
             "navHistory" to "历史",
             "navSettings" to "设置",

@@ -286,6 +286,19 @@ object AnalyticsManager {
             )
         )
     }
+
+    /** Age-signal compliance outcome. Category and decision are coarse, non-PII values. */
+    fun trackAgeSignalChecked(platform: String = "android", category: String, decision: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "age_signal_checked",
+            properties = mapOf(
+                "platform" to platform,
+                "category" to category,
+                "decision" to decision
+            )
+        )
+    }
 }
 
 /** Pure consent contract used by [AnalyticsManager] and its JVM tests. */
