@@ -26,10 +26,11 @@ class AppStringsLocaleCoverageTest {
      * Locale entries that are byte-identical to the English default. Legitimate (`ok`, `Normal`,
      * `distance`, `miles`, …) but each one is also indistinguishable from a lazy copy-paste, which
      * is the one way to satisfy the presence-based guard above without translating anything.
-     * Baseline measured on `389a8ff`: fr 12, de 5, es 2, ja 1, hi 0, zh 0.
+     * Baseline measured on `389a8ff`: fr 12, de 5, es 2, ja 1, hi 0, zh 0 (20 total).
+     * TASK-132 added `notifTrackingMetrics` (`"%1$s • %2$s • %3$s"`) across 6 locales, raising total to 26.
      * Raising this number is a product decision, not a merge-conflict resolution.
      */
-    private val maxEntriesIdenticalToEnglish = 20
+    private val maxEntriesIdenticalToEnglish = 26
 
     /** Every `val x: String = s("x", …)` field on the base class, derived from its getters. */
     private fun declaredStringKeys(): Set<String> =
