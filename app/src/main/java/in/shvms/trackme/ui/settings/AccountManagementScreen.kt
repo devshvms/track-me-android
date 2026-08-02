@@ -497,7 +497,7 @@ fun AccountManagementScreen(
                     }
                 } else {
                     Button(onClick = { showExportDialog = false }) {
-                        Text("Got it")
+                        Text(strings.gotIt)
                     }
                 }
             },

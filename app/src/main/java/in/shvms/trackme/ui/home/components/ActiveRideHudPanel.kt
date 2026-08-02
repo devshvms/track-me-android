@@ -232,7 +232,7 @@ fun ActiveRideHudPanel(
                     modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
                     Text(
-                        text = "⏸ Paused",
+                        text = "⏸ ${strings.statusPaused}",
                         color = Color.Black,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
@@ -305,12 +305,12 @@ fun ActiveRideHudPanel(
                         .padding(bottom = 14.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    StatItem(label = "DISTANCE", value = distanceText)
-                    StatItem(label = "DURATION", value = durationText, subValue = elapsedDurationText)
+                    StatItem(label = strings.distance, value = distanceText)
+                    StatItem(label = strings.duration, value = durationText, subValue = elapsedDurationText)
                     if (selectedPersona == RidePersona.WALK) {
                         StatItem(label = "PACE", value = paceText)
                     } else {
-                        StatItem(label = "SPEED", value = speedText)
+                        StatItem(label = strings.speed, value = speedText)
                     }
                 }
 
