@@ -15,6 +15,9 @@ class AppStringsNotificationTest {
             listOf(
                 strings.notifTrackingTitle,
                 strings.notifTrackingText,
+                strings.notifTrackingMetrics,
+                strings.notifTrackingPaused,
+                strings.notifTrackingGpsSearching,
                 strings.notifAutoSplitTitle,
                 strings.notifAutoSplitText,
                 strings.notifLongRideTitle,
@@ -35,6 +38,13 @@ class AppStringsNotificationTest {
             assertTrue("$language submitted placeholder drifted", submitted.contains("3"))
             assertTrue("$language partial placeholder drifted", partial.contains("3"))
             assertTrue("$language partial failure placeholder drifted", partial.contains("1"))
+
+            val metrics = String.format(Locale.US, strings.notifTrackingMetrics, "00:01:00", "1.0 km", "3.6 km/h")
+            val paused = String.format(Locale.US, strings.notifTrackingPaused, "00:01:00")
+            assertTrue("$language metrics placeholder drifted", metrics.contains("00:01:00"))
+            assertTrue("$language metrics distance placeholder drifted", metrics.contains("1.0 km"))
+            assertTrue("$language metrics speed placeholder drifted", metrics.contains("3.6 km/h"))
+            assertTrue("$language paused placeholder drifted", paused.contains("00:01:00"))
         }
     }
 

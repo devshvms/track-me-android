@@ -30,6 +30,7 @@ data class HomeUiState(
     val durationText: String = "00:00:00",
     /** Total wall-clock time since start, including paused segments — see [formatElapsedDuration]. */
     val elapsedDurationText: String = "Total 00:00:00",
+    val elapsedDurationMillis: Long = 0L,
     val distanceMeters: Float = 0f,
     val durationMillis: Long = 0L,
     val speedText: String = "0.0 km/h",
@@ -116,6 +117,7 @@ class HomeViewModel(
             distanceText = formatDistance(g1.third, imperial),
             durationText = formatDuration(g2.durationMillis),
             elapsedDurationText = formatElapsedDuration(g2.elapsedMillis),
+            elapsedDurationMillis = g2.elapsedMillis,
             distanceMeters = g1.third,
             durationMillis = g2.durationMillis,
             speedText = formatSpeed(g2.speedMps, imperial),

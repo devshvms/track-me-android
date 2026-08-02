@@ -168,6 +168,7 @@ dependencies {
   implementation(libs.maps.compose)
   implementation(libs.play.services.maps)
   implementation(libs.play.services.location)
+  implementation(libs.play.age.signals)
   implementation(libs.play.review.ktx) // B4 in-app review
   implementation(libs.credentials)
   implementation(libs.credentials.play.services.auth)

@@ -115,6 +115,52 @@ object AnalyticsManager {
         PostHog.capture("data_download_requested")
     }
 
+    // App Performance & Errors — taxonomy parity with iOS. These remain unwired until a
+    // crash handler/ANR watchdog is deliberately introduced on both platforms.
+    fun trackAppCrashDetected(errorMessage: String, errorStack: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "app_crash_detected",
+            properties = mapOf(
+                "error_message" to errorMessage,
+                "error_stack" to errorStack
+            )
+        )
+    }
+
+    fun trackScreenStuckDetected(screenName: String, stuckDurationSeconds: Long) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "screen_stuck_detected",
+            properties = mapOf(
+                "screen_name" to screenName,
+                "stuck_duration_seconds" to stuckDurationSeconds
+            )
+        )
+    }
+
+    // Background Tracking Reliability — Android's GPS-staleness watchdog is the equivalent
+    // of iOS's CLLocationManager pause/resume callbacks. These have no event properties.
+    fun trackLocationUpdatesPaused() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("location_updates_paused")
+    }
+
+    fun trackLocationUpdatesResumed() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("location_updates_resumed")
+    }
+
+    fun trackHelpOpened() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("help_opened")
+    }
+
+    fun trackSupportContactStarted(faqExpandedCount: Int) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("support_contact_started", properties = mapOf("faq_expanded_count" to faqExpandedCount))
+    }
+
     // Core Rides
     fun trackRideStarted(rideId: String) {
         if (!_isTelemetryEnabled.value) return
@@ -136,6 +182,16 @@ object AnalyticsManager {
                 "ride_id" to rideId,
                 "duration_seconds" to durationSeconds,
                 "distance_km" to distanceKm
+            )
+        )
+    }
+
+    fun trackRideStartAborted(method: RideStartAbortMethod) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "ride_start_aborted",
+            properties = mapOf(
+                "method" to method.analyticsValue
             )
         )
     }
@@ -250,6 +306,24 @@ object AnalyticsManager {
             )
         )
     }
+
+    /** Age-signal compliance outcome. Category and decision are coarse, non-PII values. */
+    fun trackAgeSignalChecked(platform: String = "android", category: String, decision: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "age_signal_checked",
+            properties = mapOf(
+                "platform" to platform,
+                "category" to category,
+                "decision" to decision
+            )
+        )
+    }
+}
+
+enum class RideStartAbortMethod(val analyticsValue: String) {
+    PRE_COMMIT("pre_commit"),
+    POST_COMMIT_UNDO("post_commit_undo")
 }
 
 /** Pure consent contract used by [AnalyticsManager] and its JVM tests. */
