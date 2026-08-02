@@ -6,6 +6,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -285,7 +287,34 @@ private fun UnifiedAggregateRidePreviewDialog(
     val scope = rememberCoroutineScope()
     var previewMapInstance by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
     var isExporting by remember { mutableStateOf(false) }
-    var exportError by remember { mutableStateOf(false) }
+    var exportFailure by remember { mutableStateOf<ExportPreviewFailure?>(null) }
+    var pendingGalleryFile by remember { mutableStateOf<java.io.File?>(null) }
+
+    val gallerySaveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("image/png")
+    ) { uri ->
+        val sourceFile = pendingGalleryFile
+        pendingGalleryFile = null
+        if (uri == null) {
+            isExporting = false
+        } else if (sourceFile == null) {
+            isExporting = false
+            exportFailure = ExportPreviewFailure.Save
+        } else {
+            scope.launch(Dispatchers.IO) {
+                val saved = saveImageToDocument(context, sourceFile, uri)
+                withContext(Dispatchers.Main) {
+                    isExporting = false
+                    if (saved) {
+                        toast(context, "Saved to gallery")
+                        onDismiss()
+                    } else {
+                        exportFailure = ExportPreviewFailure.Save
+                    }
+                }
+            }
+        }
+    }
 
     fun exportPreview(settings: ExportPreviewSettings, share: Boolean) {
         val map = previewMapInstance
@@ -294,11 +323,11 @@ private fun UnifiedAggregateRidePreviewDialog(
             return
         }
         isExporting = true
-        exportError = false
+        exportFailure = null
         map.snapshot { snapshot ->
             if (snapshot == null) {
                 isExporting = false
-                exportError = true
+                exportFailure = ExportPreviewFailure.Render
                 return@snapshot
             }
             scope.launch(Dispatchers.IO) {
@@ -307,20 +336,40 @@ private fun UnifiedAggregateRidePreviewDialog(
                         legend = aggregatePreviewLegend(visibleRoutes, strings.rideHistoryTitle, settings.showLegend)
                     ).export(snapshot, context)
                 }.onSuccess { file ->
-                    withContext(Dispatchers.Main) {
-                        val saved = if (share) {
+                    if (share) {
+                        withContext(Dispatchers.Main) {
                             shareComparisonFile(context, file)
-                            true
-                        } else {
-                            saveComparisonImage(context, file)
+                            isExporting = false
+                            onDismiss()
                         }
-                        isExporting = false
-                        if (saved) onDismiss() else exportError = true
+                    } else if (shouldUseGalleryDocumentPicker()) {
+                        withContext(Dispatchers.Main) {
+                            pendingGalleryFile = file
+                            val launched = tryLaunchGalleryDocument {
+                                gallerySaveLauncher.launch(galleryImageDisplayName("Aggregate"))
+                            }
+                            if (!launched) {
+                                pendingGalleryFile = null
+                                isExporting = false
+                                exportFailure = ExportPreviewFailure.Save
+                            }
+                        }
+                    } else {
+                        val saved = saveComparisonImage(context, file)
+                        withContext(Dispatchers.Main) {
+                            isExporting = false
+                            if (saved) {
+                                toast(context, "Saved to gallery")
+                                onDismiss()
+                            } else {
+                                exportFailure = ExportPreviewFailure.Save
+                            }
+                        }
                     }
                 }.onFailure {
                     withContext(Dispatchers.Main) {
                         isExporting = false
-                        exportError = true
+                        exportFailure = ExportPreviewFailure.Render
                     }
                 }
             }
@@ -336,7 +385,11 @@ private fun UnifiedAggregateRidePreviewDialog(
         showAggregateControls = true,
         canExport = visibleRoutes.isNotEmpty(),
         isExporting = isExporting,
-        errorMessage = if (exportError) strings.exportFailed else null,
+        errorMessage = when (exportFailure) {
+            ExportPreviewFailure.Render -> strings.exportRetryMessage
+            ExportPreviewFailure.Save -> strings.exportFailed
+            null -> null
+        },
         shareLabel = strings.aggregatePreviewShare,
         onDismiss = onDismiss,
         onShare = { settings -> exportPreview(settings, share = true) },
