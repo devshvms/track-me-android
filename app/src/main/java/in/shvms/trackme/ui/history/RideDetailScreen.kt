@@ -814,7 +814,7 @@ fun RideDetailScreen(
                                     putExtra(Intent.EXTRA_STREAM, uri)
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
-                                context.startActivity(Intent.createChooser(intent, "Share Image"))
+                                context.startActivity(Intent.createChooser(intent, strings.shareImage))
                                 exportInProgress = false
                                 showExportDialog = false
                             }

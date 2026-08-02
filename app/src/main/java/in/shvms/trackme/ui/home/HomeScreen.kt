@@ -627,7 +627,7 @@ fun HomeScreen(
                         FloatingActionButton(
                             onClick = {
                                 viewModel.stopLiveShare()
-                                android.widget.Toast.makeText(context, "Live Location Sharing Stopped", android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(context, strings.liveShareStoppedToast, android.widget.Toast.LENGTH_SHORT).show()
                             },
                             // C1: semantic — green here means "a live share is ACTIVE", not
                             // brand accent, so it stays green via the named success token
@@ -743,7 +743,7 @@ fun HomeScreen(
                     },
                     onStopShare = {
                         viewModel.stopLiveShare()
-                        android.widget.Toast.makeText(context, "Live Location Sharing Stopped", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, strings.liveShareStoppedToast, android.widget.Toast.LENGTH_SHORT).show()
                     },
                     onSendShare = {
                         val shareLink = uiState.liveShareState.shareLink
@@ -763,7 +763,7 @@ fun HomeScreen(
                             val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                             val clip = android.content.ClipData.newPlainText("Live Share Link", shareLink)
                             clipboard.setPrimaryClip(clip)
-                            android.widget.Toast.makeText(context, "Shareable link copied!", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(context, strings.linkCopied, android.widget.Toast.LENGTH_SHORT).show()
                         }
                     },
                         modifier = Modifier.padding(bottom = 8.dp)
