@@ -334,6 +334,7 @@ fun PermissionAndTestStep(
 
 @Composable
 fun AcknowledgmentStep(settings: EmergencySettingsEntity?, viewModel: EmergencySettingsViewModel, onFinish: () -> Unit) {
+    val strings = LocalAppStrings.current
     var template by remember { mutableStateOf("") }
     
     LaunchedEffect(settings) {
@@ -409,7 +410,7 @@ fun AcknowledgmentStep(settings: EmergencySettingsEntity?, viewModel: EmergencyS
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Done")
+            Text(strings.done)
         }
     }
 }

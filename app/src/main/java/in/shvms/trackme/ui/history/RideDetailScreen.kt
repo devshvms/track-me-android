@@ -566,7 +566,7 @@ fun RideDetailScreen(
                     }
                     
                     Text(
-                        text = "Time: $elapsedFormatted  |  Dist: ${`in`.shvms.trackme.domain.UnitFormatter.rideDistance(distKm * 1000.0, imperial)}",
+                        text = "${strings.durationShortLabel}: $elapsedFormatted  |  ${strings.distanceShortLabel}: ${`in`.shvms.trackme.domain.UnitFormatter.rideDistance(distKm * 1000.0, imperial)}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
