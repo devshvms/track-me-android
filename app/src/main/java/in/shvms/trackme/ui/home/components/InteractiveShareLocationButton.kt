@@ -40,6 +40,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
+import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
 /**
  * Production-ready interactive Live Share Location floating action button.
@@ -69,6 +70,7 @@ fun InteractiveShareLocationButton(
     modifier: Modifier = Modifier
 ) {
     var isDrawerOpen by remember { mutableStateOf(false) }
+    val strings = LocalAppStrings.current
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val buttonScale = remember { Animatable(1f) }
@@ -176,7 +178,7 @@ fun InteractiveShareLocationButton(
                 if (isDisabled) {
                     Icon(
                         imageVector = Icons.Default.Block,
-                        contentDescription = "Live sharing unavailable. Sign in to share your live location.",
+                        contentDescription = strings.liveShareAuthRequired,
                         tint = Color.Black.copy(alpha = 0.6f),
                         modifier = Modifier.size(27.dp)
                     )
@@ -190,14 +192,17 @@ fun InteractiveShareLocationButton(
                             scaleY = antennaScale
                         }
                     ) {
-                        LiveShareAntennaIcon(tint = Color.Black.copy(alpha = 0.85f))
+                        LiveShareAntennaIcon(
+                            contentDescription = strings.sharePin,
+                            tint = Color.Black.copy(alpha = 0.85f)
+                        )
                     }
                 }
                 // Cross icon layer
                 if (crossAlpha > 0.01f) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
+                        contentDescription = strings.close,
                         tint = Color.Black.copy(alpha = 0.85f),
                         modifier = Modifier
                             .size(26.dp)
@@ -261,7 +266,7 @@ fun InteractiveShareLocationButton(
                             // s5: Active sharing symbol options drawer
                             DrawerOptionCircleButton(
                                 icon = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "Send",
+                                contentDescription = strings.send,
                                 color = optionButtonColor,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -272,7 +277,7 @@ fun InteractiveShareLocationButton(
                             )
                             DrawerOptionCircleButton(
                                 icon = Icons.Default.ContentCopy,
-                                contentDescription = "Copy",
+                                contentDescription = strings.copy,
                                 color = optionButtonColor,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -283,7 +288,7 @@ fun InteractiveShareLocationButton(
                             )
                             DrawerOptionCircleButton(
                                 icon = Icons.Default.Stop,
-                                contentDescription = "Stop",
+                                contentDescription = strings.stopTracking,
                                 color = Color(0xFFFFCDD2),
                                 iconTint = TrackMeRed,
                                 onClick = {
@@ -297,7 +302,7 @@ fun InteractiveShareLocationButton(
                             // s2: Inactive sharing drawer
                             DrawerOptionCircleButton(
                                 icon = Icons.Default.PlayArrow,
-                                contentDescription = "Start",
+                                contentDescription = strings.startTracking,
                                 color = optionButtonColor,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -342,7 +347,7 @@ private fun DrawerOptionCircleButton(
 }
 
 @Composable
-private fun LiveShareAntennaIcon(tint: Color) {
+private fun LiveShareAntennaIcon(contentDescription: String, tint: Color) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
@@ -356,7 +361,7 @@ private fun LiveShareAntennaIcon(tint: Color) {
         Spacer(modifier = Modifier.width(2.dp))
         Icon(
             imageVector = Icons.Default.Place,
-            contentDescription = "Share Pin",
+            contentDescription = contentDescription,
             tint = TrackMeRed,
             modifier = Modifier.size(18.dp)
         )

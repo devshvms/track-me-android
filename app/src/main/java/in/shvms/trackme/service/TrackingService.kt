@@ -237,8 +237,13 @@ class TrackingService : Service() {
     }
 
     private fun startForegroundService() {
-        createNotificationChannels()
-        startForeground(NOTIFICATION_ID, getNotification())
+        try {
+            createNotificationChannels()
+            startForeground(NOTIFICATION_ID, getNotification())
+        } catch (e: Exception) {
+            handleForegroundStartFailure(e)
+            return
+        }
 
         if (StorageHealthMonitor.isLowStorage(this)) {
             enterStorageLowState()
@@ -277,7 +282,10 @@ class TrackingService : Service() {
                     isTimerEnabled = false
                     motionSensorManager.stopListening()
                 } else {
-                    locationHelper.startLocationTracking(locationCallback)
+                    if (!locationHelper.startLocationTracking(locationCallback)) {
+                        handleLocationStartFailure()
+                        return@launch
+                    }
                 }
             } catch (_: SQLiteException) {
                 withContext(Dispatchers.Main.immediate) {
@@ -311,13 +319,40 @@ class TrackingService : Service() {
             }
         }
         lastGpsTimeMs = System.currentTimeMillis()
-        locationHelper.startLocationTracking(locationCallback)
+        if (!locationHelper.startLocationTracking(locationCallback)) {
+            handleLocationStartFailure()
+            return
+        }
         if (!isTimerEnabled) {
             startTimer()
         }
     }
 
-    private fun stopTracking(discardNearEmptyRide: Boolean = false) {
+    private fun handleForegroundStartFailure(error: Exception) {
+        val app = application as TrackMeApp
+        app.errorLogger.recordException(error)
+        val outcome = ForegroundStartPolicy.classify(error, Build.VERSION.SDK_INT)
+        app.abandonPersistedTrackingSession(outcome)
+        updateState(TrackingState.IDLE)
+        isTimerEnabled = false
+        stopSelf()
+    }
+
+    private fun handleLocationStartFailure() {
+        val error = SecurityException("Location permission was revoked while starting ride tracking")
+        val app = application as TrackMeApp
+        app.errorLogger.recordException(error)
+        val outcome = ForegroundStartPolicy.classify(error, Build.VERSION.SDK_INT)
+        app.abandonPersistedTrackingSession(outcome)
+        // Keep the unfinished ride row and its points for OrphanedRideRecoveryManager. The
+        // normal stop path finalizes/deletes rides, which is unsafe after a permission failure.
+        stopTracking(preserveRideForRecovery = true)
+    }
+
+    private fun stopTracking(
+        discardNearEmptyRide: Boolean = false,
+        preserveRideForRecovery: Boolean = false
+    ) {
         updateState(TrackingState.IDLE)
         isTimerEnabled = false
         motionSensorManager.stopListening()
@@ -341,8 +376,10 @@ class TrackingService : Service() {
             if (liveShareManager.state.value.status == LiveShareStatus.ACTIVE || liveShareManager.state.value.stopOnRideEnd) {
                 liveShareManager.stopSession("Ride ended by user.")
             }
-            rideToProcess?.let { rideId ->
-                finalizeRide(rideId, finalDistance, finalDuration, discardNearEmptyRide)
+            if (!preserveRideForRecovery) {
+                rideToProcess?.let { rideId ->
+                    finalizeRide(rideId, finalDistance, finalDuration, discardNearEmptyRide)
+                }
             }
             stopSelf()
         }

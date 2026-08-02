@@ -22,6 +22,9 @@ import androidx.compose.ui.graphics.Color
 import `in`.shvms.trackme.theme.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.content.ContextCompat
@@ -78,6 +81,12 @@ private tailrec fun android.content.Context.findActivity(): android.app.Activity
     else -> null
 }
 
+private fun openAppSettings(context: android.content.Context) {
+    val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+    intent.data = android.net.Uri.fromParts("package", context.packageName, null)
+    context.startActivity(intent)
+}
+
 @Composable
 fun HomeScreen(
     onNavigateToEmergencySetup: () -> Unit = {},
@@ -114,6 +123,7 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val recoveryNotice by app.recoveryNotice.collectAsState()
     val smsPermissionRevoked by app.smsPermissionRevokedNotice.collectAsState()
+    val locationPermissionRevokedNotice by app.locationPermissionRevokedNotice.collectAsState()
     // B1: durable one-shot post-ride reveal (null unless a good ride was just saved).
     val pendingReveal by app.pendingRevealStore.pending.collectAsState()
     // B2: weekly recap for a completed week (null unless one is pending on foreground).
@@ -396,10 +406,7 @@ fun HomeScreen(
                     },
                     dismissButton = {
                         TextButton(onClick = {
-                            val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                            val uri = android.net.Uri.fromParts("package", context.packageName, null)
-                            intent.data = uri
-                            context.startActivity(intent)
+                            openAppSettings(context)
                         }) {
                             Text(strings.openSettings)
                         }
@@ -425,7 +432,7 @@ fun HomeScreen(
 
                 MapControlCircleButton(
                     icon = Icons.Default.MyLocation,
-                    contentDescription = "Recenter",
+                    contentDescription = strings.recenterMap,
                     onClick = {
                         val target = uiState.pathPoints.lastOrNull()
                         if (target != null) {
@@ -467,7 +474,7 @@ fun HomeScreen(
 
                 MapControlCircleButton(
                     icon = Icons.Default.Explore,
-                    contentDescription = "Compass North",
+                    contentDescription = strings.compassNorth,
                     onClick = {
                         coroutineScope.launch {
                             cameraPositionState.animate(
@@ -485,6 +492,49 @@ fun HomeScreen(
 
             // Idle State: Radial Persona Start Button
             if (uiState.trackingState == TrackingState.IDLE) {
+                if (locationPermissionRevokedNotice) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = topPadding + 16.dp, start = 12.dp, end = 12.dp)
+                            .semantics { liveRegion = LiveRegionMode.Polite },
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        shape = RoundedCornerShape(12.dp),
+                        tonalElevation = 3.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 12.dp, end = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 8.dp, vertical = 10.dp)
+                            ) {
+                                Text(
+                                    text = strings.locationPermissionRevokedTitle,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = strings.locationPermissionRevokedBody,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            TextButton(onClick = { openAppSettings(context) }) {
+                                Text(strings.openSettings)
+                            }
+                            IconButton(onClick = { app.dismissLocationPermissionRevokedNoticeForSession() }) {
+                                Icon(Icons.Default.Close, contentDescription = strings.close)
+                            }
+                        }
+                    }
+                }
+
                 if (hasLocationPermission && showStartRideHint) {
                     Surface(
                         modifier = Modifier

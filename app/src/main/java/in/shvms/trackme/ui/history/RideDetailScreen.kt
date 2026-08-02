@@ -587,7 +587,7 @@ fun RideDetailScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
                             .semantics {
-                                contentDescription = "Timeline scrubber. Adjust to inspect speed, altitude, and route position."
+                                contentDescription = strings.timelineScrubberAccessibility
                             }
                     )
                     

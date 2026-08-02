@@ -77,6 +77,7 @@ fun EmergencySetupScreen(
     )
 ) {
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
     val settings by viewModel.settings.collectAsState()
     val contacts by viewModel.contacts.collectAsState()
     val app = context.applicationContext as TrackMeApp
@@ -95,7 +96,7 @@ fun EmergencySetupScreen(
                 },
                 actions = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
+                        Icon(Icons.Default.Close, contentDescription = strings.close)
                     }
                 }
             )
@@ -169,7 +170,7 @@ fun ContactsStep(viewModel: EmergencySettingsViewModel, contacts: List<Emergency
                         IconButton(onClick = { viewModel.deleteContact(contact) }) {
                             Icon(
                                 Icons.Default.Delete,
-                                contentDescription = "Delete ${contact.name}"
+                                contentDescription = strings.deleteContactFormat.format(contact.name)
                             )
                         }
                     }

@@ -24,6 +24,7 @@ class SosButtonAccessibilityTest {
                 isActive = true,
                 strings = strings
             )
+            val bannerStop = strings.stopEmergencyBroadcast
             val readyState = SosButtonAccessibility.stateDescription(
                 isReady = true,
                 isActive = false,
@@ -40,14 +41,16 @@ class SosButtonAccessibilityTest {
                 strings = strings
             )
 
-            listOf(trigger, stop, readyState, activeState, unavailable).forEach { value ->
+            listOf(trigger, stop, bannerStop, readyState, activeState, unavailable).forEach { value ->
                 assertTrue("$language has blank SOS accessibility copy", value.isNotBlank())
             }
             assertFalse("$language does not distinguish trigger and stop", trigger == stop)
+            assertFalse("$language does not distinguish SOS action from banner action", stop == bannerStop)
             assertFalse("$language does not distinguish ready and active", readyState == activeState)
 
             if (language != "en") {
-                assertFalse("$language fell back for stop label", stop == english.stopEmergencyBroadcast)
+                assertFalse("$language fell back for SOS stop label", stop == english.stopSosBroadcastAccessibility)
+                assertFalse("$language fell back for banner stop label", bannerStop == english.stopEmergencyBroadcast)
                 assertFalse("$language fell back for trigger label", trigger == english.triggerEmergencyAccessibility)
                 assertFalse("$language fell back for ready state", readyState == english.emergencySosReady)
                 assertFalse("$language fell back for active state", activeState == english.emergencySosActive)

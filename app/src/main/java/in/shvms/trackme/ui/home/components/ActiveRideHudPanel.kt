@@ -42,6 +42,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -55,45 +58,30 @@ import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import `in`.shvms.trackme.service.TrackingState
+import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-/**
- * Production-ready heads-up display (HUD) panel rendered at the bottom of the active ride screen.
- *
- * Features:
- * - Real-time metrics display: Distance, Duration (+ total elapsed time), and Speed/Pace
- *   formatted cleanly. Duration shows a smaller "elapsed" sub-value beneath it — the active
- *   (moving) time is the headline stat, total wall-clock time (including pauses) is secondary,
- *   for every persona. WALK shows PACE instead of SPEED as its third stat; all other personas
- *   keep live speed — see `RadialStartRideButton`/persona docs for why (a walker cares about
- *   min/km, a cyclist or driver cares about km/h).
- * - Interactive slide-to-stop mechanism with acknowledgement animations and physical haptics.
- * - Pause/Resume toggle with smooth scale bounce feedback.
- * - Persona badge and live share status indicator.
- */
-internal object SosButtonAccessibility {
-    fun contentDescription(
-        isReady: Boolean,
-        isActive: Boolean,
+internal object RideControlAccessibility {
+    fun pauseToggleContentDescription(
+        isPaused: Boolean,
         strings: `in`.shvms.trackme.ui.localization.AppStrings
-    ): String = when {
-        !isReady -> strings.emergencySosUnavailable
-        isActive -> strings.stopEmergencyBroadcast
-        else -> strings.triggerEmergencyAccessibility
-    }
+    ): String = if (isPaused) strings.resumeTracking else strings.pauseTracking
 
-    fun stateDescription(
-        isReady: Boolean,
-        isActive: Boolean,
+    fun pauseToggleStateDescription(
+        isPaused: Boolean,
         strings: `in`.shvms.trackme.ui.localization.AppStrings
-    ): String = when {
-        !isReady -> strings.emergencySosUnavailable
-        isActive -> strings.emergencySosActive
-        else -> strings.emergencySosReady
-    }
+    ): String = if (isPaused) strings.statusPaused else strings.statusRecording
+
+    fun stopContentDescription(strings: `in`.shvms.trackme.ui.localization.AppStrings): String =
+        strings.stopTracking
+
+    fun stopStateDescription(
+        isStopping: Boolean,
+        strings: `in`.shvms.trackme.ui.localization.AppStrings
+    ): String = if (isStopping) strings.rideStopped else strings.rideInProgress
 }
 
 @Composable
@@ -387,6 +375,7 @@ fun ActiveRideHudPanel(
                         trackingState == TrackingState.STORAGE_LOW
                     UnifiedPauseStopPill(
                         isPaused = isPaused,
+                        strings = strings,
                         onPauseToggle = onPauseToggle,
                         onStopRide = onStopRide,
                         modifier = Modifier
@@ -408,6 +397,32 @@ fun ActiveRideHudPanel(
                 }
             }
         }
+    }
+}
+
+/**
+ * Pure copy selection for the SOS control's accessibility semantics.
+ * Kept below [ActiveRideHudPanel] so the panel's KDoc remains attached to the public composable.
+ */
+internal object SosButtonAccessibility {
+    fun contentDescription(
+        isReady: Boolean,
+        isActive: Boolean,
+        strings: AppStrings
+    ): String = when {
+        !isReady -> strings.emergencySosUnavailable
+        isActive -> strings.stopSosBroadcastAccessibility
+        else -> strings.triggerEmergencyAccessibility
+    }
+
+    fun stateDescription(
+        isReady: Boolean,
+        isActive: Boolean,
+        strings: AppStrings
+    ): String = when {
+        !isReady -> strings.emergencySosUnavailable
+        isActive -> strings.emergencySosActive
+        else -> strings.emergencySosReady
     }
 }
 
@@ -509,8 +524,9 @@ private fun SosButton(
 }
 
 @Composable
-private fun UnifiedPauseStopPill(
+internal fun UnifiedPauseStopPill(
     isPaused: Boolean,
+    strings: `in`.shvms.trackme.ui.localization.AppStrings,
     onPauseToggle: () -> Unit,
     onStopRide: () -> Unit,
     modifier: Modifier = Modifier
@@ -531,12 +547,29 @@ private fun UnifiedPauseStopPill(
         val halfWidthDp = maxWidth / 2
         val maxSlidePx = with(density) { halfWidthDp.toPx() }
 
+        fun requestStop() {
+            if (isStoppingAcknowledged) return
+            isStoppingAcknowledged = true
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            triggerPhysicalVibrate(context, 80L)
+            coroutineScope.launch {
+                dragOffset.animateTo(-maxSlidePx, animationSpec = tween(150))
+                delay(350)
+                onStopRide()
+            }
+        }
+
         // Left side button (Pause / Play)
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .width(halfWidthDp)
                 .fillMaxHeight()
+                .semantics(mergeDescendants = true) {
+                    contentDescription = RideControlAccessibility.pauseToggleContentDescription(isPaused, strings)
+                    stateDescription = RideControlAccessibility.pauseToggleStateDescription(isPaused, strings)
+                    role = Role.Button
+                }
                 .clickable {
                     if (dragOffset.value >= -10f && !isStoppingAcknowledged) {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -551,7 +584,7 @@ private fun UnifiedPauseStopPill(
         ) {
             Icon(
                 imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                contentDescription = "Pause / Play",
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier
                     .size(24.dp)
@@ -569,6 +602,15 @@ private fun UnifiedPauseStopPill(
                 .fillMaxHeight()
                 .clip(CircleShape)
                 .background(TrackMeRed)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = RideControlAccessibility.stopContentDescription(strings)
+                    stateDescription = RideControlAccessibility.stopStateDescription(isStoppingAcknowledged, strings)
+                    role = Role.Button
+                    onClick(label = strings.stopRideAction) {
+                        requestStop()
+                        true
+                    }
+                }
                 .clickable {
                     if (!isStoppingAcknowledged) {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -587,12 +629,7 @@ private fun UnifiedPauseStopPill(
                                 val newOffset = (dragOffset.value + delta).coerceIn(-maxSlidePx, 0f)
                                 dragOffset.snapTo(newOffset)
                                 if (-dragOffset.value >= maxSlidePx * 0.75f) {
-                                    isStoppingAcknowledged = true
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    triggerPhysicalVibrate(context, 80L)
-                                    dragOffset.animateTo(-maxSlidePx, animationSpec = tween(150))
-                                    delay(350)
-                                    onStopRide()
+                                    requestStop()
                                 }
                             }
                         }
@@ -626,7 +663,7 @@ private fun UnifiedPauseStopPill(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Stop,
-                        contentDescription = "Stop Ride",
+                        contentDescription = null,
                         tint = TrackMeRed,
                         modifier = Modifier.size(24.dp)
                     )
@@ -641,6 +678,10 @@ private fun UnifiedPauseStopPill(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(TrackMeRed)
+                    .semantics(mergeDescendants = true) {
+                        liveRegion = LiveRegionMode.Assertive
+                        contentDescription = strings.rideStopped
+                    }
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -651,7 +692,7 @@ private fun UnifiedPauseStopPill(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "RIDE STOPPED",
+                        text = strings.rideStopped,
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.labelLarge

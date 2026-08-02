@@ -32,9 +32,20 @@ import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.draw.clip
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.ui.localization.SUPPORTED_LANGUAGE_CODES
 import `in`.shvms.trackme.ui.components.OfflineShieldBanner
 import `in`.shvms.trackme.ui.components.rememberIsOffline
 import android.widget.Toast
+
+private val languageDisplayNames = mapOf(
+    "en" to "English",
+    "es" to "Español",
+    "fr" to "Français",
+    "de" to "Deutsch",
+    "hi" to "हिन्दी",
+    "ja" to "日本語",
+    "zh" to "中文",
+)
 
 @Composable
 fun SettingsScreen(
@@ -79,7 +90,7 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.primaryContainer,
                         modifier = Modifier.size(80.dp)
                     ) {
-                        Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.padding(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.padding(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(strings.guest, style = MaterialTheme.typography.titleLarge)
@@ -124,7 +135,7 @@ fun SettingsScreen(
                         if (user?.photoUrl != null) {
                             coil.compose.AsyncImage(
                                 model = user?.photoUrl,
-                                contentDescription = "Profile Picture",
+                                contentDescription = null,
                                 modifier = Modifier.size(64.dp).clip(androidx.compose.foundation.shape.CircleShape)
                             )
                         } else {
@@ -133,7 +144,7 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.primaryContainer,
                                 modifier = Modifier.size(64.dp)
                             ) {
-                                Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.padding(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.padding(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                             }
                         }
                         Spacer(modifier = Modifier.width(16.dp))
@@ -261,15 +272,7 @@ fun SettingsScreen(
         var appLanguage by remember { mutableStateOf(prefs.getString("app_language", "en") ?: "en") }
         var showLangDropdown by remember { mutableStateOf(false) }
 
-        val languages = listOf(
-            "en" to "English",
-            "es" to "Español",
-            "fr" to "Français",
-            "de" to "Deutsch",
-            "hi" to "हिन्दी",
-            "ja" to "日本語",
-            "zh" to "中文"
-        )
+        val languages = SUPPORTED_LANGUAGE_CODES.map { it to (languageDisplayNames[it] ?: it) }
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -493,7 +496,7 @@ fun SettingsScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(strings.disableGpsPostProcessing, style = MaterialTheme.typography.bodyLarge)
                             IconButton(onClick = { showGpsInfo = true }, modifier = Modifier.size(24.dp).padding(start = 4.dp)) {
-                                Icon(Icons.Default.Info, contentDescription = "Info", modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Info, contentDescription = strings.info, modifier = Modifier.size(16.dp))
                             }
                         }
                         Text(
@@ -541,7 +544,7 @@ fun SettingsScreen(
                 ) {
                     Text(strings.liveLocationSharing, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                     IconButton(onClick = { showLiveShareInfo = true }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Info, contentDescription = "Live Share Info", modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Info, contentDescription = strings.liveShareInfoTitle, modifier = Modifier.size(18.dp))
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))

@@ -45,6 +45,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Compose's Robolectric unit-test rule launches this activity as its host. -->
+        <activity
+            android:name="androidx.activity.ComponentActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar"
+            tools:replace="android:exported" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
