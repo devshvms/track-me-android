@@ -2,7 +2,9 @@ package `in`.shvms.trackme.ui.home.components
 
 import `in`.shvms.trackme.domain.model.RidePersona
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RadialStartRideButtonGestureTest {
@@ -92,5 +94,64 @@ class RadialStartRideButtonGestureTest {
                 )
             )
         }
+    }
+
+    @Test
+    fun `touch inside center aborts current launch and consumes gesture`() {
+        val launch = PendingRideLaunch(token = 7L, persona = RidePersona.RUN)
+
+        val decision = pendingLaunchAbortDecision(
+            pendingLaunch = launch,
+            observedLaunchToken = launch.token,
+            pressedInsideCenter = true
+        )
+
+        assertTrue(decision.shouldAbort)
+        assertTrue(decision.consumeGesture)
+    }
+
+    @Test
+    fun `touch after launch window is a no-op and is not consumed`() {
+        val decision = pendingLaunchAbortDecision(
+            pendingLaunch = null,
+            observedLaunchToken = 7L,
+            pressedInsideCenter = true
+        )
+
+        assertFalse(decision.shouldAbort)
+        assertFalse(decision.consumeGesture)
+    }
+
+    @Test
+    fun `stale touch cannot abort a newer launch`() {
+        val decision = pendingLaunchAbortDecision(
+            pendingLaunch = PendingRideLaunch(token = 8L, persona = RidePersona.RUN),
+            observedLaunchToken = 7L,
+            pressedInsideCenter = true
+        )
+
+        assertFalse(decision.shouldAbort)
+        assertFalse(decision.consumeGesture)
+    }
+
+    @Test
+    fun `pending launch commits only while its identity is current`() {
+        val launch = PendingRideLaunch(token = 7L, persona = RidePersona.RUN)
+
+        assertTrue(canCommitPendingLaunch(launch, expectedLaunchToken = 7L))
+        assertFalse(canCommitPendingLaunch(launch, expectedLaunchToken = 8L))
+        assertFalse(canCommitPendingLaunch(null, expectedLaunchToken = 7L))
+    }
+
+    @Test
+    fun `abort reset clears every interaction field`() {
+        val reset = resetRadialInteractionState()
+
+        assertFalse(reset.isPressed)
+        assertNull(reset.hoveredPersona)
+        assertNull(reset.lastVibratedPersona)
+        assertFalse(reset.didExceedTouchSlop)
+        assertNull(reset.pendingLaunch)
+        assertFalse(reset.isAbortGestureActive)
     }
 }

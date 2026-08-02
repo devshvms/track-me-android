@@ -186,6 +186,16 @@ object AnalyticsManager {
         )
     }
 
+    fun trackRideStartAborted(method: RideStartAbortMethod) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "ride_start_aborted",
+            properties = mapOf(
+                "method" to method.analyticsValue
+            )
+        )
+    }
+
     // Live Sharing
     fun trackLiveShareStarted(shareId: String, recipientCount: Int) {
         if (!_isTelemetryEnabled.value) return
@@ -309,6 +319,11 @@ object AnalyticsManager {
             )
         )
     }
+}
+
+enum class RideStartAbortMethod(val analyticsValue: String) {
+    PRE_COMMIT("pre_commit"),
+    POST_COMMIT_UNDO("post_commit_undo")
 }
 
 /** Pure consent contract used by [AnalyticsManager] and its JVM tests. */

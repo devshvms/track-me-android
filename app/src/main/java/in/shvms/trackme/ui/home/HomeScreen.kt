@@ -52,10 +52,19 @@ import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.analytics.AnalyticsManager
+import `in`.shvms.trackme.analytics.RideStartAbortMethod
 
 private const val LAST_CAMERA_LAT_KEY = "last_camera_lat"
 private const val LAST_CAMERA_LNG_KEY = "last_camera_lng"
 private const val LAST_CAMERA_ZOOM_KEY = "last_camera_zoom"
+internal const val RIDE_START_UNDO_WINDOW_MILLIS = 10_000L
+
+internal fun shouldShowRideStartUndo(
+    elapsedDurationMillis: Long,
+    distanceMeters: Float
+): Boolean = elapsedDurationMillis < RIDE_START_UNDO_WINDOW_MILLIS &&
+    distanceMeters < `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DISTANCE_METERS
 
 // Country-level fallback used before a location fix has ever been persisted (center
 // of India); anything is better than the (0,0) world view.
@@ -112,6 +121,7 @@ fun HomeScreen(
         mutableStateOf(!uiPreferences.getBoolean("start_ride_hint_seen", false))
     }
     var showDiscardRideDialog by remember { mutableStateOf(false) }
+    var hasRequestedStartRideUndo by remember { mutableStateOf(false) }
     var hasLocationPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -130,6 +140,12 @@ fun HomeScreen(
     val weeklyRecap by app.weeklyRecap.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
+
+    LaunchedEffect(uiState.trackingState) {
+        if (uiState.trackingState == TrackingState.IDLE) {
+            hasRequestedStartRideUndo = false
+        }
+    }
 
     LaunchedEffect(recoveryNotice) {
         val summary = recoveryNotice ?: return@LaunchedEffect
@@ -583,6 +599,7 @@ fun HomeScreen(
                         }
                         viewModel.startTracking(persona)
                     },
+                    onAbortRideStart = AnalyticsManager::trackRideStartAborted,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 8.dp)
@@ -639,7 +656,48 @@ fun HomeScreen(
                 }
             } else {
                 // Active Recording / Non-Ideal State HUD Panel
-                ActiveRideHudPanel(
+                val showRideStartUndo = !hasRequestedStartRideUndo && shouldShowRideStartUndo(
+                    elapsedDurationMillis = uiState.elapsedDurationMillis,
+                    distanceMeters = uiState.distanceMeters
+                )
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    AnimatedVisibility(visible = showRideStartUndo) {
+                        OutlinedButton(
+                            onClick = {
+                                if (!hasRequestedStartRideUndo && shouldShowRideStartUndo(
+                                        elapsedDurationMillis = uiState.elapsedDurationMillis,
+                                        distanceMeters = uiState.distanceMeters
+                                    )
+                                ) {
+                                    hasRequestedStartRideUndo = true
+                                    AnalyticsManager.trackRideStartAborted(
+                                        RideStartAbortMethod.POST_COMMIT_UNDO
+                                    )
+                                    viewModel.stopTracking(discardNearEmptyRide = true)
+                                }
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = TrackMeRed
+                            ),
+                            border = BorderStroke(1.dp, TrackMeRed),
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(strings.discardRide)
+                        }
+                    }
+
+                    ActiveRideHudPanel(
                     trackingState = uiState.trackingState,
                     distanceText = uiState.distanceText,
                     durationText = uiState.durationText,
@@ -708,10 +766,9 @@ fun HomeScreen(
                             android.widget.Toast.makeText(context, "Shareable link copied!", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 8.dp)
-                )
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
             }
 
             if (uiState.isEmergencyActive) {
