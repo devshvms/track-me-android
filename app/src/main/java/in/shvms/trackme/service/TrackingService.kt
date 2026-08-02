@@ -243,6 +243,7 @@ class TrackingService : Service() {
         return START_STICKY
     }
 
+    private fun startForegroundService() {
         try {
             createNotificationChannels()
             startForeground(
