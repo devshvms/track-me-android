@@ -586,17 +586,6 @@ fun HomeScreen(
                         ) {
                             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                         }
-                        val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
-                        if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
-                            try {
-                                val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                    data = android.net.Uri.parse("package:${context.packageName}")
-                                }
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                // Fallback if device doesn't support this intent
-                            }
-                        }
                         viewModel.startTracking(persona)
                     },
                     onAbortRideStart = AnalyticsManager::trackRideStartAborted,
