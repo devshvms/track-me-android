@@ -4,14 +4,18 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.database.sqlite.SQLiteException
 import android.location.Location
 import android.location.LocationManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.dao.RideDao
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
@@ -59,6 +63,9 @@ class TrackingService : Service() {
     private var storageWarningShown = false
     private var lastGpsTimeMs = 0L
     private var lastLiveShareTimeMs = 0L
+    private var lastNotifyElapsedMs = Long.MIN_VALUE
+    private var lastNotifyDistanceMeters = 0f
+    private var lastNotifyState: TrackingState? = null
 
     private val adaptiveAutoPauseEngine = `in`.shvms.trackme.domain.processor.AdaptiveAutoPauseEngine()
     private lateinit var motionSensorManager: MotionSensorManager
@@ -236,10 +243,17 @@ class TrackingService : Service() {
         return START_STICKY
     }
 
-    private fun startForegroundService() {
         try {
             createNotificationChannels()
-            startForeground(NOTIFICATION_ID, getNotification())
+            startForeground(
+                NOTIFICATION_ID,
+                getNotification(
+                    durationMillis = rideDuration,
+                    distanceMeters = trackingManager.totalDistance.value,
+                    speedMps = trackingManager.currentSpeed.value,
+                    state = currentState
+                )
+            )
         } catch (e: Exception) {
             handleForegroundStartFailure(e)
             return
@@ -386,8 +400,12 @@ class TrackingService : Service() {
     }
 
     private fun updateState(newState: TrackingState) {
+        val stateChanged = newState != currentState
         currentState = newState
         trackingManager.updateState(newState)
+        if (stateChanged && newState != TrackingState.IDLE && newState != TrackingState.STORAGE_LOW) {
+            postTrackingNotification(force = true)
+        }
     }
 
     private fun hasPersistedActiveSession(): Boolean =
@@ -496,6 +514,8 @@ class TrackingService : Service() {
                 } else {
                     trackingManager.updateTimeSinceLastGps(0L)
                 }
+
+                postTrackingNotification()
                 
                 delay(1000L)
             }
@@ -518,7 +538,12 @@ class TrackingService : Service() {
         }
     }
 
-    private fun getNotification(): Notification {
+    private fun getNotification(
+        durationMillis: Long,
+        distanceMeters: Float,
+        speedMps: Float,
+        state: TrackingState
+    ): Notification {
         val strings = appStrings()
         val intent = android.content.Intent(this, `in`.shvms.trackme.MainActivity::class.java).apply {
             flags = android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -527,14 +552,77 @@ class TrackingService : Service() {
             this, 0, intent, android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
         )
 
+        val contentText = when (state) {
+            TrackingState.PAUSED -> String.format(
+                java.util.Locale.getDefault(),
+                strings.notifTrackingPaused,
+                formatTrackingNotificationDuration(durationMillis)
+            )
+            TrackingState.GPS_LOST, TrackingState.GPS_DISABLED -> strings.notifTrackingGpsSearching
+            TrackingState.TRACKING -> {
+                val imperial = (application as? TrackMeApp)?.preferencesManager?.unitSystem?.value == "imperial"
+                String.format(
+                    java.util.Locale.getDefault(),
+                    strings.notifTrackingMetrics,
+                    formatTrackingNotificationDuration(durationMillis),
+                    `in`.shvms.trackme.domain.UnitFormatter.distance(
+                        distanceMeters.toDouble().coerceAtLeast(0.0),
+                        imperial,
+                        decimals = 1
+                    ),
+                    `in`.shvms.trackme.domain.UnitFormatter.speed(
+                        speedMps.toDouble().coerceAtLeast(0.0),
+                        imperial
+                    )
+                )
+            }
+            else -> strings.notifTrackingText
+        }
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setAutoCancel(false)
             .setOngoing(true)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle(strings.notifTrackingTitle)
-            .setContentText(strings.notifTrackingText)
+            .setContentText(contentText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
             .setContentIntent(pendingIntent)
             .build()
+    }
+
+    private fun postTrackingNotification(force: Boolean = false) {
+        val state = currentState
+        if (state == TrackingState.IDLE || state == TrackingState.STORAGE_LOW) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            // Foreground-service startup remains the system-owned path; avoid a rejected
+            // incremental notify call when the user has denied optional notification access.
+            return
+        }
+
+        val nowElapsedMs = android.os.SystemClock.elapsedRealtime()
+        val distanceMeters = trackingManager.totalDistance.value
+        val previous = TrackingNotificationThrottle(
+            lastNotifyElapsedMs = lastNotifyElapsedMs,
+            lastNotifyDistanceMeters = lastNotifyDistanceMeters,
+            lastNotifyState = lastNotifyState
+        )
+        if (!force && !shouldUpdateTrackingNotification(nowElapsedMs, distanceMeters, state, previous)) return
+
+        NotificationManagerCompat.from(this).notify(
+            NOTIFICATION_ID,
+            getNotification(
+                durationMillis = rideDuration,
+                distanceMeters = distanceMeters,
+                speedMps = trackingManager.currentSpeed.value,
+                state = state
+            )
+        )
+        lastNotifyElapsedMs = nowElapsedMs
+        lastNotifyDistanceMeters = distanceMeters
+        lastNotifyState = state
     }
 
     /** Resolves user-facing notification content using the in-app language picker. */
@@ -779,6 +867,9 @@ class TrackingService : Service() {
         notificationManager.notify(STORAGE_WARNING_NOTIFICATION_ID, warningNotification)
     }
 
+    private fun formatTrackingNotificationDuration(durationMillis: Long): String =
+        formatTrackingNotificationDurationValue(durationMillis)
+
     companion object {
         const val ACTION_START_OR_RESUME_SERVICE = "ACTION_START_OR_RESUME_SERVICE"
         const val ACTION_PAUSE_SERVICE = "ACTION_PAUSE_SERVICE"
@@ -792,6 +883,8 @@ class TrackingService : Service() {
         const val SOS_CHANNEL_ID = "sos_channel"
         const val STORAGE_WARNING_NOTIFICATION_ID = 4
         const val GPS_LOSS_TIMEOUT_MS = 15_000L
+        const val NOTIFICATION_UPDATE_INTERVAL_MS = 15_000L
+        const val NOTIFICATION_DISTANCE_DELTA_METERS = 25f
         const val TRACKING_PREFS = "trackme_prefs"
         const val ACTIVE_TRACKING_SESSION_KEY = "active_tracking_session"
         const val PAUSED_TRACKING_SESSION_KEY = "paused_tracking_session"

@@ -70,6 +70,9 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     // Notification content (the OS channel labels remain native resources).
     val notifTrackingTitle: String = s("notifTrackingTitle", "TrackMe is recording your ride")
     val notifTrackingText: String = s("notifTrackingText", "Ongoing Ride")
+    val notifTrackingMetrics: String = s("notifTrackingMetrics", "%1\$s • %2\$s • %3\$s")
+    val notifTrackingPaused: String = s("notifTrackingPaused", "Paused • %1\$s")
+    val notifTrackingGpsSearching: String = s("notifTrackingGpsSearching", "Searching for GPS…")
     val notifAutoSplitTitle: String = s("notifAutoSplitTitle", "Ride Auto-Split")
     val notifAutoSplitText: String = s("notifAutoSplitText", "Your ride reached 9,000 points and was split automatically.")
     val notifLongRideTitle: String = s("notifLongRideTitle", "Long Ride Warning")
@@ -441,6 +444,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "emergencySosUnavailable" to "SOS de emergencia no disponible",
             "notifTrackingTitle" to "TrackMe está grabando tu viaje",
             "notifTrackingText" to "Viaje en curso",
+            "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
+            "notifTrackingPaused" to "En pausa • %1\$s",
+            "notifTrackingGpsSearching" to "Buscando GPS…",
             "notifAutoSplitTitle" to "División automática del viaje",
             "notifAutoSplitText" to "Tu viaje alcanzó 9.000 puntos y se dividió automáticamente.",
             "notifLongRideTitle" to "Aviso de viaje largo",
@@ -757,6 +763,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "emergencySosUnavailable" to "SOS d'urgence indisponible",
             "notifTrackingTitle" to "TrackMe enregistre votre trajet",
             "notifTrackingText" to "Trajet en cours",
+            "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
+            "notifTrackingPaused" to "En pause • %1\$s",
+            "notifTrackingGpsSearching" to "Recherche du GPS…",
             "notifAutoSplitTitle" to "Découpage automatique du trajet",
             "notifAutoSplitText" to "Votre trajet a atteint 9 000 points et a été découpé automatiquement.",
             "notifLongRideTitle" to "Alerte de trajet long",
@@ -1073,6 +1082,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "emergencySosUnavailable" to "Notfall-SOS nicht verfügbar",
             "notifTrackingTitle" to "TrackMe zeichnet deine Fahrt auf",
             "notifTrackingText" to "Fahrt läuft",
+            "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
+            "notifTrackingPaused" to "Pausiert • %1\$s",
+            "notifTrackingGpsSearching" to "GPS wird gesucht…",
             "notifAutoSplitTitle" to "Fahrt automatisch geteilt",
             "notifAutoSplitText" to "Deine Fahrt hat 9.000 Punkte erreicht und wurde automatisch geteilt.",
             "notifLongRideTitle" to "Warnung: lange Fahrt",
@@ -1389,6 +1401,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "emergencySosUnavailable" to "आपातकालीन SOS उपलब्ध नहीं है",
             "notifTrackingTitle" to "TrackMe आपकी राइड रिकॉर्ड कर रहा है",
             "notifTrackingText" to "राइड जारी है",
+            "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
+            "notifTrackingPaused" to "रुकी हुई • %1\$s",
+            "notifTrackingGpsSearching" to "GPS खोजा जा रहा है…",
             "notifAutoSplitTitle" to "राइड अपने-आप विभाजित",
             "notifAutoSplitText" to "आपकी राइड 9,000 पॉइंट तक पहुंच गई और अपने-आप विभाजित हो गई।",
             "notifLongRideTitle" to "लंबी राइड की चेतावनी",
@@ -1705,6 +1720,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "emergencySosUnavailable" to "緊急SOSは利用できません",
             "notifTrackingTitle" to "TrackMeがライドを記録しています",
             "notifTrackingText" to "ライド進行中",
+            "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
+            "notifTrackingPaused" to "一時停止中 • %1\$s",
+            "notifTrackingGpsSearching" to "GPSを検索中…",
             "notifAutoSplitTitle" to "ライドを自動分割",
             "notifAutoSplitText" to "ライドが9,000ポイントに達したため、自動的に分割されました。",
             "notifLongRideTitle" to "長時間ライドの警告",
@@ -2021,6 +2039,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "emergencySosUnavailable" to "紧急SOS不可用",
             "notifTrackingTitle" to "TrackMe正在记录你的骑行",
             "notifTrackingText" to "骑行进行中",
+            "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
+            "notifTrackingPaused" to "已暂停 • %1\$s",
+            "notifTrackingGpsSearching" to "正在搜索 GPS…",
             "notifAutoSplitTitle" to "骑行自动分段",
             "notifAutoSplitText" to "你的骑行已达到9,000个点，已自动分段。",
             "notifLongRideTitle" to "长途骑行警告",
