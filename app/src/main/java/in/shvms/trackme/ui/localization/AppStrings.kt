@@ -168,6 +168,46 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val gpsPostProcessingInfo: String = s("gpsPostProcessingInfo", "This feature uses advanced algorithms to clean up your raw GPS data immediately after a ride finishes.\n\n• Filters out GPS 'teleportation' glitches.\n• Smooths out noisy altitude and speed readings.\n• Detects when you were stopped and retroactively pauses the ride.\n• Compresses the total amount of data to save storage space and speed up cloud syncing, without losing the shape of your route on the map.")
     val liveShareInfoTitle: String = s("liveShareInfoTitle", "Live Location Data Sharing")
     val liveShareInfoText: String = s("liveShareInfoText", "When you start a Live Share session, the following information is periodically sent to our secure servers and made available to anyone with the link:\n\n• Exact GPS Coordinates (Latitude & Longitude)\n• Current Speed & Heading (Direction)\n• Phone Battery Level\n• Timestamp of the GPS reading\n• Maximum Viewers: Handled dynamically by server capability (Default: 10 viewers)\n\nAll shared data expires automatically when the session ends.")
+    // Help & Feedback
+    val helpFeedbackTitle: String = s("helpFeedbackTitle", "Help & Feedback")
+    val helpFeedbackDescription: String = s("helpFeedbackDescription", "Find quick answers or send an editable support report.")
+    val helpFeedbackOpen: String = s("helpFeedbackOpen", "Open Help & Feedback")
+    val contactSupport: String = s("contactSupport", "Contact support")
+    val contactSupportSubject: String = s("contactSupportSubject", "TrackMe support")
+    val contactSupportCopied: String = s("contactSupportCopied", "Support address and details copied")
+    val helpOpenBatterySettings: String = s("helpOpenBatterySettings", "Open battery settings")
+    val helpDiagnosticInstruction: String = s("helpDiagnosticInstruction", "Describe the problem above. The details below help us diagnose it — edit or remove anything you don't want to send.")
+    val helpDiagnosticSeparator: String = s("helpDiagnosticSeparator", "— Support details —")
+    val helpFaqRecordingQuestion: String = s("helpFaqRecordingQuestion", "My ride stopped recording when the screen was off.")
+    val helpFaqRecordingAnswer: String = s("helpFaqRecordingAnswer", "Allow TrackMe to run in the background and exclude it from battery optimization. Android may stop background GPS when the system restricts the app.")
+    val helpFaqBatteryQuestion: String = s("helpFaqBatteryQuestion", "TrackMe drains my battery.")
+    val helpFaqBatteryAnswer: String = s("helpFaqBatteryAnswer", "GPS uses power while a ride is recording. The ongoing notification confirms recording is active; auto-pause and GPS post-processing in Advanced Settings can reduce unnecessary work.")
+    val helpFaqDistanceQuestion: String = s("helpFaqDistanceQuestion", "The distance looks wrong.")
+    val helpFaqDistanceAnswer: String = s("helpFaqDistanceAnswer", "GPS drift while stopped, tunnels, and urban canyons can affect distance. GPS post-processing in Advanced Settings helps; a signal gap is shown as a straight line.")
+    val helpFaqOfflineQuestion: String = s("helpFaqOfflineQuestion", "Will tracking work without mobile data?")
+    val helpFaqOfflineAnswer: String = s("helpFaqOfflineAnswer", "Yes. Recording is local-first. A connection is needed only for cloud sync, live sharing, and SOS.")
+    val helpFaqShareQuestion: String = s("helpFaqShareQuestion", "Who can see a live-share link?")
+    val helpFaqShareAnswer: String = s("helpFaqShareAnswer", "Anyone with the link can see it until the session expires. Only the signed-in owner can start, update, or stop the session.")
+    val helpFaqDataQuestion: String = s("helpFaqDataQuestion", "How do I get my data out, or delete it?")
+    val helpFaqDataAnswer: String = s("helpFaqDataAnswer", "Open Settings → Account Management to export your data or delete your account and cloud data.")
+    val helpLocationPreciseBackground: String = s("helpLocationPreciseBackground", "precise, background allowed")
+    val helpLocationPrecise: String = s("helpLocationPrecise", "precise, background denied")
+    val helpLocationApproximate: String = s("helpLocationApproximate", "approximate")
+    val helpLocationDenied: String = s("helpLocationDenied", "denied")
+    val helpPermissionGranted: String = s("helpPermissionGranted", "granted")
+    val helpPermissionDenied: String = s("helpPermissionDenied", "denied")
+    val helpUnknown: String = s("helpUnknown", "unknown")
+    val helpDiagnosticAppVersion: String = s("helpDiagnosticAppVersion", "App version")
+    val helpDiagnosticAndroidVersion: String = s("helpDiagnosticAndroidVersion", "Android version")
+    val helpDiagnosticDevice: String = s("helpDiagnosticDevice", "Device")
+    val helpDiagnosticAppLanguage: String = s("helpDiagnosticAppLanguage", "App language")
+    val helpDiagnosticDeviceLocale: String = s("helpDiagnosticDeviceLocale", "Device locale")
+    val helpDiagnosticUnits: String = s("helpDiagnosticUnits", "Units")
+    val helpDiagnosticInstallSource: String = s("helpDiagnosticInstallSource", "Install source")
+    val helpDiagnosticLocationPermission: String = s("helpDiagnosticLocationPermission", "Location permission")
+    val helpDiagnosticNotificationPermission: String = s("helpDiagnosticNotificationPermission", "Notification permission")
+    val helpDiagnosticBatteryOptimization: String = s("helpDiagnosticBatteryOptimization", "Battery optimization")
+    val helpDiagnosticSignedIn: String = s("helpDiagnosticSignedIn", "Signed in")
     val guest: String = s("guest", "Guest")
     val rideHistoryLocalOnly: String = s("rideHistoryLocalOnly", "Ride history is saved locally only.")
     val signInWithGoogle: String = s("signInWithGoogle", "Sign in with Google")
@@ -697,6 +737,45 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareRideText" to "Sigue mi ubicación en vivo aquí",
             "shareVia" to "Compartir con",
             "startPersona" to "Iniciar %1\$s",
+            "helpFeedbackTitle" to "Ayuda y comentarios",
+            "helpFeedbackDescription" to "Encuentra respuestas rápidas o envía un informe editable.",
+            "helpFeedbackOpen" to "Abrir Ayuda y comentarios",
+            "contactSupport" to "Contactar con soporte",
+            "contactSupportSubject" to "Soporte de TrackMe",
+            "contactSupportCopied" to "Dirección y detalles copiados",
+            "helpOpenBatterySettings" to "Abrir ajustes de batería",
+            "helpDiagnosticInstruction" to "Describe el problema arriba. Estos detalles ayudan a diagnosticarlo; edita o elimina lo que no quieras enviar.",
+            "helpDiagnosticSeparator" to "— Detalles de soporte —",
+            "helpFaqRecordingQuestion" to "Mi viaje dejó de grabarse con la pantalla apagada.",
+            "helpFaqRecordingAnswer" to "Permite que TrackMe funcione en segundo plano y exclúyelo de la optimización de batería. Android puede detener el GPS cuando el sistema limita la aplicación.",
+            "helpFaqBatteryQuestion" to "TrackMe consume mucha batería.",
+            "helpFaqBatteryAnswer" to "El GPS consume energía mientras se graba. La notificación indica que la grabación está activa; la pausa automática y el posprocesado GPS de Ajustes avanzados pueden reducir el trabajo innecesario.",
+            "helpFaqDistanceQuestion" to "La distancia parece incorrecta.",
+            "helpFaqDistanceAnswer" to "La deriva GPS al estar detenido, los túneles y los cañones urbanos pueden afectar la distancia. El posprocesado GPS ayuda; un hueco de señal aparece como una línea recta.",
+            "helpFaqOfflineQuestion" to "¿Funcionará el seguimiento sin datos móviles?",
+            "helpFaqOfflineAnswer" to "Sí. La grabación es local. Solo necesitas conexión para sincronización en la nube, compartir en directo y SOS.",
+            "helpFaqShareQuestion" to "¿Quién puede ver un enlace de compartir en directo?",
+            "helpFaqShareAnswer" to "Cualquiera con el enlace puede verlo hasta que expire la sesión. Solo el propietario conectado puede iniciar, actualizar o detener la sesión.",
+            "helpFaqDataQuestion" to "¿Cómo exporto o elimino mis datos?",
+            "helpFaqDataAnswer" to "Abre Ajustes → Gestión de cuenta para exportar tus datos o eliminar tu cuenta y sus datos en la nube.",
+            "helpLocationPreciseBackground" to "precisa, segundo plano permitido",
+            "helpLocationPrecise" to "precisa, segundo plano denegado",
+            "helpLocationApproximate" to "aproximada",
+            "helpLocationDenied" to "denegada",
+            "helpPermissionGranted" to "concedido",
+            "helpPermissionDenied" to "denegado",
+            "helpUnknown" to "desconocido",
+            "helpDiagnosticAppVersion" to "Versión de la aplicación",
+            "helpDiagnosticAndroidVersion" to "Versión de Android",
+            "helpDiagnosticDevice" to "Dispositivo",
+            "helpDiagnosticAppLanguage" to "Idioma de la aplicación",
+            "helpDiagnosticDeviceLocale" to "Locale del dispositivo",
+            "helpDiagnosticUnits" to "Unidades",
+            "helpDiagnosticInstallSource" to "Origen de instalación",
+            "helpDiagnosticLocationPermission" to "Permiso de ubicación",
+            "helpDiagnosticNotificationPermission" to "Permiso de notificaciones",
+            "helpDiagnosticBatteryOptimization" to "Optimización de batería",
+            "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
         "fr" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -1018,6 +1097,45 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareRideText" to "Suivez ma position en direct ici",
             "shareVia" to "Partager via",
             "startPersona" to "Démarrer %1\$s",
+            "helpFeedbackTitle" to "Aide et commentaires",
+            "helpFeedbackDescription" to "Trouvez des réponses rapides ou envoyez un rapport modifiable.",
+            "helpFeedbackOpen" to "Ouvrir l’aide et les commentaires",
+            "contactSupport" to "Contacter l’assistance",
+            "contactSupportSubject" to "Assistance TrackMe",
+            "contactSupportCopied" to "Adresse et détails copiés",
+            "helpOpenBatterySettings" to "Ouvrir les réglages de batterie",
+            "helpDiagnosticInstruction" to "Décrivez le problème ci-dessus. Ces détails nous aident à le diagnostiquer ; modifiez ou supprimez ce que vous ne voulez pas envoyer.",
+            "helpDiagnosticSeparator" to "— Détails d’assistance —",
+            "helpFaqRecordingQuestion" to "Mon trajet s’est arrêté lorsque l’écran était éteint.",
+            "helpFaqRecordingAnswer" to "Autorisez TrackMe à fonctionner en arrière-plan et excluez-le de l’optimisation de batterie. Android peut arrêter le GPS lorsque le système limite l’application.",
+            "helpFaqBatteryQuestion" to "TrackMe décharge ma batterie.",
+            "helpFaqBatteryAnswer" to "Le GPS consomme de l’énergie pendant l’enregistrement. La notification confirme que l’enregistrement est actif ; la pause automatique et le post-traitement GPS des réglages avancés réduisent le travail inutile.",
+            "helpFaqDistanceQuestion" to "La distance semble incorrecte.",
+            "helpFaqDistanceAnswer" to "La dérive GPS à l’arrêt, les tunnels et les canyons urbains peuvent modifier la distance. Le post-traitement GPS aide ; un trou de signal apparaît comme une ligne droite.",
+            "helpFaqOfflineQuestion" to "Le suivi fonctionne-t-il sans données mobiles ?",
+            "helpFaqOfflineAnswer" to "Oui. L’enregistrement est local. Une connexion est nécessaire seulement pour la synchronisation cloud, le partage en direct et le SOS.",
+            "helpFaqShareQuestion" to "Qui peut voir un lien de partage en direct ?",
+            "helpFaqShareAnswer" to "Toute personne possédant le lien peut le voir jusqu’à l’expiration de la session. Seul le propriétaire connecté peut démarrer, modifier ou arrêter la session.",
+            "helpFaqDataQuestion" to "Comment exporter ou supprimer mes données ?",
+            "helpFaqDataAnswer" to "Ouvrez Réglages → Gestion du compte pour exporter vos données ou supprimer votre compte et ses données cloud.",
+            "helpLocationPreciseBackground" to "précise, arrière-plan autorisé",
+            "helpLocationPrecise" to "précise, arrière-plan refusé",
+            "helpLocationApproximate" to "approximative",
+            "helpLocationDenied" to "refusée",
+            "helpPermissionGranted" to "accordée",
+            "helpPermissionDenied" to "refusée",
+            "helpUnknown" to "inconnu",
+            "helpDiagnosticAppVersion" to "Version de l'application",
+            "helpDiagnosticAndroidVersion" to "Version d'Android",
+            "helpDiagnosticDevice" to "Appareil",
+            "helpDiagnosticAppLanguage" to "Langue de l'application",
+            "helpDiagnosticDeviceLocale" to "Paramètres régionaux de l'appareil",
+            "helpDiagnosticUnits" to "Unités",
+            "helpDiagnosticInstallSource" to "Source d'installation",
+            "helpDiagnosticLocationPermission" to "Autorisation de position",
+            "helpDiagnosticNotificationPermission" to "Autorisation de notifications",
+            "helpDiagnosticBatteryOptimization" to "Optimisation de la batterie",
+            "helpDiagnosticSignedIn" to "Session ouverte",
         ))
         "de" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -1339,6 +1457,45 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareRideText" to "Folge hier meinem Live-Standort",
             "shareVia" to "Teilen über",
             "startPersona" to "%1\$s starten",
+            "helpFeedbackTitle" to "Hilfe und Feedback",
+            "helpFeedbackDescription" to "Finde schnelle Antworten oder sende einen bearbeitbaren Supportbericht.",
+            "helpFeedbackOpen" to "Hilfe und Feedback öffnen",
+            "contactSupport" to "Support kontaktieren",
+            "contactSupportSubject" to "TrackMe-Support",
+            "contactSupportCopied" to "Supportadresse und Details kopiert",
+            "helpOpenBatterySettings" to "Akkueinstellungen öffnen",
+            "helpDiagnosticInstruction" to "Beschreibe das Problem oben. Die Details helfen bei der Diagnose; bearbeite oder entferne, was du nicht senden möchtest.",
+            "helpDiagnosticSeparator" to "— Supportdetails —",
+            "helpFaqRecordingQuestion" to "Meine Aufzeichnung stoppte bei ausgeschaltetem Bildschirm.",
+            "helpFaqRecordingAnswer" to "Erlaube TrackMe die Ausführung im Hintergrund und schließe es von der Akkuoptimierung aus. Android kann GPS stoppen, wenn das System die App einschränkt.",
+            "helpFaqBatteryQuestion" to "TrackMe verbraucht meinen Akku.",
+            "helpFaqBatteryAnswer" to "GPS benötigt beim Aufzeichnen Energie. Die laufende Benachrichtigung bestätigt die Aufzeichnung; automatische Pause und GPS-Nachbearbeitung unter Erweiterte Einstellungen können unnötige Arbeit verringern.",
+            "helpFaqDistanceQuestion" to "Die Entfernung scheint falsch.",
+            "helpFaqDistanceAnswer" to "GPS-Drift im Stillstand, Tunnel und Häuserschluchten können die Entfernung beeinflussen. GPS-Nachbearbeitung hilft; eine Signallücke wird als gerade Linie angezeigt.",
+            "helpFaqOfflineQuestion" to "Funktioniert Tracking ohne mobile Daten?",
+            "helpFaqOfflineAnswer" to "Ja. Die Aufzeichnung erfolgt lokal. Eine Verbindung ist nur für Cloud-Sync, Live-Sharing und SOS nötig.",
+            "helpFaqShareQuestion" to "Wer kann einen Live-Sharing-Link sehen?",
+            "helpFaqShareAnswer" to "Jede Person mit dem Link kann ihn bis zum Ablauf der Sitzung sehen. Nur der angemeldete Besitzer kann die Sitzung starten, aktualisieren oder beenden.",
+            "helpFaqDataQuestion" to "Wie exportiere oder lösche ich meine Daten?",
+            "helpFaqDataAnswer" to "Öffne Einstellungen → Kontoverwaltung, um deine Daten zu exportieren oder Konto und Cloud-Daten zu löschen.",
+            "helpLocationPreciseBackground" to "präzise, Hintergrund erlaubt",
+            "helpLocationPrecise" to "präzise, Hintergrund abgelehnt",
+            "helpLocationApproximate" to "ungefähr",
+            "helpLocationDenied" to "abgelehnt",
+            "helpPermissionGranted" to "erlaubt",
+            "helpPermissionDenied" to "abgelehnt",
+            "helpUnknown" to "unbekannt",
+            "helpDiagnosticAppVersion" to "App-Version",
+            "helpDiagnosticAndroidVersion" to "Android-Version",
+            "helpDiagnosticDevice" to "Gerät",
+            "helpDiagnosticAppLanguage" to "App-Sprache",
+            "helpDiagnosticDeviceLocale" to "Gerätesprache",
+            "helpDiagnosticUnits" to "Einheiten",
+            "helpDiagnosticInstallSource" to "Installationsquelle",
+            "helpDiagnosticLocationPermission" to "Standortberechtigung",
+            "helpDiagnosticNotificationPermission" to "Benachrichtigungsberechtigung",
+            "helpDiagnosticBatteryOptimization" to "Akkuoptimierung",
+            "helpDiagnosticSignedIn" to "Angemeldet",
         ))
         "hi" -> AppStrings(mapOf(
             "ok" to "ठीक है",
@@ -1660,6 +1817,45 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareRideText" to "मेरी लाइव लोकेशन यहाँ देखें",
             "shareVia" to "इसके ज़रिए शेयर करें",
             "startPersona" to "%1\$s शुरू करें",
+            "helpFeedbackTitle" to "मदद और प्रतिक्रिया",
+            "helpFeedbackDescription" to "त्वरित उत्तर पाएं या संपादन योग्य सहायता रिपोर्ट भेजें।",
+            "helpFeedbackOpen" to "मदद और प्रतिक्रिया खोलें",
+            "contactSupport" to "सहायता से संपर्क करें",
+            "contactSupportSubject" to "TrackMe सहायता",
+            "contactSupportCopied" to "सहायता पता और विवरण कॉपी किए गए",
+            "helpOpenBatterySettings" to "बैटरी सेटिंग खोलें",
+            "helpDiagnosticInstruction" to "समस्या ऊपर लिखें। नीचे दिए विवरण से निदान में मदद मिलती है; जिसे भेजना न चाहें उसे बदलें या हटाएं।",
+            "helpDiagnosticSeparator" to "— सहायता विवरण —",
+            "helpFaqRecordingQuestion" to "स्क्रीन बंद होने पर मेरी राइड रिकॉर्ड होना बंद हो गई।",
+            "helpFaqRecordingAnswer" to "TrackMe को बैकग्राउंड में चलने दें और बैटरी ऑप्टिमाइज़ेशन से बाहर रखें। सिस्टम ऐप को सीमित करने पर Android बैकग्राउंड GPS रोक सकता है।",
+            "helpFaqBatteryQuestion" to "TrackMe की बैटरी बहुत खर्च होती है।",
+            "helpFaqBatteryAnswer" to "राइड रिकॉर्ड करते समय GPS ऊर्जा लेता है। चल रही सूचना बताती है कि रिकॉर्डिंग सक्रिय है; Advanced Settings में ऑटो-पॉज़ और GPS पोस्ट-प्रोसेसिंग अनावश्यक काम घटा सकते हैं।",
+            "helpFaqDistanceQuestion" to "दूरी गलत लगती है।",
+            "helpFaqDistanceAnswer" to "रुके रहने पर GPS ड्रिफ्ट, सुरंग और ऊंची इमारतें दूरी बदल सकती हैं। GPS पोस्ट-प्रोसेसिंग मदद करती है; सिग्नल गैप चार्ट पर सीधी रेखा दिखता है।",
+            "helpFaqOfflineQuestion" to "क्या मोबाइल डेटा के बिना ट्रैकिंग चलेगी?",
+            "helpFaqOfflineAnswer" to "हां। रिकॉर्डिंग स्थानीय है। कनेक्शन केवल क्लाउड सिंक, लाइव शेयरिंग और SOS के लिए चाहिए।",
+            "helpFaqShareQuestion" to "लाइव शेयर लिंक कौन देख सकता है?",
+            "helpFaqShareAnswer" to "लिंक वाला कोई भी व्यक्ति सत्र समाप्त होने तक देख सकता है। केवल साइन-इन मालिक सत्र शुरू, अपडेट या बंद कर सकता है।",
+            "helpFaqDataQuestion" to "मैं अपना डेटा कैसे निकालूं या हटाऊं?",
+            "helpFaqDataAnswer" to "डेटा एक्सपोर्ट करने या खाते और क्लाउड डेटा को हटाने के लिए सेटिंग्स → खाता प्रबंधन खोलें।",
+            "helpLocationPreciseBackground" to "सटीक, बैकग्राउंड की अनुमति",
+            "helpLocationPrecise" to "सटीक, बैकग्राउंड अस्वीकृत",
+            "helpLocationApproximate" to "अनुमानित",
+            "helpLocationDenied" to "अस्वीकृत",
+            "helpPermissionGranted" to "अनुमत",
+            "helpPermissionDenied" to "अस्वीकृत",
+            "helpUnknown" to "अज्ञात",
+            "helpDiagnosticAppVersion" to "ऐप संस्करण",
+            "helpDiagnosticAndroidVersion" to "Android संस्करण",
+            "helpDiagnosticDevice" to "डिवाइस",
+            "helpDiagnosticAppLanguage" to "ऐप भाषा",
+            "helpDiagnosticDeviceLocale" to "डिवाइस लोकेल",
+            "helpDiagnosticUnits" to "इकाइयां",
+            "helpDiagnosticInstallSource" to "इंस्टॉल स्रोत",
+            "helpDiagnosticLocationPermission" to "स्थान अनुमति",
+            "helpDiagnosticNotificationPermission" to "सूचना अनुमति",
+            "helpDiagnosticBatteryOptimization" to "बैटरी अनुकूलन",
+            "helpDiagnosticSignedIn" to "साइन इन",
         ))
         "ja" -> AppStrings(mapOf(
             "ok" to "OK",
@@ -1981,6 +2177,45 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareRideText" to "こちらでライブ位置情報を確認できます",
             "shareVia" to "共有方法",
             "startPersona" to "%1\$sを開始",
+            "helpFeedbackTitle" to "ヘルプとフィードバック",
+            "helpFeedbackDescription" to "すぐに答えを確認するか、編集できるサポートレポートを送信します。",
+            "helpFeedbackOpen" to "ヘルプとフィードバックを開く",
+            "contactSupport" to "サポートに連絡",
+            "contactSupportSubject" to "TrackMeサポート",
+            "contactSupportCopied" to "サポートの宛先と詳細をコピーしました",
+            "helpOpenBatterySettings" to "バッテリー設定を開く",
+            "helpDiagnosticInstruction" to "上に問題を説明してください。下の詳細は診断に役立ちます。送信したくない内容は編集または削除できます。",
+            "helpDiagnosticSeparator" to "— サポート詳細 —",
+            "helpFaqRecordingQuestion" to "画面をオフにすると記録が停止しました。",
+            "helpFaqRecordingAnswer" to "TrackMeのバックグラウンド実行を許可し、バッテリー最適化の対象外にしてください。システムがアプリを制限すると、AndroidはバックグラウンドGPSを停止することがあります。",
+            "helpFaqBatteryQuestion" to "TrackMeでバッテリーが減ります。",
+            "helpFaqBatteryAnswer" to "記録中はGPSが電力を使います。通知が表示される間は記録中です。自動一時停止と詳細設定のGPS後処理で不要な処理を減らせます。",
+            "helpFaqDistanceQuestion" to "距離が正しくないようです。",
+            "helpFaqDistanceAnswer" to "停止中のGPSドリフト、トンネル、高層ビルで距離が変わることがあります。GPS後処理が役立ち、信号の空白はチャート上で直線になります。",
+            "helpFaqOfflineQuestion" to "モバイルデータなしで追跡できますか？",
+            "helpFaqOfflineAnswer" to "はい。記録は端末内で行われます。クラウド同期、ライブ共有、SOSだけ接続が必要です。",
+            "helpFaqShareQuestion" to "ライブ共有リンクは誰が見られますか？",
+            "helpFaqShareAnswer" to "リンクを持つ人はセッション終了まで見られます。セッションを開始・更新・停止できるのはログイン中の所有者だけです。",
+            "helpFaqDataQuestion" to "データを取り出す、または削除するには？",
+            "helpFaqDataAnswer" to "設定 → アカウント管理を開き、データをエクスポートするかアカウントとクラウドデータを削除してください。",
+            "helpLocationPreciseBackground" to "正確、バックグラウンド許可",
+            "helpLocationPrecise" to "正確、バックグラウンド拒否",
+            "helpLocationApproximate" to "おおよそ",
+            "helpLocationDenied" to "拒否",
+            "helpPermissionGranted" to "許可",
+            "helpPermissionDenied" to "拒否",
+            "helpUnknown" to "不明",
+            "helpDiagnosticAppVersion" to "アプリのバージョン",
+            "helpDiagnosticAndroidVersion" to "Androidバージョン",
+            "helpDiagnosticDevice" to "デバイス",
+            "helpDiagnosticAppLanguage" to "アプリの言語",
+            "helpDiagnosticDeviceLocale" to "デバイスのロケール",
+            "helpDiagnosticUnits" to "単位",
+            "helpDiagnosticInstallSource" to "インストール元",
+            "helpDiagnosticLocationPermission" to "位置情報の権限",
+            "helpDiagnosticNotificationPermission" to "通知の権限",
+            "helpDiagnosticBatteryOptimization" to "バッテリー最適化",
+            "helpDiagnosticSignedIn" to "サインイン済み",
         ))
         "zh" -> AppStrings(mapOf(
             "ok" to "确定",
@@ -2302,6 +2537,45 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareRideText" to "在此关注我的实时位置",
             "shareVia" to "通过以下方式分享",
             "startPersona" to "开始%1\$s",
+            "helpFeedbackTitle" to "帮助与反馈",
+            "helpFeedbackDescription" to "查找快速答案，或发送可编辑的支持报告。",
+            "helpFeedbackOpen" to "打开帮助与反馈",
+            "contactSupport" to "联系支持",
+            "contactSupportSubject" to "TrackMe 支持",
+            "contactSupportCopied" to "支持地址和详情已复制",
+            "helpOpenBatterySettings" to "打开电池设置",
+            "helpDiagnosticInstruction" to "请在上方描述问题。以下详情有助于诊断；不想发送的内容可以编辑或删除。",
+            "helpDiagnosticSeparator" to "— 支持详情 —",
+            "helpFaqRecordingQuestion" to "屏幕关闭时我的行程停止记录。",
+            "helpFaqRecordingAnswer" to "允许 TrackMe 在后台运行，并将其排除在电池优化之外。系统限制应用时，Android 可能会停止后台 GPS。",
+            "helpFaqBatteryQuestion" to "TrackMe 消耗电池。",
+            "helpFaqBatteryAnswer" to "记录行程时 GPS 会耗电。持续通知表示正在记录；高级设置中的自动暂停和 GPS 后处理可以减少不必要的工作。",
+            "helpFaqDistanceQuestion" to "距离看起来不对。",
+            "helpFaqDistanceAnswer" to "静止时的 GPS 漂移、隧道和城市高楼可能影响距离。GPS 后处理会有所帮助；信号中断会在图表上显示为直线。",
+            "helpFaqOfflineQuestion" to "没有移动数据时可以跟踪吗？",
+            "helpFaqOfflineAnswer" to "可以。记录优先保存在本地。只有云同步、实时共享和 SOS 需要网络连接。",
+            "helpFaqShareQuestion" to "谁可以看到实时共享链接？",
+            "helpFaqShareAnswer" to "拥有链接的人都可以看到，直到会话过期。只有已登录的所有者可以开始、更新或停止会话。",
+            "helpFaqDataQuestion" to "如何导出或删除我的数据？",
+            "helpFaqDataAnswer" to "打开设置 → 账户管理，导出数据或删除账户及云端数据。",
+            "helpLocationPreciseBackground" to "精确，允许后台",
+            "helpLocationPrecise" to "精确，拒绝后台",
+            "helpLocationApproximate" to "大致位置",
+            "helpLocationDenied" to "已拒绝",
+            "helpPermissionGranted" to "已允许",
+            "helpPermissionDenied" to "已拒绝",
+            "helpUnknown" to "未知",
+            "helpDiagnosticAppVersion" to "应用版本",
+            "helpDiagnosticAndroidVersion" to "Android 版本",
+            "helpDiagnosticDevice" to "设备",
+            "helpDiagnosticAppLanguage" to "应用语言",
+            "helpDiagnosticDeviceLocale" to "设备区域",
+            "helpDiagnosticUnits" to "单位",
+            "helpDiagnosticInstallSource" to "安装来源",
+            "helpDiagnosticLocationPermission" to "位置权限",
+            "helpDiagnosticNotificationPermission" to "通知权限",
+            "helpDiagnosticBatteryOptimization" to "电池优化",
+            "helpDiagnosticSignedIn" to "已登录",
         ))
         else -> AppStrings() // English default
     }

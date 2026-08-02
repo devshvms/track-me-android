@@ -117,6 +117,9 @@ fun MainNavigation() {
             composable("account_management") {
                 `in`.shvms.trackme.ui.settings.AccountManagementScreen(navController = navController)
             }
+            composable("help_feedback") {
+                `in`.shvms.trackme.ui.settings.HelpFeedbackScreen(navController = navController)
+            }
             composable("emergency_setup") { 
                 `in`.shvms.trackme.ui.settings.EmergencySetupScreen(
                     navController = navController

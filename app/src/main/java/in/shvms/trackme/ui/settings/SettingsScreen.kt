@@ -598,6 +598,19 @@ fun SettingsScreen(
                 }
             )
         }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(strings.helpFeedbackTitle, style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(strings.helpFeedbackDescription, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(10.dp))
+                Button(
+                    onClick = { navController?.navigate("help_feedback") },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(strings.helpFeedbackOpen) }
+            }
+        }
         
         Spacer(modifier = Modifier.weight(1f))
         
