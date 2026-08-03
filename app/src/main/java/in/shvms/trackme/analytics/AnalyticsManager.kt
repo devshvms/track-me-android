@@ -219,28 +219,6 @@ object AnalyticsManager {
         )
     }
 
-    // SOS Usage
-    fun trackSosTriggered(triggerMethod: String) {
-        if (!_isTelemetryEnabled.value) return
-        PostHog.capture(
-            "sos_triggered",
-            properties = mapOf(
-                "trigger_method" to triggerMethod
-            )
-        )
-    }
-
-    fun trackSosResolved(resolutionTimeSeconds: Long, falseAlarm: Boolean) {
-        if (!_isTelemetryEnabled.value) return
-        PostHog.capture(
-            "sos_resolved",
-            properties = mapOf(
-                "resolution_time_seconds" to resolutionTimeSeconds,
-                "false_alarm" to falseAlarm
-            )
-        )
-    }
-
     // Screen tracking
     fun trackScreenViewed(screenName: String, durationSeconds: Long) {
         if (!_isTelemetryEnabled.value) return

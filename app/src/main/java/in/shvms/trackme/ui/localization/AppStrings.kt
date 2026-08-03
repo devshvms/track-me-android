@@ -43,6 +43,14 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val copy: String = s("copy", "Copy")
     val sharePin: String = s("sharePin", "Share location pin")
     val deleteContactFormat: String = s("deleteContactFormat", "Delete %1\$s")
+    val trustedContactsTitle: String = s("trustedContactsTitle", "Trusted Contacts")
+    val trustedContactsIntro: String = s("trustedContactsIntro", "People you trust, saved in one place. TrackMe keeps this list on your device and in your account; it does not message anyone.")
+    val trustedContactsAdd: String = s("trustedContactsAdd", "Add from Phonebook")
+    val trustedContactsSettingsDescription: String = s("trustedContactsSettingsDescription", "View and edit the contacts you saved. TrackMe does not send messages to them.")
+    val trustedContactsOpen: String = s("trustedContactsOpen", "Manage contacts")
+    val sosRemovalNoticeTitle: String = s("sosRemovalNoticeTitle", "The SOS button has been removed")
+    val sosRemovalNoticeBody: String = s("sosRemovalNoticeBody", "TrackMe no longer includes the in-app SOS button or its automatic SMS alerts. They depended on a restricted Google Play permission and could not promise that a message would actually arrive, so we removed them instead of offering protection we could not stand behind.\n\nYour saved contacts have not been deleted. You can view and edit them any time in Settings.\n\nFor real emergencies, use your phone's built-in Emergency SOS: open the system Settings app and search for \"Emergency SOS\" to set it up. It can call emergency services even when TrackMe cannot.")
+    val sosRemovalNoticeAck: String = s("sosRemovalNoticeAck", "I understand")
     val timelineScrubberAccessibility: String = s("timelineScrubberAccessibility", "Timeline scrubber. Adjust to inspect speed, altitude, and route position.")
     val newVersionAvailable: String = s("newVersionAvailable", "New version available")
     val updateAvailable: String = s("updateAvailable", "Update available")
@@ -62,8 +70,6 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val avgSpeed: String = s("avgSpeed", "Avg Speed")
     val maxSpeed: String = s("maxSpeed", "Max Speed")
     val elevation: String = s("elevation", "Elevation")
-    val swipeToSos: String = s("swipeToSos", "Swipe to Trigger Emergency SOS")
-    val sosTriggered: String = s("sosTriggered", "EMERGENCY SOS TRIGGERED!")
     val mapLayerNormal: String = s("mapLayerNormal", "Normal map")
     val mapLayerSatellite: String = s("mapLayerSatellite", "Satellite map")
     val mapLayerTerrain: String = s("mapLayerTerrain", "Terrain map")
@@ -76,19 +82,11 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val notifTrackingPaused: String = s("notifTrackingPaused", "Paused • %1\$s")
     val notifTrackingGpsSearching: String = s("notifTrackingGpsSearching", "Searching for GPS…")
     val notifAutoSplitTitle: String = s("notifAutoSplitTitle", "Ride Auto-Split")
-    val notifAutoSplitText: String = s("notifAutoSplitText", "Your ride reached 9,000 points and was split automatically.")
+    val notifAutoSplitText: String = s("notifAutoSplitText", "Your ride reached 9,000 points and was split to keep recording.")
     val notifLongRideTitle: String = s("notifLongRideTitle", "Long Ride Warning")
     val notifLongRideText: String = s("notifLongRideText", "Approaching limit. Ride will auto-split at 9,000 points.")
     val notifStorageLowTitle: String = s("notifStorageLowTitle", "Storage almost full")
     val notifStorageLowText: String = s("notifStorageLowText", "Tracking is paused. Free device storage, then tap Resume in TrackMe.")
-    val sosNotifTitle: String = s("sosNotifTitle", "Emergency SOS")
-    val sosNotifSetupFailure: String = s("sosNotifSetupFailure", "Emergency SOS is not configured with any contacts.")
-    val sosNotifFailed: String = s("sosNotifFailed", "Emergency alert could not be submitted to any contact. Check SMS permission and signal.")
-    val sosNotifSubmitted: String = s("sosNotifSubmitted", "Emergency alert submitted to %1\$d contact(s).")
-    val sosNotifPartial: String = s("sosNotifPartial", "Emergency alert submitted to %1\$d contact(s); %2\$d failed.")
-    val sosPermissionRevoked: String = s("sosPermissionRevoked", "SOS is off - SMS permission was removed. Re-enable it in Settings.")
-    val smsPermissionSettingsRequired: String = s("smsPermissionSettingsRequired", "SMS permission is blocked. Open Settings to enable it before continuing.")
-    val grantSmsPermission: String = s("grantSmsPermission", "Grant SMS Permission")
     val offlineModeTitle: String = s("offlineModeTitle", "Offline mode")
     val offlineModeDescription: String = s("offlineModeDescription", "Changes stay on this device and sync when connected.")
 
@@ -138,9 +136,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val minute1: String = s("minute1", "1 minute")
     val minutes5: String = s("minutes5", "5 minutes")
     val accountManagement: String = s("accountManagement", "Account Management")
-    val emergencySetup: String = s("emergencySetup", "Emergency SOS Setup")
     val emergencyContactSnapshotInfo: String = s("emergencyContactSnapshotInfo", "TrackMe saves a snapshot of each phonebook contact. Removing a contact from your phone does not remove it here; delete it below to stop using that number.")
-    val configureEmergencySetup: String = s("configureEmergencySetup", "Configure Emergency Setup")
     val signOut: String = s("signOut", "Sign Out")
     val privacyAndSecurity: String = s("privacyAndSecurity", "Privacy and Security")
     val privacyPolicyText: String = s("privacyPolicyText", "Privacy Policy\n\nYour data is completely under your control. We only store data locally by default. If you enable Cloud Sync, your rides are securely stored on our servers. You can permanently delete your synced data or your entire account at any time using the options below. Deleted data cannot be recovered.")
@@ -167,7 +163,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val gpsPostProcessingTitle: String = s("gpsPostProcessingTitle", "GPS Post-Processing")
     val gpsPostProcessingInfo: String = s("gpsPostProcessingInfo", "This feature uses advanced algorithms to clean up your raw GPS data immediately after a ride finishes.\n\n• Filters out GPS 'teleportation' glitches.\n• Smooths out noisy altitude and speed readings.\n• Detects when you were stopped and retroactively pauses the ride.\n• Compresses the total amount of data to save storage space and speed up cloud syncing, without losing the shape of your route on the map.")
     val liveShareInfoTitle: String = s("liveShareInfoTitle", "Live Location Data Sharing")
-    val liveShareInfoText: String = s("liveShareInfoText", "When you start a Live Share session, the following information is periodically sent to our secure servers and made available to anyone with the link:\n\n• Exact GPS Coordinates (Latitude & Longitude)\n• Current Speed & Heading (Direction)\n• Phone Battery Level\n• Timestamp of the GPS reading\n• Maximum Viewers: Handled dynamically by server capability (Default: 10 viewers)\n\nAll shared data expires automatically when the session ends.")
+    val liveShareInfoText: String = s("liveShareInfoText", "When you start a Live Share session, the following information is periodically sent to our secure servers and made available to anyone with the link:\n\n• Exact GPS Coordinates (Latitude & Longitude)\n• Current Speed & Heading (Direction)\n• Phone Battery Level\n• Timestamp of the GPS reading\n• Maximum Viewers: Handled dynamically by server capability (Default: 10 viewers)\n\nAll shared data expires when the session ends.")
     // Help & Feedback
     val helpFeedbackTitle: String = s("helpFeedbackTitle", "Help & Feedback")
     val helpFeedbackDescription: String = s("helpFeedbackDescription", "Find quick answers or send an editable support report.")
@@ -185,7 +181,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val helpFaqDistanceQuestion: String = s("helpFaqDistanceQuestion", "The distance looks wrong.")
     val helpFaqDistanceAnswer: String = s("helpFaqDistanceAnswer", "GPS drift while stopped, tunnels, and urban canyons can affect distance. GPS post-processing in Advanced Settings helps; a signal gap is shown as a straight line.")
     val helpFaqOfflineQuestion: String = s("helpFaqOfflineQuestion", "Will tracking work without mobile data?")
-    val helpFaqOfflineAnswer: String = s("helpFaqOfflineAnswer", "Yes. Recording is local-first. A connection is needed only for cloud sync, live sharing, and SOS.")
+    val helpFaqOfflineAnswer: String = s("helpFaqOfflineAnswer", "Yes. Recording is local-first. A connection is needed only for cloud sync and live sharing.")
     val helpFaqShareQuestion: String = s("helpFaqShareQuestion", "Who can see a live-share link?")
     val helpFaqShareAnswer: String = s("helpFaqShareAnswer", "Anyone with the link can see it until the session expires. Only the signed-in owner can start, update, or stop the session.")
     val helpFaqDataQuestion: String = s("helpFaqDataQuestion", "How do I get my data out, or delete it?")
@@ -252,17 +248,11 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val shareLink: String = s("shareLink", "Share Link")
     val rideStats: String = s("rideStats", "Ride Stats")
     val locationPermissionRequired: String = s("locationPermissionRequired", "Location Permission Required")
-    val locationPermissionDesc: String = s("locationPermissionDesc", "TrackMe needs location access to track your rides and send your location in an emergency. Please grant the permission to use the app.")
+    val locationPermissionDesc: String = s("locationPermissionDesc", "TrackMe needs location access to track your rides. Please grant the permission to use the app.")
     val locationPermissionRevokedTitle: String = s("locationPermissionRevokedTitle", "Location access was turned off")
     val locationPermissionRevokedBody: String = s("locationPermissionRevokedBody", "Your ride was stopped because TrackMe no longer has location access. Tap to re-enable it in Settings.")
     val grantPermission: String = s("grantPermission", "Grant Permission")
     val openSettings: String = s("openSettings", "Open Settings")
-    val stopEmergencyBroadcast: String = s("stopEmergencyBroadcast", "Stop emergency broadcast")
-    val stopSosBroadcastAccessibility: String = s("stopSosBroadcastAccessibility", "Stop SOS emergency broadcast")
-    val triggerEmergencyAccessibility: String = s("triggerEmergencyAccessibility", "Trigger emergency SOS")
-    val emergencySosReady: String = s("emergencySosReady", "Emergency SOS ready")
-    val emergencySosActive: String = s("emergencySosActive", "Emergency SOS is active")
-    val emergencySosUnavailable: String = s("emergencySosUnavailable", "Emergency SOS unavailable")
     val mapNormal: String = s("mapNormal", "Normal")
     val mapSatellite: String = s("mapSatellite", "Satellite")
     val mapTerrain: String = s("mapTerrain", "Terrain")
@@ -290,9 +280,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val discardRideMessage: String = s("discardRideMessage", "This ride did not record meaningful distance. You can discard it or save it anyway.")
     val discardRide: String = s("discardRide", "Discard")
     val saveAnyway: String = s("saveAnyway", "Save anyway")
-    val emergencyBroadcastActive: String = s("emergencyBroadcastActive", "EMERGENCY BROADCAST ACTIVE")
     val selectExpirationMode: String = s("selectExpirationMode", "Select expiration mode:")
-    val autoStopWhenRideEnds: String = s("autoStopWhenRideEnds", "Automatically stops when tracking finishes")
+    val autoStopWhenRideEnds: String = s("autoStopWhenRideEnds", "Stops when tracking finishes")
     val shareRideSubject: String = s("shareRideSubject", "Track my live ride")
     val shareRideText: String = s("shareRideText", "Follow my live location here")
     val shareVia: String = s("shareVia", "Share via")
@@ -454,6 +443,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "copy" to "Copiar",
             "sharePin" to "Compartir ubicación",
             "deleteContactFormat" to "Eliminar %1\$s",
+            "trustedContactsTitle" to "Contactos de confianza",
+            "trustedContactsIntro" to "Personas de tu confianza, guardadas en un solo lugar. TrackMe mantiene esta lista en tu dispositivo y en tu cuenta; no envía mensajes a nadie.",
+            "trustedContactsAdd" to "Añadir desde la agenda",
+            "trustedContactsSettingsDescription" to "Consulta y edita los contactos guardados. TrackMe no les envía mensajes.",
+            "trustedContactsOpen" to "Gestionar contactos",
+            "sosRemovalNoticeTitle" to "El botón SOS se ha eliminado",
+            "sosRemovalNoticeBody" to "TrackMe ya no incluye el botón SOS ni sus alertas SMS automáticas. Dependían de un permiso restringido de Google Play y no podían asegurar que un mensaje llegara realmente, así que las eliminamos en lugar de ofrecer una protección que no podíamos respaldar.\n\nTus contactos guardados no se han borrado. Puedes verlos y editarlos en Ajustes.\n\nPara emergencias reales, usa la función Emergencia SOS integrada de tu teléfono: abre los Ajustes del sistema y busca \"Emergencia SOS\" para configurarla. Puede llamar a los servicios de emergencia incluso cuando TrackMe no puede.",
+            "sosRemovalNoticeAck" to "Entendido",
             "timelineScrubberAccessibility" to "Control de línea de tiempo. Ajusta para consultar velocidad, altitud y posición de la ruta.",
             "newVersionAvailable" to "Nueva versión disponible",
             "updateAvailable" to "Actualización disponible",
@@ -478,33 +475,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "avgSpeed" to "Vel. Media",
             "maxSpeed" to "Vel. Máx",
             "elevation" to "Altitud",
-            "swipeToSos" to "Desliza para SOS de Emergencia",
-            "sosTriggered" to "¡SOS DE EMERGENCIA ACTIVADO!",
-            "stopEmergencyBroadcast" to "Detener transmisión de emergencia",
-            "stopSosBroadcastAccessibility" to "Detener la transmisión del SOS de emergencia",
-            "triggerEmergencyAccessibility" to "Activar SOS de emergencia",
-            "emergencySosReady" to "SOS de emergencia listo",
-            "emergencySosActive" to "SOS de emergencia activo",
-            "emergencySosUnavailable" to "SOS de emergencia no disponible",
             "notifTrackingTitle" to "TrackMe está grabando tu viaje",
             "notifTrackingText" to "Viaje en curso",
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "En pausa • %1\$s",
             "notifTrackingGpsSearching" to "Buscando GPS…",
             "notifAutoSplitTitle" to "División automática del viaje",
-            "notifAutoSplitText" to "Tu viaje alcanzó 9.000 puntos y se dividió automáticamente.",
+            "notifAutoSplitText" to "Tu viaje alcanzó 9.000 puntos y se dividió para seguir grabando.",
             "notifLongRideTitle" to "Aviso de viaje largo",
             "notifLongRideText" to "Te acercas al límite. El viaje se dividirá automáticamente en 9.000 puntos.",
             "notifStorageLowTitle" to "Almacenamiento casi lleno",
             "notifStorageLowText" to "El seguimiento está pausado. Libera espacio y toca Reanudar en TrackMe.",
-            "sosNotifTitle" to "SOS de emergencia",
-            "sosNotifSetupFailure" to "El SOS de emergencia no está configurado con ningún contacto.",
-            "sosNotifFailed" to "No se pudo enviar la alerta de emergencia a ningún contacto. Comprueba el permiso de SMS y la señal.",
-            "sosNotifSubmitted" to "Alerta de emergencia enviada a %1\$d contacto(s).",
-            "sosNotifPartial" to "Alerta de emergencia enviada a %1\$d contacto(s); %2\$d fallaron.",
-            "sosPermissionRevoked" to "SOS desactivado: se retiró el permiso de SMS. Vuelve a activarlo en Ajustes.",
-            "smsPermissionSettingsRequired" to "El permiso de SMS está bloqueado. Ábrelo en Ajustes para continuar.",
-            "grantSmsPermission" to "Conceder permiso de SMS",
             "offlineModeTitle" to "Modo sin conexión",
             "offlineModeDescription" to "Los cambios permanecen en este dispositivo y se sincronizan al conectarte.",
             "startLiveShareTitle" to "Ubicación en Tiempo Real",
@@ -557,7 +538,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dragToSelect" to "Arrastra para seleccionar",
             "dismissStartRideHint" to "Entendido",
             "dataExportFailed" to "No se pudo crear o descargar el archivo. Comprueba la conexión y el almacenamiento disponible e inténtalo de nuevo.",
-            "emergencySetup" to "Configuración SOS de Emergencia",
             "emergencyContactSnapshotInfo" to "TrackMe guarda una copia de cada contacto. Eliminar un contacto del teléfono no lo elimina aquí; bórralo abajo para dejar de usar ese número.",
             "rideHistoryTitle" to "Historial de Viajes",
             "rideCardAccessibilityDescription" to "Viaje %1\$s. Comenzó el %2\$s. Distancia: %3\$s. Duración: %4\$s. Velocidad media: %5\$s.",
@@ -587,7 +567,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notEnoughGpsDataForExport" to "No hay suficientes datos GPS para crear una imagen para compartir.",
             "totalDistance" to "Distancia Total",
             "elevationGain" to "Ganancia de Altitud",
-            "configureEmergencySetup" to "Configurar Emergencia SOS",
             "signOut" to "Cerrar Sesión",
             "privacyAndSecurity" to "Privacidad y Seguridad",
             "privacyPolicyText" to "Política de Privacidad\n\nTus datos están completamente bajo tu control. Solo guardamos datos localmente por defecto. Si activas la sincronización en la nube, tus viajes se guardan en servidores seguros. Puedes eliminar tus datos en la nube o tu cuenta en cualquier momento. Los datos eliminados no se pueden recuperar.",
@@ -714,7 +693,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLink" to "Compartir enlace",
             "rideStats" to "Estadísticas del viaje",
             "locationPermissionRequired" to "Permiso de ubicación necesario",
-            "locationPermissionDesc" to "TrackMe necesita acceso a la ubicación para registrar tus viajes y enviar tu ubicación en una emergencia. Concede el permiso para usar la aplicación.",
+            "locationPermissionDesc" to "TrackMe necesita acceso a la ubicación para registrar tus viajes. Concede el permiso para usar la aplicación.",
             "grantPermission" to "Conceder permiso",
             "mapNormal" to "Normal",
             "mapSatellite" to "Satélite",
@@ -730,9 +709,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statsOverlay" to "Estadísticas superpuestas:",
             "rideSaved" to "Viaje guardado",
             "savingRide" to "Guardando viaje...",
-            "emergencyBroadcastActive" to "TRANSMISIÓN DE EMERGENCIA ACTIVA",
             "selectExpirationMode" to "Selecciona el modo de caducidad:",
-            "autoStopWhenRideEnds" to "Se detiene automáticamente al finalizar el registro",
+            "autoStopWhenRideEnds" to "Se detiene al finalizar el registro",
             "shareRideSubject" to "Sigue mi viaje en vivo",
             "shareRideText" to "Sigue mi ubicación en vivo aquí",
             "shareVia" to "Compartir con",
@@ -753,7 +731,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFaqDistanceQuestion" to "La distancia parece incorrecta.",
             "helpFaqDistanceAnswer" to "La deriva GPS al estar detenido, los túneles y los cañones urbanos pueden afectar la distancia. El posprocesado GPS ayuda; un hueco de señal aparece como una línea recta.",
             "helpFaqOfflineQuestion" to "¿Funcionará el seguimiento sin datos móviles?",
-            "helpFaqOfflineAnswer" to "Sí. La grabación es local. Solo necesitas conexión para sincronización en la nube, compartir en directo y SOS.",
+            "helpFaqOfflineAnswer" to "Sí. La grabación es local. Solo necesitas conexión para sincronización en la nube y compartir en directo.",
             "helpFaqShareQuestion" to "¿Quién puede ver un enlace de compartir en directo?",
             "helpFaqShareAnswer" to "Cualquiera con el enlace puede verlo hasta que expire la sesión. Solo el propietario conectado puede iniciar, actualizar o detener la sesión.",
             "helpFaqDataQuestion" to "¿Cómo exporto o elimino mis datos?",
@@ -814,6 +792,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "copy" to "Copier",
             "sharePin" to "Partager la position",
             "deleteContactFormat" to "Supprimer %1\$s",
+            "trustedContactsTitle" to "Contacts de confiance",
+            "trustedContactsIntro" to "Les personnes de confiance, réunies au même endroit. TrackMe conserve cette liste sur votre appareil et dans votre compte ; elle n'envoie de message à personne.",
+            "trustedContactsAdd" to "Ajouter depuis le répertoire",
+            "trustedContactsSettingsDescription" to "Consultez et modifiez les contacts enregistrés. TrackMe ne leur envoie aucun message.",
+            "trustedContactsOpen" to "Gérer les contacts",
+            "sosRemovalNoticeTitle" to "Le bouton SOS a été retiré",
+            "sosRemovalNoticeBody" to "TrackMe n'inclut plus le bouton SOS ni ses alertes SMS automatiques. Ils reposaient sur une autorisation restreinte de Google Play et ne pouvaient pas assurer qu'un message arrive réellement ; nous les avons donc retirés plutôt que de proposer une protection que nous ne pouvions pas tenir.\n\nVos contacts enregistrés n'ont pas été supprimés. Vous pouvez les consulter et les modifier dans les réglages.\n\nEn cas d'urgence réelle, utilisez la fonction Urgence SOS intégrée de votre téléphone : ouvrez les réglages du système et recherchez « Urgence SOS » pour la configurer. Elle peut appeler les secours même quand TrackMe ne le peut pas.",
+            "sosRemovalNoticeAck" to "J'ai compris",
             "timelineScrubberAccessibility" to "Curseur de chronologie. Ajustez-le pour inspecter la vitesse, l’altitude et la position sur l’itinéraire.",
             "newVersionAvailable" to "Nouvelle version disponible",
             "updateAvailable" to "Mise à jour disponible",
@@ -838,33 +824,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "avgSpeed" to "Vit. Moy",
             "maxSpeed" to "Vit. Max",
             "elevation" to "Altitude",
-            "swipeToSos" to "Glissez pour SOS Urgence",
-            "sosTriggered" to "SOS URGENCE DÉCLENCHÉ !",
-            "stopEmergencyBroadcast" to "Arrêter la diffusion d'urgence",
-            "stopSosBroadcastAccessibility" to "Arrêter la diffusion du SOS d'urgence",
-            "triggerEmergencyAccessibility" to "Déclencher le SOS d'urgence",
-            "emergencySosReady" to "SOS d'urgence prêt",
-            "emergencySosActive" to "SOS d'urgence actif",
-            "emergencySosUnavailable" to "SOS d'urgence indisponible",
             "notifTrackingTitle" to "TrackMe enregistre votre trajet",
             "notifTrackingText" to "Trajet en cours",
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "En pause • %1\$s",
             "notifTrackingGpsSearching" to "Recherche du GPS…",
             "notifAutoSplitTitle" to "Découpage automatique du trajet",
-            "notifAutoSplitText" to "Votre trajet a atteint 9 000 points et a été découpé automatiquement.",
+            "notifAutoSplitText" to "Votre trajet a atteint 9 000 points et a été découpé pour poursuivre l'enregistrement.",
             "notifLongRideTitle" to "Alerte de trajet long",
             "notifLongRideText" to "Limite bientôt atteinte. Le trajet sera découpé automatiquement à 9 000 points.",
             "notifStorageLowTitle" to "Stockage presque plein",
             "notifStorageLowText" to "Le suivi est en pause. Libérez de l'espace, puis appuyez sur Reprendre dans TrackMe.",
-            "sosNotifTitle" to "SOS d'urgence",
-            "sosNotifSetupFailure" to "Le SOS d'urgence n'est configuré avec aucun contact.",
-            "sosNotifFailed" to "L'alerte d'urgence n'a été envoyée à aucun contact. Vérifiez l'autorisation SMS et le signal.",
-            "sosNotifSubmitted" to "Alerte d'urgence envoyée à %1\$d contact(s).",
-            "sosNotifPartial" to "Alerte d'urgence envoyée à %1\$d contact(s) ; échec pour %2\$d.",
-            "sosPermissionRevoked" to "SOS désactivé : l'autorisation SMS a été supprimée. Réactivez-la dans les paramètres.",
-            "smsPermissionSettingsRequired" to "L'autorisation SMS est bloquée. Ouvrez les réglages pour continuer.",
-            "grantSmsPermission" to "Autoriser les SMS",
             "offlineModeTitle" to "Mode hors connexion",
             "offlineModeDescription" to "Les modifications restent sur cet appareil et se synchronisent à la reconnexion.",
             "startLiveShareTitle" to "Partage en Temps Réel",
@@ -917,7 +887,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dragToSelect" to "Faire glisser pour sélectionner",
             "dismissStartRideHint" to "Compris",
             "dataExportFailed" to "Impossible de créer ou de télécharger l'archive. Vérifiez votre connexion et l'espace de stockage disponible, puis réessayez.",
-            "emergencySetup" to "Configuration SOS Urgence",
             "emergencyContactSnapshotInfo" to "TrackMe enregistre une copie de chaque contact. Supprimer un contact du téléphone ne le supprime pas ici ; supprimez-le ci-dessous pour ne plus utiliser ce numéro.",
             "rideHistoryTitle" to "Historique des Trajets",
             "rideCardAccessibilityDescription" to "Trajet %1\$s. Commencé le %2\$s. Distance : %3\$s. Durée : %4\$s. Vitesse moyenne : %5\$s.",
@@ -947,7 +916,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notEnoughGpsDataForExport" to "Pas assez de données GPS pour créer une image à partager.",
             "totalDistance" to "Distance Totale",
             "elevationGain" to "Gain d'altitude",
-            "configureEmergencySetup" to "Configurer le SOS Urgence",
             "signOut" to "Se déconnecter",
             "privacyAndSecurity" to "Confidentialité et Sécurité",
             "privacyPolicyText" to "Politique de Confidentialité\n\nVos données sont entièrement sous votre contrôle. Nous ne stockons les données que localement par défaut. Si vous activez la synchronisation cloud, vos trajets sont stockés en toute sécurité sur nos serveurs. Vous pouvez supprimer définitivement vos données synchronisées ou tout votre compte à tout moment en utilisant les options ci-dessous. Les données supprimées ne peuvent pas être récupérées.",
@@ -969,7 +937,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gpsPostProcessingTitle" to "Post-traitement GPS",
             "gpsPostProcessingInfo" to "Cette fonction utilise des algorithmes avancés pour nettoyer vos données GPS brutes immédiatement après la fin d'un trajet.\n\n• Filtre les erreurs de téléportation GPS.\n• Lisse les relevés d'altitude et de vitesse.\n• Détecte les arrêts et met le trajet en pause rétroactivement.\n• Compresse la quantité totale de données sans perdre la forme de votre itinéraire.",
             "liveShareInfoTitle" to "Partage de Position en Direct",
-            "liveShareInfoText" to "Lorsque vous démarrez une session de partage en direct, les informations suivantes sont envoyées périodiquement à nos serveurs et mises à la disposition de toute personne disposant du lien :\n\n• Coordonnées GPS exactes (Latitude & Longitude)\n• Vitesse et direction actuelles\n• Niveau de batterie du téléphone\n• Horodatage du relevé GPS\n• Spectateurs max : géré dynamiquement par le serveur (par défaut : 10)\n\nToutes les données partagées expirent automatiquement à la fin de la session.",
+            "liveShareInfoText" to "Lorsque vous démarrez une session de partage en direct, les informations suivantes sont envoyées périodiquement à nos serveurs et mises à la disposition de toute personne disposant du lien :\n\n• Coordonnées GPS exactes (Latitude & Longitude)\n• Vitesse et direction actuelles\n• Niveau de batterie du téléphone\n• Horodatage du relevé GPS\n• Spectateurs max : géré dynamiquement par le serveur (par défaut : 10)\n\nToutes les données partagées expirent à la fin de la session.",
             "guest" to "Invité",
             "rideHistoryLocalOnly" to "L'historique des trajets est enregistré uniquement localement.",
             "signInWithGoogle" to "Se connecter avec Google",
@@ -1074,7 +1042,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLink" to "Partager le lien",
             "rideStats" to "Statistiques du trajet",
             "locationPermissionRequired" to "Autorisation de localisation requise",
-            "locationPermissionDesc" to "TrackMe a besoin d'accéder à votre position pour enregistrer vos trajets et transmettre votre position en cas d'urgence. Accordez l'autorisation pour utiliser l'application.",
+            "locationPermissionDesc" to "TrackMe a besoin d'accéder à votre position pour enregistrer vos trajets. Accordez l'autorisation pour utiliser l'application.",
             "grantPermission" to "Accorder l'autorisation",
             "mapNormal" to "Normal",
             "mapSatellite" to "Satellite",
@@ -1090,9 +1058,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statsOverlay" to "Statistiques affichées :",
             "rideSaved" to "Trajet enregistré",
             "savingRide" to "Enregistrement du trajet...",
-            "emergencyBroadcastActive" to "DIFFUSION D'URGENCE ACTIVE",
             "selectExpirationMode" to "Choisissez le mode d'expiration :",
-            "autoStopWhenRideEnds" to "S'arrête automatiquement à la fin du suivi",
+            "autoStopWhenRideEnds" to "S'arrête à la fin du suivi",
             "shareRideSubject" to "Suivez mon trajet en direct",
             "shareRideText" to "Suivez ma position en direct ici",
             "shareVia" to "Partager via",
@@ -1113,7 +1080,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFaqDistanceQuestion" to "La distance semble incorrecte.",
             "helpFaqDistanceAnswer" to "La dérive GPS à l’arrêt, les tunnels et les canyons urbains peuvent modifier la distance. Le post-traitement GPS aide ; un trou de signal apparaît comme une ligne droite.",
             "helpFaqOfflineQuestion" to "Le suivi fonctionne-t-il sans données mobiles ?",
-            "helpFaqOfflineAnswer" to "Oui. L’enregistrement est local. Une connexion est nécessaire seulement pour la synchronisation cloud, le partage en direct et le SOS.",
+            "helpFaqOfflineAnswer" to "Oui. L’enregistrement est local. Une connexion est nécessaire seulement pour la synchronisation cloud et le partage en direct.",
             "helpFaqShareQuestion" to "Qui peut voir un lien de partage en direct ?",
             "helpFaqShareAnswer" to "Toute personne possédant le lien peut le voir jusqu’à l’expiration de la session. Seul le propriétaire connecté peut démarrer, modifier ou arrêter la session.",
             "helpFaqDataQuestion" to "Comment exporter ou supprimer mes données ?",
@@ -1174,6 +1141,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "copy" to "Kopieren",
             "sharePin" to "Standort teilen",
             "deleteContactFormat" to "%1\$s löschen",
+            "trustedContactsTitle" to "Vertrauenskontakte",
+            "trustedContactsIntro" to "Menschen, denen Sie vertrauen, an einem Ort gespeichert. TrackMe bewahrt diese Liste auf Ihrem Gerät und in Ihrem Konto auf; es werden keine Nachrichten versendet.",
+            "trustedContactsAdd" to "Aus dem Telefonbuch hinzufügen",
+            "trustedContactsSettingsDescription" to "Gespeicherte Kontakte ansehen und bearbeiten. TrackMe sendet ihnen keine Nachrichten.",
+            "trustedContactsOpen" to "Kontakte verwalten",
+            "sosRemovalNoticeTitle" to "Die SOS-Taste wurde entfernt",
+            "sosRemovalNoticeBody" to "TrackMe enthält die SOS-Taste und ihre automatischen SMS-Warnungen nicht mehr. Sie beruhten auf einer eingeschränkten Google-Play-Berechtigung und konnten nicht zusichern, dass eine Nachricht wirklich ankommt. Deshalb haben wir sie entfernt, statt einen Schutz anzubieten, für den wir nicht einstehen können.\n\nIhre gespeicherten Kontakte wurden nicht gelöscht. Sie finden sie jederzeit in den Einstellungen.\n\nNutzen Sie in echten Notfällen die im Telefon integrierte Notruf-SOS-Funktion: Öffnen Sie die System-Einstellungen und suchen Sie nach \"Notruf SOS\". Sie kann den Notruf auch dann erreichen, wenn TrackMe es nicht kann.",
+            "sosRemovalNoticeAck" to "Verstanden",
             "timelineScrubberAccessibility" to "Zeitleistenregler. Anpassen, um Geschwindigkeit, Höhe und Routenposition zu prüfen.",
             "newVersionAvailable" to "Neue Version verfügbar",
             "updateAvailable" to "Update verfügbar",
@@ -1198,33 +1173,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "avgSpeed" to "Ø Geschw.",
             "maxSpeed" to "Max Geschw.",
             "elevation" to "Höhe",
-            "swipeToSos" to "Wischen für Notfall-SOS",
-            "sosTriggered" to "NOTFALL-SOS AUSGELÖST!",
-            "stopEmergencyBroadcast" to "Notfallübertragung stoppen",
-            "stopSosBroadcastAccessibility" to "SOS-Notfallübertragung stoppen",
-            "triggerEmergencyAccessibility" to "Notfall-SOS auslösen",
-            "emergencySosReady" to "Notfall-SOS bereit",
-            "emergencySosActive" to "Notfall-SOS aktiv",
-            "emergencySosUnavailable" to "Notfall-SOS nicht verfügbar",
             "notifTrackingTitle" to "TrackMe zeichnet deine Fahrt auf",
             "notifTrackingText" to "Fahrt läuft",
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "Pausiert • %1\$s",
             "notifTrackingGpsSearching" to "GPS wird gesucht…",
             "notifAutoSplitTitle" to "Fahrt automatisch geteilt",
-            "notifAutoSplitText" to "Deine Fahrt hat 9.000 Punkte erreicht und wurde automatisch geteilt.",
+            "notifAutoSplitText" to "Deine Fahrt hat 9.000 Punkte erreicht und wurde geteilt, um die Aufzeichnung fortzusetzen.",
             "notifLongRideTitle" to "Warnung: lange Fahrt",
             "notifLongRideText" to "Limit fast erreicht. Die Fahrt wird bei 9.000 Punkten automatisch geteilt.",
             "notifStorageLowTitle" to "Speicher fast voll",
             "notifStorageLowText" to "Die Aufzeichnung ist pausiert. Speicher freigeben und in TrackMe auf Fortsetzen tippen.",
-            "sosNotifTitle" to "Notfall-SOS",
-            "sosNotifSetupFailure" to "Das Notfall-SOS ist für keine Kontakte eingerichtet.",
-            "sosNotifFailed" to "Die Notfallwarnung konnte an keinen Kontakt gesendet werden. SMS-Berechtigung und Signal prüfen.",
-            "sosNotifSubmitted" to "Notfallwarnung an %1\$d Kontakt(e) gesendet.",
-            "sosNotifPartial" to "Notfallwarnung an %1\$d Kontakt(e) gesendet; %2\$d fehlgeschlagen.",
-            "sosPermissionRevoked" to "SOS ist deaktiviert, weil die SMS-Berechtigung entfernt wurde. In den Einstellungen wieder aktivieren.",
-            "smsPermissionSettingsRequired" to "Die SMS-Berechtigung ist blockiert. Öffnen Sie die Einstellungen, um fortzufahren.",
-            "grantSmsPermission" to "SMS-Berechtigung erteilen",
             "offlineModeTitle" to "Offline-Modus",
             "offlineModeDescription" to "Änderungen bleiben auf diesem Gerät und werden bei Verbindung synchronisiert.",
             "startLiveShareTitle" to "Live-Standort teilen",
@@ -1277,7 +1236,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dragToSelect" to "Zum Auswählen ziehen",
             "dismissStartRideHint" to "Verstanden",
             "dataExportFailed" to "Das Archiv konnte nicht erstellt oder heruntergeladen werden. Prüfen Sie die Verbindung und den verfügbaren Speicher und versuchen Sie es erneut.",
-            "emergencySetup" to "Notfall-SOS Einrichtung",
             "emergencyContactSnapshotInfo" to "TrackMe speichert eine Momentaufnahme jedes Telefonbuchkontakts. Das Löschen eines Kontakts vom Telefon entfernt ihn nicht hier; löschen Sie ihn unten, um diese Nummer nicht mehr zu verwenden.",
             "rideHistoryTitle" to "Fahrtenverlauf",
             "rideCardAccessibilityDescription" to "Fahrt %1\$s. Gestartet am %2\$s. Entfernung: %3\$s. Dauer: %4\$s. Durchschnittsgeschwindigkeit: %5\$s.",
@@ -1307,7 +1265,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notEnoughGpsDataForExport" to "Nicht genügend GPS-Daten für ein teilbares Bild.",
             "totalDistance" to "Gesamtdistanz",
             "elevationGain" to "Höhengewinn",
-            "configureEmergencySetup" to "Notfall-SOS konfigurieren",
             "signOut" to "Abmelden",
             "privacyAndSecurity" to "Datenschutz und Sicherheit",
             "privacyPolicyText" to "Datenschutzerklärung\n\nIhre Daten liegen vollständig in Ihrer Hand. Standardmäßig speichern wir Daten nur lokal. Wenn Sie die Cloud-Synchronisierung aktivieren, werden Ihre Fahrten sicher auf unseren Servern gespeichert. Sie können Ihre synchronisierten Daten oder Ihr gesamtes Konto jederzeit mit den unten stehenden Optionen dauerhaft löschen. Gelöschte Daten können nicht wiederhergestellt werden.",
@@ -1329,7 +1286,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gpsPostProcessingTitle" to "GPS-Nachbearbeitung",
             "gpsPostProcessingInfo" to "Diese Funktion nutzt fortschrittliche Algorithmen, um Ihre rohen GPS-Daten sofort nach einer Fahrt zu bereinigen.\n\n• Filtert GPS-Sprünge heraus.\n• Glättet unruhige Höhen- und Geschwindigkeitsmessungen.\n• Erkennt Stopps und pausiert die Fahrt rückwirkend.\n• Komprimiert die Datenmenge ohne den Routenverlauf zu verlieren.",
             "liveShareInfoTitle" to "Live-Standortfreigabe",
-            "liveShareInfoText" to "Wenn Sie eine Live-Freigabesitzung starten, werden folgende Informationen regelmäßig an unsere Server gesendet und sind für jeden mit dem Link zugänglich:\n\n• Exakte GPS-Koordinaten (Breiten- & Längengrad)\n• Aktuelle Geschwindigkeit & Richtung\n• Batteriestand des Telefons\n• Zeitstempel der GPS-Messung\n• Max. Zuschauer: Dynamisch durch Server geregelt (Standard: 10)\n\nAlle geteilten Daten verfallen automatisch nach Sitzungsende.",
+            "liveShareInfoText" to "Wenn Sie eine Live-Freigabesitzung starten, werden folgende Informationen regelmäßig an unsere Server gesendet und sind für jeden mit dem Link zugänglich:\n\n• Exakte GPS-Koordinaten (Breiten- & Längengrad)\n• Aktuelle Geschwindigkeit & Richtung\n• Batteriestand des Telefons\n• Zeitstempel der GPS-Messung\n• Max. Zuschauer: Dynamisch durch Server geregelt (Standard: 10)\n\nAlle geteilten Daten verfallen nach Sitzungsende.",
             "guest" to "Gast",
             "rideHistoryLocalOnly" to "Fahrtenverlauf wird nur lokal gespeichert.",
             "signInWithGoogle" to "Mit Google anmelden",
@@ -1434,7 +1391,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLink" to "Link teilen",
             "rideStats" to "Fahrtstatistik",
             "locationPermissionRequired" to "Standortberechtigung erforderlich",
-            "locationPermissionDesc" to "TrackMe benötigt Zugriff auf den Standort, um Ihre Fahrten aufzuzeichnen und im Notfall Ihren Standort zu senden. Bitte erteilen Sie die Berechtigung, um die App zu nutzen.",
+            "locationPermissionDesc" to "TrackMe benötigt Zugriff auf den Standort, um Ihre Fahrten aufzuzeichnen. Bitte erteilen Sie die Berechtigung, um die App zu nutzen.",
             "grantPermission" to "Berechtigung erteilen",
             "mapNormal" to "Normal",
             "mapSatellite" to "Satellit",
@@ -1450,9 +1407,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statsOverlay" to "Statistik-Overlay:",
             "rideSaved" to "Fahrt gespeichert",
             "savingRide" to "Fahrt wird gespeichert...",
-            "emergencyBroadcastActive" to "NOTFALLÜBERTRAGUNG AKTIV",
             "selectExpirationMode" to "Ablaufmodus wählen:",
-            "autoStopWhenRideEnds" to "Stoppt automatisch, wenn die Aufzeichnung endet",
+            "autoStopWhenRideEnds" to "Stoppt, wenn die Aufzeichnung endet",
             "shareRideSubject" to "Verfolge meine Fahrt live",
             "shareRideText" to "Folge hier meinem Live-Standort",
             "shareVia" to "Teilen über",
@@ -1473,7 +1429,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFaqDistanceQuestion" to "Die Entfernung scheint falsch.",
             "helpFaqDistanceAnswer" to "GPS-Drift im Stillstand, Tunnel und Häuserschluchten können die Entfernung beeinflussen. GPS-Nachbearbeitung hilft; eine Signallücke wird als gerade Linie angezeigt.",
             "helpFaqOfflineQuestion" to "Funktioniert Tracking ohne mobile Daten?",
-            "helpFaqOfflineAnswer" to "Ja. Die Aufzeichnung erfolgt lokal. Eine Verbindung ist nur für Cloud-Sync, Live-Sharing und SOS nötig.",
+            "helpFaqOfflineAnswer" to "Ja. Die Aufzeichnung erfolgt lokal. Eine Verbindung ist nur für Cloud-Sync und Live-Sharing nötig.",
             "helpFaqShareQuestion" to "Wer kann einen Live-Sharing-Link sehen?",
             "helpFaqShareAnswer" to "Jede Person mit dem Link kann ihn bis zum Ablauf der Sitzung sehen. Nur der angemeldete Besitzer kann die Sitzung starten, aktualisieren oder beenden.",
             "helpFaqDataQuestion" to "Wie exportiere oder lösche ich meine Daten?",
@@ -1534,6 +1490,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "copy" to "कॉपी करें",
             "sharePin" to "स्थान साझा करें",
             "deleteContactFormat" to "%1\$s हटाएँ",
+            "trustedContactsTitle" to "विश्वसनीय संपर्क",
+            "trustedContactsIntro" to "आपके भरोसेमंद लोग, एक जगह सहेजे गए। TrackMe यह सूची आपके डिवाइस और खाते में रखता है; यह किसी को संदेश नहीं भेजता।",
+            "trustedContactsAdd" to "फ़ोनबुक से जोड़ें",
+            "trustedContactsSettingsDescription" to "सहेजे गए संपर्क देखें और संपादित करें। TrackMe उन्हें संदेश नहीं भेजता।",
+            "trustedContactsOpen" to "संपर्क प्रबंधित करें",
+            "sosRemovalNoticeTitle" to "SOS बटन हटा दिया गया है",
+            "sosRemovalNoticeBody" to "TrackMe में अब ऐप के अंदर का SOS बटन और उसके अपने-आप भेजे जाने वाले SMS अलर्ट नहीं हैं। वे Google Play की प्रतिबंधित अनुमति पर निर्भर थे और यह पक्का नहीं कर सकते थे कि संदेश सचमुच पहुंचेगा, इसलिए हमने ऐसा सुरक्षा-वादा देने के बजाय उन्हें हटा दिया।\n\nआपके सहेजे गए संपर्क हटाए नहीं गए हैं। आप उन्हें कभी भी सेटिंग्स में देख और बदल सकते हैं।\n\nअसली आपात स्थिति के लिए फ़ोन की इनबिल्ट Emergency SOS सुविधा इस्तेमाल करें: सिस्टम सेटिंग्स खोलकर \"Emergency SOS\" खोजें और उसे सेट करें। वह आपातकालीन सेवाओं को तब भी कॉल कर सकती है जब TrackMe नहीं कर सकता।",
+            "sosRemovalNoticeAck" to "ठीक है",
             "timelineScrubberAccessibility" to "टाइमलाइन स्लाइडर। गति, ऊँचाई और मार्ग की स्थिति देखने के लिए समायोजित करें।",
             "newVersionAvailable" to "नया संस्करण उपलब्ध है",
             "updateAvailable" to "अपडेट उपलब्ध है",
@@ -1558,33 +1522,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "avgSpeed" to "औसत गति",
             "maxSpeed" to "अधिकतम गति",
             "elevation" to "ऊंचाई",
-            "swipeToSos" to "आपातकालीन SOS के लिए स्वाइप करें",
-            "sosTriggered" to "आपातकालीन SOS सक्रिय!",
-            "stopEmergencyBroadcast" to "आपातकालीन प्रसारण रोकें",
-            "stopSosBroadcastAccessibility" to "आपातकालीन SOS प्रसारण रोकें",
-            "triggerEmergencyAccessibility" to "आपातकालीन SOS सक्रिय करें",
-            "emergencySosReady" to "आपातकालीन SOS तैयार है",
-            "emergencySosActive" to "आपातकालीन SOS सक्रिय है",
-            "emergencySosUnavailable" to "आपातकालीन SOS उपलब्ध नहीं है",
             "notifTrackingTitle" to "TrackMe आपकी राइड रिकॉर्ड कर रहा है",
             "notifTrackingText" to "राइड जारी है",
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "रुकी हुई • %1\$s",
             "notifTrackingGpsSearching" to "GPS खोजा जा रहा है…",
             "notifAutoSplitTitle" to "राइड अपने-आप विभाजित",
-            "notifAutoSplitText" to "आपकी राइड 9,000 पॉइंट तक पहुंच गई और अपने-आप विभाजित हो गई।",
+            "notifAutoSplitText" to "आपकी राइड 9,000 पॉइंट तक पहुंच गई और रिकॉर्डिंग जारी रखने के लिए विभाजित हो गई।",
             "notifLongRideTitle" to "लंबी राइड की चेतावनी",
             "notifLongRideText" to "सीमा करीब है। 9,000 पॉइंट पर राइड अपने-आप विभाजित हो जाएगी।",
             "notifStorageLowTitle" to "स्टोरेज लगभग भर गया",
             "notifStorageLowText" to "ट्रैकिंग रुकी हुई है। जगह खाली करें और TrackMe में फिर से शुरू करें पर टैप करें।",
-            "sosNotifTitle" to "आपातकालीन SOS",
-            "sosNotifSetupFailure" to "आपातकालीन SOS किसी भी संपर्क के लिए कॉन्फ़िगर नहीं है।",
-            "sosNotifFailed" to "आपातकालीन अलर्ट किसी संपर्क को नहीं भेजा जा सका। SMS अनुमति और सिग्नल जांचें।",
-            "sosNotifSubmitted" to "आपातकालीन अलर्ट %1\$d संपर्क को भेजा गया।",
-            "sosNotifPartial" to "आपातकालीन अलर्ट %1\$d संपर्क को भेजा गया; %2\$d विफल रहे।",
-            "sosPermissionRevoked" to "SMS अनुमति हटाए जाने के कारण SOS बंद है। इसे सेटिंग्स में फिर से सक्षम करें।",
-            "smsPermissionSettingsRequired" to "SMS अनुमति स्थायी रूप से बंद है। जारी रखने के लिए सेटिंग्स में इसे सक्षम करें।",
-            "grantSmsPermission" to "SMS अनुमति दें",
             "offlineModeTitle" to "ऑफ़लाइन मोड",
             "offlineModeDescription" to "परिवर्तन इस डिवाइस पर रहेंगे और कनेक्शन होने पर सिंक होंगे।",
             "startLiveShareTitle" to "लाइव लोकेशन शेयर",
@@ -1637,7 +1585,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dragToSelect" to "चुनने के लिए खींचें",
             "dismissStartRideHint" to "समझ गया",
             "dataExportFailed" to "आर्काइव बनाया या डाउनलोड नहीं किया जा सका। कनेक्शन और उपलब्ध स्टोरेज जांचकर फिर प्रयास करें।",
-            "emergencySetup" to "आपातकालीन SOS सेटअप",
             "emergencyContactSnapshotInfo" to "TrackMe हर फोनबुक संपर्क की एक प्रति सहेजता है। फ़ोन से संपर्क हटाने पर वह यहां नहीं हटता; इस नंबर का उपयोग बंद करने के लिए उसे नीचे हटाएं।",
             "rideHistoryTitle" to "यात्रा इतिहास",
             "rideCardAccessibilityDescription" to "राइड %1\$s। शुरू: %2\$s। दूरी: %3\$s। अवधि: %4\$s। औसत गति: %5\$s।",
@@ -1667,7 +1614,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notEnoughGpsDataForExport" to "शेयर इमेज बनाने के लिए पर्याप्त GPS डेटा नहीं है।",
             "totalDistance" to "कुल दूरी",
             "elevationGain" to "कुल ऊंचाई",
-            "configureEmergencySetup" to "आपातकालीन SOS सेटअप कॉन्फ़िगर करें",
             "signOut" to "साइन आउट",
             "privacyAndSecurity" to "गोपनीयता और सुरक्षा",
             "privacyPolicyText" to "गोपनीयता नीति\n\nआपका डेटा पूरी तरह से आपके नियंत्रण में है। डिफ़ॉल्ट रूप से हम केवल स्थानीय रूप से डेटा सहेजते हैं। यदि आप क्लाउड सिंक सक्षम करते हैं, तो आपकी यात्राएं हमारे सर्वर पर सुरक्षित रूप से सहेजी जाती हैं। आप नीचे दिए गए विकल्पों का उपयोग करके किसी भी समय अपना सिंक किया गया डेटा या अपना पूरा खाता स्थायी रूप से हटा सकते हैं। हटाया गया डेटा पुनर्प्राप्त नहीं किया जा सकता है।",
@@ -1689,7 +1635,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gpsPostProcessingTitle" to "GPS पोस्ट-प्रोसेसिंग",
             "gpsPostProcessingInfo" to "यह सुविधा यात्रा समाप्त होने के तुरंत बाद आपके कच्चे GPS डेटा को साफ़ करने के लिए उन्नत एल्गोरिदम का उपयोग करती है।\n\n• GPS 'टेलीपोर्टेशन' त्रुटियों को फ़िल्टर करता है।\n• ऊंचाई और गति रीडिंग को सुचारू बनाता है।\n• रुकने का पता लगाता है और यात्रा को रोक देता है।\n• मानचित्र पर आपके मार्ग के आकार को खोए बिना डेटा संपीड़ित करता है।",
             "liveShareInfoTitle" to "लाइव लोकेशन शेयरिंग",
-            "liveShareInfoText" to "जब आप लाइव शेयर सत्र शुरू करते हैं, तो निम्नलिखित जानकारी नियमित रूप से हमारे सुरक्षित सर्वर पर भेजी जाती है और लिंक वाले किसी भी व्यक्ति के लिए उपलब्ध कराई जाती है:\n\n• सटीक GPS निर्देशांक (अक्षांश और देशांतर)\n• वर्तमान गति और दिशा\n• फ़ोन बैटरी स्तर\n• GPS रीडिंग का टाइमस्टैम्प\n• अधिकतम दर्शक: सर्वर क्षमता द्वारा गतिशील रूप से प्रबंधित (डिफ़ॉल्ट: 10 दर्शक)\n\nसत्र समाप्त होने पर सभी साझा डेटा स्वचालित रूप से समाप्त हो जाता है।",
+            "liveShareInfoText" to "जब आप लाइव शेयर सत्र शुरू करते हैं, तो निम्नलिखित जानकारी नियमित रूप से हमारे सुरक्षित सर्वर पर भेजी जाती है और लिंक वाले किसी भी व्यक्ति के लिए उपलब्ध कराई जाती है:\n\n• सटीक GPS निर्देशांक (अक्षांश और देशांतर)\n• वर्तमान गति और दिशा\n• फ़ोन बैटरी स्तर\n• GPS रीडिंग का टाइमस्टैम्प\n• अधिकतम दर्शक: सर्वर क्षमता द्वारा गतिशील रूप से प्रबंधित (डिफ़ॉल्ट: 10 दर्शक)\n\nसत्र समाप्त होने पर सभी साझा डेटा समाप्त हो जाता है।",
             "guest" to "अतिथि",
             "rideHistoryLocalOnly" to "यात्रा इतिहास केवल स्थानीय रूप से सहेजा गया है।",
             "signInWithGoogle" to "Google के साथ साइन इन करें",
@@ -1794,7 +1740,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLink" to "लिंक शेयर करें",
             "rideStats" to "यात्रा आँकड़े",
             "locationPermissionRequired" to "स्थान अनुमति आवश्यक",
-            "locationPermissionDesc" to "TrackMe को आपकी यात्राएँ रिकॉर्ड करने और आपात स्थिति में आपका स्थान भेजने के लिए लोकेशन एक्सेस चाहिए। ऐप इस्तेमाल करने के लिए अनुमति दें।",
+            "locationPermissionDesc" to "TrackMe को आपकी यात्राएँ रिकॉर्ड करने के लिए लोकेशन एक्सेस चाहिए। ऐप इस्तेमाल करने के लिए अनुमति दें।",
             "grantPermission" to "अनुमति दें",
             "mapNormal" to "सामान्य",
             "mapSatellite" to "सैटेलाइट",
@@ -1810,9 +1756,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statsOverlay" to "आँकड़े ओवरले:",
             "rideSaved" to "यात्रा सहेजी गई",
             "savingRide" to "यात्रा सहेजी जा रही है...",
-            "emergencyBroadcastActive" to "आपातकालीन प्रसारण सक्रिय",
             "selectExpirationMode" to "समाप्ति मोड चुनें:",
-            "autoStopWhenRideEnds" to "ट्रैकिंग समाप्त होने पर अपने आप रुक जाता है",
+            "autoStopWhenRideEnds" to "ट्रैकिंग समाप्त होने पर रुक जाता है",
             "shareRideSubject" to "मेरी लाइव यात्रा ट्रैक करें",
             "shareRideText" to "मेरी लाइव लोकेशन यहाँ देखें",
             "shareVia" to "इसके ज़रिए शेयर करें",
@@ -1833,7 +1778,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFaqDistanceQuestion" to "दूरी गलत लगती है।",
             "helpFaqDistanceAnswer" to "रुके रहने पर GPS ड्रिफ्ट, सुरंग और ऊंची इमारतें दूरी बदल सकती हैं। GPS पोस्ट-प्रोसेसिंग मदद करती है; सिग्नल गैप चार्ट पर सीधी रेखा दिखता है।",
             "helpFaqOfflineQuestion" to "क्या मोबाइल डेटा के बिना ट्रैकिंग चलेगी?",
-            "helpFaqOfflineAnswer" to "हां। रिकॉर्डिंग स्थानीय है। कनेक्शन केवल क्लाउड सिंक, लाइव शेयरिंग और SOS के लिए चाहिए।",
+            "helpFaqOfflineAnswer" to "हां। रिकॉर्डिंग स्थानीय है। कनेक्शन केवल क्लाउड सिंक और लाइव शेयरिंग के लिए चाहिए।",
             "helpFaqShareQuestion" to "लाइव शेयर लिंक कौन देख सकता है?",
             "helpFaqShareAnswer" to "लिंक वाला कोई भी व्यक्ति सत्र समाप्त होने तक देख सकता है। केवल साइन-इन मालिक सत्र शुरू, अपडेट या बंद कर सकता है।",
             "helpFaqDataQuestion" to "मैं अपना डेटा कैसे निकालूं या हटाऊं?",
@@ -1894,6 +1839,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "copy" to "コピー",
             "sharePin" to "位置情報を共有",
             "deleteContactFormat" to "%1\$sを削除",
+            "trustedContactsTitle" to "信頼できる連絡先",
+            "trustedContactsIntro" to "信頼できる人をひとつの場所に保存。TrackMe はこのリストを端末とアカウントに保存するだけで、誰にもメッセージを送信しません。",
+            "trustedContactsAdd" to "電話帳から追加",
+            "trustedContactsSettingsDescription" to "保存した連絡先の確認と編集。TrackMe から連絡先へメッセージが送られることはありません。",
+            "trustedContactsOpen" to "連絡先を管理",
+            "sosRemovalNoticeTitle" to "SOSボタンは削除されました",
+            "sosRemovalNoticeBody" to "TrackMe のアプリ内 SOS ボタンと自動 SMS 通知は廃止されました。これらは Google Play の制限付き権限に依存しており、メッセージが確実に届くとは言えなかったため、裏付けのない保護を提供し続けるのではなく削除しました。\n\n保存済みの連絡先は削除されていません。いつでも設定から確認・編集できます。\n\n実際の緊急時には、スマートフォン本体の「緊急SOS」機能を使ってください。端末の設定アプリで「緊急SOS」を検索して設定できます。TrackMe が使えない状況でも緊急通報が可能です。",
+            "sosRemovalNoticeAck" to "理解しました",
             "timelineScrubberAccessibility" to "タイムラインスライダー。速度、高度、ルート上の位置を確認するには調整してください。",
             "newVersionAvailable" to "新しいバージョンがあります",
             "updateAvailable" to "アップデートがあります",
@@ -1918,33 +1871,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "avgSpeed" to "平均速度",
             "maxSpeed" to "最高速度",
             "elevation" to "標高",
-            "swipeToSos" to "スワイプして緊急SOSを発動",
-            "sosTriggered" to "緊急SOSが発動されました！",
-            "stopEmergencyBroadcast" to "緊急通知の配信を停止",
-            "stopSosBroadcastAccessibility" to "緊急SOSの配信を停止",
-            "triggerEmergencyAccessibility" to "緊急SOSを発動",
-            "emergencySosReady" to "緊急SOSの準備ができています",
-            "emergencySosActive" to "緊急SOSは有効です",
-            "emergencySosUnavailable" to "緊急SOSは利用できません",
             "notifTrackingTitle" to "TrackMeがライドを記録しています",
             "notifTrackingText" to "ライド進行中",
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "一時停止中 • %1\$s",
             "notifTrackingGpsSearching" to "GPSを検索中…",
             "notifAutoSplitTitle" to "ライドを自動分割",
-            "notifAutoSplitText" to "ライドが9,000ポイントに達したため、自動的に分割されました。",
+            "notifAutoSplitText" to "ライドが9,000ポイントに達したため、記録を続けるために分割されました。",
             "notifLongRideTitle" to "長時間ライドの警告",
             "notifLongRideText" to "上限に近づいています。9,000ポイントでライドが自動分割されます。",
             "notifStorageLowTitle" to "ストレージがほぼ満杯です",
             "notifStorageLowText" to "トラッキングは一時停止中です。空き容量を確保し、TrackMeで再開をタップしてください。",
-            "sosNotifTitle" to "緊急SOS",
-            "sosNotifSetupFailure" to "緊急SOSに連絡先が設定されていません。",
-            "sosNotifFailed" to "緊急アラートを連絡先に送信できませんでした。SMS権限と電波を確認してください。",
-            "sosNotifSubmitted" to "緊急アラートを%1\$d件の連絡先に送信しました。",
-            "sosNotifPartial" to "緊急アラートを%1\$d件の連絡先に送信しました（%2\$d件失敗）。",
-            "sosPermissionRevoked" to "SMS権限が削除されたためSOSは無効です。設定で再び有効にしてください。",
-            "smsPermissionSettingsRequired" to "SMS権限がブロックされています。続行するには設定で有効にしてください。",
-            "grantSmsPermission" to "SMS権限を許可",
             "offlineModeTitle" to "オフラインモード",
             "offlineModeDescription" to "変更はこの端末に保存され、接続時に同期されます。",
             "startLiveShareTitle" to "リアルタイム位置共有",
@@ -1997,7 +1934,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dragToSelect" to "ドラッグして選択",
             "dismissStartRideHint" to "了解",
             "dataExportFailed" to "アーカイブを作成またはダウンロードできませんでした。接続と空き容量を確認して再試行してください。",
-            "emergencySetup" to "緊急SOS設定",
             "emergencyContactSnapshotInfo" to "TrackMeは電話帳の各連絡先を保存します。電話から連絡先を削除しても、ここからは削除されません。この番号の使用をやめるには下で削除してください。",
             "rideHistoryTitle" to "走行履歴",
             "rideCardAccessibilityDescription" to "ライド %1\$s。開始日時: %2\$s。距離: %3\$s。時間: %4\$s。平均速度: %5\$s。",
@@ -2027,7 +1963,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notEnoughGpsDataForExport" to "共有画像を作成するにはGPSデータが不足しています。",
             "totalDistance" to "総走行距離",
             "elevationGain" to "獲得標高",
-            "configureEmergencySetup" to "緊急SOS設定を構成",
             "signOut" to "サインアウト",
             "privacyAndSecurity" to "プライバシーとセキュリティ",
             "privacyPolicyText" to "プライバシーポリシー\n\nお客様のデータは完全にコントロールされています。デフォルトではローカルにのみ保存されます。クラウド同期を有効にすると、走行記録はサーバーに安全に保存されます。以下のオプションを使用して、同期されたデータまたはアカウント全体をいつでも完全に削除できます。削除されたデータは復元できません。",
@@ -2049,7 +1984,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gpsPostProcessingTitle" to "GPS後処理",
             "gpsPostProcessingInfo" to "この機能は、走行終了直後に高度なアルゴリズムを使用して生のGPSデータをクリーンアップします。\n\n• GPSのテレポート誤差を除去。\n• ノイズの多い高度や速度の数値を平滑化。\n• 停止を検出し、遡って記録を一時停止。\n• ルートの形状を損なうことなくデータ容量を圧縮。",
             "liveShareInfoTitle" to "ライブ位置情報共有",
-            "liveShareInfoText" to "ライブ共有セッションを開始すると、以下の情報が定期的に安全なサーバーに送信され、リンクを持つユーザーが閲覧可能になります：\n\n• 正確なGPS座標（緯度・経度）\n• 現在の速度と進行方向\n• スマートフォンのバッテリー残量\n• GPSタイムスタンプ\n• 最大視聴者数：サーバー処理能力により動的に管理（デフォルト：10人）\n\n共有データはセッション終了時に自動的に消去されます。",
+            "liveShareInfoText" to "ライブ共有セッションを開始すると、以下の情報が定期的に安全なサーバーに送信され、リンクを持つユーザーが閲覧可能になります：\n\n• 正確なGPS座標（緯度・経度）\n• 現在の速度と進行方向\n• スマートフォンのバッテリー残量\n• GPSタイムスタンプ\n• 最大視聴者数：サーバー処理能力により動的に管理（デフォルト：10人）\n\n共有データはセッション終了時に消去されます。",
             "guest" to "ゲスト",
             "rideHistoryLocalOnly" to "走行履歴はローカルにのみ保存されます。",
             "signInWithGoogle" to "Googleでサインイン",
@@ -2154,7 +2089,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLink" to "リンクを共有",
             "rideStats" to "走行統計",
             "locationPermissionRequired" to "位置情報の権限が必要です",
-            "locationPermissionDesc" to "TrackMe は走行の記録と緊急時の位置送信のために位置情報へのアクセスが必要です。アプリを利用するには権限を許可してください。",
+            "locationPermissionDesc" to "TrackMe は走行の記録のために位置情報へのアクセスが必要です。アプリを利用するには権限を許可してください。",
             "grantPermission" to "権限を許可",
             "mapNormal" to "標準",
             "mapSatellite" to "衛星",
@@ -2170,9 +2105,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statsOverlay" to "統計オーバーレイ:",
             "rideSaved" to "走行を保存しました",
             "savingRide" to "走行を保存中...",
-            "emergencyBroadcastActive" to "緊急発信が有効です",
             "selectExpirationMode" to "有効期限モードを選択:",
-            "autoStopWhenRideEnds" to "記録が終了すると自動的に停止します",
+            "autoStopWhenRideEnds" to "記録が終了すると停止します",
             "shareRideSubject" to "ライブ走行を追跡",
             "shareRideText" to "こちらでライブ位置情報を確認できます",
             "shareVia" to "共有方法",
@@ -2193,7 +2127,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFaqDistanceQuestion" to "距離が正しくないようです。",
             "helpFaqDistanceAnswer" to "停止中のGPSドリフト、トンネル、高層ビルで距離が変わることがあります。GPS後処理が役立ち、信号の空白はチャート上で直線になります。",
             "helpFaqOfflineQuestion" to "モバイルデータなしで追跡できますか？",
-            "helpFaqOfflineAnswer" to "はい。記録は端末内で行われます。クラウド同期、ライブ共有、SOSだけ接続が必要です。",
+            "helpFaqOfflineAnswer" to "はい。記録は端末内で行われます。クラウド同期とライブ共有だけ接続が必要です。",
             "helpFaqShareQuestion" to "ライブ共有リンクは誰が見られますか？",
             "helpFaqShareAnswer" to "リンクを持つ人はセッション終了まで見られます。セッションを開始・更新・停止できるのはログイン中の所有者だけです。",
             "helpFaqDataQuestion" to "データを取り出す、または削除するには？",
@@ -2254,6 +2188,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "copy" to "复制",
             "sharePin" to "分享位置",
             "deleteContactFormat" to "删除%1\$s",
+            "trustedContactsTitle" to "可信联系人",
+            "trustedContactsIntro" to "把你信任的人保存在一个地方。TrackMe 只在你的设备和账户中保存此列表，不会向任何人发送消息。",
+            "trustedContactsAdd" to "从通讯录添加",
+            "trustedContactsSettingsDescription" to "查看和编辑已保存的联系人。TrackMe 不会向他们发送消息。",
+            "trustedContactsOpen" to "管理联系人",
+            "sosRemovalNoticeTitle" to "SOS 按钮已移除",
+            "sosRemovalNoticeBody" to "TrackMe 已不再提供应用内的 SOS 按钮及其自动短信警报。它们依赖 Google Play 的受限权限，且无法确保消息真正送达，因此我们选择移除，而不是提供无法兑现的保护。\n\n你保存的联系人没有被删除，可随时在设置中查看和编辑。\n\n遇到真正的紧急情况，请使用手机自带的紧急 SOS 功能：打开系统设置并搜索\"紧急 SOS\"进行设置。即使 TrackMe 无法工作，它也能拨打紧急服务电话。",
+            "sosRemovalNoticeAck" to "我知道了",
             "timelineScrubberAccessibility" to "时间轴滑块。调整以查看速度、海拔和路线位置。",
             "newVersionAvailable" to "有新版本可用",
             "updateAvailable" to "有可用更新",
@@ -2278,33 +2220,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "avgSpeed" to "平均速度",
             "maxSpeed" to "最高速度",
             "elevation" to "海拔",
-            "swipeToSos" to "滑动触发紧急SOS",
-            "sosTriggered" to "紧急SOS已触发！",
-            "stopEmergencyBroadcast" to "停止紧急广播",
-            "stopSosBroadcastAccessibility" to "停止紧急SOS广播",
-            "triggerEmergencyAccessibility" to "触发紧急SOS",
-            "emergencySosReady" to "紧急SOS已准备就绪",
-            "emergencySosActive" to "紧急SOS已激活",
-            "emergencySosUnavailable" to "紧急SOS不可用",
             "notifTrackingTitle" to "TrackMe正在记录你的骑行",
             "notifTrackingText" to "骑行进行中",
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "已暂停 • %1\$s",
             "notifTrackingGpsSearching" to "正在搜索 GPS…",
             "notifAutoSplitTitle" to "骑行自动分段",
-            "notifAutoSplitText" to "你的骑行已达到9,000个点，已自动分段。",
+            "notifAutoSplitText" to "你的骑行已达到9,000个点，已分段以继续记录。",
             "notifLongRideTitle" to "长途骑行警告",
             "notifLongRideText" to "即将达到上限。骑行将在9,000个点时自动分段。",
             "notifStorageLowTitle" to "存储空间即将不足",
             "notifStorageLowText" to "跟踪已暂停。请释放设备空间，然后在TrackMe中点按继续。",
-            "sosNotifTitle" to "紧急SOS",
-            "sosNotifSetupFailure" to "紧急SOS尚未配置任何联系人。",
-            "sosNotifFailed" to "无法向任何联系人提交紧急警报。请检查短信权限和信号。",
-            "sosNotifSubmitted" to "紧急警报已提交给%1\$d位联系人。",
-            "sosNotifPartial" to "紧急警报已提交给%1\$d位联系人；%2\$d位失败。",
-            "sosPermissionRevoked" to "由于短信权限已被移除，SOS 已关闭。请在设置中重新启用。",
-            "smsPermissionSettingsRequired" to "短信权限已被阻止。请在设置中启用后继续。",
-            "grantSmsPermission" to "授予短信权限",
             "offlineModeTitle" to "离线模式",
             "offlineModeDescription" to "更改会保留在此设备上，并在联网后同步。",
             "startLiveShareTitle" to "实时位置共享",
@@ -2357,7 +2283,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dragToSelect" to "拖动选择",
             "dismissStartRideHint" to "知道了",
             "dataExportFailed" to "无法创建或下载存档。请检查网络连接和可用存储空间后重试。",
-            "emergencySetup" to "紧急SOS设置",
             "emergencyContactSnapshotInfo" to "TrackMe 会保存每个通讯录联系人的快照。从手机中删除联系人不会将其从这里删除；如需停止使用此号码，请在下方删除。",
             "rideHistoryTitle" to "行程历史",
             "rideCardAccessibilityDescription" to "骑行 %1\$s。开始时间：%2\$s。距离：%3\$s。时长：%4\$s。平均速度：%5\$s。",
@@ -2387,7 +2312,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notEnoughGpsDataForExport" to "GPS 数据不足，无法创建分享图片。",
             "totalDistance" to "总距离",
             "elevationGain" to "累计爬升",
-            "configureEmergencySetup" to "配置紧急SOS设置",
             "signOut" to "退出登录",
             "privacyAndSecurity" to "隐私与安全",
             "privacyPolicyText" to "隐私政策\n\n您的数据完全由您控制。默认情况下，我们仅在本地存储数据。如果您启用云同步，您的行程将安全地存储在我们的服务器上。您可以使用以下选项随时永久删除同步的数据或整个账号。被删除的数据无法恢复。",
@@ -2409,7 +2333,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gpsPostProcessingTitle" to "GPS 后期处理",
             "gpsPostProcessingInfo" to "此功能在行程结束后立刻使用高级算法清理您的原始 GPS 数据。\n\n• 过滤 GPS '瞬移' 异常点。\n• 平滑嘈杂的海拔和速度读数。\n• 检测停留时间并追溯暂停行程。\n• 压缩数据总量以节省存储和加快同步，同时保持地图上的路线形状不变。",
             "liveShareInfoTitle" to "实时位置数据共享",
-            "liveShareInfoText" to "当您开启实时共享会话时，以下信息将定期发送至我们的安全服务器，并向拥有链接的任何人开放：\n\n• 精确 GPS 坐标（纬度与经度）\n• 当前速度与航向（方向）\n• 手机电量\n• GPS 读数的时间戳\n• 最大观看人数：由服务器处理能力动态控制（默认：10 人）\n\n所有共享数据在会话结束时自动到期销毁。",
+            "liveShareInfoText" to "当您开启实时共享会话时，以下信息将定期发送至我们的安全服务器，并向拥有链接的任何人开放：\n\n• 精确 GPS 坐标（纬度与经度）\n• 当前速度与航向（方向）\n• 手机电量\n• GPS 读数的时间戳\n• 最大观看人数：由服务器处理能力动态控制（默认：10 人）\n\n所有共享数据在会话结束时到期销毁。",
             "guest" to "访客",
             "rideHistoryLocalOnly" to "行程历史仅保存在本地。",
             "signInWithGoogle" to "通过 Google 登录",
@@ -2514,7 +2438,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLink" to "分享链接",
             "rideStats" to "行程统计",
             "locationPermissionRequired" to "需要位置权限",
-            "locationPermissionDesc" to "TrackMe 需要访问位置信息才能记录行程并在紧急情况下发送你的位置。请授予权限以使用本应用。",
+            "locationPermissionDesc" to "TrackMe 需要访问位置信息才能记录行程。请授予权限以使用本应用。",
             "grantPermission" to "授予权限",
             "mapNormal" to "普通",
             "mapSatellite" to "卫星",
@@ -2530,9 +2454,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statsOverlay" to "统计叠加：",
             "rideSaved" to "行程已保存",
             "savingRide" to "正在保存行程...",
-            "emergencyBroadcastActive" to "紧急广播已启动",
             "selectExpirationMode" to "选择过期方式：",
-            "autoStopWhenRideEnds" to "记录结束后自动停止",
+            "autoStopWhenRideEnds" to "记录结束后停止",
             "shareRideSubject" to "追踪我的实时行程",
             "shareRideText" to "在此关注我的实时位置",
             "shareVia" to "通过以下方式分享",
@@ -2553,7 +2476,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFaqDistanceQuestion" to "距离看起来不对。",
             "helpFaqDistanceAnswer" to "静止时的 GPS 漂移、隧道和城市高楼可能影响距离。GPS 后处理会有所帮助；信号中断会在图表上显示为直线。",
             "helpFaqOfflineQuestion" to "没有移动数据时可以跟踪吗？",
-            "helpFaqOfflineAnswer" to "可以。记录优先保存在本地。只有云同步、实时共享和 SOS 需要网络连接。",
+            "helpFaqOfflineAnswer" to "可以。记录优先保存在本地。只有云同步和实时共享需要网络连接。",
             "helpFaqShareQuestion" to "谁可以看到实时共享链接？",
             "helpFaqShareAnswer" to "拥有链接的人都可以看到，直到会话过期。只有已登录的所有者可以开始、更新或停止会话。",
             "helpFaqDataQuestion" to "如何导出或删除我的数据？",

@@ -104,10 +104,9 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
                 app.database.rideDao().deleteSyncedPoints()
                 app.database.rideDao().deleteSyncedRides()
 
-                // Clear emergency settings and stop active broadcast
+                // Clear the trusted-contact config held for this account.
                 app.database.emergencyDao().deleteSettings()
                 app.database.emergencyDao().deleteAllContacts()
-                app.emergencyManager.stopEmergency()
             } catch (e: Exception) {
                 // Ignore DB error and ensure we still sign out
             }
@@ -297,7 +296,6 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
             app.database.rideDao().deleteAllRides()
             app.database.emergencyDao().deleteSettings()
             app.database.emergencyDao().deleteAllContacts()
-            app.emergencyManager.stopEmergency()
             app.rideStatsStore.clear()
             app.authManager.signOut()
             return Result.success(Unit)

@@ -6,11 +6,4 @@
     <string name="notification_channel_tracking_description">Ongoing ride tracking status.</string>
     <string name="notification_channel_sync">Sync and updates</string>
     <string name="notification_channel_sync_description">Ride processing and cloud sync updates.</string>
-    <string name="notification_channel_sos">Emergency alerts</string>
-    <string name="notification_channel_sos_description">High-priority emergency and SOS alerts.</string>
-    <string name="sos_notification_title">Emergency SOS</string>
-    <string name="sos_notification_submitted">Emergency alert submitted to %1$d contact(s).</string>
-    <string name="sos_notification_partial">Emergency alert submitted to %1$d contact(s); %2$d failed.</string>
-    <string name="sos_notification_failed">Emergency alert could not be submitted to any contact. Check SMS permission and signal.</string>
-    <string name="sos_notification_setup_failure">Emergency SOS is not configured with any contacts.</string>
 </resources>

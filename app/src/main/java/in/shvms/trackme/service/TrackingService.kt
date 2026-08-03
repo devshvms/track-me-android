@@ -649,15 +649,8 @@ class TrackingService : Service() {
             ).apply {
                 description = getString(`in`.shvms.trackme.R.string.notification_channel_sync_description)
             }
-            val sosChannel = NotificationChannel(
-                SOS_CHANNEL_ID,
-                getString(`in`.shvms.trackme.R.string.notification_channel_sos),
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = getString(`in`.shvms.trackme.R.string.notification_channel_sos_description)
-            }
             val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannels(listOf(trackingChannel, syncChannel, sosChannel))
+            manager.createNotificationChannels(listOf(trackingChannel, syncChannel))
         }
     }
 
@@ -881,7 +874,6 @@ class TrackingService : Service() {
         const val NOTIFICATION_ID = 1
         const val CHANNEL_ID = "tracking_channel"
         const val SYNC_CHANNEL_ID = "sync_channel"
-        const val SOS_CHANNEL_ID = "sos_channel"
         const val STORAGE_WARNING_NOTIFICATION_ID = 4
         const val GPS_LOSS_TIMEOUT_MS = 15_000L
         const val NOTIFICATION_UPDATE_INTERVAL_MS = 15_000L

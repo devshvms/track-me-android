@@ -13,7 +13,8 @@ import `in`.shvms.trackme.data.local.AppPreferencesManager
 import `in`.shvms.trackme.data.remote.FirestoreSyncManager
 import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.service.EmergencyManager
-import `in`.shvms.trackme.service.EmergencyBroadcastWorker
+import `in`.shvms.trackme.service.SosRemovalNoticePolicy
+import `in`.shvms.trackme.service.SosStateCleanup
 
 import `in`.shvms.trackme.utils.logger.ErrorLogger
 import `in`.shvms.trackme.utils.logger.CrashlyticsErrorLogger
@@ -30,7 +31,6 @@ class TrackMeApp : Application() {
     lateinit var database: AppDatabase
     lateinit var trackingManager: TrackingManager
     lateinit var emergencyManager: EmergencyManager
-    lateinit var emergencyBroadcastWorker: EmergencyBroadcastWorker
     lateinit var firestoreSyncManager: FirestoreSyncManager
         private set
 
@@ -63,8 +63,13 @@ class TrackMeApp : Application() {
     private val _recoveryNotice = MutableStateFlow<`in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.RecoverySummary?>(null)
     val recoveryNotice = _recoveryNotice.asStateFlow()
 
-    private val _smsPermissionRevokedNotice = MutableStateFlow(false)
-    val smsPermissionRevokedNotice = _smsPermissionRevokedNotice.asStateFlow()
+    /**
+     * TG-A06 (1.6.4): true while an upgrading user who had completed SOS setup has not yet
+     * acknowledged the removal notice. Evaluated exactly once (per install) in [onCreate];
+     * users who never completed setup are grandfathered out so they never see it.
+     */
+    private val _sosRemovalNotice = MutableStateFlow(false)
+    val sosRemovalNotice = _sosRemovalNotice.asStateFlow()
 
     private val _locationPermissionRevokedNotice = MutableStateFlow(false)
     val locationPermissionRevokedNotice = _locationPermissionRevokedNotice.asStateFlow()
@@ -93,11 +98,25 @@ class TrackMeApp : Application() {
             )
         }
 
-        _smsPermissionRevokedNotice.value = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
-            .getBoolean("sos_permission_revoked_notice", false)
+        // TG-A05 / HAZARD-1: must run before EmergencyManager is constructed and before any
+        // UI reads the persisted SOS state. Synchronous by design — see SosStateCleanup.
+        SosStateCleanup.clearOnce(
+            getSharedPreferences(
+                `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
+                MODE_PRIVATE
+            )
+        )
+        // The SOS dispatch machinery is gone; drop its stale notification channel so
+        // "Emergency alerts" stops appearing in the system notification settings of
+        // upgraded installs. Deleting a nonexistent channel is a documented no-op.
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            getSystemService(android.app.NotificationManager::class.java)
+                ?.deleteNotificationChannel("sos_channel")
+        }
+
         _locationPermissionRevokedNotice.value = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
             .getBoolean("location_permission_revoked_notice", false)
-        
+
         errorLogger = CrashlyticsErrorLogger()
         errorLogger.init()
         `in`.shvms.trackme.analytics.AnalyticsManager.init(this)
@@ -134,10 +153,9 @@ class TrackMeApp : Application() {
         firestoreSyncManager = FirestoreSyncManager(database.rideDao(), database.emergencyDao(), authManager, errorLogger)
         appUpdateChecker = `in`.shvms.trackme.ui.update.AppUpdateChecker(this)
         `in`.shvms.trackme.data.remote.SyncWorker.schedulePeriodicSync(this)
-        emergencyBroadcastWorker = EmergencyBroadcastWorker(this, database.emergencyDao(), trackingManager, emergencyManager, firestoreSyncManager, errorLogger)
-        emergencyBroadcastWorker.start()
 
         applicationScope.launch(Dispatchers.IO) {
+            evaluateSosRemovalNotice()
             try {
                 val activeSessionPending = getSharedPreferences(
                     `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
@@ -260,11 +278,35 @@ class TrackMeApp : Application() {
         _locationPermissionRevokedNotice.value = false
     }
 
-    fun setSmsPermissionRevokedNotice(isRevoked: Boolean) {
-        _smsPermissionRevokedNotice.value = isRevoked
-        getSharedPreferences("trackme_prefs", MODE_PRIVATE)
-            .edit()
-            .putBoolean("sos_permission_revoked_notice", isRevoked)
-            .apply()
+    /**
+     * TG-A06: decide once whether this install needs the SOS-removal notice — see
+     * [SosRemovalNoticePolicy] for the eligibility rule and the read-failure handling.
+     *
+     * A `null` result means the answer is not known yet, so the notice state is left as-is for
+     * this launch: showing nothing is correct when the verdict is unknown, showing a wrong
+     * verdict is not.
+     *
+     * Known and accepted gap: sign-out wipes local contacts (`SettingsViewModel.signOut`) and
+     * `syncEmergencyConfigDownstream` restores them from Firestore afterwards, so a
+     * sign-out → upgrade → sign-in sequence can evaluate before the restore lands and that user
+     * misses the notice. Not fixed on purpose — they had just wiped their own configuration,
+     * and re-reading the database on every launch is not worth this edge case.
+     */
+    private suspend fun evaluateSosRemovalNotice() {
+        val prefs = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
+        SosRemovalNoticePolicy.evaluateOnce(
+            prefs = prefs,
+            onReadFailure = { errorLogger.recordException(it) },
+        ) {
+            database.emergencyDao().getSettings()?.isSetupComplete == true
+        }?.let { shouldShow ->
+            _sosRemovalNotice.value = shouldShow
+        }
+    }
+
+    /** TG-A06: the notice is must-acknowledge; only an explicit tap clears it, permanently. */
+    fun acknowledgeSosRemovalNotice() {
+        _sosRemovalNotice.value = false
+        SosRemovalNoticePolicy.acknowledge(getSharedPreferences("trackme_prefs", MODE_PRIVATE))
     }
 }
