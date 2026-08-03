@@ -1,9 +1,9 @@
-TrackMe 1.6.0 — Engagement, Telemetry & Polish
+TrackMe 1.6.3
 
-• A fresh cyan brand look across the app, matching the icon and store artwork.
-• Post-ride recap: a small, gain-framed summary after you finish recording.
-• Weekly recap + active-week streak — celebrated weekly, never nagging.
-• A cleaner, more reliable in-app review prompt after good rides.
-• Behind-the-scenes telemetry and stability improvements.
-
-(Release-notes stub — refine copy before the store submission.)
+• Start a ride you can back out of — the radial Start gesture now cancels cleanly when you return to center, and ride starts are abortable.
+• New in-app Help & Feedback, with accessible navigation.
+• More reliable saving to your gallery across Android versions.
+• A live, updating notification while you're recording a ride.
+• Smoother first run: clearer location-permission ordering.
+• Broader localization — more of the app speaks your language.
+• Stability, telemetry, and polish under the hood.
