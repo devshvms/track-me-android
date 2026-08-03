@@ -76,7 +76,6 @@ sealed class SyncResult {
 
 class FirestoreSyncManager(
     private val rideDao: RideDao,
-    private val emergencyDao: `in`.shvms.trackme.data.local.dao.EmergencyDao,
     private val authManager: AuthManager,
     private val errorLogger: `in`.shvms.trackme.utils.logger.ErrorLogger
 ) {
@@ -396,79 +395,6 @@ class FirestoreSyncManager(
             errorLogger.log("Failed to queue ride $firestoreDocId for deletion")
             errorLogger.recordException(e)
             return false
-        }
-    }
-
-    fun syncEmergencyConfigUpstream() {
-        syncScope.launch {
-            val user = authManager.currentUser.value ?: return@launch
-            try {
-                val settings = emergencyDao.getSettings() ?: return@launch
-                val contacts = emergencyDao.getContacts()
-
-                val configData = mapOf(
-                    "settings" to mapOf(
-                        "isSetupComplete" to settings.isSetupComplete,
-                        "messageTemplate" to settings.messageTemplate,
-                        "premiumToken" to settings.premiumToken,
-                        "broadcastIntervalSeconds" to settings.broadcastIntervalSeconds
-                    ),
-                    "contacts" to contacts.map { 
-                        mapOf("name" to it.name, "phoneNumber" to it.phoneNumber, "medium" to it.medium) 
-                    }
-                )
-
-                firestore.collection("users").document(user.uid)
-                    .collection("emergency_config").document("settings")
-                    .set(configData).await()
-            } catch (e: Exception) {
-                errorLogger.log("Failed to upload emergency config")
-                errorLogger.recordException(e)
-            }
-        }
-    }
-
-    suspend fun syncEmergencyConfigDownstream() {
-        val user = authManager.currentUser.value ?: return
-        try {
-            val doc = firestore.collection("users").document(user.uid)
-                .collection("emergency_config").document("settings")
-                .get().await()
-
-            if (doc.exists()) {
-                @Suppress("UNCHECKED_CAST")
-                val settingsMap = doc.get("settings") as? Map<String, Any>
-                @Suppress("UNCHECKED_CAST")
-                val contactsList = doc.get("contacts") as? List<Map<String, Any>>
-
-                if (settingsMap != null) {
-                    val settings = `in`.shvms.trackme.data.local.entity.EmergencySettingsEntity(
-                        isSetupComplete = settingsMap["isSetupComplete"] as? Boolean ?: false,
-                        messageTemplate = settingsMap["messageTemplate"] as? String ?: "EMERGENCY! I need help. My last known location is: [Location Link]",
-                        premiumToken = settingsMap["premiumToken"] as? String,
-                        broadcastIntervalSeconds = (settingsMap["broadcastIntervalSeconds"] as? Long)?.toInt() ?: 120
-                    )
-                    emergencyDao.updateSettings(settings)
-                }
-
-                if (contactsList != null) {
-                    // Replace contacts
-                    val oldContacts = emergencyDao.getContacts()
-                    oldContacts.forEach { emergencyDao.deleteContact(it) }
-
-                    contactsList.forEach { cMap ->
-                        val contact = `in`.shvms.trackme.data.local.entity.EmergencyContactEntity(
-                            name = cMap["name"] as? String ?: "Unknown",
-                            phoneNumber = cMap["phoneNumber"] as? String ?: "",
-                            medium = cMap["medium"] as? String ?: "SMS"
-                        )
-                        emergencyDao.insertContact(contact)
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            errorLogger.log("Failed to download emergency config")
-            errorLogger.recordException(e)
         }
     }
 

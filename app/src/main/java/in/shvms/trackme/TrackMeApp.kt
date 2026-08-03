@@ -131,7 +131,7 @@ class TrackMeApp : Application() {
             AppDatabase::class.java,
             "trackme_db"
         )
-        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9)
+        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10)
         .fallbackToDestructiveMigration()
         .build()
         
@@ -150,12 +150,17 @@ class TrackMeApp : Application() {
             errorLogger.setUserId(user?.uid)
         }.launchIn(applicationScope)
 
-        firestoreSyncManager = FirestoreSyncManager(database.rideDao(), database.emergencyDao(), authManager, errorLogger)
+        firestoreSyncManager = FirestoreSyncManager(database.rideDao(), authManager, errorLogger)
         appUpdateChecker = `in`.shvms.trackme.ui.update.AppUpdateChecker(this)
         `in`.shvms.trackme.data.remote.SyncWorker.schedulePeriodicSync(this)
 
         applicationScope.launch(Dispatchers.IO) {
             evaluateSosRemovalNotice()
+            `in`.shvms.trackme.service.EmergencyDataPurge.purgeOnce(
+                prefs = getSharedPreferences("trackme_prefs", MODE_PRIVATE),
+                authManager = authManager,
+                errorLogger = errorLogger,
+            )
             try {
                 val activeSessionPending = getSharedPreferences(
                     `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
@@ -286,11 +291,10 @@ class TrackMeApp : Application() {
      * this launch: showing nothing is correct when the verdict is unknown, showing a wrong
      * verdict is not.
      *
-     * Known and accepted gap: sign-out wipes local contacts (`SettingsViewModel.signOut`) and
-     * `syncEmergencyConfigDownstream` restores them from Firestore afterwards, so a
-     * sign-out → upgrade → sign-in sequence can evaluate before the restore lands and that user
-     * misses the notice. Not fixed on purpose — they had just wiped their own configuration,
-     * and re-reading the database on every launch is not worth this edge case.
+     * TG-A15–A21 (1.6.5): emergency tables are dropped by MIGRATION_9_10, so the setup-complete
+     * check can no longer query the database. Users already evaluated on 1.6.4 keep their
+     * stored verdict; unevaluated users who skip 1.6.4 never had SOS setup, so `false` is the
+     * correct answer.
      */
     private suspend fun evaluateSosRemovalNotice() {
         val prefs = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
@@ -298,7 +302,11 @@ class TrackMeApp : Application() {
             prefs = prefs,
             onReadFailure = { errorLogger.recordException(it) },
         ) {
-            database.emergencyDao().getSettings()?.isSetupComplete == true
+            // The emergency_settings table was dropped in MIGRATION_9_10. Users who were
+            // already evaluated on 1.6.4 will not reach this lambda. Users upgrading
+            // directly from pre-1.6.4 to 1.6.5+ never had SOS setup complete, so `false`
+            // is the correct answer — they should not see the notice.
+            false
         }?.let { shouldShow ->
             _sosRemovalNotice.value = shouldShow
         }

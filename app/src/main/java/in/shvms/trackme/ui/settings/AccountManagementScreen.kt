@@ -122,15 +122,6 @@ fun AccountManagementScreen(
                 Text(user?.email ?: "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Button(
-                onClick = { navController.navigate("emergency_setup") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(strings.trustedContactsOpen)
-            }
-            
             Spacer(modifier = Modifier.height(12.dp))
             
             OutlinedButton(

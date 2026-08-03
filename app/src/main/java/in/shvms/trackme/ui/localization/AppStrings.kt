@@ -42,14 +42,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val send: String = s("send", "Send")
     val copy: String = s("copy", "Copy")
     val sharePin: String = s("sharePin", "Share location pin")
-    val deleteContactFormat: String = s("deleteContactFormat", "Delete %1\$s")
-    val trustedContactsTitle: String = s("trustedContactsTitle", "Trusted Contacts")
-    val trustedContactsIntro: String = s("trustedContactsIntro", "People you trust, saved in one place. TrackMe keeps this list on your device and in your account; it does not message anyone.")
-    val trustedContactsAdd: String = s("trustedContactsAdd", "Add from Phonebook")
-    val trustedContactsSettingsDescription: String = s("trustedContactsSettingsDescription", "View and edit the contacts you saved. TrackMe does not send messages to them.")
-    val trustedContactsOpen: String = s("trustedContactsOpen", "Manage contacts")
     val sosRemovalNoticeTitle: String = s("sosRemovalNoticeTitle", "The SOS button has been removed")
-    val sosRemovalNoticeBody: String = s("sosRemovalNoticeBody", "TrackMe no longer includes the in-app SOS button or its automatic SMS alerts. They depended on a restricted Google Play permission and could not promise that a message would actually arrive, so we removed them instead of offering protection we could not stand behind.\n\nYour saved contacts have not been deleted. You can view and edit them any time in Settings.\n\nFor real emergencies, use your phone's built-in Emergency SOS: open the system Settings app and search for \"Emergency SOS\" to set it up. It can call emergency services even when TrackMe cannot.")
+    val sosRemovalNoticeBody: String = s("sosRemovalNoticeBody", "TrackMe no longer includes the in-app SOS button or its automatic SMS alerts. They depended on a restricted Google Play permission and could not promise that a message would actually arrive, so we removed them instead of offering protection we could not stand behind.\n\nYour saved emergency contacts have been removed from this device and from your cloud account as part of this change.\n\nFor real emergencies, use your phone's built-in Emergency SOS: open the system Settings app and search for \"Emergency SOS\" to set it up. It can call emergency services even when TrackMe cannot.")
     val sosRemovalNoticeAck: String = s("sosRemovalNoticeAck", "I understand")
     val timelineScrubberAccessibility: String = s("timelineScrubberAccessibility", "Timeline scrubber. Adjust to inspect speed, altitude, and route position.")
     val newVersionAvailable: String = s("newVersionAvailable", "New version available")
@@ -136,7 +130,6 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val minute1: String = s("minute1", "1 minute")
     val minutes5: String = s("minutes5", "5 minutes")
     val accountManagement: String = s("accountManagement", "Account Management")
-    val emergencyContactSnapshotInfo: String = s("emergencyContactSnapshotInfo", "TrackMe saves a snapshot of each phonebook contact. Removing a contact from your phone does not remove it here; delete it below to stop using that number.")
     val signOut: String = s("signOut", "Sign Out")
     val privacyAndSecurity: String = s("privacyAndSecurity", "Privacy and Security")
     val privacyPolicyText: String = s("privacyPolicyText", "Privacy Policy\n\nYour data is completely under your control. We only store data locally by default. If you enable Cloud Sync, your rides are securely stored on our servers. You can permanently delete your synced data or your entire account at any time using the options below. Deleted data cannot be recovered.")
@@ -442,14 +435,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "Enviar",
             "copy" to "Copiar",
             "sharePin" to "Compartir ubicación",
-            "deleteContactFormat" to "Eliminar %1\$s",
-            "trustedContactsTitle" to "Contactos de confianza",
-            "trustedContactsIntro" to "Personas de tu confianza, guardadas en un solo lugar. TrackMe mantiene esta lista en tu dispositivo y en tu cuenta; no envía mensajes a nadie.",
-            "trustedContactsAdd" to "Añadir desde la agenda",
-            "trustedContactsSettingsDescription" to "Consulta y edita los contactos guardados. TrackMe no les envía mensajes.",
-            "trustedContactsOpen" to "Gestionar contactos",
             "sosRemovalNoticeTitle" to "El botón SOS se ha eliminado",
-            "sosRemovalNoticeBody" to "TrackMe ya no incluye el botón SOS ni sus alertas SMS automáticas. Dependían de un permiso restringido de Google Play y no podían asegurar que un mensaje llegara realmente, así que las eliminamos en lugar de ofrecer una protección que no podíamos respaldar.\n\nTus contactos guardados no se han borrado. Puedes verlos y editarlos en Ajustes.\n\nPara emergencias reales, usa la función Emergencia SOS integrada de tu teléfono: abre los Ajustes del sistema y busca \"Emergencia SOS\" para configurarla. Puede llamar a los servicios de emergencia incluso cuando TrackMe no puede.",
+            "sosRemovalNoticeBody" to "TrackMe ya no incluye el botón SOS ni sus alertas SMS automáticas. Dependían de un permiso restringido de Google Play y no podían asegurar que un mensaje llegara realmente, así que las eliminamos en lugar de ofrecer una protección que no podíamos respaldar.\n\nTus contactos de emergencia guardados se han eliminado de este dispositivo y de tu cuenta en la nube como parte de este cambio.\n\nPara emergencias reales, usa la función Emergencia SOS integrada de tu teléfono: abre los Ajustes del sistema y busca \"Emergencia SOS\" para configurarla. Puede llamar a los servicios de emergencia incluso cuando TrackMe no puede.",
             "sosRemovalNoticeAck" to "Entendido",
             "timelineScrubberAccessibility" to "Control de línea de tiempo. Ajusta para consultar velocidad, altitud y posición de la ruta.",
             "newVersionAvailable" to "Nueva versión disponible",
@@ -538,7 +525,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dragToSelect" to "Arrastra para seleccionar",
             "dismissStartRideHint" to "Entendido",
             "dataExportFailed" to "No se pudo crear o descargar el archivo. Comprueba la conexión y el almacenamiento disponible e inténtalo de nuevo.",
-            "emergencyContactSnapshotInfo" to "TrackMe guarda una copia de cada contacto. Eliminar un contacto del teléfono no lo elimina aquí; bórralo abajo para dejar de usar ese número.",
             "rideHistoryTitle" to "Historial de Viajes",
             "rideCardAccessibilityDescription" to "Viaje %1\$s. Comenzó el %2\$s. Distancia: %3\$s. Duración: %4\$s. Velocidad media: %5\$s.",
             "noRidesRecorded" to "No hay viajes registrados.",
@@ -791,14 +777,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "Envoyer",
             "copy" to "Copier",
             "sharePin" to "Partager la position",
-            "deleteContactFormat" to "Supprimer %1\$s",
-            "trustedContactsTitle" to "Contacts de confiance",
-            "trustedContactsIntro" to "Les personnes de confiance, réunies au même endroit. TrackMe conserve cette liste sur votre appareil et dans votre compte ; elle n'envoie de message à personne.",
-            "trustedContactsAdd" to "Ajouter depuis le répertoire",
-            "trustedContactsSettingsDescription" to "Consultez et modifiez les contacts enregistrés. TrackMe ne leur envoie aucun message.",
-            "trustedContactsOpen" to "Gérer les contacts",
             "sosRemovalNoticeTitle" to "Le bouton SOS a été retiré",
-            "sosRemovalNoticeBody" to "TrackMe n'inclut plus le bouton SOS ni ses alertes SMS automatiques. Ils reposaient sur une autorisation restreinte de Google Play et ne pouvaient pas assurer qu'un message arrive réellement ; nous les avons donc retirés plutôt que de proposer une protection que nous ne pouvions pas tenir.\n\nVos contacts enregistrés n'ont pas été supprimés. Vous pouvez les consulter et les modifier dans les réglages.\n\nEn cas d'urgence réelle, utilisez la fonction Urgence SOS intégrée de votre téléphone : ouvrez les réglages du système et recherchez « Urgence SOS » pour la configurer. Elle peut appeler les secours même quand TrackMe ne le peut pas.",
+            "sosRemovalNoticeBody" to "TrackMe n'inclut plus le bouton SOS ni ses alertes SMS automatiques. Ils reposaient sur une autorisation restreinte de Google Play et ne pouvaient pas assurer qu'un message arrive réellement ; nous les avons donc retirés plutôt que de proposer une protection que nous ne pouvions pas tenir.\n\nVos contacts d'urgence enregistrés ont été supprimés de cet appareil et de votre compte cloud dans le cadre de cette modification.\n\nEn cas d'urgence réelle, utilisez la fonction Urgence SOS intégrée de votre téléphone : ouvrez les réglages du système et recherchez « Urgence SOS » pour la configurer. Elle peut appeler les secours même quand TrackMe ne le peut pas.",
             "sosRemovalNoticeAck" to "J'ai compris",
             "timelineScrubberAccessibility" to "Curseur de chronologie. Ajustez-le pour inspecter la vitesse, l’altitude et la position sur l’itinéraire.",
             "newVersionAvailable" to "Nouvelle version disponible",
@@ -887,7 +867,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dragToSelect" to "Faire glisser pour sélectionner",
             "dismissStartRideHint" to "Compris",
             "dataExportFailed" to "Impossible de créer ou de télécharger l'archive. Vérifiez votre connexion et l'espace de stockage disponible, puis réessayez.",
-            "emergencyContactSnapshotInfo" to "TrackMe enregistre une copie de chaque contact. Supprimer un contact du téléphone ne le supprime pas ici ; supprimez-le ci-dessous pour ne plus utiliser ce numéro.",
             "rideHistoryTitle" to "Historique des Trajets",
             "rideCardAccessibilityDescription" to "Trajet %1\$s. Commencé le %2\$s. Distance : %3\$s. Durée : %4\$s. Vitesse moyenne : %5\$s.",
             "noRidesRecorded" to "Aucun trajet enregistré.",
@@ -1140,14 +1119,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "Senden",
             "copy" to "Kopieren",
             "sharePin" to "Standort teilen",
-            "deleteContactFormat" to "%1\$s löschen",
-            "trustedContactsTitle" to "Vertrauenskontakte",
-            "trustedContactsIntro" to "Menschen, denen Sie vertrauen, an einem Ort gespeichert. TrackMe bewahrt diese Liste auf Ihrem Gerät und in Ihrem Konto auf; es werden keine Nachrichten versendet.",
-            "trustedContactsAdd" to "Aus dem Telefonbuch hinzufügen",
-            "trustedContactsSettingsDescription" to "Gespeicherte Kontakte ansehen und bearbeiten. TrackMe sendet ihnen keine Nachrichten.",
-            "trustedContactsOpen" to "Kontakte verwalten",
             "sosRemovalNoticeTitle" to "Die SOS-Taste wurde entfernt",
-            "sosRemovalNoticeBody" to "TrackMe enthält die SOS-Taste und ihre automatischen SMS-Warnungen nicht mehr. Sie beruhten auf einer eingeschränkten Google-Play-Berechtigung und konnten nicht zusichern, dass eine Nachricht wirklich ankommt. Deshalb haben wir sie entfernt, statt einen Schutz anzubieten, für den wir nicht einstehen können.\n\nIhre gespeicherten Kontakte wurden nicht gelöscht. Sie finden sie jederzeit in den Einstellungen.\n\nNutzen Sie in echten Notfällen die im Telefon integrierte Notruf-SOS-Funktion: Öffnen Sie die System-Einstellungen und suchen Sie nach \"Notruf SOS\". Sie kann den Notruf auch dann erreichen, wenn TrackMe es nicht kann.",
+            "sosRemovalNoticeBody" to "TrackMe enthält die SOS-Taste und ihre automatischen SMS-Warnungen nicht mehr. Sie beruhten auf einer eingeschränkten Google-Play-Berechtigung und konnten nicht zusichern, dass eine Nachricht wirklich ankommt. Deshalb haben wir sie entfernt, statt einen Schutz anzubieten, für den wir nicht einstehen können.\n\nIhre gespeicherten Notfallkontakte wurden im Rahmen dieser Änderung von diesem Gerät und aus Ihrem Cloud-Konto entfernt.\n\nNutzen Sie in echten Notfällen die im Telefon integrierte Notruf-SOS-Funktion: Öffnen Sie die System-Einstellungen und suchen Sie nach \"Notruf SOS\". Sie kann den Notruf auch dann erreichen, wenn TrackMe es nicht kann.",
             "sosRemovalNoticeAck" to "Verstanden",
             "timelineScrubberAccessibility" to "Zeitleistenregler. Anpassen, um Geschwindigkeit, Höhe und Routenposition zu prüfen.",
             "newVersionAvailable" to "Neue Version verfügbar",
@@ -1236,7 +1209,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dragToSelect" to "Zum Auswählen ziehen",
             "dismissStartRideHint" to "Verstanden",
             "dataExportFailed" to "Das Archiv konnte nicht erstellt oder heruntergeladen werden. Prüfen Sie die Verbindung und den verfügbaren Speicher und versuchen Sie es erneut.",
-            "emergencyContactSnapshotInfo" to "TrackMe speichert eine Momentaufnahme jedes Telefonbuchkontakts. Das Löschen eines Kontakts vom Telefon entfernt ihn nicht hier; löschen Sie ihn unten, um diese Nummer nicht mehr zu verwenden.",
             "rideHistoryTitle" to "Fahrtenverlauf",
             "rideCardAccessibilityDescription" to "Fahrt %1\$s. Gestartet am %2\$s. Entfernung: %3\$s. Dauer: %4\$s. Durchschnittsgeschwindigkeit: %5\$s.",
             "noRidesRecorded" to "Noch keine Fahrten aufgezeichnet.",
@@ -1489,14 +1461,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "भेजें",
             "copy" to "कॉपी करें",
             "sharePin" to "स्थान साझा करें",
-            "deleteContactFormat" to "%1\$s हटाएँ",
-            "trustedContactsTitle" to "विश्वसनीय संपर्क",
-            "trustedContactsIntro" to "आपके भरोसेमंद लोग, एक जगह सहेजे गए। TrackMe यह सूची आपके डिवाइस और खाते में रखता है; यह किसी को संदेश नहीं भेजता।",
-            "trustedContactsAdd" to "फ़ोनबुक से जोड़ें",
-            "trustedContactsSettingsDescription" to "सहेजे गए संपर्क देखें और संपादित करें। TrackMe उन्हें संदेश नहीं भेजता।",
-            "trustedContactsOpen" to "संपर्क प्रबंधित करें",
             "sosRemovalNoticeTitle" to "SOS बटन हटा दिया गया है",
-            "sosRemovalNoticeBody" to "TrackMe में अब ऐप के अंदर का SOS बटन और उसके अपने-आप भेजे जाने वाले SMS अलर्ट नहीं हैं। वे Google Play की प्रतिबंधित अनुमति पर निर्भर थे और यह पक्का नहीं कर सकते थे कि संदेश सचमुच पहुंचेगा, इसलिए हमने ऐसा सुरक्षा-वादा देने के बजाय उन्हें हटा दिया।\n\nआपके सहेजे गए संपर्क हटाए नहीं गए हैं। आप उन्हें कभी भी सेटिंग्स में देख और बदल सकते हैं।\n\nअसली आपात स्थिति के लिए फ़ोन की इनबिल्ट Emergency SOS सुविधा इस्तेमाल करें: सिस्टम सेटिंग्स खोलकर \"Emergency SOS\" खोजें और उसे सेट करें। वह आपातकालीन सेवाओं को तब भी कॉल कर सकती है जब TrackMe नहीं कर सकता।",
+            "sosRemovalNoticeBody" to "TrackMe में अब ऐप के अंदर का SOS बटन और उसके अपने-आप भेजे जाने वाले SMS अलर्ट नहीं हैं। वे Google Play की प्रतिबंधित अनुमति पर निर्भर थे और यह पक्का नहीं कर सकते थे कि संदेश सचमुच पहुंचेगा, इसलिए हमने ऐसा सुरक्षा-वादा देने के बजाय उन्हें हटा दिया।\n\nइस बदलाव के तहत आपके सहेजे गए आपातकालीन संपर्क इस डिवाइस और आपके क्लाउड खाते से हटा दिए गए हैं।\n\nअसली आपात स्थिति के लिए फ़ोन की इनबिल्ट Emergency SOS सुविधा इस्तेमाल करें: सिस्टम सेटिंग्स खोलकर \"Emergency SOS\" खोजें और उसे सेट करें। वह आपातकालीन सेवाओं को तब भी कॉल कर सकती है जब TrackMe नहीं कर सकता।",
             "sosRemovalNoticeAck" to "ठीक है",
             "timelineScrubberAccessibility" to "टाइमलाइन स्लाइडर। गति, ऊँचाई और मार्ग की स्थिति देखने के लिए समायोजित करें।",
             "newVersionAvailable" to "नया संस्करण उपलब्ध है",
@@ -1585,7 +1551,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dragToSelect" to "चुनने के लिए खींचें",
             "dismissStartRideHint" to "समझ गया",
             "dataExportFailed" to "आर्काइव बनाया या डाउनलोड नहीं किया जा सका। कनेक्शन और उपलब्ध स्टोरेज जांचकर फिर प्रयास करें।",
-            "emergencyContactSnapshotInfo" to "TrackMe हर फोनबुक संपर्क की एक प्रति सहेजता है। फ़ोन से संपर्क हटाने पर वह यहां नहीं हटता; इस नंबर का उपयोग बंद करने के लिए उसे नीचे हटाएं।",
             "rideHistoryTitle" to "यात्रा इतिहास",
             "rideCardAccessibilityDescription" to "राइड %1\$s। शुरू: %2\$s। दूरी: %3\$s। अवधि: %4\$s। औसत गति: %5\$s।",
             "noRidesRecorded" to "अभी तक कोई यात्रा दर्ज नहीं की गई है।",
@@ -1838,14 +1803,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "送信",
             "copy" to "コピー",
             "sharePin" to "位置情報を共有",
-            "deleteContactFormat" to "%1\$sを削除",
-            "trustedContactsTitle" to "信頼できる連絡先",
-            "trustedContactsIntro" to "信頼できる人をひとつの場所に保存。TrackMe はこのリストを端末とアカウントに保存するだけで、誰にもメッセージを送信しません。",
-            "trustedContactsAdd" to "電話帳から追加",
-            "trustedContactsSettingsDescription" to "保存した連絡先の確認と編集。TrackMe から連絡先へメッセージが送られることはありません。",
-            "trustedContactsOpen" to "連絡先を管理",
             "sosRemovalNoticeTitle" to "SOSボタンは削除されました",
-            "sosRemovalNoticeBody" to "TrackMe のアプリ内 SOS ボタンと自動 SMS 通知は廃止されました。これらは Google Play の制限付き権限に依存しており、メッセージが確実に届くとは言えなかったため、裏付けのない保護を提供し続けるのではなく削除しました。\n\n保存済みの連絡先は削除されていません。いつでも設定から確認・編集できます。\n\n実際の緊急時には、スマートフォン本体の「緊急SOS」機能を使ってください。端末の設定アプリで「緊急SOS」を検索して設定できます。TrackMe が使えない状況でも緊急通報が可能です。",
+            "sosRemovalNoticeBody" to "TrackMe のアプリ内 SOS ボタンと自動 SMS 通知は廃止されました。これらは Google Play の制限付き権限に依存しており、メッセージが確実に届くとは言えなかったため、裏付けのない保護を提供し続けるのではなく削除しました。\n\nこの変更に伴い、保存されていた緊急連絡先はこの端末およびクラウドアカウントから削除されました。\n\n実際の緊急時には、スマートフォン本体の「緊急SOS」機能を使ってください。端末の設定アプリで「緊急SOS」を検索して設定できます。TrackMe が使えない状況でも緊急通報が可能です。",
             "sosRemovalNoticeAck" to "理解しました",
             "timelineScrubberAccessibility" to "タイムラインスライダー。速度、高度、ルート上の位置を確認するには調整してください。",
             "newVersionAvailable" to "新しいバージョンがあります",
@@ -1934,7 +1893,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dragToSelect" to "ドラッグして選択",
             "dismissStartRideHint" to "了解",
             "dataExportFailed" to "アーカイブを作成またはダウンロードできませんでした。接続と空き容量を確認して再試行してください。",
-            "emergencyContactSnapshotInfo" to "TrackMeは電話帳の各連絡先を保存します。電話から連絡先を削除しても、ここからは削除されません。この番号の使用をやめるには下で削除してください。",
             "rideHistoryTitle" to "走行履歴",
             "rideCardAccessibilityDescription" to "ライド %1\$s。開始日時: %2\$s。距離: %3\$s。時間: %4\$s。平均速度: %5\$s。",
             "noRidesRecorded" to "走行記録がまだありません。",
@@ -2187,14 +2145,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "发送",
             "copy" to "复制",
             "sharePin" to "分享位置",
-            "deleteContactFormat" to "删除%1\$s",
-            "trustedContactsTitle" to "可信联系人",
-            "trustedContactsIntro" to "把你信任的人保存在一个地方。TrackMe 只在你的设备和账户中保存此列表，不会向任何人发送消息。",
-            "trustedContactsAdd" to "从通讯录添加",
-            "trustedContactsSettingsDescription" to "查看和编辑已保存的联系人。TrackMe 不会向他们发送消息。",
-            "trustedContactsOpen" to "管理联系人",
             "sosRemovalNoticeTitle" to "SOS 按钮已移除",
-            "sosRemovalNoticeBody" to "TrackMe 已不再提供应用内的 SOS 按钮及其自动短信警报。它们依赖 Google Play 的受限权限，且无法确保消息真正送达，因此我们选择移除，而不是提供无法兑现的保护。\n\n你保存的联系人没有被删除，可随时在设置中查看和编辑。\n\n遇到真正的紧急情况，请使用手机自带的紧急 SOS 功能：打开系统设置并搜索\"紧急 SOS\"进行设置。即使 TrackMe 无法工作，它也能拨打紧急服务电话。",
+            "sosRemovalNoticeBody" to "TrackMe 已不再提供应用内的 SOS 按钮及其自动短信警报。它们依赖 Google Play 的受限权限，且无法确保消息真正送达，因此我们选择移除，而不是提供无法兑现的保护。\n\n作为此次变更的一部分，你保存的紧急联系人已从此设备和你的云账户中移除。\n\n遇到真正的紧急情况，请使用手机自带的紧急 SOS 功能：打开系统设置并搜索\"紧急 SOS\"进行设置。即使 TrackMe 无法工作，它也能拨打紧急服务电话。",
             "sosRemovalNoticeAck" to "我知道了",
             "timelineScrubberAccessibility" to "时间轴滑块。调整以查看速度、海拔和路线位置。",
             "newVersionAvailable" to "有新版本可用",
@@ -2283,7 +2235,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dragToSelect" to "拖动选择",
             "dismissStartRideHint" to "知道了",
             "dataExportFailed" to "无法创建或下载存档。请检查网络连接和可用存储空间后重试。",
-            "emergencyContactSnapshotInfo" to "TrackMe 会保存每个通讯录联系人的快照。从手机中删除联系人不会将其从这里删除；如需停止使用此号码，请在下方删除。",
             "rideHistoryTitle" to "行程历史",
             "rideCardAccessibilityDescription" to "骑行 %1\$s。开始时间：%2\$s。距离：%3\$s。时长：%4\$s。平均速度：%5\$s。",
             "noRidesRecorded" to "暂无行程记录。",
