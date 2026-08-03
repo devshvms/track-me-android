@@ -45,10 +45,6 @@
 -keep class androidx.tracing.** { *; }
 -keep class kotlin.LazyKt* { *; }
 
-# Vico Charts Keep Rules
--keep class com.patrykandpatrick.vico.** { *; }
--dontwarn com.patrykandpatrick.vico.**
-
 # PostHog Keep Rules
 -keep class com.posthog.** { *; }
 -dontwarn com.posthog.**

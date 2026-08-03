@@ -599,6 +599,24 @@ fun SettingsScreen(
             )
         }
 
+        // TG-A06/A07 (1.6.4): the contact list survives the SOS removal and is held for
+        // redesign. This row is its only remaining entry point, so the retention promise in
+        // the removal notice stays verifiable.
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(strings.trustedContactsTitle, style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(strings.trustedContactsSettingsDescription, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(10.dp))
+                Button(
+                    onClick = { navController?.navigate("emergency_setup") },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(strings.trustedContactsOpen) }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(strings.helpFeedbackTitle, style = MaterialTheme.typography.titleMedium)

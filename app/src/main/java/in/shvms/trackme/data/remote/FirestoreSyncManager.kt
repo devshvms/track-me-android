@@ -472,19 +472,6 @@ class FirestoreSyncManager(
         }
     }
 
-    fun logEmergencyMessage(timestamp: Long, messageText: String, recipientNumber: String, msgType: String) {
-        val user = authManager.currentUser.value ?: return
-        val logData = mapOf(
-            "timestamp" to timestamp,
-            "messageText" to messageText,
-            "recipientNumber" to recipientNumber,
-            "msgType" to msgType
-        )
-        firestore.collection("users").document(user.uid)
-            .collection("emergency_logs")
-            .add(logData)
-    }
-
     suspend fun deleteAllCloudData(): Result<Unit> {
         return try {
             val user = authManager.currentUser.value ?: throw Exception("Not signed in")

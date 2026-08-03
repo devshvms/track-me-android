@@ -37,7 +37,6 @@ import com.google.android.gms.location.Priority
 import com.google.maps.android.compose.*
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.ContentCopy
-import `in`.shvms.trackme.ui.components.SwipeToTriggerSlider
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import java.time.Instant
 import java.time.Duration
@@ -98,13 +97,11 @@ private fun openAppSettings(context: android.content.Context) {
 
 @Composable
 fun HomeScreen(
-    onNavigateToEmergencySetup: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModelFactory(
             (LocalContext.current.applicationContext as TrackMeApp).trackingManager,
             (LocalContext.current.applicationContext as TrackMeApp).emergencyManager,
             (LocalContext.current.applicationContext as TrackMeApp).authManager,
-            (LocalContext.current.applicationContext as TrackMeApp).database.emergencyDao(),
             (LocalContext.current.applicationContext as TrackMeApp).liveShareManager,
             (LocalContext.current.applicationContext as TrackMeApp).preferencesManager
         )
@@ -132,7 +129,6 @@ fun HomeScreen(
     }
     val uiState by viewModel.uiState.collectAsState()
     val recoveryNotice by app.recoveryNotice.collectAsState()
-    val smsPermissionRevoked by app.smsPermissionRevokedNotice.collectAsState()
     val locationPermissionRevokedNotice by app.locationPermissionRevokedNotice.collectAsState()
     // B1: durable one-shot post-ride reveal (null unless a good ride was just saved).
     val pendingReveal by app.pendingRevealStore.pending.collectAsState()
@@ -696,12 +692,6 @@ fun HomeScreen(
                     selectedPersona = uiState.selectedPersona,
                     isAutoPaused = uiState.isAutoPaused,
                     timeSinceLastGps = uiState.timeSinceLastGps,
-                    isEmergencyReady = uiState.isEmergencyReady,
-                    isEmergencyPermissionRevoked = smsPermissionRevoked,
-                    sosPermissionRevokedMessage = strings.sosPermissionRevoked,
-                    reEnableSosDescription = strings.configureEmergencySetup,
-                    dismissSosPermissionDescription = strings.close,
-                    isEmergencyActive = uiState.isEmergencyActive,
                     liveShareState = uiState.liveShareState,
                     isAuthenticated = uiState.isAuthenticated,
                     liveShareAuthRequired = strings.liveShareAuthRequired,
@@ -723,10 +713,6 @@ fun HomeScreen(
                             android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
                         }
                     },
-                    onTriggerSos = { viewModel.triggerEmergency() },
-                    onStopSos = { viewModel.stopEmergency() },
-                    onOpenEmergencySetup = onNavigateToEmergencySetup,
-                    onDismissSosPermissionNotice = { app.setSmsPermissionRevokedNotice(false) },
                     onStartShare = {
                         viewModel.startLiveShare(durationMinutes = 1440, stopOnRideEnd = true)
                     },
@@ -757,40 +743,6 @@ fun HomeScreen(
                     },
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                }
-            }
-
-            if (uiState.isEmergencyActive) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .border(4.dp, TrackMeRed)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = strings.emergencyBroadcastActive,
-                            color = Color.White,
-                            modifier = Modifier
-                                .border(2.dp, TrackMeRed)
-                                .padding(8.dp),
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                        OutlinedButton(
-                            onClick = { viewModel.stopEmergency() },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                contentColor = TrackMeRed
-                            ),
-                            border = BorderStroke(2.dp, TrackMeRed)
-                        ) {
-                            Text(strings.stopEmergencyBroadcast)
-                        }
-                    }
                 }
             }
 

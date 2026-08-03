@@ -38,16 +38,6 @@ object AppConfig {
     // Phase 1 persona replay export contract.
     const val REPLAY_DEEP_LINK_BASE_URL = "https://trackme.shvms.in/r/"
 
-    // --- Emergency Configuration ---
-    // SOS countdown duration in seconds before broadcasting
-    const val SOS_COUNTDOWN_SECONDS = 5
-
-    // Maximum number of broadcast ticks to vibrate for
-    const val MAX_HAPTIC_MESSAGES = 5
-
-    // Vibration duration in milliseconds for each broadcast tick
-    const val HAPTIC_VIBRATION_DURATION_MS = 1000L
-
     // --- Post Processing Configuration ---
     const val MAX_ACCELERATION_G = 2.0f
     

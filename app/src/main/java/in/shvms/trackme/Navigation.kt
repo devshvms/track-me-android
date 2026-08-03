@@ -92,7 +92,7 @@ fun MainNavigation() {
             modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
         ) {
             composable("home") {
-                HomeScreen(onNavigateToEmergencySetup = { navController.navigate("emergency_setup") })
+                HomeScreen()
             }
             composable("history") { 
                 HistoryScreen(

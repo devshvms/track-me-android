@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
@@ -43,6 +45,7 @@ class MainActivity : ComponentActivity() {
       val appStrings = remember(appLanguage) { getAppStrings(appLanguage) }
       val updateInfo by app.appUpdateChecker.updateInfo.collectAsState()
       val ageDecision by app.ageSignalManager.decision().collectAsState()
+      val sosRemovalNotice by app.sosRemovalNotice.collectAsState()
 
       CompositionLocalProvider(LocalAppStrings provides appStrings) {
         TrackMeTheme(themeMode = themeMode, dynamicColor = dynamicColor) {
@@ -56,6 +59,28 @@ class MainActivity : ComponentActivity() {
                   `in`.shvms.trackme.ui.update.AppUpdateDialog(
                     updateInfo = info,
                     onDismiss = { app.appUpdateChecker.dismissUpdate(info.latestVersionCode) }
+                  )
+                }
+                // TG-A06: one-time, must-acknowledge notice for users who had completed
+                // SOS setup before 1.6.4. Back press / outside tap must not dismiss it —
+                // only the explicit acknowledgement clears it, permanently.
+                if (sosRemovalNotice) {
+                  androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { /* must acknowledge */ },
+                    title = { androidx.compose.material3.Text(appStrings.sosRemovalNoticeTitle) },
+                    text = {
+                      androidx.compose.material3.Text(
+                        text = appStrings.sosRemovalNoticeBody,
+                        modifier = Modifier.verticalScroll(rememberScrollState())
+                      )
+                    },
+                    confirmButton = {
+                      androidx.compose.material3.TextButton(
+                        onClick = { app.acknowledgeSosRemovalNotice() }
+                      ) {
+                        androidx.compose.material3.Text(appStrings.sosRemovalNoticeAck)
+                      }
+                    }
                   )
                 }
               }
@@ -86,18 +111,5 @@ class MainActivity : ComponentActivity() {
       }
       // B2: surface a weekly recap for a just-completed week (shared foreground trigger).
       app.checkWeeklyRecap()
-      lifecycleScope.launch {
-          val settings = app.database.emergencyDao().getSettings()
-          val smsPermissionGranted = ContextCompat.checkSelfPermission(
-              this@MainActivity,
-              android.Manifest.permission.SEND_SMS
-          ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-          if (settings?.isSetupComplete == true && !smsPermissionGranted) {
-              app.setSmsPermissionRevokedNotice(true)
-              app.database.emergencyDao().updateSettings(settings.copy(isSetupComplete = false))
-          } else if (smsPermissionGranted) {
-              app.setSmsPermissionRevokedNotice(false)
-          }
-      }
   }
 }

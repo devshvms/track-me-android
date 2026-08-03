@@ -8,7 +8,7 @@ class AppStringsNotificationTest {
     private val supportedLanguages = listOf("en", "es", "fr", "de", "hi", "ja", "zh")
 
     @Test
-    fun notificationAndSosContentIsPresentAndFormatSafeForEveryLanguage() {
+    fun notificationContentIsPresentAndFormatSafeForEveryLanguage() {
         supportedLanguages.forEach { language ->
             val strings = getAppStrings(language)
 
@@ -23,21 +23,10 @@ class AppStringsNotificationTest {
                 strings.notifLongRideTitle,
                 strings.notifLongRideText,
                 strings.notifStorageLowTitle,
-                strings.notifStorageLowText,
-                strings.sosNotifTitle,
-                strings.sosNotifSetupFailure,
-                strings.sosNotifFailed,
-                strings.sosNotifSubmitted,
-                strings.sosNotifPartial
+                strings.notifStorageLowText
             ).forEach { value ->
                 assertTrue("$language has a blank notification string", value.isNotBlank())
             }
-
-            val submitted = String.format(Locale.US, strings.sosNotifSubmitted, 3)
-            val partial = String.format(Locale.US, strings.sosNotifPartial, 3, 1)
-            assertTrue("$language submitted placeholder drifted", submitted.contains("3"))
-            assertTrue("$language partial placeholder drifted", partial.contains("3"))
-            assertTrue("$language partial failure placeholder drifted", partial.contains("1"))
 
             val metrics = String.format(Locale.US, strings.notifTrackingMetrics, "00:01:00", "1.0 km", "3.6 km/h")
             val paused = String.format(Locale.US, strings.notifTrackingPaused, "00:01:00")

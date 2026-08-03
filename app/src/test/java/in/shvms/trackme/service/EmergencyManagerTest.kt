@@ -2,41 +2,20 @@ package `in`.shvms.trackme.service
 
 import android.content.SharedPreferences
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * TG-A03/A05 (1.6.4): the SOS trigger surface is gone, so this class no longer covers
+ * triggering, resolving or broadcast cadence. What remains is the reason EmergencyManager
+ * survives at all (HAZARD-2) — per-ride celebration suppression, which TrackingService
+ * calls at ride start, ride split and finalize — plus the one-time upgrade clear.
+ */
 class EmergencyManagerTest {
 
     @Test
-    fun triggerThenResolve_isConsumedAsRideSuppression() {
+    fun beginRideSession_onACleanInstall_leavesNothingToSuppress() {
         val manager = manager()
-
-        manager.beginRideSession()
-        manager.triggerEmergency()
-        manager.stopEmergency()
-
-        assertTrue(manager.consumeRideSuppression())
-        assertFalse(manager.consumeRideSuppression())
-    }
-
-    @Test
-    fun beginRideSession_doesNotClearAnActiveEmergency() {
-        val manager = manager()
-        manager.triggerEmergency()
-
-        manager.beginRideSession()
-
-        assertTrue(manager.consumeRideSuppression())
-    }
-
-    @Test
-    fun beginRideSession_afterResolvedEmergency_startsClean() {
-        val manager = manager()
-        manager.triggerEmergency()
-        manager.stopEmergency()
 
         manager.beginRideSession()
 
@@ -44,79 +23,75 @@ class EmergencyManagerTest {
     }
 
     @Test
-    fun freshManager_readsSuppressionFromTrackingPreferences() {
-        val preferences = InMemorySharedPreferences()
-        val firstManager = EmergencyManager(preferences)
-
-        firstManager.triggerEmergency()
-        firstManager.stopEmergency()
-
-        val restoredManager = EmergencyManager(preferences)
-
-        assertTrue(restoredManager.consumeRideSuppression())
-        assertFalse(restoredManager.consumeRideSuppression())
-    }
-
-    @Test
-    fun freshManager_restoresActiveEmergencyAndStopPersistsResolution() {
-        val preferences = InMemorySharedPreferences()
-        val firstManager = EmergencyManager(preferences)
-
-        firstManager.triggerEmergency()
-
-        val restoredManager = EmergencyManager(preferences)
-        assertTrue(restoredManager.isEmergencyActive.value)
-
-        restoredManager.stopEmergency()
-
-        val resolvedManager = EmergencyManager(preferences)
-        assertFalse(resolvedManager.isEmergencyActive.value)
-        assertNull(resolvedManager.emergencyStartedAtMillis.value)
-    }
-
-    @Test
-    fun freshManager_restoresEmergencyStartTime() {
-        val preferences = InMemorySharedPreferences()
-        val firstManager = EmergencyManager(preferences)
-
-        firstManager.triggerEmergency()
-        val startedAt = firstManager.emergencyStartedAtMillis.value
-
-        val restoredManager = EmergencyManager(preferences)
-
-        assertNotNull(startedAt)
-        assertEquals(startedAt, restoredManager.emergencyStartedAtMillis.value)
-    }
-
-    @Test
-    fun triggerEmergency_doesNotResetAnActiveStartTime() {
-        val manager = manager()
-
-        manager.triggerEmergency()
-        val startedAt = manager.emergencyStartedAtMillis.value
-        manager.triggerEmergency()
-
-        assertEquals(startedAt, manager.emergencyStartedAtMillis.value)
-    }
-
-    @Test
-    fun activeEmergencyCreatedBeforeTimestamp_migratesToBoundedStartTime() {
+    fun aStrandedActiveEmergency_stillSuppressesTheRideItStarted() {
+        // Belt-and-braces: SosStateCleanup clears this before EmergencyManager is built, but
+        // if a stranded bit ever survived, the ride it covers must not earn a celebration.
         val preferences = InMemorySharedPreferences()
         preferences.edit().putBoolean("emergency_active", true).apply()
         val manager = EmergencyManager(preferences)
 
-        val startedAt = manager.ensureEmergencyStartedAt()
+        manager.beginRideSession()
 
-        assertNotNull(startedAt)
-        assertEquals(startedAt, EmergencyManager(preferences).emergencyStartedAtMillis.value)
+        assertTrue(manager.consumeRideSuppression())
     }
 
     @Test
-    fun broadcastPolicy_usesElapsedTimeForCadenceAndStopsAtTwentyFourHours() {
-        assertEquals(2 * 60 * 1000L, EmergencyBroadcastPolicy.delayMillis(0))
-        assertEquals(10 * 60 * 1000L, EmergencyBroadcastPolicy.delayMillis(10))
-        assertEquals(60 * 60 * 1000L, EmergencyBroadcastPolicy.delayMillis(60))
-        assertNull(EmergencyBroadcastPolicy.delayMillis(EmergencyBroadcastPolicy.MAX_DURATION_MINUTES))
+    fun consumeRideSuppression_isExactlyOnce() {
+        val preferences = InMemorySharedPreferences()
+        preferences.edit().putBoolean("emergency_triggered_for_ride", true).apply()
+        val manager = EmergencyManager(preferences)
+
+        assertTrue(manager.consumeRideSuppression())
+        assertFalse(manager.consumeRideSuppression())
+        assertFalse(EmergencyManager(preferences).consumeRideSuppression())
+    }
+
+    @Test
+    fun suppressionSurvivesProcessDeath_soFinalizeAfterARestartStillSuppresses() {
+        val preferences = InMemorySharedPreferences()
+        preferences.edit().putBoolean("emergency_active", true).apply()
+        // The ride starts under a stranded active state, then the process dies.
+        EmergencyManager(preferences).beginRideSession()
+
+        // A fresh manager (new process) finalizes that ride and must still suppress it.
+        assertTrue(EmergencyManager(preferences).consumeRideSuppression())
+    }
+
+    // --- TG-A05 / HAZARD-1: the one-time upgrade clear -------------------------------------
+
+    @Test
+    fun clearOnce_clearsStrandedSosStateAndRunsExactlyOnce() {
+        val preferences = InMemorySharedPreferences()
+        preferences.edit()
+            .putBoolean("emergency_active", true)
+            .putLong("emergency_started_at", 1_700_000_000_000L)
+            .putBoolean("emergency_triggered_for_ride", true)
+            .apply()
+
+        assertTrue("the first run must perform the clear", SosStateCleanup.clearOnce(preferences))
+
+        assertFalse(preferences.contains("emergency_active"))
+        assertFalse(preferences.contains("emergency_started_at"))
+        assertFalse(preferences.contains("emergency_triggered_for_ride"))
+        assertTrue(preferences.getBoolean("sos_state_cleared_v164", false))
+        // The whole point of HAZARD-1: an upgrading user is no longer stranded "active".
+        assertFalse(EmergencyManager(preferences).isEmergencyActive.value)
+
+        // A second run is a no-op, including after state is legitimately written again —
+        // this is what stops the periodic SyncWorker process restart from re-clearing.
+        preferences.edit().putBoolean("emergency_triggered_for_ride", true).apply()
+        assertFalse("the second run must not clear again", SosStateCleanup.clearOnce(preferences))
+        assertTrue(preferences.getBoolean("emergency_triggered_for_ride", false))
+    }
+
+    @Test
+    fun clearOnce_onACleanInstall_isHarmlessAndStillMarksItself() {
+        val preferences = InMemorySharedPreferences()
+
+        assertTrue(SosStateCleanup.clearOnce(preferences))
+
+        assertTrue(preferences.getBoolean("sos_state_cleared_v164", false))
+        assertFalse(SosStateCleanup.clearOnce(preferences))
     }
 
     private fun manager(): EmergencyManager = EmergencyManager(InMemorySharedPreferences())

@@ -57,14 +57,15 @@ class EmergencySettingsViewModel(private val app: TrackMeApp) : ViewModel() {
         firestoreSyncManager.syncEmergencyConfigUpstream()
     }
 
-    fun logTestMessage(text: String, recipient: String) {
-        firestoreSyncManager.logEmergencyMessage(System.currentTimeMillis(), text, recipient, "TEST")
-    }
-
-    fun completeSetupAndSync(template: String) {
+    /**
+     * TG-A07: marks the contact list as set up without touching the stored message template.
+     * The template column stays as-is (HAZARD-3: no schema change) even though nothing
+     * dispatches it any more; the config sync keeps it for the held redesign.
+     */
+    fun completeSetup() {
         viewModelScope.launch {
             settings.value?.let { current ->
-                emergencyDao.updateSettings(current.copy(isSetupComplete = true, messageTemplate = template))
+                emergencyDao.updateSettings(current.copy(isSetupComplete = true))
                 syncUpstream()
             }
         }

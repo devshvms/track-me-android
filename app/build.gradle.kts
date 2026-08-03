@@ -4,7 +4,6 @@ import java.io.FileInputStream
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
-  alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.google.services)
   alias(libs.plugins.ksp)
   alias(libs.plugins.crashlytics)
@@ -40,8 +39,8 @@ android {
         minSdk = 24
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = (System.getenv("VERSION_CODE") ?: "22").toInt()
-        versionName = "1.6.3"
+        versionCode = (System.getenv("VERSION_CODE") ?: "23").toInt()
+        versionName = "1.6.4"
         
         resValue("string", "google_maps_key", mapsApiKey)
         buildConfigField("String", "POSTHOG_API_KEY", "\"$posthogApiKey\"")
@@ -173,11 +172,6 @@ dependencies {
   implementation(libs.credentials)
   implementation(libs.credentials.play.services.auth)
   implementation(libs.googleid)
-
-  // Vico Charts
-  implementation(libs.vico.compose)
-  implementation(libs.vico.compose.m3)
-  implementation(libs.vico.core)
 
   // Coil & Map Utils
   implementation(libs.coil.compose)

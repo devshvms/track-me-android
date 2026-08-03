@@ -128,7 +128,7 @@ fun AccountManagementScreen(
                 onClick = { navController.navigate("emergency_setup") },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(strings.configureEmergencySetup)
+                Text(strings.trustedContactsOpen)
             }
             
             Spacer(modifier = Modifier.height(12.dp))

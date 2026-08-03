@@ -2,10 +2,8 @@ package `in`.shvms.trackme.ui.home.components
 
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import `in`.shvms.trackme.theme.*
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import `in`.shvms.trackme.ui.components.HapticFeedbackUtils.triggerPhysicalVibrate
@@ -21,13 +19,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,7 +36,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.onClick
@@ -58,7 +52,6 @@ import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import `in`.shvms.trackme.service.TrackingState
-import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -97,12 +90,6 @@ fun ActiveRideHudPanel(
     selectedPersona: RidePersona,
     isAutoPaused: Boolean,
     timeSinceLastGps: Long,
-    isEmergencyReady: Boolean,
-    isEmergencyPermissionRevoked: Boolean = false,
-    sosPermissionRevokedMessage: String = "SOS is off - SMS permission was removed.",
-    reEnableSosDescription: String = "Re-enable SOS",
-    dismissSosPermissionDescription: String = "Dismiss",
-    isEmergencyActive: Boolean,
     liveShareState: LiveShareState,
     isAuthenticated: Boolean,
     liveShareAuthRequired: String,
@@ -110,10 +97,6 @@ fun ActiveRideHudPanel(
     onPauseToggle: () -> Unit,
 
     onStopRide: () -> Unit,
-    onTriggerSos: () -> Unit,
-    onStopSos: () -> Unit,
-    onOpenEmergencySetup: () -> Unit = {},
-    onDismissSosPermissionNotice: () -> Unit = {},
     onStartShare: () -> Unit,
     onStopShare: () -> Unit,
     onSendShare: () -> Unit,
@@ -316,42 +299,7 @@ fun ActiveRideHudPanel(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                if (isEmergencyPermissionRevoked) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 12.dp, end = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Text(
-                                text = sosPermissionRevokedMessage,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 8.dp, vertical = 10.dp)
-                            )
-                            IconButton(onClick = onOpenEmergencySetup) {
-                                Icon(Icons.Default.Settings, contentDescription = reEnableSosDescription)
-                            }
-                            IconButton(onClick = onDismissSosPermissionNotice) {
-                                Icon(Icons.Default.Close, contentDescription = dismissSosPermissionDescription)
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-
-                // Action Buttons Row (SOS | Unified Pause/Stop Pill | Live Share)
+                // Action Buttons Row (Unified Pause/Stop Pill | Live Share)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -359,15 +307,6 @@ fun ActiveRideHudPanel(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // SOS Button - 52.dp circle
-                    SosButton(
-                        isReady = isEmergencyReady,
-                        isActive = isEmergencyActive,
-                        onTrigger = onTriggerSos,
-                        onStop = onStopSos,
-                        modifier = Modifier.size(52.dp)
-                    )
-
                     // Unified Center Pill (Pause/Resume on left, Slide-to-Stop on right) - 52.dp height
                     val isPaused = trackingState == TrackingState.PAUSED ||
                         trackingState == TrackingState.GPS_LOST ||
@@ -401,32 +340,6 @@ fun ActiveRideHudPanel(
 }
 
 /**
- * Pure copy selection for the SOS control's accessibility semantics.
- * Kept below [ActiveRideHudPanel] so the panel's KDoc remains attached to the public composable.
- */
-internal object SosButtonAccessibility {
-    fun contentDescription(
-        isReady: Boolean,
-        isActive: Boolean,
-        strings: AppStrings
-    ): String = when {
-        !isReady -> strings.emergencySosUnavailable
-        isActive -> strings.stopSosBroadcastAccessibility
-        else -> strings.triggerEmergencyAccessibility
-    }
-
-    fun stateDescription(
-        isReady: Boolean,
-        isActive: Boolean,
-        strings: AppStrings
-    ): String = when {
-        !isReady -> strings.emergencySosUnavailable
-        isActive -> strings.emergencySosActive
-        else -> strings.emergencySosReady
-    }
-}
-
-/**
  * @param subValue Optional smaller caption rendered just below [value] — currently used to show
  * total elapsed (wall-clock) time under the active-duration headline stat. Null for stats that
  * don't need a secondary line.
@@ -454,72 +367,6 @@ private fun StatItem(label: String, value: String, subValue: String? = null) {
                 fontWeight = FontWeight.Medium
             )
         }
-    }
-}
-
-@Composable
-private fun SosButton(
-    isReady: Boolean,
-    isActive: Boolean,
-    onTrigger: () -> Unit,
-    onStop: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val strings = LocalAppStrings.current
-    val haptic = LocalHapticFeedback.current
-    val context = LocalContext.current
-    val buttonScale = remember { Animatable(1f) }
-    val coroutineScope = rememberCoroutineScope()
-
-    val inactiveBgColor = TrackMeGrey
-    val readyBgColor = TrackMeRed
-    val activeBgColor = TrackMeRedLight
-
-    val animatedBgColor by animateColorAsState(
-        targetValue = when {
-            !isReady -> inactiveBgColor
-            isActive -> activeBgColor
-            else -> readyBgColor
-        },
-        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-        label = "sosBgColor"
-    )
-
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
-            .size(52.dp)
-            .scale(buttonScale.value)
-            .clip(CircleShape)
-            .background(color = animatedBgColor)
-            .clickable(enabled = isReady) {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                triggerPhysicalVibrate(context, 45L)
-                
-                coroutineScope.launch {
-                    buttonScale.animateTo(1.15f, tween(120))
-                    buttonScale.animateTo(1.0f, tween(150))
-                }
-
-                if (isActive) {
-                    onStop()
-                } else {
-                    onTrigger()
-                }
-            }
-            .semantics(mergeDescendants = true) {
-                role = Role.Button
-                contentDescription = SosButtonAccessibility.contentDescription(isReady, isActive, strings)
-                stateDescription = SosButtonAccessibility.stateDescription(isReady, isActive, strings)
-                if (!isReady) disabled()
-            }
-    ) {
-        Text(
-            text = "SOS",
-            color = if (isReady) Color.White else Color.Black.copy(alpha = 0.4f),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.ExtraBold
-        )
     }
 }
 

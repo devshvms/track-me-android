@@ -8,7 +8,6 @@ import `in`.shvms.trackme.service.TrackingService
 import `in`.shvms.trackme.service.TrackingState
 import `in`.shvms.trackme.service.EmergencyManager
 import `in`.shvms.trackme.auth.AuthManager
-import `in`.shvms.trackme.data.local.dao.EmergencyDao
 import `in`.shvms.trackme.data.local.AppPreferencesManager
 import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.data.remote.LiveShareState
@@ -37,7 +36,6 @@ data class HomeUiState(
     /** Only meaningful/shown for [in.shvms.trackme.domain.model.RidePersona.WALK] — see [formatPace]. */
     val paceText: String = "--:-- /km",
     val isEmergencyActive: Boolean = false,
-    val isEmergencyReady: Boolean = false,
     val timeSinceLastGps: Long = 0L,
     val liveShareState: LiveShareState = LiveShareState(),
     val isAutoPaused: Boolean = false,
@@ -51,7 +49,6 @@ class HomeViewModel(
     private val trackingManager: TrackingManager,
     private val emergencyManager: EmergencyManager,
     private val authManager: AuthManager,
-    private val emergencyDao: EmergencyDao,
     private val liveShareManager: LiveShareManager,
     private val preferencesManager: AppPreferencesManager
 ) : ViewModel() {
@@ -129,23 +126,17 @@ class HomeViewModel(
         )
     }
 
-    private val isEmergencyReadyFlow = combine(
-        authManager.currentUser,
-        emergencyDao.getSettingsFlow()
-    ) { user, settings ->
-        user != null && settings?.isSetupComplete == true
-    }
-
+    // isEmergencyActive is retained solely for CalmMomentGate: a stranded pre-1.6.4 SOS
+    // state (cleared by SosStateCleanup, but belt-and-braces) must never be covered by a
+    // celebration surface. Nothing in the UI can set or render it any more.
     val uiState = combine(
         trackingStats,
         emergencyManager.isEmergencyActive,
-        isEmergencyReadyFlow,
         liveShareManager.state,
         authManager.currentUser
-    ) { stats, isEmergency, isReady, liveShare, user ->
+    ) { stats, isEmergency, liveShare, user ->
         stats.copy(
             isEmergencyActive = isEmergency,
-            isEmergencyReady = isReady,
             liveShareState = liveShare,
             isAuthenticated = user != null,
             userName = user?.displayName
@@ -219,27 +210,6 @@ class HomeViewModel(
         viewModelScope.launch { _uiEvent.emit(UiEvent.SendServiceCommand(action)) }
     }
 
-    fun triggerEmergency() {
-        `in`.shvms.trackme.analytics.AnalyticsManager.trackSosTriggered(
-            triggerMethod = "in_app_button"
-        )
-        emergencyManager.triggerEmergency()
-    }
-
-    fun stopEmergency(falseAlarm: Boolean = false) {
-        val startedAt = emergencyManager.emergencyStartedAtMillis.value
-        val duration = if (startedAt != null) {
-            ((System.currentTimeMillis() - startedAt) / 1000L).coerceAtLeast(0L)
-        } else {
-            0L
-        }
-        `in`.shvms.trackme.analytics.AnalyticsManager.trackSosResolved(
-            resolutionTimeSeconds = duration,
-            falseAlarm = falseAlarm
-        )
-        emergencyManager.stopEmergency()
-    }
-
     fun startLiveShare(durationMinutes: Int, stopOnRideEnd: Boolean) {
         viewModelScope.launch {
             if (authManager.currentUser.value == null) {
@@ -281,14 +251,13 @@ class HomeViewModelFactory(
     private val trackingManager: TrackingManager,
     private val emergencyManager: EmergencyManager,
     private val authManager: AuthManager,
-    private val emergencyDao: EmergencyDao,
     private val liveShareManager: LiveShareManager,
     private val preferencesManager: AppPreferencesManager
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return HomeViewModel(trackingManager, emergencyManager, authManager, emergencyDao, liveShareManager, preferencesManager) as T
+            return HomeViewModel(trackingManager, emergencyManager, authManager, liveShareManager, preferencesManager) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
