@@ -13,6 +13,7 @@ import `in`.shvms.trackme.data.local.AppPreferencesManager
 import `in`.shvms.trackme.data.remote.FirestoreSyncManager
 import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.service.EmergencyManager
+import `in`.shvms.trackme.service.SosRemovalNoticePolicy
 import `in`.shvms.trackme.service.SosStateCleanup
 
 import `in`.shvms.trackme.utils.logger.ErrorLogger
@@ -278,40 +279,34 @@ class TrackMeApp : Application() {
     }
 
     /**
-     * TG-A06: decide once whether this install needs the SOS-removal notice. Eligibility is
-     * frozen at the first 1.6.4 launch: only users who had completed SOS setup before the
-     * upgrade see it. Users who complete contact setup *after* 1.6.4 never had an SOS button,
-     * so evaluating lazily on each launch would show them a notice about a removal they never
-     * experienced.
+     * TG-A06: decide once whether this install needs the SOS-removal notice — see
+     * [SosRemovalNoticePolicy] for the eligibility rule and the read-failure handling.
+     *
+     * A `null` result means the answer is not known yet, so the notice state is left as-is for
+     * this launch: showing nothing is correct when the verdict is unknown, showing a wrong
+     * verdict is not.
+     *
+     * Known and accepted gap: sign-out wipes local contacts (`SettingsViewModel.signOut`) and
+     * `syncEmergencyConfigDownstream` restores them from Firestore afterwards, so a
+     * sign-out → upgrade → sign-in sequence can evaluate before the restore lands and that user
+     * misses the notice. Not fixed on purpose — they had just wiped their own configuration,
+     * and re-reading the database on every launch is not worth this edge case.
      */
     private suspend fun evaluateSosRemovalNotice() {
         val prefs = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
-        if (!prefs.getBoolean(SOS_NOTICE_EVALUATED_KEY, false)) {
-            val needsNotice = try {
-                database.emergencyDao().getSettings()?.isSetupComplete == true
-            } catch (e: Exception) {
-                errorLogger.recordException(e)
-                false
-            }
-            prefs.edit()
-                .putBoolean(SOS_NOTICE_PENDING_KEY, needsNotice)
-                .putBoolean(SOS_NOTICE_EVALUATED_KEY, true)
-                .apply()
+        SosRemovalNoticePolicy.evaluateOnce(
+            prefs = prefs,
+            onReadFailure = { errorLogger.recordException(it) },
+        ) {
+            database.emergencyDao().getSettings()?.isSetupComplete == true
+        }?.let { shouldShow ->
+            _sosRemovalNotice.value = shouldShow
         }
-        _sosRemovalNotice.value = prefs.getBoolean(SOS_NOTICE_PENDING_KEY, false)
     }
 
     /** TG-A06: the notice is must-acknowledge; only an explicit tap clears it, permanently. */
     fun acknowledgeSosRemovalNotice() {
         _sosRemovalNotice.value = false
-        getSharedPreferences("trackme_prefs", MODE_PRIVATE)
-            .edit()
-            .putBoolean(SOS_NOTICE_PENDING_KEY, false)
-            .apply()
-    }
-
-    private companion object {
-        const val SOS_NOTICE_EVALUATED_KEY = "sos_removal_notice_evaluated_v164"
-        const val SOS_NOTICE_PENDING_KEY = "sos_removal_notice_pending"
+        SosRemovalNoticePolicy.acknowledge(getSharedPreferences("trackme_prefs", MODE_PRIVATE))
     }
 }

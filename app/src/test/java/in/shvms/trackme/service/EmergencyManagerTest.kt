@@ -1,8 +1,12 @@
 package `in`.shvms.trackme.service
 
 import android.content.SharedPreferences
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 /**
@@ -92,6 +96,107 @@ class EmergencyManagerTest {
 
         assertTrue(preferences.getBoolean("sos_state_cleared_v164", false))
         assertFalse(SosStateCleanup.clearOnce(preferences))
+    }
+
+    // --- TG-A06: the one-time SOS-removal notice verdict ------------------------------------
+
+    @Test
+    fun notice_isShownAndRecordedForAUserWhoHadSosConfigured() = runBlocking {
+        val preferences = InMemorySharedPreferences()
+
+        val shouldShow = SosRemovalNoticePolicy.evaluateOnce(
+            prefs = preferences,
+            onReadFailure = { fail("the read succeeded; failure handler must not run") },
+            readSetupComplete = { true },
+        )
+
+        assertEquals(true, shouldShow)
+        assertTrue(preferences.getBoolean(SosRemovalNoticePolicy.PENDING_KEY, false))
+        assertTrue(preferences.getBoolean(SosRemovalNoticePolicy.EVALUATED_KEY, false))
+    }
+
+    @Test
+    fun notice_isSkippedAndTerminalForAUserWhoNeverConfiguredSos() = runBlocking {
+        // A read that returns no settings row is a real answer, not a failure: this user never
+        // had an SOS button, so the verdict is "no notice" and it is recorded as final.
+        val preferences = InMemorySharedPreferences()
+
+        val shouldShow = SosRemovalNoticePolicy.evaluateOnce(
+            prefs = preferences,
+            onReadFailure = { fail("the read succeeded; failure handler must not run") },
+            readSetupComplete = { false },
+        )
+
+        assertEquals(false, shouldShow)
+        assertFalse(preferences.getBoolean(SosRemovalNoticePolicy.PENDING_KEY, false))
+        assertTrue(
+            "a successful read is terminal — the next launch must not re-read the database",
+            preferences.getBoolean(SosRemovalNoticePolicy.EVALUATED_KEY, false),
+        )
+
+        // And the recorded "no" stays put even if the database would now answer differently,
+        // which is what stops a post-1.6.4 setup from triggering the notice.
+        var rereadDatabase = false
+        val second = SosRemovalNoticePolicy.evaluateOnce(
+            prefs = preferences,
+            onReadFailure = { fail("no read should happen at all") },
+            readSetupComplete = { rereadDatabase = true; true },
+        )
+        assertEquals(false, second)
+        assertFalse("an evaluated install must not re-read the database", rereadDatabase)
+    }
+
+    @Test
+    fun notice_survivesAFailedReadSoTheNextLaunchRetries() = runBlocking {
+        // Regression: a transient Room failure used to be recorded as a definitive "no", which
+        // permanently suppressed the notice for a user who HAD configured SOS in 1.6.3.
+        val preferences = InMemorySharedPreferences()
+        val failures = mutableListOf<Exception>()
+
+        val firstLaunch = SosRemovalNoticePolicy.evaluateOnce(
+            prefs = preferences,
+            onReadFailure = { failures += it },
+            readSetupComplete = { throw IllegalStateException("Room unavailable at cold start") },
+        )
+
+        assertNull("an unknown answer must not be reported as a verdict", firstLaunch)
+        assertEquals(1, failures.size)
+        assertFalse(
+            "a failed read must NOT be recorded as evaluated — that is the defect",
+            preferences.getBoolean(SosRemovalNoticePolicy.EVALUATED_KEY, false),
+        )
+        assertFalse(preferences.getBoolean(SosRemovalNoticePolicy.PENDING_KEY, false))
+
+        // The next launch retries and the user still gets their notice.
+        val secondLaunch = SosRemovalNoticePolicy.evaluateOnce(
+            prefs = preferences,
+            onReadFailure = { fail("the retry succeeded; failure handler must not run") },
+            readSetupComplete = { true },
+        )
+
+        assertEquals(true, secondLaunch)
+        assertTrue(preferences.getBoolean(SosRemovalNoticePolicy.PENDING_KEY, false))
+        assertTrue(preferences.getBoolean(SosRemovalNoticePolicy.EVALUATED_KEY, false))
+    }
+
+    @Test
+    fun notice_neverReturnsOnceAcknowledged() = runBlocking {
+        val preferences = InMemorySharedPreferences()
+        SosRemovalNoticePolicy.evaluateOnce(
+            prefs = preferences,
+            onReadFailure = { fail("the read succeeded; failure handler must not run") },
+            readSetupComplete = { true },
+        )
+
+        SosRemovalNoticePolicy.acknowledge(preferences)
+
+        assertFalse(preferences.getBoolean(SosRemovalNoticePolicy.PENDING_KEY, false))
+        val afterRestart = SosRemovalNoticePolicy.evaluateOnce(
+            prefs = preferences,
+            onReadFailure = { fail("no read should happen at all") },
+            readSetupComplete = { throw AssertionError("an acknowledged install must not re-read the database") },
+        )
+        assertEquals(false, afterRestart)
     }
 
     private fun manager(): EmergencyManager = EmergencyManager(InMemorySharedPreferences())
