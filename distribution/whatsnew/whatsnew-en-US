@@ -1,9 +1,6 @@
-TrackMe 1.6.3
+TrackMe 1.6.4
 
-• Start a ride you can back out of — the radial Start gesture now cancels cleanly when you return to center, and ride starts are abortable.
-• New in-app Help & Feedback, with accessible navigation.
-• More reliable saving to your gallery across Android versions.
-• A live, updating notification while you're recording a ride.
-• Smoother first run: clearer location-permission ordering.
-• Broader localization — more of the app speaks your language.
-• Stability, telemetry, and polish under the hood.
+• Simplified Emergency Setup: Streamlined emergency contacts management as a personal preparedness aid.
+• Play Policy Compliance: Removed restricted SMS permission dependencies for full Play Store alignment.
+• Emergency Notice: Added clear notification for existing users regarding updated emergency feature design.
+• Performance & Stability: Enhanced database resilience and optimized background location tracking.
