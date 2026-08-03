@@ -120,11 +120,6 @@ fun MainNavigation() {
             composable("help_feedback") {
                 `in`.shvms.trackme.ui.settings.HelpFeedbackScreen(navController = navController)
             }
-            composable("emergency_setup") { 
-                `in`.shvms.trackme.ui.settings.EmergencySetupScreen(
-                    navController = navController
-                )
-            }
         }
     }
 }

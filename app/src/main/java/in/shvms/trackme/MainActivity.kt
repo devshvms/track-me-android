@@ -29,13 +29,6 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     val app = applicationContext as TrackMeApp
-    lifecycleScope.launch {
-        app.authManager.currentUser.collect { user ->
-            if (user != null) {
-                app.firestoreSyncManager.syncEmergencyConfigDownstream()
-            }
-        }
-    }
 
     enableEdgeToEdge()
     setContent {

@@ -3,11 +3,8 @@ package `in`.shvms.trackme.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import `in`.shvms.trackme.data.local.dao.RideDao
-import `in`.shvms.trackme.data.local.dao.EmergencyDao
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.RideEntity
-import `in`.shvms.trackme.data.local.entity.EmergencyContactEntity
-import `in`.shvms.trackme.data.local.entity.EmergencySettingsEntity
 
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
@@ -15,16 +12,13 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(
     entities = [
         RideEntity::class, 
-        GPSPointEntity::class,
-        EmergencyContactEntity::class,
-        EmergencySettingsEntity::class
+        GPSPointEntity::class
     ], 
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun rideDao(): RideDao
-    abstract fun emergencyDao(): EmergencyDao
 
     companion object {
         val MIGRATION_2_3 = object : Migration(2, 3) {
@@ -113,6 +107,19 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_gps_points_rideId ON gps_points(rideId)")
+            }
+        }
+
+        /**
+         * TG-A19 (1.6.5): drop the emergency_contacts and emergency_settings tables.
+         * The emergency-contact feature is retired; its UI, DAO, entities, and Firestore
+         * sync were removed in the same change. HAZARD-5: this is an explicit Migration,
+         * not a fallbackToDestructiveMigration call.
+         */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("DROP TABLE IF EXISTS emergency_contacts")
+                database.execSQL("DROP TABLE IF EXISTS emergency_settings")
             }
         }
     }
