@@ -74,6 +74,32 @@ sealed class SyncResult {
     data class Error(val message: String) : SyncResult()
 }
 
+/**
+ * Outcome of one [FirestoreSyncManager.downloadNextBatch] step.
+ * [insertedCount] counts rides that actually landed in Room — a page can be non-empty and still
+ * insert nothing when every document on it is already local.
+ * [reachedEnd] is true once the cursor has walked past the last document in the collection.
+ */
+data class CloudPageResult(val insertedCount: Int, val reachedEnd: Boolean)
+
+/**
+ * Pure. Decide whether the paginator should stop after a page, or keep skipping ahead because the
+ * page held nothing new. Returns null to mean "fetch another page".
+ */
+internal fun cloudPageOutcome(
+    documentsOnPage: Int,
+    batchSize: Int,
+    insertedSoFar: Int,
+    pagesFetched: Int,
+    maxPagesPerCall: Int
+): CloudPageResult? = when {
+    // Firestore only under-fills a limit at the end of the collection.
+    documentsOnPage < batchSize -> CloudPageResult(insertedSoFar, reachedEnd = true)
+    insertedSoFar > 0 -> CloudPageResult(insertedSoFar, reachedEnd = false)
+    pagesFetched >= maxPagesPerCall -> CloudPageResult(insertedSoFar, reachedEnd = false)
+    else -> null
+}
+
 class FirestoreSyncManager(
     private val rideDao: RideDao,
     private val authManager: AuthManager,
@@ -95,12 +121,26 @@ class FirestoreSyncManager(
 
     val totalCloudRidesCount = MutableStateFlow(0)
 
+    // History pagination cursor. Held as a DocumentSnapshot, not a startTime value: Firestore
+    // range filters are scoped to one value type, so a numeric `whereLessThan("startTime", ...)`
+    // silently skips every ride whose startTime iOS wrote as a Timestamp. A snapshot cursor is a
+    // position in the ordered result set, so it walks across that type boundary and sees both.
+    private var pageCursorUid: String? = null
+    private var pageCursor: com.google.firebase.firestore.DocumentSnapshot? = null
+
     init {
         syncScope.launch {
             authManager.currentUser.collect { user ->
+                resetCloudPagination()
                 refreshCloudCount()
             }
         }
+    }
+
+    /** Rewind the history paginator to the top of the collection (sign-in/out, full re-sync). */
+    fun resetCloudPagination() {
+        pageCursorUid = null
+        pageCursor = null
     }
 
     fun refreshCloudCount() {
@@ -220,36 +260,67 @@ class FirestoreSyncManager(
         return count
     }
 
-    suspend fun downloadNextBatch(uid: String, batchSize: Int = 10): Int {
-        // TODO(cross-platform sync): Full mixed-type pagination requires a canonical numeric field (startTimeMs: Long). Firestore range filters are type-scoped.
-        val existingFirestoreIds = rideDao.getAllRidesWithPoints().first()
+    /**
+     * Pull the next slice of cloud rides for the History list.
+     *
+     * Walks the `rides` collection with a DocumentSnapshot cursor rather than a startTime range
+     * filter. That matters because `startTime` is mixed-type in practice — Android uploads a Long
+     * (Firestore Number), iOS uploads a Date (Firestore Timestamp) — and range filters only ever
+     * match one type group, so the old numeric cursor could never reach an iOS-written ride.
+     *
+     * Pages whose documents are all already local are skipped over rather than returned, so a
+     * single call makes visible progress instead of burning a scroll gesture on a no-op page.
+     * [maxPagesPerCall] bounds how far one call will skip ahead.
+     */
+    suspend fun downloadNextBatch(
+        uid: String,
+        batchSize: Int = 10,
+        maxPagesPerCall: Int = 25
+    ): CloudPageResult {
+        if (pageCursorUid != uid) {
+            pageCursorUid = uid
+            pageCursor = null
+        }
+
+        val knownFirestoreIds = rideDao.getAllRidesWithPoints().first()
             .mapNotNull { it.ride.firestoreId }
-            .toSet()
+            .toMutableSet()
 
-        val existingSyncedRides = rideDao.getAllRidesWithPoints().first()
-            .map { it.ride }
-            .filter { it.firestoreId != null }
+        var inserted = 0
+        var pagesFetched = 0
 
-        val oldestStartTime = existingSyncedRides.minOfOrNull { it.startTime }
+        while (true) {
+            var query: com.google.firebase.firestore.Query = firestore.collection("users")
+                .document(uid)
+                .collection("rides")
+                .orderBy("startTime", com.google.firebase.firestore.Query.Direction.DESCENDING)
 
-        var query: com.google.firebase.firestore.Query = firestore.collection("users")
-            .document(uid)
-            .collection("rides")
+            pageCursor?.let { query = query.startAfter(it) }
 
-        query = if (oldestStartTime != null) {
-            query.orderBy("startTime", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .whereLessThan("startTime", oldestStartTime)
-        } else {
-            query.orderBy("startTime", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            val snapshot = query.limit(batchSize.toLong()).get().await()
+            pagesFetched++
+
+            if (snapshot.documents.isEmpty()) {
+                return CloudPageResult(inserted, reachedEnd = true)
+            }
+            pageCursor = snapshot.documents.last()
+
+            for (doc in snapshot.documents) {
+                if (knownFirestoreIds.contains(doc.id)) continue
+                if (insertRideDocument(doc)) {
+                    knownFirestoreIds.add(doc.id)
+                    inserted++
+                }
+            }
+
+            cloudPageOutcome(
+                documentsOnPage = snapshot.documents.size,
+                batchSize = batchSize,
+                insertedSoFar = inserted,
+                pagesFetched = pagesFetched,
+                maxPagesPerCall = maxPagesPerCall
+            )?.let { return it }
         }
-
-        val snapshot = query.limit(batchSize.toLong()).get().await()
-
-        for (doc in snapshot.documents) {
-            if (existingFirestoreIds.contains(doc.id)) continue
-            insertRideDocument(doc)
-        }
-        return snapshot.documents.size
     }
 
     private suspend fun insertRideDocument(doc: com.google.firebase.firestore.DocumentSnapshot): Boolean {

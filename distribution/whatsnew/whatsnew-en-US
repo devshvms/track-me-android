@@ -1,6 +1,6 @@
-TrackMe 1.6.4
+TrackMe 1.6.5
 
-• Simplified Emergency Setup: Streamlined emergency contacts management as a personal preparedness aid.
-• Play Policy Compliance: Removed restricted SMS permission dependencies for full Play Store alignment.
-• Emergency Notice: Added clear notification for existing users regarding updated emergency feature design.
-• Performance & Stability: Enhanced database resilience and optimized background location tracking.
+• Emergency Contacts Retired: Emergency contacts and their settings have been fully removed, along with the data they stored on your device.
+• Ride History Sync Fix: Scrolling to the end of your history now loads older rides from the cloud again, including rides recorded on iPhone.
+• Sign-In Fix: Signing in with Google now works on the first attempt instead of needing a second try.
+• Cleaner Ride End: Removed a stale sharing button that briefly flashed after finishing a ride.

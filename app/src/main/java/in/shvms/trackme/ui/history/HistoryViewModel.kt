@@ -74,6 +74,16 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     private val _selectedRideIds = MutableStateFlow<Set<Long>>(emptySet())
     val selectedRideIds: StateFlow<Set<Long>> = _selectedRideIds.asStateFlow()
 
+    init {
+        // Signing out latches hasMoreCloudRides to false. Without this the paginator stays dead
+        // for a user who signs back in while this screen is still alive.
+        viewModelScope.launch {
+            app.authManager.currentUser.collect { user ->
+                _hasMoreCloudRides.value = user != null
+            }
+        }
+    }
+
     fun loadMoreRides() {
         if (_isLoadingMore.value || !_hasMoreCloudRides.value) return
         // Signed out → there is no cloud page to fetch. Clear the flag so the paginator stops
@@ -85,8 +95,16 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             _isLoadingMore.value = true
             try {
-                val fetched = app.firestoreSyncManager.downloadNextBatch(user.uid, batchSize = 10)
-                if (fetched == 0) {
+                // Already holding every cloud ride locally? Skip the reads entirely — otherwise a
+                // fully-synced user re-walks the whole collection just to find nothing.
+                val cloudCount = app.firestoreSyncManager.totalCloudRidesCount.value
+                val localSyncedCount = rides.value.count { it.ride.firestoreId != null }
+                if (cloudCount > 0 && localSyncedCount >= cloudCount) {
+                    _hasMoreCloudRides.value = false
+                    return@launch
+                }
+                val page = app.firestoreSyncManager.downloadNextBatch(user.uid, batchSize = 10)
+                if (page.reachedEnd) {
                     _hasMoreCloudRides.value = false
                 }
             } catch (e: Exception) {

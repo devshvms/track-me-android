@@ -104,8 +104,12 @@ fun SettingsScreen(
                                 if ((context.applicationContext as TrackMeApp).authManager.isSignInCancellation(e)) {
                                     return@launch
                                 }
+                                // Reaching NoCredentialException now means both the authorized-account
+                                // path and the account-picker fallback came back empty — no usable
+                                // Google account on the device, or this build's SHA-1 is not
+                                // registered in Firebase.
                                 val msg = if (e?.javaClass?.simpleName == "NoCredentialException" || e?.message?.contains("NoCredential") == true) {
-                                    "Sign In Error: App Signing Key fingerprint (SHA-1) is missing in Firebase."
+                                    "Sign in failed: no Google account available on this device."
                                 } else {
                                     e?.message ?: "Sign in failed"
                                 }

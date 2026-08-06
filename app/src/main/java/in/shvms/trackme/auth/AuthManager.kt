@@ -6,8 +6,10 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetCredentialResponse
+import androidx.credentials.exceptions.NoCredentialException
 import `in`.shvms.trackme.R
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
@@ -43,17 +45,38 @@ class AuthManager {
                 return Result.failure(Exception("Please replace YOUR_WEB_CLIENT_ID_HERE in strings.xml with your actual Firebase Web Client ID"))
             }
 
-            val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
+            // Fast path for a returning user: One Tap resolves an already-authorized account
+            // with no picker at all.
+            val authorizedAccountsOption = GetGoogleIdOption.Builder()
+                .setFilterByAuthorizedAccounts(true)
                 .setServerClientId(webClientId)
                 .setAutoSelectEnabled(true)
                 .build()
 
-            val request = GetCredentialRequest.Builder()
-                .addCredentialOption(googleIdOption)
-                .build()
+            val result = try {
+                credentialManager.getCredential(
+                    activityContext,
+                    GetCredentialRequest.Builder()
+                        .addCredentialOption(authorizedAccountsOption)
+                        .build()
+                )
+            } catch (e: NoCredentialException) {
+                // Nothing authorized yet — a first-ever sign-in on this device. One Tap reports
+                // "no credential available" here rather than opening a picker, which is what made
+                // the first tap fail and the second one work (by then Play services had warmed
+                // the account state). GetSignInWithGoogleOption is the explicit button flow: it
+                // always opens the account chooser, so the first tap now works.
+                val signInWithGoogleOption = GetSignInWithGoogleOption
+                    .Builder(webClientId)
+                    .build()
 
-            val result = credentialManager.getCredential(activityContext, request)
+                credentialManager.getCredential(
+                    activityContext,
+                    GetCredentialRequest.Builder()
+                        .addCredentialOption(signInWithGoogleOption)
+                        .build()
+                )
+            }
             return handleSignInResult(result)
         } catch (e: Exception) {
             Log.e("AuthManager", "Google Sign In Failed", e)
@@ -68,7 +91,15 @@ class AuthManager {
                 val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
                 val firebaseCredential = GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
                 val authResult = auth.signInWithCredential(firebaseCredential).await()
-                
+                val user = authResult.user
+                    ?: return Result.failure(Exception("Sign-in succeeded but returned no user"))
+
+                // Resolve the ID token before handing control back. Callers kick off a Firestore
+                // sync the moment this returns, and a query issued in the same tick as the
+                // auth-state change can go out before the token is attached and come back
+                // PERMISSION_DENIED. Best-effort: never fail the sign-in over the warm-up itself.
+                runCatching { user.getIdToken(false).await() }
+
                 authResult.user?.uid?.let { uid ->
                     `in`.shvms.trackme.analytics.AnalyticsManager.identifyUser(uid)
                     if (authResult.additionalUserInfo?.isNewUser == true) {
@@ -84,7 +115,7 @@ class AuthManager {
                     }
                 }
                 
-                return Result.success(authResult.user!!)
+                return Result.success(user)
             } catch (e: Exception) {
                 return Result.failure(e)
             }

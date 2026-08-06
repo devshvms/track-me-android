@@ -282,24 +282,17 @@ fun HomeScreen(
         }
     }
 
-    var countdownText by remember { mutableStateOf("") }
-    
+    // Expiry watchdog: a share is capped at 24h, so stop it once the window closes even if the
+    // ride is still running. (The ride-end teardown lives in TrackingService; this is the other
+    // trigger.) There is no countdown UI to feed any more — the share drawer on the ride HUD owns
+    // live-share presentation now.
     LaunchedEffect(uiState.liveShareState) {
         if (uiState.liveShareState.status == LiveShareStatus.ACTIVE && uiState.liveShareState.expiresAt != null) {
-            while(true) {
+            while (true) {
                 val duration = Duration.between(Instant.now(), uiState.liveShareState.expiresAt)
                 if (duration.isNegative || duration.isZero) {
-                    countdownText = strings.expired
                     viewModel.stopLiveShare("Max ride duration reached, stopping.")
                     break
-                }
-                val hours = duration.toHours()
-                val minutes = duration.toMinutesPart()
-                val seconds = duration.toSecondsPart()
-                countdownText = if (hours > 0) {
-                    String.format(java.util.Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds)
-                } else {
-                    String.format(java.util.Locale.getDefault(), "%02d:%02d", minutes, seconds)
                 }
                 delay(1000)
             }
@@ -591,54 +584,11 @@ fun HomeScreen(
                 )
 
 
-                // Only show active sharing indicator if a live share session is actively running while idle
-                if (uiState.liveShareState.status == LiveShareStatus.ACTIVE) {
-                    val infiniteTransition = rememberInfiniteTransition(label = "shareBlink")
-                    val blinkAlpha by infiniteTransition.animateFloat(
-                        initialValue = 1f,
-                        targetValue = 0.3f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(800, easing = LinearEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "blinkAlpha"
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(bottom = 80.dp, end = 16.dp)
-                    ) {
-                        FloatingActionButton(
-                            onClick = {
-                                viewModel.stopLiveShare()
-                                android.widget.Toast.makeText(context, strings.liveShareStoppedToast, android.widget.Toast.LENGTH_SHORT).show()
-                            },
-                            // C1: semantic — green here means "a live share is ACTIVE", not
-                            // brand accent, so it stays green via the named success token
-                            // rather than moving to cyan with the other brand actions.
-                            containerColor = SuccessGreen,
-                            // Keep this fixed token pair together under Material You; a
-                            // wallpaper-derived onSecondary may not contrast with SuccessGreen.
-                            contentColor = Navy900,
-                            shape = androidx.compose.foundation.shape.CircleShape
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(4.dp)) {
-                                Icon(Icons.Default.Share, contentDescription = strings.liveShareButton, modifier = Modifier.size(16.dp))
-                                Text(countdownText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .border(
-                                    width = 3.dp,
-                                    color = Color.White.copy(alpha = blinkAlpha),
-                                    shape = androidx.compose.foundation.shape.CircleShape,
-                                )
-                        )
-                    }
-                }
+                // No live-share surface while idle. A share is always started with
+                // stopOnRideEnd = true from the ride HUD's share drawer, so it can never
+                // legitimately outlive the ride — the only way this branch could render was
+                // during the async teardown gap after a stop, which flashed a stale green
+                // "sharing" FAB for about a second. The drawer owns live share now.
             } else {
                 // Active Recording / Non-Ideal State HUD Panel
                 val showRideStartUndo = !hasRequestedStartRideUndo && shouldShowRideStartUndo(
