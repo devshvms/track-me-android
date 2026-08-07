@@ -375,7 +375,14 @@ fun HomeScreen(
                         zoomControlsEnabled = false,
                         myLocationButtonEnabled = false
                     ),
-                    contentPadding = PaddingValues(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 16.dp, bottom = if (uiState.trackingState != TrackingState.IDLE) 88.dp else 0.dp)
+                    contentPadding = PaddingValues(
+                        top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 16.dp,
+                        // Google's attribution and the compass live inside this padding. The map
+                        // is full-bleed, so without the navigation-bar inset the attribution sits
+                        // under the nav bar — it is required to stay visible.
+                        bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                            if (uiState.trackingState != TrackingState.IDLE) 88.dp else 0.dp
+                    )
                 ) {
                     if (uiState.pathPoints.isNotEmpty()) {
                         Polyline(
@@ -536,6 +543,9 @@ fun HomeScreen(
                     Surface(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
+                            // Tracks the start button, which is itself lifted clear of the
+                            // navigation bar — without this the hint would drift onto it.
+                            .navigationBarsPadding()
                             .padding(bottom = 186.dp, start = 24.dp, end = 24.dp),
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.primaryContainer,
@@ -580,6 +590,10 @@ fun HomeScreen(
                     onAbortRideStart = AnalyticsManager::trackRideStartAborted,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
+                        // The map is deliberately full-bleed (Scaffold contributes no insets),
+                        // so every interactive overlay has to clear the navigation bar itself.
+                        // Without this the start button sits under the 3-button nav bar.
+                        .navigationBarsPadding()
                         .padding(bottom = 8.dp)
                 )
 
@@ -598,6 +612,9 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
+                        // Same as the idle branch: the ride HUD and its pause/stop controls sit
+                        // over a full-bleed map, so they must clear the navigation bar.
+                        .navigationBarsPadding()
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {

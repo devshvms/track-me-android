@@ -1,6 +1,3 @@
-TrackMe 1.6.5
+TrackMe 1.6.6
 
-• Emergency Contacts Retired: Emergency contacts and their settings have been fully removed, along with the data they stored on your device.
-• Ride History Sync Fix: Scrolling to the end of your history now loads older rides from the cloud again, including rides recorded on iPhone.
-• Sign-In Fix: Signing in with Google now works on the first attempt instead of needing a second try.
-• Cleaner Ride End: Removed a stale sharing button that briefly flashed after finishing a ride.
+• Controls Clear of the Navigation Bar: The start button, ride controls, and map attribution no longer sit underneath the system navigation bar on phones using 3-button navigation.
