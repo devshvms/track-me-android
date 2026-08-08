@@ -63,8 +63,13 @@ object AppConfig {
     const val GROUP_STATE_ENDPOINT = "$GROUP_API_PATH/state"
     const val GROUP_LEAVE_ENDPOINT = "$GROUP_API_PATH/leave"
 
-    /** The share link the create sheet hands to the OS share sheet. Token in the FRAGMENT. */
-    const val GROUP_INVITE_LINK_PREFIX = "/g/#"
+    /**
+     * The share link the create sheet hands to the OS share sheet. Token in the FRAGMENT (A6).
+     *
+     * No trailing slash: `/g/` and `/g` are different paths to a rewrite, and the slash form
+     * needed its own rule. The slash-free form is canonical; the server accepts both.
+     */
+    const val GROUP_INVITE_LINK_PREFIX = "/g#"
 
     // --- Transactional Email (D3) ---
     // Same backend host; the endpoint owns the templates and derives the

@@ -50,6 +50,7 @@ import `in`.shvms.trackme.ui.home.components.ActiveRideHudPanel
 import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
+import `in`.shvms.trackme.ui.home.components.GroupRibbon
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.analytics.RideStartAbortMethod
@@ -97,6 +98,7 @@ private fun openAppSettings(context: android.content.Context) {
 
 @Composable
 fun HomeScreen(
+    onOpenCommunity: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModelFactory(
             (LocalContext.current.applicationContext as TrackMeApp).trackingManager,
@@ -358,6 +360,16 @@ fun HomeScreen(
         contentWindowInsets = WindowInsets(0.dp)
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+        // §3.2.1: the ribbon is pinned above everything else on Home, so "who can see me right
+        // now" is answered without the user going looking. Additive by design (§15.3) — it renders
+        // nothing at all when there is no live group, so it cannot regress this screen.
+        val groupSession by app.groupSessionManager.state.collectAsState()
+        GroupRibbon(
+            session = groupSession,
+            memberCount = (groupSession.roster.size - 1).coerceAtLeast(0),
+            onLeave = { coroutineScope.launch { app.groupSessionManager.leaveGroup() } },
+            onOpenRoster = onOpenCommunity,
+        )
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             var mapType by remember { mutableStateOf(MapType.NORMAL) }
             var isTrafficEnabled by remember { mutableStateOf(false) }

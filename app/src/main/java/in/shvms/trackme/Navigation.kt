@@ -99,7 +99,7 @@ fun MainNavigation() {
             modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
         ) {
             composable("home") {
-                HomeScreen()
+                HomeScreen(onOpenCommunity = { navController.navigate("community") })
             }
             composable("history") { 
                 HistoryScreen(
