@@ -369,6 +369,25 @@ class TrackMeApp : Application() {
         }
     }
 
+    /**
+     * Whether an Activity is currently resumed.
+     *
+     * Android 12+ only permits `startForegroundService()` from the foreground, and presence has no
+     * background-start exemption — §16.4 keeps `ACCESS_BACKGROUND_LOCATION` undeclared on purpose.
+     */
+    @Volatile var isAppInForeground: Boolean = false
+
+    /**
+     * Re-asserts presence when the app returns to the foreground.
+     *
+     * Idempotent: `startGroupPresence()` promotes and then no-ops when presence is already on.
+     */
+    fun resumeGroupPresenceIfNeeded() {
+        if (groupSessionManager.state.value.isActive) {
+            sendTrackingServiceCommand(`in`.shvms.trackme.service.TrackingService.ACTION_START_GROUP_PRESENCE)
+        }
+    }
+
     private fun sendTrackingServiceCommand(action: String) {
         val stopping = action == `in`.shvms.trackme.service.TrackingService.ACTION_STOP_GROUP_PRESENCE
 
@@ -380,12 +399,24 @@ class TrackMeApp : Application() {
         try {
             val intent = android.content.Intent(this, `in`.shvms.trackme.service.TrackingService::class.java)
                 .apply { this.action = action }
-            if (stopping) {
-                // Plain startService: the service is already running and already foreground, so
-                // this carries no promotion obligation.
-                startService(intent)
-            } else {
-                androidx.core.content.ContextCompat.startForegroundService(this, intent)
+            when {
+                // Already running: a plain startService carries no promotion obligation and is
+                // allowed from the background, so it is right for both stop AND a start that only
+                // needs to reach a service that already exists.
+                `in`.shvms.trackme.service.TrackingService.isRunning -> startService(intent)
+
+                // Not running, and we are in the background. Android 12+ refuses a background
+                // startForegroundService() with ForegroundServiceStartNotAllowedException. This is
+                // reachable in normal use: a group can end remotely, or its TTL can fire, while the
+                // phone is in a pocket. Attempting it would throw, be swallowed, and leave the
+                // member believing they were sharing.
+                //
+                // §16.4 rules out ACCESS_BACKGROUND_LOCATION, so presence genuinely cannot start
+                // from the background — the honest answer is not to pretend. MainActivity.onResume
+                // re-evaluates the session, so presence resumes the moment the app is opened.
+                stopping || !isAppInForeground -> Unit
+
+                else -> androidx.core.content.ContextCompat.startForegroundService(this, intent)
             }
         } catch (e: Exception) {
             // A foreground-service start can be refused (background start restrictions, or the

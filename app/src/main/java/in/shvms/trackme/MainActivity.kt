@@ -99,7 +99,12 @@ class MainActivity : ComponentActivity() {
    * seconds.
    */
   private fun setGroupForeground(inForeground: Boolean) {
-      (applicationContext as? TrackMeApp)?.groupSessionManager?.isForeground = inForeground
+      val app = applicationContext as? TrackMeApp ?: return
+      app.groupSessionManager.isForeground = inForeground
+      app.isAppInForeground = inForeground
+      // A presence start refused while backgrounded (Android 12+ forbids a background
+      // startForegroundService, and §16.4 keeps background location undeclared) is picked up here.
+      if (inForeground) app.resumeGroupPresenceIfNeeded()
   }
 
   override fun onResume() {
