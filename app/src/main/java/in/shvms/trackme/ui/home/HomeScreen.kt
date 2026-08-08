@@ -51,6 +51,10 @@ import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
 import `in`.shvms.trackme.ui.home.components.GroupMapButton
+import `in`.shvms.trackme.ui.home.components.MemberMarkerPolicy
+import `in`.shvms.trackme.ui.home.components.rememberMemberAvatarCache
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.rememberMarkerState
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.analytics.RideStartAbortMethod
@@ -364,7 +368,28 @@ fun HomeScreen(
             var mapType by remember { mutableStateOf(MapType.NORMAL) }
             var isTrafficEnabled by remember { mutableStateOf(false) }
 
+            // Box scope, not map scope: the map draws member markers and the control stack draws
+            // the group button, and both need the same session.
+            val groupSession by app.groupSessionManager.state.collectAsState()
+            val avatarCache = rememberMemberAvatarCache()
+
             if (hasLocationPermission) {
+                val groupSyncIntervalSec = groupSession.syncIntervalSec
+
+                // Staleness is a function of wall-clock time, not of new data — a member who stops
+                // syncing produces no recomposition, so without a tick their marker would stay
+                // bright forever. One second is cheap and makes "2m ago" honest.
+                var groupClockTick by remember { mutableLongStateOf(System.currentTimeMillis()) }
+                LaunchedEffect(groupSession.isActive) {
+                    while (groupSession.isActive) {
+                        groupClockTick = System.currentTimeMillis()
+                        delay(1_000L)
+                    }
+                }
+                // §3.3: the bitmaps are per-session. A uid from a previous group is never valid in
+                // the next one, and the cache would otherwise outlive its group.
+                LaunchedEffect(groupSession.groupId) { avatarCache.clear() }
+
                 GoogleMap(
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = cameraPositionState,
@@ -391,6 +416,44 @@ fun HomeScreen(
                             points = uiState.pathPoints,
                             color = TrackMeBlue,
                             width = 10f
+                        )
+                    }
+
+                    // --- Group members (§3.3, A19) ---
+                    //
+                    // A19: the camera stays on the rider. Members are drawn only where they
+                    // already are — inside the viewport being looked at — and the map never moves
+                    // itself to find someone. Anyone off-screen or stale is in the roster, which
+                    // A18 makes the complete list.
+                    //
+                    // Own position is never drawn: the system blue dot is already there and §2.6
+                    // is explicit that we never draw ourselves twice.
+                    val bounds = cameraPositionState.projection?.visibleRegion?.latLngBounds
+                    val nowMs = groupClockTick
+                    groupSession.positions.forEach { member ->
+                        val point = com.google.android.gms.maps.model.LatLng(member.lat, member.lng)
+                        val freshness = MemberMarkerPolicy.renderFor(
+                            position = point,
+                            serverTsMillis = member.serverTsMillis,
+                            nowMillis = nowMs,
+                            syncIntervalSec = groupSyncIntervalSec,
+                            bounds = bounds,
+                        ) ?: return@forEach
+
+                        val roster = groupSession.roster.firstOrNull { it.uid == member.uid }
+                        val name = roster?.displayName ?: strings.groupStatusRiding
+                        val age = MemberMarkerPolicy.ageMinutes(member.serverTsMillis, nowMs)
+
+                        Marker(
+                            state = rememberMarkerState(key = member.uid, position = point),
+                            // §3.3: tap gives name, distance from you, last-update age. Nothing
+                            // else — no history, no profile, no follow.
+                            title = name,
+                            snippet = if (age > 0) {
+                                String.format(java.util.Locale.getDefault(), strings.groupTimeLeft, "${'$'}{age}m")
+                            } else null,
+                            icon = avatarCache.descriptorFor(member.uid, roster?.initials, freshness),
+                            anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
                         )
                     }
                 }
@@ -422,7 +485,6 @@ fun HomeScreen(
 
             val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
             val isOffline = rememberIsOffline()
-            val groupSession by app.groupSessionManager.state.collectAsState()
 
             Column(
 

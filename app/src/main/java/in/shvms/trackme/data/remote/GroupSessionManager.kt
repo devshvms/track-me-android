@@ -58,6 +58,12 @@ data class GroupSessionState(
     val expiresAtMillis: Long = 0L,
     val maxMembers: Int = 0,
     val rev: Int = 0,
+    /**
+     * The relay's current cadence. §2.6 defines staleness as "2× the CURRENT sync interval", so
+     * the marker rules need the server's live value, not a client constant — when the relay slows
+     * everyone down under load (§7.2), "stale" has to slow down with it or every marker greys out.
+     */
+    val syncIntervalSec: Int = GroupBackoff.DEFAULT_SYNC_INTERVAL_SEC,
     val positions: List<GroupWire.MemberPosition> = emptyList(),
     val roster: List<GroupWire.RosterEntry> = emptyList(),
     /** Set while [GroupSessionStatus.DEGRADED]; drives the honest "retrying" banner. */
@@ -204,6 +210,7 @@ class GroupSessionManager(
                 expiresAtMillis = created.expiresAtMillis,
                 maxMembers = created.maxMembers,
                 rev = created.rev,
+                syncIntervalSec = created.syncIntervalSec,
             )
             startSyncLoop()
             Result.success(_state.value)
@@ -285,6 +292,7 @@ class GroupSessionManager(
                 expiresAtMillis = joined.expiresAtMillis,
                 maxMembers = joined.maxMembers,
                 rev = joined.rev,
+                syncIntervalSec = joined.syncIntervalSec,
             )
             startSyncLoop()
             Result.success(_state.value)
@@ -439,6 +447,7 @@ class GroupSessionManager(
             // A rev-gated roster arrives only when it changed; keep the last one otherwise.
             roster = result.roster ?: current.roster,
             groupName = result.meta?.name ?: current.groupName,
+            syncIntervalSec = result.nextSyncInSec.coerceAtLeast(1),
             consecutiveFailures = 0,
             degradedSince = null,
         )
