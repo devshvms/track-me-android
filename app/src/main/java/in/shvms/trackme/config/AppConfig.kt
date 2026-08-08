@@ -51,6 +51,21 @@ object AppConfig {
     const val LIVE_SHARE_LOCATION_ENDPOINT_TEMPLATE = "$LIVE_SHARE_API_PATH/%s/location"
     const val LIVE_SHARE_STOP_ENDPOINT_TEMPLATE = "$LIVE_SHARE_API_PATH/%s/stop"
 
+    // --- Group Ride relay (1.7.x) ---
+    // Overridable at build time (see app/build.gradle.kts, §6.2 H7) so group development can
+    // point at a staging or preview relay; defaults to the same production host as live share.
+    val GROUP_BASE_URL: String = `in`.shvms.trackme.BuildConfig.GROUP_RELAY_BASE_URL
+    const val GROUP_API_PATH = "/api/group"
+    const val GROUP_CREATE_ENDPOINT = "$GROUP_API_PATH/create"
+    const val GROUP_RESOLVE_ENDPOINT = "$GROUP_API_PATH/resolve"
+    const val GROUP_JOIN_ENDPOINT = "$GROUP_API_PATH/join"
+    const val GROUP_SYNC_ENDPOINT = "$GROUP_API_PATH/sync"
+    const val GROUP_STATE_ENDPOINT = "$GROUP_API_PATH/state"
+    const val GROUP_LEAVE_ENDPOINT = "$GROUP_API_PATH/leave"
+
+    /** The share link the create sheet hands to the OS share sheet. Token in the FRAGMENT. */
+    const val GROUP_INVITE_LINK_PREFIX = "/g/#"
+
     // --- Transactional Email (D3) ---
     // Same backend host; the endpoint owns the templates and derives the
     // recipient from the verified Firebase token (client passes only a type).

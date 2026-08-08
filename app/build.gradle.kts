@@ -30,6 +30,14 @@ android {
     val posthogApiKey = System.getenv("POSTHOG_API_KEY").takeIf { !it.isNullOrBlank() }
         ?: localProperties.getProperty("POSTHOG_API_KEY")
         ?: "dummy_key"
+    // §6.2 H7: the relay host was a single hardcoded prod constant with no override, and
+    // cleartextTrafficPermitted is false — so Group Ride development against a staging or preview
+    // relay had nowhere to point. Overridable by env var or -PgroupRelayBaseUrl, defaulting to
+    // production so a normal build is unchanged.
+    val groupRelayBaseUrl = System.getenv("GROUP_RELAY_BASE_URL").takeIf { !it.isNullOrBlank() }
+        ?: project.findProperty("groupRelayBaseUrl")?.toString().takeIf { !it.isNullOrBlank() }
+        ?: "https://trackme.shvms.in"
+
     // Opt-in StrictMode: ./gradlew ... -PstrictMode (or -PstrictMode=true); off by default.
     val strictModeEnabled = project.findProperty("strictMode")?.toString()
         ?.let { it.isEmpty() || it.equals("true", ignoreCase = true) } ?: false
@@ -45,6 +53,7 @@ android {
         resValue("string", "google_maps_key", mapsApiKey)
         buildConfigField("String", "POSTHOG_API_KEY", "\"$posthogApiKey\"")
         buildConfigField("boolean", "STRICT_MODE", strictModeEnabled.toString())
+        buildConfigField("String", "GROUP_RELAY_BASE_URL", "\"$groupRelayBaseUrl\"")
     }
 
     signingConfigs {
@@ -142,6 +151,12 @@ dependencies {
   implementation(libs.posthog)
 
   testImplementation(libs.junit)
+  // The real org.json, not android.jar's stub. Unit tests run with
+  // `isReturnDefaultValues = true`, so the stub returns empty values instead of throwing — a
+  // parser test against it would pass while parsing nothing. The group sync response is parsed on
+  // the hot path (§6.2 H9: "a malformed parse on the hot path is a crash risk"), so it needs to be
+  // tested against a real implementation.
+  testImplementation(libs.json)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.compose.ui.test.manifest)
