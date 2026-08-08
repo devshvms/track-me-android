@@ -290,6 +290,31 @@ private fun GroupRoster(
             Spacer(Modifier.height(16.dp))
         }
 
+        // §8: "Location permission revoked mid-session — stop pushing, stay in the group as a
+        // viewer. Honest banner: 'You're not sharing your location. Others can't see you.' —
+        // symmetry made visible, not hidden."
+        //
+        // A member who silently believes they are visible is the single worst way for this feature
+        // to be wrong, so this sits above the roster rather than at the bottom of it.
+        if (state.inGroup && !state.session.isSharingPosition) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        strings.groupNotSharing,
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+        }
+
         // §8: "Redis unreachable — 'Group sharing is temporarily unavailable — retrying.' Own ride
         // recording is completely unaffected." Never a silent failure.
         if (state.session.status == GroupSessionStatus.DEGRADED) {

@@ -75,6 +75,15 @@ data class GroupSessionState(
     val consecutiveFailures: Int = 0,
     /** When this member joined, for §9's co-presence and time-to-first-leave metrics. */
     val joinedAtMillis: Long = 0L,
+    /**
+     * False when we are in the group but have nothing to send — §8's revoked-permission case.
+     *
+     * §8 requires this to be surfaced, not hidden: *"Stop pushing, stay in the group as a viewer.
+     * Honest banner: 'You're not sharing your location. Others can't see you.' — symmetry made
+     * visible, not hidden."* A member who silently believes they are visible is the single worst
+     * way for this feature to be wrong.
+     */
+    val isSharingPosition: Boolean = false,
 ) {
     val isActive: Boolean
         get() = status == GroupSessionStatus.PREPARING ||
@@ -405,6 +414,7 @@ class GroupSessionManager(
         val uid = currentUid()
         if (key == null || uid == null || lat == null || lng == null) {
             pendingPosition = null
+            markSharing(false)
             return
         }
         pendingPosition = try {
@@ -416,6 +426,7 @@ class GroupSessionManager(
         } catch (e: Exception) {
             null
         }
+        markSharing(pendingPosition != null)
     }
 
     /**
@@ -448,6 +459,19 @@ class GroupSessionManager(
 
     /** Set by `TrackingService`, which is the only thing that knows the ride's persona. */
     @Volatile var currentPersona: String? = null
+
+    /**
+     * Tracks whether we actually have something to send, so §8's honest banner can exist.
+     *
+     * Only meaningful while in a group — outside one, "not sharing" is not a warning, it is the
+     * normal state.
+     */
+    private fun markSharing(sharing: Boolean) {
+        val current = _state.value
+        if (current.isActive && current.isSharingPosition != sharing) {
+            _state.value = current.copy(isSharingPosition = sharing)
+        }
+    }
 
     // --- The sync loop --------------------------------------------------------------------------
 

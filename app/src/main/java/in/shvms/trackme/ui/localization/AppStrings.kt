@@ -115,6 +115,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupLeaveConfirmLeader: String = s("groupLeaveConfirmLeader", "Leaving ends the group for everyone.")
     val groupTimeLeft: String = s("groupTimeLeft", "%1\$s left")
     val groupNotSharing: String = s("groupNotSharing", "You're not sharing your location. Others can't see you.")
+    val groupLiveShareBlocked: String = s("groupLiveShareBlocked", "You're already sharing with your group. Leave the group to share a link instead.")
     val groupDestination: String = s("groupDestination", "Destination")
     val groupSetDestination: String = s("groupSetDestination", "Meet at my current location")
     val notifGroupPresenceTitle: String = s("notifGroupPresenceTitle", "Riding together")
@@ -445,6 +446,7 @@ val SUPPORTED_LANGUAGE_CODES: List<String> = listOf("en", "es", "fr", "de", "hi"
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
         "es" -> AppStrings(mapOf(
+            "groupLiveShareBlocked" to "Ya estás compartiendo con tu grupo. Sal del grupo para compartir un enlace.",
             "groupDestination" to "Destino",
             "groupSetDestination" to "Quedar en mi ubicación actual",
             "navCommunity" to "Comunidad",
@@ -827,6 +829,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
         "fr" -> AppStrings(mapOf(
+            "groupLiveShareBlocked" to "Vous partagez déjà avec votre groupe. Quittez le groupe pour partager un lien.",
             "groupDestination" to "Point de rendez-vous",
             "groupSetDestination" to "Rendez-vous à ma position actuelle",
             "navCommunity" to "Communauté",
@@ -1209,6 +1212,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Session ouverte",
         ))
         "de" -> AppStrings(mapOf(
+            "groupLiveShareBlocked" to "Du teilst bereits mit deiner Gruppe. Verlasse die Gruppe, um einen Link zu teilen.",
             "groupDestination" to "Ziel",
             "groupSetDestination" to "Treffpunkt an meinem aktuellen Standort",
             "navCommunity" to "Community",
@@ -1591,6 +1595,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Angemeldet",
         ))
         "hi" -> AppStrings(mapOf(
+            "groupLiveShareBlocked" to "आप पहले से ही अपने ग्रुप के साथ साझा कर रहे हैं। लिंक साझा करने के लिए ग्रुप छोड़ें।",
             "groupDestination" to "गंतव्य",
             "groupSetDestination" to "मेरे वर्तमान स्थान पर मिलें",
             "navCommunity" to "कम्युनिटी",
@@ -1973,6 +1978,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "साइन इन",
         ))
         "ja" -> AppStrings(mapOf(
+            "groupLiveShareBlocked" to "すでにグループと共有中です。リンクを共有するにはグループを退出してください。",
             "groupDestination" to "目的地",
             "groupSetDestination" to "現在地で待ち合わせ",
             "navCommunity" to "コミュニティ",
@@ -2355,6 +2361,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "サインイン済み",
         ))
         "zh" -> AppStrings(mapOf(
+            "groupLiveShareBlocked" to "你已在与群组共享。要分享链接，请先离开群组。",
             "groupDestination" to "目的地",
             "groupSetDestination" to "在我的当前位置集合",
             "navCommunity" to "社群",

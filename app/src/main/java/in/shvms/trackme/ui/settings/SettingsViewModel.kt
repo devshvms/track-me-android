@@ -106,6 +106,15 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
             } catch (e: Exception) {
                 // Ignore DB error and ensure we still sign out
             }
+            // §8: "User signs out mid-session → uid removed on the leave call → auto-leave,
+            // group state cleared locally → silent exit."
+            //
+            // Order matters and it is the same invariant decision_log already records for live
+            // share: leave BEFORE the token is revoked, or the server-side membership cannot be
+            // removed at all. Without this, signing out left the group believing you were still
+            // in it AND left the invite token — the group's key material — sitting in prefs under
+            // an account you had just signed out of.
+            runCatching { app.groupSessionManager.leaveGroup() }
             app.authManager.signOut()
         }
     }
@@ -291,6 +300,15 @@ class SettingsViewModel(private val app: TrackMeApp) : ViewModel() {
             app.database.rideDao().deleteAllPoints()
             app.database.rideDao().deleteAllRides()
             app.rideStatsStore.clear()
+            // §8: "User signs out mid-session → uid removed on the leave call → auto-leave,
+            // group state cleared locally → silent exit."
+            //
+            // Order matters and it is the same invariant decision_log already records for live
+            // share: leave BEFORE the token is revoked, or the server-side membership cannot be
+            // removed at all. Without this, signing out left the group believing you were still
+            // in it AND left the invite token — the group's key material — sitting in prefs under
+            // an account you had just signed out of.
+            runCatching { app.groupSessionManager.leaveGroup() }
             app.authManager.signOut()
             return Result.success(Unit)
         }

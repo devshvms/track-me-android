@@ -776,7 +776,22 @@ fun HomeScreen(
                         }
                     },
                     onStartShare = {
-                        viewModel.startLiveShare(durationMinutes = 1440, stopOnRideEnd = true)
+                        // §17.4: "while a Group Ride is live, the Home FAB should be *disabled
+                        // with a reason* rather than hidden — running both simultaneously is a
+                        // battery and confusion problem, and silently removing a control users
+                        // know is worse than explaining it."
+                        //
+                        // Two location broadcasts at once would also double the network cost of a
+                        // feature whose entire battery budget (§7.4) assumes one.
+                        if (groupSession.isActive) {
+                            android.widget.Toast.makeText(
+                                context,
+                                strings.groupLiveShareBlocked,
+                                android.widget.Toast.LENGTH_LONG,
+                            ).show()
+                        } else {
+                            viewModel.startLiveShare(durationMinutes = 1440, stopOnRideEnd = true)
+                        }
                     },
                     onStopShare = {
                         viewModel.stopLiveShare()
