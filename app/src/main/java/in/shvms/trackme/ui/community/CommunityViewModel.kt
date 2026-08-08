@@ -7,10 +7,13 @@ import `in`.shvms.trackme.data.remote.GroupSessionManager
 import `in`.shvms.trackme.data.remote.GroupSessionState
 import `in`.shvms.trackme.data.remote.GroupSessionStatus
 import `in`.shvms.trackme.data.remote.GroupWire
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -80,10 +83,25 @@ class CommunityViewModel(
 
     private data class LocalState(val busy: Boolean = false, val error: String? = null)
 
+    /**
+     * Auth state as a flow, not a one-shot read.
+     *
+     * `currentUid()` inside `combine` only re-evaluates when one of the *other* sources emits — so
+     * signing in elsewhere (Settings) left this screen stuck on the signed-out state until
+     * something unrelated happened to tick. Since signing in is the one thing the signed-out state
+     * asks the user to go and do, that was the whole flow broken.
+     */
+    private val authState = callbackFlow {
+        val auth = FirebaseAuth.getInstance()
+        val listener = FirebaseAuth.AuthStateListener { trySend(it.currentUser?.uid) }
+        auth.addAuthStateListener(listener)
+        awaitClose { auth.removeAuthStateListener(listener) }
+    }
+
     val uiState: StateFlow<CommunityUiState> =
-        combine(groupSessionManager.state, local) { session, localState ->
+        combine(groupSessionManager.state, local, authState) { session, localState, uid ->
             CommunityUiState(
-                signedIn = currentUid() != null,
+                signedIn = uid != null,
                 session = session,
                 roster = buildRoster(session),
                 busy = localState.busy,

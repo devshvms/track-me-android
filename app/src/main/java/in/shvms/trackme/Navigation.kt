@@ -51,6 +51,27 @@ fun MainNavigation() {
     // visible immediately, so it is derived here rather than tracked.
     val currentRoute = navBackStackEntry?.destination?.route
     val selectedItem = routes.indexOf(currentRoute).takeIf { it >= 0 } ?: -1
+
+    /**
+     * The ONE way to move between top-level tabs.
+     *
+     * Mixing this with a bare `navController.navigate(route)` corrupts the back stack in a way
+     * that looks like the nav bar has stopped working: a raw push does not `saveState`, so a later
+     * tab tap with `popUpTo(start) { saveState = true }` saves the whole pushed sub-stack under the
+     * destination it is leaving. Tapping that tab again then *restores* that sub-stack — whose top
+     * is the screen you were trying to leave — so you land back where you started and the tab
+     * appears dead.
+     *
+     * That is exactly what "click sign in on Community, then Community won't open again" was.
+     * Every tab-level navigation goes through here so the two idioms cannot diverge again.
+     */
+    fun navigateToTab(route: String) {
+        navController.navigate(route) {
+            launchSingleTop = true
+            restoreState = true
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+        }
+    }
     var currentScreenStartTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var currentScreenName by remember { mutableStateOf("") }
 
@@ -78,16 +99,7 @@ fun MainNavigation() {
                         label = { Text(item) },
                         alwaysShowLabel = true,
                         selected = selectedItem == index,
-                        onClick = {
-                            val route = routes[index]
-                            navController.navigate(route) {
-                                launchSingleTop = true
-                                restoreState = true
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                            }
-                        }
+                        onClick = { navigateToTab(routes[index]) }
                     )
                 }
             }
@@ -99,7 +111,7 @@ fun MainNavigation() {
             modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
         ) {
             composable("home") {
-                HomeScreen(onOpenCommunity = { navController.navigate("community") })
+                HomeScreen(onOpenCommunity = { navigateToTab("community") })
             }
             composable("history") { 
                 HistoryScreen(
@@ -121,7 +133,7 @@ fun MainNavigation() {
                 RideDetailScreen(rideId = id, navController = navController)
             }
             composable("community") {
-                CommunityScreen(onNavigateToSignIn = { navController.navigate("settings") })
+                CommunityScreen(onNavigateToSignIn = { navigateToTab("settings") })
             }
             composable("settings") { SettingsScreen(navController = navController) }
             composable("account_management") {
