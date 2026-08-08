@@ -28,12 +28,16 @@ class GroupWireTest {
     private val key = GroupCrypto.deriveGroupKey(token)
     private val self = "uid-me"
 
-    private fun positionEnvelope(uid: String, lat: Double, lng: Double): String =
-        GroupCrypto.seal(
-            key,
-            GroupWire.encodePosition(lat, lng, 4.2f, 137f, 82, true),
-            GroupCrypto.Purpose.Position(uid),
-        )
+    private fun positionEnvelope(
+        uid: String,
+        lat: Double,
+        lng: Double,
+        riding: Boolean = true,
+    ): String = GroupCrypto.seal(
+        key,
+        GroupWire.encodePosition(lat, lng, 4.2f, 137f, 82, true, riding),
+        GroupCrypto.Purpose.Position(uid),
+    )
 
     private fun syncBody(
         positions: Map<String, Pair<String, Long>>,
@@ -141,6 +145,49 @@ class GroupWireTest {
         val result = GroupWire.parseSync(body, key, self)
         assertNull(result.meta)
         assertEquals("losing the name must not lose the session", 1, result.positions.size)
+    }
+
+    // --- "who has started riding" (Community page) -----------------------------------------------
+
+    @Test
+    fun `riding is carried per member and is separate from moving`() {
+        // The Community page shows the leader — and every member, since §5.1.1 forbids one-way
+        // visibility — who has actually set off and who has only joined. A member stopped at a
+        // junction is riding but not moving; a member driving to the meetup is the reverse.
+        val body = syncBody(
+            mapOf(
+                "uid-riding" to (positionEnvelope("uid-riding", 1.0, 2.0, riding = true) to 1L),
+                "uid-waiting" to (positionEnvelope("uid-waiting", 3.0, 4.0, riding = false) to 2L),
+            ),
+        )
+        val result = GroupWire.parseSync(body, key, self)
+        assertTrue(result.positions.first { it.uid == "uid-riding" }.riding)
+        assertTrue(!result.positions.first { it.uid == "uid-waiting" }.riding)
+        // Both are `moving` — riding is not derived from motion.
+        assertTrue(result.positions.all { it.moving })
+    }
+
+    @Test
+    fun `riding travels inside the ciphertext, never beside it`() {
+        // The relay must not learn who is riding any more than it learns where they are.
+        val envelope = positionEnvelope("uid-a", 1.0, 2.0, riding = true)
+        assertTrue("riding leaked outside the envelope", !envelope.contains("riding"))
+        val body = syncBody(mapOf("uid-a" to (envelope to 1L)))
+        val outer = JSONObject(body).getJSONObject("positions").getJSONObject("uid-a")
+        assertTrue("riding leaked into the wire object", !outer.has("riding"))
+    }
+
+    @Test
+    fun `a member sending no riding flag reads as not riding`() {
+        // Forward compatibility: an older client, or one that has not started a ride, must not
+        // read as riding just because the field is absent.
+        val legacy = GroupCrypto.seal(
+            key,
+            JSONObject().put("lat", 1.0).put("lng", 2.0).toString(),
+            GroupCrypto.Purpose.Position("uid-old"),
+        )
+        val result = GroupWire.parseSync(syncBody(mapOf("uid-old" to (legacy to 1L))), key, self)
+        assertTrue(!result.positions.single().riding)
     }
 
     // --- Missing and malformed fields -----------------------------------------------------------

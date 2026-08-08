@@ -28,6 +28,19 @@ object GroupWire {
         val headingDeg: Float?,
         val batteryPercent: Int?,
         val moving: Boolean,
+        /**
+         * Whether this member has actually started recording a ride, as opposed to having joined
+         * and not set off yet.
+         *
+         * Lives inside the encrypted position payload, not beside it: the relay must not learn who
+         * is riding any more than it learns where they are. It rides on the position rather than
+         * the roster because the roster is rev-gated and only re-sent when membership changes — a
+         * "started riding" that took until the next join to appear would be useless.
+         *
+         * Distinct from [moving]: a member stopped at a junction is riding but not moving, and a
+         * member driving to the meetup is moving but not riding.
+         */
+        val riding: Boolean,
         val serverTsMillis: Long,
     )
 
@@ -162,6 +175,7 @@ object GroupWire {
                         headingDeg = plain.optDouble("hdg").takeIf { !it.isNaN() }?.toFloat(),
                         batteryPercent = if (plain.has("bat")) plain.optInt("bat") else null,
                         moving = plain.optBoolean("moving", false),
+                        riding = plain.optBoolean("riding", false),
                         serverTsMillis = ts,
                     )
                 } catch (e: Exception) {
@@ -214,6 +228,7 @@ object GroupWire {
         headingDeg: Float?,
         batteryPercent: Int?,
         moving: Boolean,
+        riding: Boolean = false,
     ): String = JSONObject().apply {
         put("lat", lat)
         put("lng", lng)
@@ -221,6 +236,7 @@ object GroupWire {
         if (headingDeg != null) put("hdg", headingDeg.toDouble())
         if (batteryPercent != null) put("bat", batteryPercent)
         put("moving", moving)
+        put("riding", riding)
         // No timestamp: the relay stamps it, so a skewed device clock cannot poison freshness for
         // the whole group (§4.4, §8).
     }.toString()

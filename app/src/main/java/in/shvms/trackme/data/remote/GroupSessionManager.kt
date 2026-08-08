@@ -340,6 +340,7 @@ class GroupSessionManager(
         headingDeg: Float?,
         batteryPercent: Int?,
         moving: Boolean,
+        riding: Boolean = false,
     ) {
         val key = groupKey
         val uid = currentUid()
@@ -350,7 +351,7 @@ class GroupSessionManager(
         pendingPosition = try {
             GroupCrypto.seal(
                 key,
-                GroupWire.encodePosition(lat, lng, speedMps, headingDeg, batteryPercent, moving),
+                GroupWire.encodePosition(lat, lng, speedMps, headingDeg, batteryPercent, moving, riding),
                 GroupCrypto.Purpose.Position(uid),
             )
         } catch (e: Exception) {
