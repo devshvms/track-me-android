@@ -197,6 +197,121 @@ object AnalyticsManager {
     }
 
     // Live Sharing
+    // --- Group Ride (§9) ------------------------------------------------------------------
+    //
+    // §9's funnel, and its counter-metrics, which it insists are tracked "with equal
+    // seriousness":
+    //
+    //   group_created -> invite_sent -> member_joined -> group_started -> co_presence_minutes
+    //
+    // What is deliberately NOT collected, per §9: "any coordinate, any group name, any member
+    // relationship, any inference about who rides with whom. Aggregate counts only. This is a
+    // constraint on the analytics, not just on the product." No uid is ever a property here — the
+    // groupId is ephemeral and dies with the session, which is why it is safe to correlate on.
+
+    fun trackGroupCreated(durationMinutes: Int, maxMembers: Int, hasDestination: Boolean, hasStartTime: Boolean) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "group_created",
+            properties = mapOf(
+                "duration_minutes" to durationMinutes,
+                "max_members" to maxMembers,
+                "has_destination" to hasDestination,
+                "has_start_time" to hasStartTime,
+            )
+        )
+    }
+
+    /** The growth loop's first step (§2.5). Records that a share sheet opened, never to whom. */
+    fun trackGroupInviteSent(viaCode: Boolean) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("group_invite_sent", properties = mapOf("via_code" to viaCode))
+    }
+
+    fun trackGroupMemberJoined(memberCount: Int, viaCode: Boolean) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "group_member_joined",
+            properties = mapOf("member_count" to memberCount, "via_code" to viaCode)
+        )
+    }
+
+    fun trackGroupStarted(memberCount: Int) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("group_started", properties = mapOf("member_count" to memberCount))
+    }
+
+    /**
+     * §9's north-star input: "co-presence retention — do members of a live group return more than
+     * solo users?" Minutes only, no route, no coordinates.
+     */
+    fun trackGroupCoPresence(minutes: Int, memberCount: Int) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "group_co_presence_minutes",
+            properties = mapOf("minutes" to minutes, "member_count" to memberCount)
+        )
+    }
+
+    /**
+     * A SAFETY counter-metric, not a growth one.
+     *
+     * §9 is explicit and it is easy to get backwards: "heavy use of the exit controls is a healthy
+     * signal, not a problem. Near-zero leave usage most likely means the control is
+     * undiscoverable, which is a red flag. **Nobody should be tasked with reducing the leave
+     * rate.**" This event exists to prove the exit is findable, and should never be optimised down.
+     */
+    fun trackGroupLeft(secondsInGroup: Int, wasLeader: Boolean) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "group_left",
+            properties = mapOf(
+                "seconds_in_group" to secondsInGroup,
+                "was_leader" to wasLeader,
+            )
+        )
+    }
+
+    fun trackGroupEnded(secondsAlive: Int, memberCount: Int, reason: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "group_ended",
+            properties = mapOf(
+                "seconds_alive" to secondsAlive,
+                "member_count" to memberCount,
+                "reason" to reason,
+            )
+        )
+    }
+
+    /**
+     * §8's degraded state, so the ops metrics in §9 ("503 rate", "position staleness p95") have a
+     * client-side counterpart. A relay outage the clients absorbed silently is still an outage.
+     */
+    fun trackGroupDegraded(consecutiveFailures: Int) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("group_degraded", properties = mapOf("consecutive_failures" to consecutiveFailures))
+    }
+
+    /**
+     * §2.9's calibration event — the reason ETA is built a release before it is shown.
+     *
+     * "No coordinates, no destination, no group identity — just two durations and a persona."
+     */
+    fun trackGroupEtaCalibration(sample: `in`.shvms.trackme.domain.group.EtaCalibration.Sample) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "group_eta_calibration",
+            properties = mapOf(
+                "predicted_seconds" to sample.predictedSeconds,
+                "actual_seconds" to sample.actualSeconds,
+                "absolute_error_seconds" to sample.absoluteErrorSeconds,
+                "percentage_error" to sample.percentageError,
+                "persona" to (sample.persona ?: "unknown"),
+            )
+        )
+    }
+
     fun trackLiveShareStarted(shareId: String, recipientCount: Int) {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture(
