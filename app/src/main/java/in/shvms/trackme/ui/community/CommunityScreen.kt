@@ -18,6 +18,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -37,6 +42,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -60,6 +67,7 @@ import java.util.concurrent.TimeUnit
  * map only shows who is *nearby*, so this list is the complete picture of the group. It is a
  * first-class surface, not a fallback.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommunityScreen(
     onNavigateToSignIn: () -> Unit,
@@ -92,7 +100,29 @@ fun CommunityScreen(
         }
     }
 
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    // A real top bar, matching HistoryScreen. Without it the roster ran straight into the status
+    // bar, and the tab read as a fragment of a screen rather than a destination.
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(state.session.groupName?.takeIf { state.inGroup } ?: strings.navCommunity) },
+                actions = {
+                    // Re-sharing the invite is the single action worth promoting out of the body:
+                    // §2.5 gives the leader "re-share the link", and a latecomer asking for the
+                    // code is the most common thing that happens in a live group.
+                    if (state.inGroup) {
+                        IconButton(onClick = { shareInvite(context, state, strings) }) {
+                            Icon(Icons.Default.Share, contentDescription = strings.groupShare)
+                        }
+                    }
+                },
+            )
+        },
+    ) { padding ->
+    Surface(
+        modifier = Modifier.fillMaxSize().padding(padding),
+        color = MaterialTheme.colorScheme.background,
+    ) {
         when {
             !state.signedIn -> SignedOutState(strings, onNavigateToSignIn)
             state.inGroup -> GroupRoster(
@@ -114,6 +144,7 @@ fun CommunityScreen(
         }
     }
 
+    }
     if (showCreate) {
         CreateGroupSheet(
             strings = strings,

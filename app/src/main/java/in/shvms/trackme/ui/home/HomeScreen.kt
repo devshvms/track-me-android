@@ -50,7 +50,7 @@ import `in`.shvms.trackme.ui.home.components.ActiveRideHudPanel
 import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
-import `in`.shvms.trackme.ui.home.components.GroupRibbon
+import `in`.shvms.trackme.ui.home.components.GroupMapButton
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.analytics.RideStartAbortMethod
@@ -360,16 +360,6 @@ fun HomeScreen(
         contentWindowInsets = WindowInsets(0.dp)
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-        // §3.2.1: the ribbon is pinned above everything else on Home, so "who can see me right
-        // now" is answered without the user going looking. Additive by design (§15.3) — it renders
-        // nothing at all when there is no live group, so it cannot regress this screen.
-        val groupSession by app.groupSessionManager.state.collectAsState()
-        GroupRibbon(
-            session = groupSession,
-            memberCount = (groupSession.roster.size - 1).coerceAtLeast(0),
-            onLeave = { coroutineScope.launch { app.groupSessionManager.leaveGroup() } },
-            onOpenRoster = onOpenCommunity,
-        )
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             var mapType by remember { mutableStateOf(MapType.NORMAL) }
             var isTrafficEnabled by remember { mutableStateOf(false) }
@@ -432,6 +422,7 @@ fun HomeScreen(
 
             val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
             val isOffline = rememberIsOffline()
+            val groupSession by app.groupSessionManager.state.collectAsState()
 
             Column(
 
@@ -439,6 +430,15 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.End
             ) {
+                // Above the layer/recentre/compass stack, and present only while a group is live
+                // (A20). Its presence is the signal that someone can see you; tapping it opens the
+                // roster, where Leave lives.
+                GroupMapButton(
+                    session = groupSession,
+                    memberCount = (groupSession.roster.size - 1).coerceAtLeast(0),
+                    onClick = onOpenCommunity,
+                )
+
                 MapLayerHorizontalDrawerButton(
                     currentMapType = mapType,
                     onMapTypeSelected = { mapType = it },
