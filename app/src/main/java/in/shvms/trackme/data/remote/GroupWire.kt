@@ -64,6 +64,14 @@ object GroupWire {
         val ownerDisplayName: String?,
         val destLat: Double? = null,
         val destLng: Double? = null,
+        /**
+         * The leader's optional scheduled start (D6), epoch millis.
+         *
+         * Encrypted with everything else. It is a small thing on its own, but "these people are
+         * meeting HERE at THIS TIME" is a stronger signal than either half, and §5.3's claim is
+         * that the relay learns neither.
+         */
+        val startAtMillis: Long? = null,
     ) {
         val hasDestination: Boolean get() = destLat != null && destLng != null
     }
@@ -268,6 +276,7 @@ object GroupWire {
         ownerDisplayName: String?,
         destLat: Double? = null,
         destLng: Double? = null,
+        startAtMillis: Long? = null,
     ): String = JSONObject().apply {
         put("name", name)
         if (!ownerDisplayName.isNullOrBlank()) put("ownerDisplayName", ownerDisplayName)
@@ -277,6 +286,7 @@ object GroupWire {
             put("destLat", destLat)
             put("destLng", destLng)
         }
+        if (startAtMillis != null && startAtMillis > 0) put("startAt", startAtMillis)
     }.toString()
 
     /** The relay's machine-readable error code, when it sent one. */
@@ -293,6 +303,7 @@ object GroupWire {
             ownerDisplayName = plain.optString("ownerDisplayName").takeIf { it.isNotEmpty() },
             destLat = if (plain.has("destLat")) plain.optDouble("destLat").takeIf { !it.isNaN() } else null,
             destLng = if (plain.has("destLng")) plain.optDouble("destLng").takeIf { !it.isNaN() } else null,
+            startAtMillis = if (plain.has("startAt")) plain.optLong("startAt").takeIf { it > 0 } else null,
         )
     } catch (e: Exception) {
         // A group whose name will not decrypt is still usable — the map, the roster and the

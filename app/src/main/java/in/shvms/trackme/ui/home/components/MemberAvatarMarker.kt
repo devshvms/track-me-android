@@ -126,6 +126,76 @@ class MemberAvatarCache(private val context: Context, private val density: Float
     }
 }
 
+/**
+ * The destination pin — a black-and-white chequered flag.
+ *
+ * Deliberately monochrome rather than another cyan pin. §3.1 locks one accent and cyan already
+ * means "a person in this group"; reusing it for a place would make the two read as the same kind
+ * of thing at a glance, which is the one job a map marker has. A chequered flag is also the one
+ * symbol that means "this is where we're headed" without a label, in any language — which matters
+ * across 7 locales.
+ *
+ * Built once and cached: unlike a member, a destination does not move, so regenerating it would be
+ * pure waste on every recomposition.
+ */
+fun destinationFlagDescriptor(density: Float): BitmapDescriptor {
+    cachedFlag?.let { return it }
+
+    val size = (FLAG_DP * density).toInt().coerceAtLeast(24)
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    val poleWidth = (size * 0.09f).coerceAtLeast(2f)
+    val poleX = size * 0.22f
+    val flagLeft = poleX + poleWidth / 2f
+    val flagTop = size * 0.12f
+    val flagRight = size * 0.88f
+    val flagBottom = size * 0.52f
+
+    // White backing so the flag stays legible over dark satellite imagery as well as pale streets.
+    val backing = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        setShadowLayer(3f * density, 0f, 1f * density, Color.argb(120, 0, 0, 0))
+    }
+    canvas.drawRect(flagLeft, flagTop, flagRight, flagBottom, backing)
+
+    // Chequerboard.
+    val squares = 4
+    val cellW = (flagRight - flagLeft) / squares
+    val cellH = (flagBottom - flagTop) / 2
+    val black = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
+    for (row in 0 until 2) {
+        for (col in 0 until squares) {
+            if ((row + col) % 2 == 0) {
+                val l = flagLeft + col * cellW
+                val t = flagTop + row * cellH
+                canvas.drawRect(l, t, l + cellW, t + cellH, black)
+            }
+        }
+    }
+    canvas.drawRect(flagLeft, flagTop, flagRight, flagBottom, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 1f * density
+        color = Color.BLACK
+    })
+
+    canvas.drawRect(
+        poleX - poleWidth / 2f,
+        flagTop,
+        poleX + poleWidth / 2f,
+        size * 0.94f,
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.BLACK
+            setShadowLayer(2f * density, 0f, 1f * density, Color.argb(120, 0, 0, 0))
+        },
+    )
+
+    return BitmapDescriptorFactory.fromBitmap(bitmap).also { cachedFlag = it }
+}
+
+private var cachedFlag: BitmapDescriptor? = null
+private const val FLAG_DP = 36f
+
 @Composable
 fun rememberMemberAvatarCache(): MemberAvatarCache {
     val context = LocalContext.current

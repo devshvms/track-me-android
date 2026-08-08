@@ -58,6 +58,8 @@ data class GroupSessionState(
     /** §2.9: shown as a pin — a pin is a fact, not an estimate. Null when none was set. */
     val destinationLat: Double? = null,
     val destinationLng: Double? = null,
+    /** The leader's optional scheduled start (D6). Null means "--" in the UI, never a guess. */
+    val startAtMillis: Long? = null,
     val isLeader: Boolean = false,
     val expiresAtMillis: Long = 0L,
     val maxMembers: Int = 0,
@@ -237,6 +239,7 @@ class GroupSessionManager(
         photoUrl: String?,
         destinationLat: Double? = null,
         destinationLng: Double? = null,
+        startAtMillis: Long? = null,
     ): Result<GroupSessionState> = withContext(Dispatchers.IO) {
         try {
             val token = GroupCrypto.generateInviteToken()
@@ -249,7 +252,7 @@ class GroupSessionManager(
                 put("wrappedToken", GroupCrypto.wrapTokenForCode(joinCode, token))
                 put("durationMinutes", durationMinutes)
                 put("maxMembers", maxMembers)
-                put("meta", GroupCrypto.seal(key, GroupWire.encodeMeta(groupName, displayName, destinationLat, destinationLng), GroupCrypto.Purpose.Meta))
+                put("meta", GroupCrypto.seal(key, GroupWire.encodeMeta(groupName, displayName, destinationLat, destinationLng, startAtMillis), GroupCrypto.Purpose.Meta))
                 put("roster", sealRoster(key, displayName, photoUrl))
             }
 
@@ -273,7 +276,7 @@ class GroupSessionManager(
                 durationMinutes = durationMinutes,
                 maxMembers = maxMembers,
                 hasDestination = destinationLat != null && destinationLng != null,
-                hasStartTime = false,
+                hasStartTime = startAtMillis != null,
             )
             _state.value = GroupSessionState(
                 status = GroupSessionStatus.PREPARING,
@@ -284,6 +287,7 @@ class GroupSessionManager(
                 groupName = groupName,
                 destinationLat = destinationLat,
                 destinationLng = destinationLng,
+                startAtMillis = startAtMillis,
                 isLeader = true,
                 expiresAtMillis = created.expiresAtMillis,
                 maxMembers = created.maxMembers,
@@ -370,6 +374,7 @@ class GroupSessionManager(
                 groupName = joined.meta?.name,
                 destinationLat = joined.meta?.destLat,
                 destinationLng = joined.meta?.destLng,
+                startAtMillis = joined.meta?.startAtMillis,
                 isLeader = false,
                 expiresAtMillis = joined.expiresAtMillis,
                 maxMembers = joined.maxMembers,
@@ -412,6 +417,57 @@ class GroupSessionManager(
         } catch (e: Exception) {
             // Already gone locally. The relay's TTL is the backstop for its own state.
             Result.success(Unit)
+        }
+    }
+
+    /**
+     * Leader edits the destination and scheduled start.
+     *
+     * Both are nullable and both are honoured as written — passing null CLEARS them. §8 requires a
+     * destination change to be "visible to all, never silent", and the relay's rev bump is what
+     * makes that true: every member refetches meta on their next sync.
+     *
+     * The name is not editable here. It is baked into the share message and the join sheet, and a
+     * group renaming itself under people who already joined is confusion for no gain.
+     */
+    suspend fun updateMeta(
+        destinationLat: Double?,
+        destinationLng: Double?,
+        startAtMillis: Long?,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val session = _state.value
+        val groupId = session.groupId ?: return@withContext Result.failure(Exception("Not in a group."))
+        val key = groupKey ?: return@withContext Result.failure(Exception("Not in a group."))
+        if (!session.isLeader) return@withContext Result.failure(Exception("Only the leader can do that."))
+
+        try {
+            val meta = GroupCrypto.seal(
+                key,
+                GroupWire.encodeMeta(
+                    name = session.groupName.orEmpty(),
+                    ownerDisplayName = null,
+                    destLat = destinationLat,
+                    destLng = destinationLng,
+                    startAtMillis = startAtMillis,
+                ),
+                GroupCrypto.Purpose.Meta,
+            )
+            post(
+                AppConfig.GROUP_META_ENDPOINT,
+                JSONObject().put("groupId", groupId).put("meta", meta).toString(),
+            )
+            // Applied locally at once rather than waiting a sync: the leader just pressed save, and
+            // a UI that ignores that for ten seconds reads as the edit having failed.
+            _state.value = _state.value.copy(
+                destinationLat = destinationLat,
+                destinationLng = destinationLng,
+                startAtMillis = startAtMillis,
+            )
+            // The estimator is bound to a fixed destination, so a change invalidates it.
+            destinationProgress = null
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -629,8 +685,12 @@ class GroupSessionManager(
             // A rev-gated roster arrives only when it changed; keep the last one otherwise.
             roster = result.roster ?: current.roster,
             groupName = result.meta?.name ?: current.groupName,
-            destinationLat = result.meta?.destLat ?: current.destinationLat,
-            destinationLng = result.meta?.destLng ?: current.destinationLng,
+            // Wholesale when meta arrives, not field-by-field with `?:`. Clearing a destination
+            // has to propagate, and an elvis would have kept the old one forever — a group told to
+            // meet somewhere that is no longer the plan.
+            destinationLat = if (result.meta != null) result.meta.destLat else current.destinationLat,
+            destinationLng = if (result.meta != null) result.meta.destLng else current.destinationLng,
+            startAtMillis = if (result.meta != null) result.meta.startAtMillis else current.startAtMillis,
             syncIntervalSec = result.nextSyncInSec.coerceAtLeast(1),
             consecutiveFailures = 0,
             degradedSince = null,

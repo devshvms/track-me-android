@@ -133,7 +133,10 @@ fun MainNavigation() {
                 RideDetailScreen(rideId = id, navController = navController)
             }
             composable("community") {
-                CommunityScreen(onNavigateToSignIn = { navigateToTab("settings") })
+                CommunityScreen(
+                    onNavigateToSignIn = { navigateToTab("settings") },
+                    onOpenHome = { navigateToTab("home") },
+                )
             }
             composable("settings") { SettingsScreen(navController = navController) }
             composable("account_management") {

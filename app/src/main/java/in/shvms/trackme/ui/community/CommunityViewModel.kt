@@ -211,6 +211,14 @@ class CommunityViewModel(
 
     fun acknowledgeEndNotice() = groupSessionManager.acknowledgeEndNotice()
 
+    fun updateMeta(destLat: Double?, destLng: Double?, startAtMillis: Long?) {
+        viewModelScope.launch {
+            local.value = LocalState(busy = true)
+            val result = groupSessionManager.updateMeta(destLat, destLng, startAtMillis)
+            local.value = LocalState(error = result.exceptionOrNull()?.message)
+        }
+    }
+
     fun removeMember(uid: String) {
         viewModelScope.launch {
             local.value = LocalState(busy = true)

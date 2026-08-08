@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -73,6 +74,7 @@ import java.util.concurrent.TimeUnit
 @Composable
 fun CommunityScreen(
     onNavigateToSignIn: () -> Unit,
+    onOpenHome: () -> Unit = {},
     viewModel: CommunityViewModel = viewModel(
         factory = with(LocalContext.current.applicationContext as TrackMeApp) {
             CommunityViewModelFactory(
@@ -94,6 +96,7 @@ fun CommunityScreen(
     // it is your own choice about yourself; removing someone else is a decision about another
     // person, and the dialog says what they will be told.
     var pendingRemoval by remember { mutableStateOf<RosterMember?>(null) }
+    var showEdit by remember { mutableStateOf(false) }
 
     // A group that ends while the tab is open must close its sheets, or the user is left typing
     // into a group that no longer exists.
@@ -113,12 +116,19 @@ fun CommunityScreen(
             TopAppBar(
                 title = { Text(state.session.groupName?.takeIf { state.inGroup } ?: strings.navCommunity) },
                 actions = {
-                    // Re-sharing the invite is the single action worth promoting out of the body:
-                    // §2.5 gives the leader "re-share the link", and a latecomer asking for the
-                    // code is the most common thing that happens in a live group.
+                    // Edit for the leader, share for everyone else. The leader already has "Share
+                    // invite" in the body (§2.5's "re-share the link"), so promoting it twice
+                    // spends the one top-bar slot on something they can already reach — whereas
+                    // editing the destination and start time had nowhere to live at all.
                     if (state.inGroup) {
-                        IconButton(onClick = { shareInvite(context, state, strings) }) {
-                            Icon(Icons.Default.Share, contentDescription = strings.groupShare)
+                        if (state.session.isLeader) {
+                            IconButton(onClick = { showEdit = true }) {
+                                Icon(Icons.Default.Edit, contentDescription = strings.groupEdit)
+                            }
+                        } else {
+                            IconButton(onClick = { shareInvite(context, state, strings) }) {
+                                Icon(Icons.Default.Share, contentDescription = strings.groupShare)
+                            }
                         }
                     }
                 },
@@ -166,6 +176,7 @@ fun CommunityScreen(
                 onLeave = viewModel::leaveGroup,
                 onShare = { shareInvite(context, state, strings) },
                 onRemoveMember = { pendingRemoval = it },
+                onShowOnMap = onOpenHome,
             )
             else -> NoGroupState(
                 strings = strings,
@@ -201,6 +212,19 @@ fun CommunityScreen(
             dismissButton = {
                 TextButton(onClick = { pendingRemoval = null }) { Text(strings.cancel) }
             },
+        )
+    }
+
+    if (showEdit) {
+        GroupEditSheet(
+            session = state.session,
+            strings = strings,
+            onDismiss = { showEdit = false },
+            onSave = { lat, lng, startAt ->
+                viewModel.updateMeta(lat, lng, startAt)
+                showEdit = false
+            },
+            currentLocation = { lastKnownLocation(context) },
         )
     }
 
@@ -340,6 +364,7 @@ private fun GroupRoster(
     onLeave: () -> Unit,
     onShare: () -> Unit,
     onRemoveMember: (RosterMember) -> Unit,
+    onShowOnMap: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -347,6 +372,11 @@ private fun GroupRoster(
     ) {
         item {
             GroupHeader(state, strings)
+            Spacer(Modifier.height(8.dp))
+            // Shown to everyone, not just the leader: "where are we going and when" is the group's
+            // shared plan, and a member who cannot see it has to ask.
+            DestinationRow(state.session, strings, onShowOnMap = onShowOnMap)
+            StartTimeRow(state.session, strings)
             Spacer(Modifier.height(16.dp))
         }
 

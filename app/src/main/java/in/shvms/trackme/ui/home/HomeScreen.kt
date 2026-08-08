@@ -51,6 +51,7 @@ import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
 import `in`.shvms.trackme.ui.home.components.GroupMapButton
+import androidx.compose.ui.platform.LocalDensity
 import `in`.shvms.trackme.ui.home.components.MemberMarkerPolicy
 import `in`.shvms.trackme.ui.home.components.rememberMemberAvatarCache
 import com.google.maps.android.compose.Marker
@@ -451,8 +452,14 @@ fun HomeScreen(
                                 position = com.google.android.gms.maps.model.LatLng(destLat, destLng),
                             ),
                             title = strings.groupDestination,
-                            icon = com.google.android.gms.maps.model.BitmapDescriptorFactory
-                                .defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_CYAN),
+                            snippet = `in`.shvms.trackme.domain.group.GroupDestinationLinks
+                                .formatCoordinates(destLat, destLng),
+                            // Monochrome flag, not another cyan pin: cyan already means "a person
+                            // in this group", and a place must not read as the same kind of thing.
+                            icon = `in`.shvms.trackme.ui.home.components.destinationFlagDescriptor(
+                                LocalDensity.current.density,
+                            ),
+                            anchor = androidx.compose.ui.geometry.Offset(0.22f, 0.94f),
                         )
                     }
 

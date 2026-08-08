@@ -117,6 +117,20 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupNotSharing: String = s("groupNotSharing", "You're not sharing your location. Others can't see you.")
     val groupEndedRideContinues: String = s("groupEndedRideContinues", "This group has ended. Your ride is still recording.")
     val groupRemoved: String = s("groupRemoved", "You're no longer in this group.")
+    val groupEdit: String = s("groupEdit", "Edit")
+    val groupEditTitle: String = s("groupEditTitle", "Group details")
+    val groupNotSet: String = s("groupNotSet", "--")
+    val groupOpenInMaps: String = s("groupOpenInMaps", "Open in Maps")
+    val groupShowOnMap: String = s("groupShowOnMap", "Show on my map")
+    val groupStartTimeLabel: String = s("groupStartTimeLabel", "Starts at")
+    val groupAddToCalendar: String = s("groupAddToCalendar", "Add to calendar")
+    val groupUseMyLocation: String = s("groupUseMyLocation", "Use my current location")
+    val groupClearDestination: String = s("groupClearDestination", "Clear destination")
+    val groupClearStartTime: String = s("groupClearStartTime", "Clear start time")
+    val groupSave: String = s("groupSave", "Save")
+    val groupNoMapsApp: String = s("groupNoMapsApp", "No maps app found.")
+    val groupNoCalendarApp: String = s("groupNoCalendarApp", "No calendar app found.")
+    val groupStartNeverAutoStarts: String = s("groupStartNeverAutoStarts", "We'll remind you 15 minutes before. Nothing starts on its own — you still press start.")
     val groupRemoveMember: String = s("groupRemoveMember", "Remove")
     val groupRemoveConfirm: String = s("groupRemoveConfirm", "Remove %1\$s from the group? They'll be told they're no longer in it.")
     val groupNoticeDismiss: String = s("groupNoticeDismiss", "Got it")
@@ -451,6 +465,20 @@ val SUPPORTED_LANGUAGE_CODES: List<String> = listOf("en", "es", "fr", "de", "hi"
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
         "es" -> AppStrings(mapOf(
+            "groupEdit" to "Editar",
+            "groupEditTitle" to "Detalles del grupo",
+            "groupNotSet" to "--",
+            "groupOpenInMaps" to "Abrir en Mapas",
+            "groupShowOnMap" to "Ver en mi mapa",
+            "groupStartTimeLabel" to "Empieza a las",
+            "groupAddToCalendar" to "Añadir al calendario",
+            "groupUseMyLocation" to "Usar mi ubicación actual",
+            "groupClearDestination" to "Borrar destino",
+            "groupClearStartTime" to "Borrar hora de inicio",
+            "groupSave" to "Guardar",
+            "groupNoMapsApp" to "No se encontró app de mapas.",
+            "groupNoCalendarApp" to "No se encontró app de calendario.",
+            "groupStartNeverAutoStarts" to "Te avisaremos 15 minutos antes. Nada empieza solo: tú pulsas iniciar.",
             "groupRemoveMember" to "Quitar",
             "groupRemoveConfirm" to "¿Quitar a %1\$s del grupo? Se le informará que ya no forma parte.",
             "groupEndedRideContinues" to "Este grupo ha terminado. Tu ruta sigue grabándose.",
@@ -839,6 +867,20 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
         "fr" -> AppStrings(mapOf(
+            "groupEdit" to "Modifier",
+            "groupEditTitle" to "Détails du groupe",
+            "groupNotSet" to "--",
+            "groupOpenInMaps" to "Ouvrir dans Plans",
+            "groupShowOnMap" to "Voir sur ma carte",
+            "groupStartTimeLabel" to "Départ à",
+            "groupAddToCalendar" to "Ajouter au calendrier",
+            "groupUseMyLocation" to "Utiliser ma position actuelle",
+            "groupClearDestination" to "Effacer la destination",
+            "groupClearStartTime" to "Effacer l'heure de départ",
+            "groupSave" to "Enregistrer",
+            "groupNoMapsApp" to "Aucune app de cartes trouvée.",
+            "groupNoCalendarApp" to "Aucune app de calendrier trouvée.",
+            "groupStartNeverAutoStarts" to "Nous vous rappellerons 15 minutes avant. Rien ne démarre tout seul : c'est vous qui lancez.",
             "groupRemoveMember" to "Retirer",
             "groupRemoveConfirm" to "Retirer %1\$s du groupe ? Cette personne sera informée qu'elle n'en fait plus partie.",
             "groupEndedRideContinues" to "Ce groupe est terminé. Votre sortie est toujours enregistrée.",
@@ -1227,6 +1269,20 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Session ouverte",
         ))
         "de" -> AppStrings(mapOf(
+            "groupEdit" to "Bearbeiten",
+            "groupEditTitle" to "Gruppendetails",
+            "groupNotSet" to "--",
+            "groupOpenInMaps" to "In Karten öffnen",
+            "groupShowOnMap" to "Auf meiner Karte zeigen",
+            "groupStartTimeLabel" to "Beginnt um",
+            "groupAddToCalendar" to "Zum Kalender hinzufügen",
+            "groupUseMyLocation" to "Meinen aktuellen Standort verwenden",
+            "groupClearDestination" to "Ziel löschen",
+            "groupClearStartTime" to "Startzeit löschen",
+            "groupSave" to "Speichern",
+            "groupNoMapsApp" to "Keine Karten-App gefunden.",
+            "groupNoCalendarApp" to "Keine Kalender-App gefunden.",
+            "groupStartNeverAutoStarts" to "Wir erinnern dich 15 Minuten vorher. Nichts startet von selbst — du drückst Start.",
             "groupRemoveMember" to "Entfernen",
             "groupRemoveConfirm" to "%1\$s aus der Gruppe entfernen? Die Person wird darüber informiert.",
             "groupEndedRideContinues" to "Diese Gruppe ist beendet. Deine Fahrt wird weiter aufgezeichnet.",
@@ -1615,6 +1671,20 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Angemeldet",
         ))
         "hi" -> AppStrings(mapOf(
+            "groupEdit" to "संपादित करें",
+            "groupEditTitle" to "ग्रुप विवरण",
+            "groupNotSet" to "--",
+            "groupOpenInMaps" to "मैप्स में खोलें",
+            "groupShowOnMap" to "मेरे मैप पर दिखाएँ",
+            "groupStartTimeLabel" to "शुरू होगा",
+            "groupAddToCalendar" to "कैलेंडर में जोड़ें",
+            "groupUseMyLocation" to "मेरा वर्तमान स्थान उपयोग करें",
+            "groupClearDestination" to "गंतव्य हटाएँ",
+            "groupClearStartTime" to "शुरू होने का समय हटाएँ",
+            "groupSave" to "सहेजें",
+            "groupNoMapsApp" to "कोई मैप ऐप नहीं मिला।",
+            "groupNoCalendarApp" to "कोई कैलेंडर ऐप नहीं मिला।",
+            "groupStartNeverAutoStarts" to "हम आपको 15 मिनट पहले याद दिलाएँगे। कुछ भी अपने आप शुरू नहीं होता — आप ही शुरू करते हैं।",
             "groupRemoveMember" to "हटाएँ",
             "groupRemoveConfirm" to "%1\$s को ग्रुप से हटाएँ? उन्हें बताया जाएगा कि वे अब ग्रुप में नहीं हैं।",
             "groupEndedRideContinues" to "यह ग्रुप समाप्त हो गया है। आपकी सवारी अब भी रिकॉर्ड हो रही है।",
@@ -2003,6 +2073,20 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "साइन इन",
         ))
         "ja" -> AppStrings(mapOf(
+            "groupEdit" to "編集",
+            "groupEditTitle" to "グループの詳細",
+            "groupNotSet" to "--",
+            "groupOpenInMaps" to "マップで開く",
+            "groupShowOnMap" to "自分の地図で表示",
+            "groupStartTimeLabel" to "開始",
+            "groupAddToCalendar" to "カレンダーに追加",
+            "groupUseMyLocation" to "現在地を使う",
+            "groupClearDestination" to "目的地を消去",
+            "groupClearStartTime" to "開始時刻を消去",
+            "groupSave" to "保存",
+            "groupNoMapsApp" to "マップアプリが見つかりません。",
+            "groupNoCalendarApp" to "カレンダーアプリが見つかりません。",
+            "groupStartNeverAutoStarts" to "15分前にお知らせします。自動では始まりません — 開始はあなたが押します。",
             "groupRemoveMember" to "削除",
             "groupRemoveConfirm" to "%1\$sをグループから削除しますか？本人には通知されます。",
             "groupEndedRideContinues" to "このグループは終了しました。ライドの記録は続いています。",
@@ -2391,6 +2475,20 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "サインイン済み",
         ))
         "zh" -> AppStrings(mapOf(
+            "groupEdit" to "编辑",
+            "groupEditTitle" to "群组详情",
+            "groupNotSet" to "--",
+            "groupOpenInMaps" to "在地图中打开",
+            "groupShowOnMap" to "在我的地图上显示",
+            "groupStartTimeLabel" to "开始于",
+            "groupAddToCalendar" to "添加到日历",
+            "groupUseMyLocation" to "使用我的当前位置",
+            "groupClearDestination" to "清除目的地",
+            "groupClearStartTime" to "清除开始时间",
+            "groupSave" to "保存",
+            "groupNoMapsApp" to "未找到地图应用。",
+            "groupNoCalendarApp" to "未找到日历应用。",
+            "groupStartNeverAutoStarts" to "我们会提前 15 分钟提醒你。不会自动开始——仍由你按下开始。",
             "groupRemoveMember" to "移除",
             "groupRemoveConfirm" to "将 %1\$s 移出群组？会告知对方已不在群组中。",
             "groupEndedRideContinues" to "该群组已结束。你的骑行仍在记录中。",
