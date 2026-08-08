@@ -115,6 +115,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupLeaveConfirmLeader: String = s("groupLeaveConfirmLeader", "Leaving ends the group for everyone.")
     val groupTimeLeft: String = s("groupTimeLeft", "%1\$s left")
     val groupNotSharing: String = s("groupNotSharing", "You're not sharing your location. Others can't see you.")
+    val groupDestination: String = s("groupDestination", "Destination")
+    val groupSetDestination: String = s("groupSetDestination", "Meet at my current location")
     val notifGroupPresenceTitle: String = s("notifGroupPresenceTitle", "Riding together")
     val notifGroupPresenceText: String = s("notifGroupPresenceText", "Sharing your location with your group • %1\$s left")
     val notifGroupPresenceNoLimit: String = s("notifGroupPresenceNoLimit", "Sharing your location with your group")
@@ -443,6 +445,8 @@ val SUPPORTED_LANGUAGE_CODES: List<String> = listOf("en", "es", "fr", "de", "hi"
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
         "es" -> AppStrings(mapOf(
+            "groupDestination" to "Destino",
+            "groupSetDestination" to "Quedar en mi ubicación actual",
             "navCommunity" to "Comunidad",
             "groupSignedOutTitle" to "Rueda en grupo",
             "groupSignedOutBody" to "Veos en el mapa mientras rodáis. Inicia sesión para crear o unirte a un grupo.",
@@ -823,6 +827,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
         "fr" -> AppStrings(mapOf(
+            "groupDestination" to "Point de rendez-vous",
+            "groupSetDestination" to "Rendez-vous à ma position actuelle",
             "navCommunity" to "Communauté",
             "groupSignedOutTitle" to "Rouler ensemble",
             "groupSignedOutBody" to "Voyez-vous sur la carte pendant que vous roulez. Connectez-vous pour créer ou rejoindre un groupe.",
@@ -1203,6 +1209,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Session ouverte",
         ))
         "de" -> AppStrings(mapOf(
+            "groupDestination" to "Ziel",
+            "groupSetDestination" to "Treffpunkt an meinem aktuellen Standort",
             "navCommunity" to "Community",
             "groupSignedOutTitle" to "Gemeinsam fahren",
             "groupSignedOutBody" to "Seht euch auf der Karte, während ihr unterwegs seid. Melde dich an, um eine Gruppe zu erstellen oder beizutreten.",
@@ -1583,6 +1591,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Angemeldet",
         ))
         "hi" -> AppStrings(mapOf(
+            "groupDestination" to "गंतव्य",
+            "groupSetDestination" to "मेरे वर्तमान स्थान पर मिलें",
             "navCommunity" to "कम्युनिटी",
             "groupSignedOutTitle" to "साथ में सवारी करें",
             "groupSignedOutBody" to "सवारी करते समय एक-दूसरे को मैप पर देखें। ग्रुप बनाने या जुड़ने के लिए साइन इन करें।",
@@ -1963,6 +1973,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "साइन इन",
         ))
         "ja" -> AppStrings(mapOf(
+            "groupDestination" to "目的地",
+            "groupSetDestination" to "現在地で待ち合わせ",
             "navCommunity" to "コミュニティ",
             "groupSignedOutTitle" to "一緒にライド",
             "groupSignedOutBody" to "ライド中にお互いを地図で確認できます。グループの作成や参加にはサインインしてください。",
@@ -2343,6 +2355,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "サインイン済み",
         ))
         "zh" -> AppStrings(mapOf(
+            "groupDestination" to "目的地",
+            "groupSetDestination" to "在我的当前位置集合",
             "navCommunity" to "社群",
             "groupSignedOutTitle" to "一起骑行",
             "groupSignedOutBody" to "骑行时在地图上看到彼此。登录以创建或加入群组。",

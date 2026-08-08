@@ -51,7 +51,22 @@ object GroupWire {
         val photoUrl: String?,
     )
 
-    data class GroupMeta(val name: String?, val ownerDisplayName: String?)
+    /**
+     * Group metadata. `destLat`/`destLng` are the optional destination (§2.9).
+     *
+     * §2.9's privacy note is why they live in the encrypted meta and nowhere else: *"A destination
+     * is a strong personal signal. 'Everyone meet at Ravi's place' puts Ravi's home in front of
+     * every member and anyone they forward the invite to."* The relay cannot read it, and the web
+     * landing page never shows it.
+     */
+    data class GroupMeta(
+        val name: String?,
+        val ownerDisplayName: String?,
+        val destLat: Double? = null,
+        val destLng: Double? = null,
+    ) {
+        val hasDestination: Boolean get() = destLat != null && destLng != null
+    }
 
     /** The relay's sync response, after decryption. */
     data class SyncResult(
@@ -248,11 +263,21 @@ object GroupWire {
             if (!photoUrl.isNullOrBlank()) put("photoUrl", photoUrl)
         }.toString()
 
-    fun encodeMeta(name: String, ownerDisplayName: String?): String =
-        JSONObject().apply {
-            put("name", name)
-            if (!ownerDisplayName.isNullOrBlank()) put("ownerDisplayName", ownerDisplayName)
-        }.toString()
+    fun encodeMeta(
+        name: String,
+        ownerDisplayName: String?,
+        destLat: Double? = null,
+        destLng: Double? = null,
+    ): String = JSONObject().apply {
+        put("name", name)
+        if (!ownerDisplayName.isNullOrBlank()) put("ownerDisplayName", ownerDisplayName)
+        // Only written when set. An absent destination is absent, not null — §2.9 keeps the
+        // wire format forward-compatible for 1.8's ETA fields without a breaking change.
+        if (destLat != null && destLng != null) {
+            put("destLat", destLat)
+            put("destLng", destLng)
+        }
+    }.toString()
 
     /** The relay's machine-readable error code, when it sent one. */
     fun errorCode(body: String?): String? = try {
@@ -266,6 +291,8 @@ object GroupWire {
         GroupMeta(
             name = plain.optString("name").takeIf { it.isNotEmpty() },
             ownerDisplayName = plain.optString("ownerDisplayName").takeIf { it.isNotEmpty() },
+            destLat = if (plain.has("destLat")) plain.optDouble("destLat").takeIf { !it.isNaN() } else null,
+            destLng = if (plain.has("destLng")) plain.optDouble("destLng").takeIf { !it.isNaN() } else null,
         )
     } catch (e: Exception) {
         // A group whose name will not decrypt is still usable — the map, the roster and the

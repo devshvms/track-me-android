@@ -54,6 +54,9 @@ data class GroupSessionState(
      */
     val inviteToken: String? = null,
     val groupName: String? = null,
+    /** §2.9: shown as a pin — a pin is a fact, not an estimate. Null when none was set. */
+    val destinationLat: Double? = null,
+    val destinationLng: Double? = null,
     val isLeader: Boolean = false,
     val expiresAtMillis: Long = 0L,
     val maxMembers: Int = 0,
@@ -168,6 +171,8 @@ class GroupSessionManager(
         maxMembers: Int,
         displayName: String?,
         photoUrl: String?,
+        destinationLat: Double? = null,
+        destinationLng: Double? = null,
     ): Result<GroupSessionState> = withContext(Dispatchers.IO) {
         try {
             val token = GroupCrypto.generateInviteToken()
@@ -180,7 +185,7 @@ class GroupSessionManager(
                 put("wrappedToken", GroupCrypto.wrapTokenForCode(joinCode, token))
                 put("durationMinutes", durationMinutes)
                 put("maxMembers", maxMembers)
-                put("meta", GroupCrypto.seal(key, GroupWire.encodeMeta(groupName, displayName), GroupCrypto.Purpose.Meta))
+                put("meta", GroupCrypto.seal(key, GroupWire.encodeMeta(groupName, displayName, destinationLat, destinationLng), GroupCrypto.Purpose.Meta))
                 put("roster", sealRoster(key, displayName, photoUrl))
             }
 
@@ -206,6 +211,8 @@ class GroupSessionManager(
                 joinCode = created.joinCode,
                 inviteToken = token,
                 groupName = groupName,
+                destinationLat = destinationLat,
+                destinationLng = destinationLng,
                 isLeader = true,
                 expiresAtMillis = created.expiresAtMillis,
                 maxMembers = created.maxMembers,
@@ -288,6 +295,8 @@ class GroupSessionManager(
                 joinCode = joinCode,
                 inviteToken = token,
                 groupName = joined.meta?.name,
+                destinationLat = joined.meta?.destLat,
+                destinationLng = joined.meta?.destLng,
                 isLeader = false,
                 expiresAtMillis = joined.expiresAtMillis,
                 maxMembers = joined.maxMembers,
@@ -447,6 +456,8 @@ class GroupSessionManager(
             // A rev-gated roster arrives only when it changed; keep the last one otherwise.
             roster = result.roster ?: current.roster,
             groupName = result.meta?.name ?: current.groupName,
+            destinationLat = result.meta?.destLat ?: current.destinationLat,
+            destinationLng = result.meta?.destLng ?: current.destinationLng,
             syncIntervalSec = result.nextSyncInSec.coerceAtLeast(1),
             consecutiveFailures = 0,
             degradedSince = null,

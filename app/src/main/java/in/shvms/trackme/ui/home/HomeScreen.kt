@@ -419,6 +419,27 @@ fun HomeScreen(
                         )
                     }
 
+                    // --- Destination pin (§2.9) ---
+                    //
+                    // Shown unconditionally, unlike everything else group-related on this map: a
+                    // pin is a FACT, not an estimate. §2.9 keeps it while holding ETA and arrival
+                    // back precisely because it is accurate and costs nothing. It is deliberately
+                    // NOT viewport-culled — the whole point of "we're going here" is that you can
+                    // find it, and unlike a member it does not move.
+                    val destLat = groupSession.destinationLat
+                    val destLng = groupSession.destinationLng
+                    if (groupSession.isActive && destLat != null && destLng != null) {
+                        Marker(
+                            state = rememberMarkerState(
+                                key = "group-destination",
+                                position = com.google.android.gms.maps.model.LatLng(destLat, destLng),
+                            ),
+                            title = strings.groupDestination,
+                            icon = com.google.android.gms.maps.model.BitmapDescriptorFactory
+                                .defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_CYAN),
+                        )
+                    }
+
                     // --- Group members (§3.3, A19) ---
                     //
                     // A19: the camera stays on the rider. Members are drawn only where they

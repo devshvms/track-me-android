@@ -29,9 +29,16 @@ class AppStringsLocaleCoverageTest {
      * Baseline measured on `389a8ff`: fr 12, de 5, es 2, ja 1, hi 0, zh 0 (20 total).
      * TASK-132 added `notifTrackingMetrics` (`"%1$s • %2$s • %3$s"`) across 6 locales, raising total to 26.
      * With 6 locales for `notifTrackingMetrics` plus actual identical locale keys across de(7)+es(3)+fr(13)+hi(1)+ja(2)+zh(1), total is 27.
+     *
+     * Raised to 28 on 2026-08-08 for `de:navCommunity`. "Community" is the ordinary German word
+     * for this in a consumer app — "Gemeinschaft" reads as a religious or academic community, and
+     * "Gruppe" is already taken by the group itself, so translating it would be worse copy, not
+     * better. The French counterpart went the other way: `fr:groupDestination` became "Point de
+     * rendez-vous", which is both a real translation and better copy for a group ride than a bare
+     * "Destination".
      * Raising this number is a product decision, not a merge-conflict resolution.
      */
-    private val maxEntriesIdenticalToEnglish = 27
+    private val maxEntriesIdenticalToEnglish = 28
 
     /** Every `val x: String = s("x", …)` field on the base class, derived from its getters. */
     private fun declaredStringKeys(): Set<String> =
