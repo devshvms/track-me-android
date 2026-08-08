@@ -46,6 +46,13 @@ data class GroupSessionState(
     val status: GroupSessionStatus = GroupSessionStatus.IDLE,
     val groupId: String? = null,
     val joinCode: String? = null,
+    /**
+     * The invite token, for building the share link only.
+     *
+     * It is key material, so it must never be logged, put in a query string, or written to a
+     * notification — the only place it belongs is the FRAGMENT of the share link (amendment A6).
+     */
+    val inviteToken: String? = null,
     val groupName: String? = null,
     val isLeader: Boolean = false,
     val expiresAtMillis: Long = 0L,
@@ -124,6 +131,7 @@ class GroupSessionManager(
                 status = GroupSessionStatus.DEGRADED,
                 groupId = record.groupId,
                 joinCode = record.joinCode,
+                inviteToken = record.token,
                 isLeader = record.isLeader,
                 expiresAtMillis = record.expiresAtMillis,
                 maxMembers = record.maxMembers,
@@ -190,6 +198,7 @@ class GroupSessionManager(
                 status = GroupSessionStatus.PREPARING,
                 groupId = created.groupId,
                 joinCode = created.joinCode,
+                inviteToken = token,
                 groupName = groupName,
                 isLeader = true,
                 expiresAtMillis = created.expiresAtMillis,
@@ -270,6 +279,7 @@ class GroupSessionManager(
                 status = statusFor(joined.state),
                 groupId = joined.groupId,
                 joinCode = joinCode,
+                inviteToken = token,
                 groupName = joined.meta?.name,
                 isLeader = false,
                 expiresAtMillis = joined.expiresAtMillis,
@@ -342,6 +352,7 @@ class GroupSessionManager(
         moving: Boolean,
         riding: Boolean = false,
     ) {
+        isSelfRiding = riding
         val key = groupKey
         val uid = currentUid()
         if (key == null || uid == null || lat == null || lng == null) {
@@ -462,6 +473,16 @@ class GroupSessionManager(
 
     /** Set by the UI so the server can pick the right cadence (§7.1). */
     @Volatile var isForeground: Boolean = false
+
+    /**
+     * Whether *we* are recording a ride, set by `TrackingService` alongside each position.
+     *
+     * The Community roster derives every other member's status from their position envelope, but
+     * our own is filtered out of the sync response by design (§4.1) — so our row reads from here
+     * rather than from what came back.
+     */
+    @Volatile var isSelfRiding: Boolean = false
+        private set
 
     // --- HTTP -----------------------------------------------------------------------------------
 

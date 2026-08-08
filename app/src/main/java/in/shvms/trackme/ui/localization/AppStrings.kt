@@ -78,6 +78,43 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     // Group Ride presence. §16.2 requires the foreground-service notification to state the real
     // reason the service is running — presence keeps it alive with no ride in progress, and the
     // March-2026 policy scrutinises exactly that.
+
+    // --- Group Ride (1.7.x) ---
+    val navCommunity: String = s("navCommunity", "Community")
+    val groupSignedOutTitle: String = s("groupSignedOutTitle", "Ride together")
+    val groupSignedOutBody: String = s("groupSignedOutBody", "See each other on the map while you ride. Sign in to create or join a group.")
+    val groupSignIn: String = s("groupSignIn", "Sign in")
+    val groupCreate: String = s("groupCreate", "Create a group")
+    val groupJoinWithCode: String = s("groupJoinWithCode", "Join with a code")
+    val groupHowItWorks: String = s("groupHowItWorks", "Everyone in the group sees everyone else, for as long as the group is live. Nobody sees where you've been. Nothing is saved. You can leave at any time and nobody is told.")
+    val groupNameLabel: String = s("groupNameLabel", "Group name")
+    val groupDefaultName: String = s("groupDefaultName", "%1\$s's ride")
+    val groupDurationLabel: String = s("groupDurationLabel", "Duration")
+    val groupSizeLabel: String = s("groupSizeLabel", "Group size")
+    val groupSizeValue: String = s("groupSizeValue", "Up to %1\$d people")
+    val groupHours: String = s("groupHours", "%1\$d hours")
+    val groupCreateAction: String = s("groupCreateAction", "Create")
+    val groupJoinAction: String = s("groupJoinAction", "Join")
+    val groupCodeLabel: String = s("groupCodeLabel", "6-character code")
+    val groupJoinConsent: String = s("groupJoinConsent", "They'll see your location while the group is live.")
+    val groupShare: String = s("groupShare", "Share invite")
+    val groupShareMessage: String = s("groupShareMessage", "Join my ride on TrackMe — we'll see each other on the map while we go. Code: %1\$s  %2\$s")
+    val groupStart: String = s("groupStart", "Start group")
+    val groupEnd: String = s("groupEnd", "End group")
+    val groupLeave: String = s("groupLeave", "Leave group")
+    val groupVisibleUntil: String = s("groupVisibleUntil", "You are visible to %1\$d people until %2\$s.")
+    val groupStatusRiding: String = s("groupStatusRiding", "Riding")
+    val groupStatusJoined: String = s("groupStatusJoined", "Joined, not started")
+    val groupStatusNoLocation: String = s("groupStatusNoLocation", "No recent location")
+    val groupLeaderBadge: String = s("groupLeaderBadge", "Leader")
+    val groupOnlyOne: String = s("groupOnlyOne", "You're the only one here.")
+    val groupDegraded: String = s("groupDegraded", "Group sharing is temporarily unavailable — retrying.")
+    val groupEnded: String = s("groupEnded", "This group has ended.")
+    val groupExpired: String = s("groupExpired", "This invite has expired.")
+    val groupFull: String = s("groupFull", "This group is full (%1\$d of %2\$d).")
+    val groupLeaveConfirmLeader: String = s("groupLeaveConfirmLeader", "Leaving ends the group for everyone.")
+    val groupTimeLeft: String = s("groupTimeLeft", "%1\$s left")
+    val groupNotSharing: String = s("groupNotSharing", "You're not sharing your location. Others can't see you.")
     val notifGroupPresenceTitle: String = s("notifGroupPresenceTitle", "Riding together")
     val notifGroupPresenceText: String = s("notifGroupPresenceText", "Sharing your location with your group • %1\$s left")
     val notifGroupPresenceNoLimit: String = s("notifGroupPresenceNoLimit", "Sharing your location with your group")
@@ -406,6 +443,41 @@ val SUPPORTED_LANGUAGE_CODES: List<String> = listOf("en", "es", "fr", "de", "hi"
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
         "es" -> AppStrings(mapOf(
+            "navCommunity" to "Comunidad",
+            "groupSignedOutTitle" to "Rueda en grupo",
+            "groupSignedOutBody" to "Veos en el mapa mientras rodáis. Inicia sesión para crear o unirte a un grupo.",
+            "groupSignIn" to "Iniciar sesión",
+            "groupCreate" to "Crear un grupo",
+            "groupJoinWithCode" to "Unirse con un código",
+            "groupHowItWorks" to "Todos en el grupo se ven entre sí mientras el grupo esté activo. Nadie ve dónde has estado. No se guarda nada. Puedes salir cuando quieras y no se avisa a nadie.",
+            "groupNameLabel" to "Nombre del grupo",
+            "groupDefaultName" to "Ruta de %1\$s",
+            "groupDurationLabel" to "Duración",
+            "groupSizeLabel" to "Tamaño del grupo",
+            "groupSizeValue" to "Hasta %1\$d personas",
+            "groupHours" to "%1\$d horas",
+            "groupCreateAction" to "Crear",
+            "groupJoinAction" to "Unirse",
+            "groupCodeLabel" to "Código de 6 caracteres",
+            "groupJoinConsent" to "Verán tu ubicación mientras el grupo esté activo.",
+            "groupShare" to "Compartir invitación",
+            "groupShareMessage" to "Únete a mi ruta en TrackMe: nos veremos en el mapa mientras vamos. Código: %1\$s  %2\$s",
+            "groupStart" to "Iniciar grupo",
+            "groupEnd" to "Finalizar grupo",
+            "groupLeave" to "Salir del grupo",
+            "groupVisibleUntil" to "Eres visible para %1\$d personas hasta las %2\$s.",
+            "groupStatusRiding" to "Rodando",
+            "groupStatusJoined" to "Se unió, no ha empezado",
+            "groupStatusNoLocation" to "Sin ubicación reciente",
+            "groupLeaderBadge" to "Organizador",
+            "groupOnlyOne" to "Eres el único aquí.",
+            "groupDegraded" to "El uso compartido del grupo no está disponible temporalmente: reintentando.",
+            "groupEnded" to "Este grupo ha terminado.",
+            "groupExpired" to "Esta invitación ha caducado.",
+            "groupFull" to "Este grupo está lleno (%1\$d de %2\$d).",
+            "groupLeaveConfirmLeader" to "Salir finaliza el grupo para todos.",
+            "groupTimeLeft" to "Queda %1\$s",
+            "groupNotSharing" to "No estás compartiendo tu ubicación. Los demás no pueden verte.",
             "notifGroupPresenceTitle" to "Rodando juntos",
             "notifGroupPresenceText" to "Compartiendo tu ubicación con tu grupo • quedan %1\$s",
             "notifGroupPresenceNoLimit" to "Compartiendo tu ubicación con tu grupo",
@@ -751,6 +823,41 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
         "fr" -> AppStrings(mapOf(
+            "navCommunity" to "Communauté",
+            "groupSignedOutTitle" to "Rouler ensemble",
+            "groupSignedOutBody" to "Voyez-vous sur la carte pendant que vous roulez. Connectez-vous pour créer ou rejoindre un groupe.",
+            "groupSignIn" to "Se connecter",
+            "groupCreate" to "Créer un groupe",
+            "groupJoinWithCode" to "Rejoindre avec un code",
+            "groupHowItWorks" to "Tout le monde dans le groupe se voit, tant que le groupe est actif. Personne ne voit où vous êtes allé. Rien n'est enregistré. Vous pouvez partir à tout moment, sans que personne en soit informé.",
+            "groupNameLabel" to "Nom du groupe",
+            "groupDefaultName" to "La sortie de %1\$s",
+            "groupDurationLabel" to "Durée",
+            "groupSizeLabel" to "Taille du groupe",
+            "groupSizeValue" to "Jusqu'à %1\$d personnes",
+            "groupHours" to "%1\$d heures",
+            "groupCreateAction" to "Créer",
+            "groupJoinAction" to "Rejoindre",
+            "groupCodeLabel" to "Code à 6 caractères",
+            "groupJoinConsent" to "Ils verront votre position tant que le groupe est actif.",
+            "groupShare" to "Partager l'invitation",
+            "groupShareMessage" to "Rejoins ma sortie sur TrackMe — on se verra sur la carte en chemin. Code : %1\$s  %2\$s",
+            "groupStart" to "Démarrer le groupe",
+            "groupEnd" to "Terminer le groupe",
+            "groupLeave" to "Quitter le groupe",
+            "groupVisibleUntil" to "Vous êtes visible par %1\$d personnes jusqu'à %2\$s.",
+            "groupStatusRiding" to "En route",
+            "groupStatusJoined" to "A rejoint, pas encore parti",
+            "groupStatusNoLocation" to "Aucune position récente",
+            "groupLeaderBadge" to "Organisateur",
+            "groupOnlyOne" to "Vous êtes seul ici.",
+            "groupDegraded" to "Le partage de groupe est temporairement indisponible — nouvelle tentative.",
+            "groupEnded" to "Ce groupe est terminé.",
+            "groupExpired" to "Cette invitation a expiré.",
+            "groupFull" to "Ce groupe est complet (%1\$d sur %2\$d).",
+            "groupLeaveConfirmLeader" to "Partir met fin au groupe pour tout le monde.",
+            "groupTimeLeft" to "%1\$s restant",
+            "groupNotSharing" to "Vous ne partagez pas votre position. Les autres ne peuvent pas vous voir.",
             "notifGroupPresenceTitle" to "Rouler ensemble",
             "notifGroupPresenceText" to "Partage de votre position avec votre groupe • %1\$s restant",
             "notifGroupPresenceNoLimit" to "Partage de votre position avec votre groupe",
@@ -1096,6 +1203,41 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Session ouverte",
         ))
         "de" -> AppStrings(mapOf(
+            "navCommunity" to "Community",
+            "groupSignedOutTitle" to "Gemeinsam fahren",
+            "groupSignedOutBody" to "Seht euch auf der Karte, während ihr unterwegs seid. Melde dich an, um eine Gruppe zu erstellen oder beizutreten.",
+            "groupSignIn" to "Anmelden",
+            "groupCreate" to "Gruppe erstellen",
+            "groupJoinWithCode" to "Mit Code beitreten",
+            "groupHowItWorks" to "Alle in der Gruppe sehen einander, solange die Gruppe aktiv ist. Niemand sieht, wo du warst. Nichts wird gespeichert. Du kannst jederzeit gehen, ohne dass es jemandem mitgeteilt wird.",
+            "groupNameLabel" to "Gruppenname",
+            "groupDefaultName" to "%1\$ss Fahrt",
+            "groupDurationLabel" to "Dauer",
+            "groupSizeLabel" to "Gruppengröße",
+            "groupSizeValue" to "Bis zu %1\$d Personen",
+            "groupHours" to "%1\$d Stunden",
+            "groupCreateAction" to "Erstellen",
+            "groupJoinAction" to "Beitreten",
+            "groupCodeLabel" to "6-stelliger Code",
+            "groupJoinConsent" to "Sie sehen deinen Standort, solange die Gruppe aktiv ist.",
+            "groupShare" to "Einladung teilen",
+            "groupShareMessage" to "Komm zu meiner Fahrt auf TrackMe — wir sehen uns unterwegs auf der Karte. Code: %1\$s  %2\$s",
+            "groupStart" to "Gruppe starten",
+            "groupEnd" to "Gruppe beenden",
+            "groupLeave" to "Gruppe verlassen",
+            "groupVisibleUntil" to "Du bist für %1\$d Personen bis %2\$s sichtbar.",
+            "groupStatusRiding" to "Unterwegs",
+            "groupStatusJoined" to "Beigetreten, noch nicht gestartet",
+            "groupStatusNoLocation" to "Kein aktueller Standort",
+            "groupLeaderBadge" to "Leitung",
+            "groupOnlyOne" to "Du bist allein hier.",
+            "groupDegraded" to "Gruppen-Sharing ist vorübergehend nicht verfügbar – wird erneut versucht.",
+            "groupEnded" to "Diese Gruppe ist beendet.",
+            "groupExpired" to "Diese Einladung ist abgelaufen.",
+            "groupFull" to "Diese Gruppe ist voll (%1\$d von %2\$d).",
+            "groupLeaveConfirmLeader" to "Wenn du gehst, endet die Gruppe für alle.",
+            "groupTimeLeft" to "noch %1\$s",
+            "groupNotSharing" to "Du teilst deinen Standort nicht. Andere können dich nicht sehen.",
             "notifGroupPresenceTitle" to "Gemeinsam unterwegs",
             "notifGroupPresenceText" to "Standort wird mit deiner Gruppe geteilt • noch %1\$s",
             "notifGroupPresenceNoLimit" to "Standort wird mit deiner Gruppe geteilt",
@@ -1441,6 +1583,41 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Angemeldet",
         ))
         "hi" -> AppStrings(mapOf(
+            "navCommunity" to "कम्युनिटी",
+            "groupSignedOutTitle" to "साथ में सवारी करें",
+            "groupSignedOutBody" to "सवारी करते समय एक-दूसरे को मैप पर देखें। ग्रुप बनाने या जुड़ने के लिए साइन इन करें।",
+            "groupSignIn" to "साइन इन करें",
+            "groupCreate" to "ग्रुप बनाएँ",
+            "groupJoinWithCode" to "कोड से जुड़ें",
+            "groupHowItWorks" to "जब तक ग्रुप लाइव है, ग्रुप में सभी एक-दूसरे को देखते हैं। कोई नहीं देखता कि आप कहाँ थे। कुछ भी सहेजा नहीं जाता। आप कभी भी छोड़ सकते हैं और किसी को नहीं बताया जाता।",
+            "groupNameLabel" to "ग्रुप का नाम",
+            "groupDefaultName" to "%1\$s की सवारी",
+            "groupDurationLabel" to "अवधि",
+            "groupSizeLabel" to "ग्रुप का आकार",
+            "groupSizeValue" to "%1\$d लोगों तक",
+            "groupHours" to "%1\$d घंटे",
+            "groupCreateAction" to "बनाएँ",
+            "groupJoinAction" to "जुड़ें",
+            "groupCodeLabel" to "6 अक्षरों का कोड",
+            "groupJoinConsent" to "जब तक ग्रुप लाइव है, वे आपका स्थान देखेंगे।",
+            "groupShare" to "आमंत्रण साझा करें",
+            "groupShareMessage" to "TrackMe पर मेरी सवारी में शामिल हों — रास्ते में हम एक-दूसरे को मैप पर देखेंगे। कोड: %1\$s  %2\$s",
+            "groupStart" to "ग्रुप शुरू करें",
+            "groupEnd" to "ग्रुप समाप्त करें",
+            "groupLeave" to "ग्रुप छोड़ें",
+            "groupVisibleUntil" to "आप %2\$s तक %1\$d लोगों को दिखाई देते हैं।",
+            "groupStatusRiding" to "सवारी कर रहे हैं",
+            "groupStatusJoined" to "जुड़े, शुरू नहीं किया",
+            "groupStatusNoLocation" to "हाल का स्थान नहीं",
+            "groupLeaderBadge" to "लीडर",
+            "groupOnlyOne" to "यहाँ सिर्फ़ आप हैं।",
+            "groupDegraded" to "ग्रुप शेयरिंग अस्थायी रूप से अनुपलब्ध है — फिर से कोशिश की जा रही है।",
+            "groupEnded" to "यह ग्रुप समाप्त हो गया है।",
+            "groupExpired" to "यह आमंत्रण समाप्त हो गया है।",
+            "groupFull" to "यह ग्रुप भरा हुआ है (%2\$d में से %1\$d)।",
+            "groupLeaveConfirmLeader" to "छोड़ने पर सभी के लिए ग्रुप समाप्त हो जाएगा।",
+            "groupTimeLeft" to "%1\$s शेष",
+            "groupNotSharing" to "आप अपना स्थान साझा नहीं कर रहे हैं। दूसरे आपको नहीं देख सकते।",
             "notifGroupPresenceTitle" to "साथ में सवारी",
             "notifGroupPresenceText" to "आपका स्थान आपके ग्रुप के साथ साझा किया जा रहा है • %1\$s शेष",
             "notifGroupPresenceNoLimit" to "आपका स्थान आपके ग्रुप के साथ साझा किया जा रहा है",
@@ -1786,6 +1963,41 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "साइन इन",
         ))
         "ja" -> AppStrings(mapOf(
+            "navCommunity" to "コミュニティ",
+            "groupSignedOutTitle" to "一緒にライド",
+            "groupSignedOutBody" to "ライド中にお互いを地図で確認できます。グループの作成や参加にはサインインしてください。",
+            "groupSignIn" to "サインイン",
+            "groupCreate" to "グループを作成",
+            "groupJoinWithCode" to "コードで参加",
+            "groupHowItWorks" to "グループが有効な間、メンバー全員がお互いを見られます。過去の経路は誰にも見えません。何も保存されません。いつでも退出でき、誰にも通知されません。",
+            "groupNameLabel" to "グループ名",
+            "groupDefaultName" to "%1\$sのライド",
+            "groupDurationLabel" to "期間",
+            "groupSizeLabel" to "グループの人数",
+            "groupSizeValue" to "最大%1\$d人",
+            "groupHours" to "%1\$d時間",
+            "groupCreateAction" to "作成",
+            "groupJoinAction" to "参加",
+            "groupCodeLabel" to "6文字のコード",
+            "groupJoinConsent" to "グループが有効な間、あなたの位置が共有されます。",
+            "groupShare" to "招待を共有",
+            "groupShareMessage" to "TrackMeで一緒にライドしましょう。道中お互いを地図で確認できます。コード: %1\$s  %2\$s",
+            "groupStart" to "グループを開始",
+            "groupEnd" to "グループを終了",
+            "groupLeave" to "グループを退出",
+            "groupVisibleUntil" to "%2\$sまで%1\$d人に表示されます。",
+            "groupStatusRiding" to "ライド中",
+            "groupStatusJoined" to "参加済み・未出発",
+            "groupStatusNoLocation" to "最近の位置情報なし",
+            "groupLeaderBadge" to "リーダー",
+            "groupOnlyOne" to "まだあなただけです。",
+            "groupDegraded" to "グループ共有は一時的に利用できません。再試行中です。",
+            "groupEnded" to "このグループは終了しました。",
+            "groupExpired" to "この招待は期限切れです。",
+            "groupFull" to "このグループは満員です（%2\$d人中%1\$d人）。",
+            "groupLeaveConfirmLeader" to "退出するとグループ全体が終了します。",
+            "groupTimeLeft" to "残り%1\$s",
+            "groupNotSharing" to "位置情報を共有していません。他のメンバーからは見えません。",
             "notifGroupPresenceTitle" to "一緒にライド中",
             "notifGroupPresenceText" to "グループに現在地を共有中 • 残り%1\$s",
             "notifGroupPresenceNoLimit" to "グループに現在地を共有中",
@@ -2131,6 +2343,41 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "サインイン済み",
         ))
         "zh" -> AppStrings(mapOf(
+            "navCommunity" to "社群",
+            "groupSignedOutTitle" to "一起骑行",
+            "groupSignedOutBody" to "骑行时在地图上看到彼此。登录以创建或加入群组。",
+            "groupSignIn" to "登录",
+            "groupCreate" to "创建群组",
+            "groupJoinWithCode" to "用代码加入",
+            "groupHowItWorks" to "只要群组处于活动状态，群内所有人都能看到彼此。没有人能看到你去过哪里。不保存任何内容。你可以随时离开，且不会通知任何人。",
+            "groupNameLabel" to "群组名称",
+            "groupDefaultName" to "%1\$s 的骑行",
+            "groupDurationLabel" to "时长",
+            "groupSizeLabel" to "群组人数",
+            "groupSizeValue" to "最多 %1\$d 人",
+            "groupHours" to "%1\$d 小时",
+            "groupCreateAction" to "创建",
+            "groupJoinAction" to "加入",
+            "groupCodeLabel" to "6 位代码",
+            "groupJoinConsent" to "在群组活动期间，他们将看到你的位置。",
+            "groupShare" to "分享邀请",
+            "groupShareMessage" to "加入我在 TrackMe 的骑行——路上我们能在地图上看到彼此。代码：%1\$s  %2\$s",
+            "groupStart" to "开始群组",
+            "groupEnd" to "结束群组",
+            "groupLeave" to "离开群组",
+            "groupVisibleUntil" to "在 %2\$s 之前，%1\$d 人可以看到你。",
+            "groupStatusRiding" to "骑行中",
+            "groupStatusJoined" to "已加入，未出发",
+            "groupStatusNoLocation" to "没有最近的位置",
+            "groupLeaderBadge" to "组织者",
+            "groupOnlyOne" to "目前只有你一个人。",
+            "groupDegraded" to "群组共享暂时不可用——正在重试。",
+            "groupEnded" to "该群组已结束。",
+            "groupExpired" to "该邀请已过期。",
+            "groupFull" to "该群组已满（%1\$d/%2\$d）。",
+            "groupLeaveConfirmLeader" to "离开将为所有人结束该群组。",
+            "groupTimeLeft" to "剩余 %1\$s",
+            "groupNotSharing" to "你没有共享位置。其他人看不到你。",
             "notifGroupPresenceTitle" to "一起骑行",
             "notifGroupPresenceText" to "正在与群组共享你的位置 • 剩余 %1\$s",
             "notifGroupPresenceNoLimit" to "正在与群组共享你的位置",

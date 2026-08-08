@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.unit.dp
 import `in`.shvms.trackme.ui.home.HomeScreen
@@ -21,6 +22,7 @@ import `in`.shvms.trackme.ui.history.HistoryScreen
 import `in`.shvms.trackme.ui.history.RideDetailScreen
 import `in`.shvms.trackme.ui.history.MultiRideCompareRoute
 import `in`.shvms.trackme.ui.settings.SettingsScreen
+import `in`.shvms.trackme.ui.community.CommunityScreen
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
 import androidx.compose.material3.SnackbarHost
@@ -36,13 +38,19 @@ val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> {
 fun MainNavigation() {
     val navController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
-    var selectedItem by remember { mutableIntStateOf(0) }
     val strings = LocalAppStrings.current
-    val items = listOf(strings.navHome, strings.navHistory, strings.navSettings)
-    val routes = listOf("home", "history", "settings")
-    val icons = listOf(Icons.Default.Home, Icons.Default.History, Icons.Default.Settings)
+    val items = listOf(strings.navHome, strings.navHistory, strings.navCommunity, strings.navSettings)
+    val routes = listOf("home", "history", "community", "settings")
+    val icons = listOf(Icons.Default.Home, Icons.Default.History, Icons.Default.Group, Icons.Default.Settings)
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
+
+    // §4.6: selectedItem was a local `remember` int, not derived from the back stack — so any
+    // navigation the user did not initiate from the bar (a back press, or a deep link once App
+    // Links land in 1.7.1) left the wrong tab highlighted. With a fourth destination that becomes
+    // visible immediately, so it is derived here rather than tracked.
+    val currentRoute = navBackStackEntry?.destination?.route
+    val selectedItem = routes.indexOf(currentRoute).takeIf { it >= 0 } ?: -1
     var currentScreenStartTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var currentScreenName by remember { mutableStateOf("") }
 
@@ -71,7 +79,6 @@ fun MainNavigation() {
                         alwaysShowLabel = true,
                         selected = selectedItem == index,
                         onClick = {
-                            selectedItem = index
                             val route = routes[index]
                             navController.navigate(route) {
                                 launchSingleTop = true
@@ -112,6 +119,9 @@ fun MainNavigation() {
             composable("ride_detail/{rideId}") { backStackEntry ->
                 val id = backStackEntry.arguments?.getString("rideId")?.toLongOrNull() ?: return@composable
                 RideDetailScreen(rideId = id, navController = navController)
+            }
+            composable("community") {
+                CommunityScreen(onNavigateToSignIn = { navController.navigate("settings") })
             }
             composable("settings") { SettingsScreen(navController = navController) }
             composable("account_management") {
