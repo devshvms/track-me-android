@@ -91,6 +91,38 @@ data class GroupSessionState(
             status == GroupSessionStatus.DEGRADED
 }
 
+/**
+ * Why a group stopped — §8 wants each of these to have an *observed, non-silent* behaviour.
+ *
+ * The distinction is not pedantry: "the leader ended it" and "you were removed" are very different
+ * things to be told, and §8 requires the expiry case to say explicitly that the ride is still
+ * recording, because a map going blank mid-ride otherwise reads as the app breaking.
+ */
+enum class GroupEndReason {
+    /** The leader ended it, or the relay reported ENDED. */
+    ENDED,
+
+    /** The session TTL fired. §5.1.2's backstop, and always expected — there was a countdown. */
+    EXPIRED,
+
+    /** The relay returned 403: this member is no longer in the group (§5.2). */
+    REMOVED,
+}
+
+/**
+ * A one-shot notice that outlives the session it describes.
+ *
+ * The session state itself goes inactive the instant a group ends, so a UI reading only that state
+ * has nothing left to explain what happened — the member simply finds themselves out of a group,
+ * with the map blank and no reason given. §8 requires a *"clear notice"*, so the reason survives
+ * separately until the user has seen it.
+ */
+data class GroupEndNotice(
+    val reason: GroupEndReason,
+    /** §8: "Session TTL expires mid-ride → Group Mode off; **ride keeps recording**." */
+    val rideStillRecording: Boolean,
+)
+
 class GroupHttpException(val statusCode: Int, val code: String?) :
     Exception("Group request failed with HTTP $statusCode${code?.let { " ($it)" } ?: ""}")
 
@@ -121,6 +153,16 @@ class GroupSessionManager(
 ) {
     private val _state = MutableStateFlow(GroupSessionState())
     val state: StateFlow<GroupSessionState> = _state.asStateFlow()
+
+    private val _endNotice = MutableStateFlow<GroupEndNotice?>(null)
+
+    /** Null until a group ends unexpectedly for this member. Cleared by [acknowledgeEndNotice]. */
+    val endNotice: StateFlow<GroupEndNotice?> = _endNotice.asStateFlow()
+
+    /** Called once the user has been told. */
+    fun acknowledgeEndNotice() {
+        _endNotice.value = null
+    }
 
     /** The group key, derived from the invite token. Never persisted — always re-derived. */
     @Volatile private var groupKey: ByteArray? = null
@@ -485,7 +527,7 @@ class GroupSessionManager(
                 // §5.1.2: the TTL is the backstop and it always fires. Do not wait for the relay
                 // to tell us about an expiry we can see ourselves.
                 if (current.expiresAtMillis in 1..System.currentTimeMillis()) {
-                    finish()
+                    finish(GroupEndReason.EXPIRED)
                     break
                 }
 
@@ -493,8 +535,8 @@ class GroupSessionManager(
                     val status = (failure as? GroupHttpException)?.statusCode
                     if (!GroupBackoff.isRetryable(status)) {
                         // 403 = removed from the group, 404 = the group is gone. Both are state
-                        // changes the user needs to see, not errors to retry into.
-                        finish()
+                        // changes the user needs to SEE — the whole point of the notice.
+                        finish(if (status == 403) GroupEndReason.REMOVED else GroupEndReason.ENDED)
                         return@launch
                     }
                     val failures = _state.value.consecutiveFailures + 1
@@ -558,8 +600,13 @@ class GroupSessionManager(
     }
 
     /** The group ended, expired, or we were removed. Terminal, and the same for all three. */
-    private fun finish() {
-        emitSessionMetrics(_state.value, leftDeliberately = false, reason = "ended")
+    private fun finish(reason: GroupEndReason = GroupEndReason.ENDED) {
+        val session = _state.value
+        // Only worth telling someone about a group they were actually in.
+        if (session.isActive) {
+            _endNotice.value = GroupEndNotice(reason = reason, rideStillRecording = isSelfRiding)
+        }
+        emitSessionMetrics(session, leftDeliberately = false, reason = reason.name.lowercase())
         _state.value = _state.value.copy(
             status = GroupSessionStatus.ENDED,
             positions = emptyList(),
@@ -571,6 +618,9 @@ class GroupSessionManager(
     }
 
     private suspend fun teardown() {
+        // No notice: leaving and ending are deliberate acts. Telling someone what they just did is
+        // noise, and §3.5 wants leaving to be "neutral and unremarkable in tone".
+        _endNotice.value = null
         syncJob?.let { runCatching { it.cancelAndJoin() } }
         syncJob = null
         store.clear()

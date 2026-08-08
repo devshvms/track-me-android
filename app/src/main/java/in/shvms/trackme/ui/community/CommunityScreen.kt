@@ -123,6 +123,33 @@ fun CommunityScreen(
         modifier = Modifier.fillMaxSize().padding(padding),
         color = MaterialTheme.colorScheme.background,
     ) {
+        // §8's "clear notice". This sits OUTSIDE the when-branches on purpose: by the time a group
+        // has ended the session is already inactive, so a notice rendered inside the in-group
+        // branch would never be seen — which is exactly how a member ended up watching the map go
+        // blank with no explanation.
+        val endNotice by viewModel.endNotice.collectAsStateCompat()
+        Column(modifier = Modifier.fillMaxSize()) {
+            endNotice?.let { notice ->
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            groupEndNoticeText(notice, strings),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        TextButton(
+                            onClick = { viewModel.acknowledgeEndNotice() },
+                            modifier = Modifier.align(Alignment.End),
+                        ) { Text(strings.groupNoticeDismiss) }
+                    }
+                }
+            }
         when {
             !state.signedIn -> SignedOutState(strings, onNavigateToSignIn)
             state.inGroup -> GroupRoster(
@@ -141,6 +168,7 @@ fun CommunityScreen(
                 onJoin = { showJoin = true },
                 onDismissError = viewModel::clearError,
             )
+        }
         }
     }
 

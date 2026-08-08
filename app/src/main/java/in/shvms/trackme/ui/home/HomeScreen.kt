@@ -149,6 +149,22 @@ fun HomeScreen(
         }
     }
 
+    // §8's "clear notice", on Home as well as in the Community tab.
+    //
+    // Home is where a rider is actually looking, and it is where the loss is most confusing: the
+    // group markers vanish and the group control disappears with them, so the one affordance that
+    // could have explained it is the thing that just went away. Without this, the map simply goes
+    // blank mid-ride.
+    val groupEndNotice by app.groupSessionManager.endNotice.collectAsState()
+    LaunchedEffect(groupEndNotice) {
+        val notice = groupEndNotice ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(
+            message = `in`.shvms.trackme.ui.community.groupEndNoticeText(notice, strings),
+            duration = SnackbarDuration.Long,
+        )
+        app.groupSessionManager.acknowledgeEndNotice()
+    }
+
     LaunchedEffect(recoveryNotice) {
         val summary = recoveryNotice ?: return@LaunchedEffect
         val message = when {

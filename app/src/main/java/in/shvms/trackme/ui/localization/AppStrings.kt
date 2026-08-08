@@ -115,6 +115,9 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupLeaveConfirmLeader: String = s("groupLeaveConfirmLeader", "Leaving ends the group for everyone.")
     val groupTimeLeft: String = s("groupTimeLeft", "%1\$s left")
     val groupNotSharing: String = s("groupNotSharing", "You're not sharing your location. Others can't see you.")
+    val groupEndedRideContinues: String = s("groupEndedRideContinues", "This group has ended. Your ride is still recording.")
+    val groupRemoved: String = s("groupRemoved", "You're no longer in this group.")
+    val groupNoticeDismiss: String = s("groupNoticeDismiss", "Got it")
     val groupLiveShareBlocked: String = s("groupLiveShareBlocked", "You're already sharing with your group. Leave the group to share a link instead.")
     val groupDestination: String = s("groupDestination", "Destination")
     val groupSetDestination: String = s("groupSetDestination", "Meet at my current location")
@@ -446,6 +449,9 @@ val SUPPORTED_LANGUAGE_CODES: List<String> = listOf("en", "es", "fr", "de", "hi"
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
         "es" -> AppStrings(mapOf(
+            "groupEndedRideContinues" to "Este grupo ha terminado. Tu ruta sigue grabándose.",
+            "groupRemoved" to "Ya no formas parte de este grupo.",
+            "groupNoticeDismiss" to "Entendido",
             "groupLiveShareBlocked" to "Ya estás compartiendo con tu grupo. Sal del grupo para compartir un enlace.",
             "groupDestination" to "Destino",
             "groupSetDestination" to "Quedar en mi ubicación actual",
@@ -829,6 +835,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
         "fr" -> AppStrings(mapOf(
+            "groupEndedRideContinues" to "Ce groupe est terminé. Votre sortie est toujours enregistrée.",
+            "groupRemoved" to "Vous ne faites plus partie de ce groupe.",
+            "groupNoticeDismiss" to "J'ai compris",
             "groupLiveShareBlocked" to "Vous partagez déjà avec votre groupe. Quittez le groupe pour partager un lien.",
             "groupDestination" to "Point de rendez-vous",
             "groupSetDestination" to "Rendez-vous à ma position actuelle",
@@ -1212,6 +1221,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Session ouverte",
         ))
         "de" -> AppStrings(mapOf(
+            "groupEndedRideContinues" to "Diese Gruppe ist beendet. Deine Fahrt wird weiter aufgezeichnet.",
+            "groupRemoved" to "Du bist nicht mehr in dieser Gruppe.",
+            "groupNoticeDismiss" to "Verstanden",
             "groupLiveShareBlocked" to "Du teilst bereits mit deiner Gruppe. Verlasse die Gruppe, um einen Link zu teilen.",
             "groupDestination" to "Ziel",
             "groupSetDestination" to "Treffpunkt an meinem aktuellen Standort",
@@ -1595,6 +1607,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Angemeldet",
         ))
         "hi" -> AppStrings(mapOf(
+            "groupEndedRideContinues" to "यह ग्रुप समाप्त हो गया है। आपकी सवारी अब भी रिकॉर्ड हो रही है।",
+            "groupRemoved" to "आप अब इस ग्रुप में नहीं हैं।",
+            "groupNoticeDismiss" to "समझ गया",
             "groupLiveShareBlocked" to "आप पहले से ही अपने ग्रुप के साथ साझा कर रहे हैं। लिंक साझा करने के लिए ग्रुप छोड़ें।",
             "groupDestination" to "गंतव्य",
             "groupSetDestination" to "मेरे वर्तमान स्थान पर मिलें",
@@ -1978,6 +1993,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "साइन इन",
         ))
         "ja" -> AppStrings(mapOf(
+            "groupEndedRideContinues" to "このグループは終了しました。ライドの記録は続いています。",
+            "groupRemoved" to "このグループのメンバーではなくなりました。",
+            "groupNoticeDismiss" to "OK",
             "groupLiveShareBlocked" to "すでにグループと共有中です。リンクを共有するにはグループを退出してください。",
             "groupDestination" to "目的地",
             "groupSetDestination" to "現在地で待ち合わせ",
@@ -2361,6 +2379,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "サインイン済み",
         ))
         "zh" -> AppStrings(mapOf(
+            "groupEndedRideContinues" to "该群组已结束。你的骑行仍在记录中。",
+            "groupRemoved" to "你已不在该群组中。",
+            "groupNoticeDismiss" to "知道了",
             "groupLiveShareBlocked" to "你已在与群组共享。要分享链接，请先离开群组。",
             "groupDestination" to "目的地",
             "groupSetDestination" to "在我的当前位置集合",

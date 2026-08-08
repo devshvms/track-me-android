@@ -206,6 +206,11 @@ class CommunityViewModel(
         }
     }
 
+    /** §8's "clear notice" — survives the session going inactive so it can actually be read. */
+    val endNotice = groupSessionManager.endNotice
+
+    fun acknowledgeEndNotice() = groupSessionManager.acknowledgeEndNotice()
+
     fun clearError() {
         local.value = local.value.copy(error = null)
     }
