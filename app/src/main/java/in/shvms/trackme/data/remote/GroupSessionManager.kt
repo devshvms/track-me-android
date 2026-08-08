@@ -415,6 +415,36 @@ class GroupSessionManager(
         }
     }
 
+    /**
+     * Leader removes a member.
+     *
+     * The removed member is told — their next sync 403s and the client says "You're no longer in
+     * this group." Silent removal would be its own dishonesty, and §5.1's whole posture is that
+     * people know where they stand.
+     *
+     * Forces a roster refetch on the next sync by clearing it locally: the relay only sends the
+     * roster when the caller's rev is stale, and the removal bumps rev server-side — but waiting
+     * for that round trip would leave the removed member visible in the leader's own list.
+     */
+    suspend fun removeMember(uid: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val session = _state.value
+        val groupId = session.groupId ?: return@withContext Result.failure(Exception("Not in a group."))
+        if (!session.isLeader) return@withContext Result.failure(Exception("Only the leader can do that."))
+        try {
+            post(
+                AppConfig.GROUP_REMOVE_ENDPOINT,
+                JSONObject().put("groupId", groupId).put("uid", uid).toString(),
+            )
+            _state.value = _state.value.copy(
+                roster = _state.value.roster.filterNot { it.uid == uid },
+                positions = _state.value.positions.filterNot { it.uid == uid },
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private suspend fun setState(next: String): Result<Unit> = withContext(Dispatchers.IO) {
         val groupId = _state.value.groupId ?: return@withContext Result.failure(Exception("Not in a group."))
         try {
@@ -570,7 +600,16 @@ class GroupSessionManager(
             pendingPosition?.let { put("pos", it) }
             put("moving", current.positions.isNotEmpty())
             put("foreground", isForeground)
-            put("rev", current.rev)
+            // THE ROSTER BUG. The relay only sends the roster when the client's rev is STALE
+            // (§4.5, to keep the hot path near §7.3's 1.5 KB budget) — but `join` hands back the
+            // server's CURRENT rev, so the first sync after joining reported an up-to-date
+            // revision and the relay correctly sent nothing. The roster then stayed empty forever,
+            // until some unrelated member happened to join and bump it.
+            //
+            // Result: a joiner saw nobody, and a creator saw not even themselves. Asking by the
+            // roster we actually hold, rather than by the revision we were told, is self-correcting
+            // — it also recovers a roster lost to a restore, a decrypt failure, or a dropped sync.
+            put("rev", if (current.roster.isEmpty()) FORCE_ROSTER_REV else current.rev)
         }
 
         val result = GroupWire.parseSync(post(AppConfig.GROUP_SYNC_ENDPOINT, body.toString()), key, uid)
@@ -754,6 +793,9 @@ class GroupSessionManager(
     }
 
     companion object {
+        /** No real revision is negative, so this always reads as stale and forces a roster send. */
+        const val FORCE_ROSTER_REV = -1
+
         /**
          * First letter of the first and last word — §3.3's rule. Kept here rather than in the UI
          * because it is sealed into the roster envelope, so every client must agree on it.

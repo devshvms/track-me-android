@@ -141,15 +141,5 @@ fun rememberMemberAvatarCache(): MemberAvatarCache {
  * initials on top and the name on tap. The hash is on the uid, so a member keeps the same colour
  * for the whole session and across a reconnect.
  */
-fun deterministicMarkerTint(uid: String): Int = MARKER_RAMP[
-    (uid.hashCode().toLong() and 0xFFFFFFFFL).rem(MARKER_RAMP.size.toLong()).toInt()
-]
-
-private val MARKER_RAMP = intArrayOf(
-    Color.parseColor("#0277B6"), // cyan/deep
-    Color.parseColor("#1E4976"),
-    Color.parseColor("#2E5E8A"),
-    Color.parseColor("#3E7CA8"),
-    Color.parseColor("#155E75"),
-    Color.parseColor("#334E68"),
-)
+fun deterministicMarkerTint(uid: String): Int =
+    `in`.shvms.trackme.ui.components.GroupMemberTint.argbFor(uid)

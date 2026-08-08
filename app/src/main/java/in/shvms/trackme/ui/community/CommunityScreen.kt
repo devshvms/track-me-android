@@ -15,7 +15,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -88,6 +90,10 @@ fun CommunityScreen(
 
     var showCreate by remember { mutableStateOf(false) }
     var showJoin by remember { mutableStateOf(false) }
+    // Removal is confirmed, unlike leaving. §3.5 keeps leaving free of confirmation guilt because
+    // it is your own choice about yourself; removing someone else is a decision about another
+    // person, and the dialog says what they will be told.
+    var pendingRemoval by remember { mutableStateOf<RosterMember?>(null) }
 
     // A group that ends while the tab is open must close its sheets, or the user is left typing
     // into a group that no longer exists.
@@ -159,6 +165,7 @@ fun CommunityScreen(
                 onEnd = viewModel::endGroup,
                 onLeave = viewModel::leaveGroup,
                 onShare = { shareInvite(context, state, strings) },
+                onRemoveMember = { pendingRemoval = it },
             )
             else -> NoGroupState(
                 strings = strings,
@@ -173,6 +180,30 @@ fun CommunityScreen(
     }
 
     }
+    pendingRemoval?.let { target ->
+        AlertDialog(
+            onDismissRequest = { pendingRemoval = null },
+            text = {
+                Text(
+                    String.format(
+                        Locale.getDefault(),
+                        strings.groupRemoveConfirm,
+                        target.displayName ?: target.initials ?: "",
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.removeMember(target.uid)
+                    pendingRemoval = null
+                }) { Text(strings.groupRemoveMember, color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRemoval = null }) { Text(strings.cancel) }
+            },
+        )
+    }
+
     if (showCreate) {
         CreateGroupSheet(
             strings = strings,
@@ -308,6 +339,7 @@ private fun GroupRoster(
     onEnd: () -> Unit,
     onLeave: () -> Unit,
     onShare: () -> Unit,
+    onRemoveMember: (RosterMember) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -376,7 +408,16 @@ private fun GroupRoster(
         }
 
         items(state.roster, key = { it.uid }) { member ->
-            RosterRow(member, strings)
+            RosterRow(
+                member = member,
+                strings = strings,
+                // Only the leader, and never against themselves — removing yourself is `leave`,
+                // which ends the group for everyone (§8), and routing it through here would end
+                // the group by a path whose confirm dialog never said so.
+                onRemove = if (state.session.isLeader && !member.isSelf) {
+                    { onRemoveMember(member) }
+                } else null,
+            )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
 
@@ -427,7 +468,11 @@ private fun GroupHeader(state: CommunityUiState, strings: AppStrings) {
  * separate nodes.
  */
 @Composable
-private fun RosterRow(member: RosterMember, strings: AppStrings) {
+private fun RosterRow(
+    member: RosterMember,
+    strings: AppStrings,
+    onRemove: (() -> Unit)? = null,
+) {
     val statusText = when (member.status) {
         MemberStatus.RIDING -> strings.groupStatusRiding
         MemberStatus.JOINED_NOT_STARTED -> strings.groupStatusJoined
@@ -474,6 +519,7 @@ private fun RosterRow(member: RosterMember, strings: AppStrings) {
                 },
             )
         }
+        onRemove?.let { RemoveMemberAction(strings, it) }
     }
 }
 
@@ -481,6 +527,13 @@ private fun RosterRow(member: RosterMember, strings: AppStrings) {
  * §3.3: photo → initials → neutral glyph, and *"member identity must never be conveyed by colour
  * alone."* The name and initials carry it; the tint only separates people at a glance.
  */
+@Composable
+private fun RemoveMemberAction(strings: AppStrings, onRemove: () -> Unit) {
+    TextButton(onClick = onRemove) {
+        Text(strings.groupRemoveMember, color = MaterialTheme.colorScheme.error)
+    }
+}
+
 @Composable
 private fun MemberAvatar(member: RosterMember) {
     val initials = member.initials ?: member.displayName?.firstOrNull()?.uppercase()

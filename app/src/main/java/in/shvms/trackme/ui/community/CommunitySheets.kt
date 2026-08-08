@@ -213,15 +213,14 @@ fun shareInvite(context: Context, state: CommunityUiState, strings: AppStrings) 
 }
 
 /** Stable per-member tint from the uid, so two people are separable at a glance (§3.3). */
-fun deterministicTint(uid: String): Color {
-    // A navy/cyan-safe ramp — §3.1 locks one accent, so these are shades within it rather than a
-    // rainbow that would fight the brand.
-    val ramp = listOf(
-        Color(0xFF29B6F6), Color(0xFF0277B6), Color(0xFF4FC3F7),
-        Color(0xFF01579B), Color(0xFF039BE5), Color(0xFF00ACC1),
-    )
-    return ramp[(uid.hashCode().let { if (it == Int.MIN_VALUE) 0 else kotlin.math.abs(it) }) % ramp.size]
-}
+/**
+ * A member's colour, shared with their map marker.
+ *
+ * Delegates to [GroupMemberTint] rather than owning a ramp: the roster and the marker each had
+ * their own, so the same member rendered in two different colours and the roster taught you
+ * nothing about the map.
+ */
+fun deterministicTint(uid: String): Color = `in`.shvms.trackme.ui.components.GroupMemberTint.colorFor(uid)
 
 fun formatClockTime(epochMillis: Long): String {
     if (epochMillis <= 0) return ""

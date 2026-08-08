@@ -62,6 +62,7 @@ object AppConfig {
     const val GROUP_SYNC_ENDPOINT = "$GROUP_API_PATH/sync"
     const val GROUP_STATE_ENDPOINT = "$GROUP_API_PATH/state"
     const val GROUP_LEAVE_ENDPOINT = "$GROUP_API_PATH/leave"
+    const val GROUP_REMOVE_ENDPOINT = "$GROUP_API_PATH/remove"
 
     /**
      * The share link the create sheet hands to the OS share sheet. Token in the FRAGMENT (A6).

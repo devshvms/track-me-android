@@ -117,6 +117,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupNotSharing: String = s("groupNotSharing", "You're not sharing your location. Others can't see you.")
     val groupEndedRideContinues: String = s("groupEndedRideContinues", "This group has ended. Your ride is still recording.")
     val groupRemoved: String = s("groupRemoved", "You're no longer in this group.")
+    val groupRemoveMember: String = s("groupRemoveMember", "Remove")
+    val groupRemoveConfirm: String = s("groupRemoveConfirm", "Remove %1\$s from the group? They'll be told they're no longer in it.")
     val groupNoticeDismiss: String = s("groupNoticeDismiss", "Got it")
     val groupLiveShareBlocked: String = s("groupLiveShareBlocked", "You're already sharing with your group. Leave the group to share a link instead.")
     val groupDestination: String = s("groupDestination", "Destination")
@@ -449,6 +451,8 @@ val SUPPORTED_LANGUAGE_CODES: List<String> = listOf("en", "es", "fr", "de", "hi"
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
         "es" -> AppStrings(mapOf(
+            "groupRemoveMember" to "Quitar",
+            "groupRemoveConfirm" to "¿Quitar a %1\$s del grupo? Se le informará que ya no forma parte.",
             "groupEndedRideContinues" to "Este grupo ha terminado. Tu ruta sigue grabándose.",
             "groupRemoved" to "Ya no formas parte de este grupo.",
             "groupNoticeDismiss" to "Entendido",
@@ -835,6 +839,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
         "fr" -> AppStrings(mapOf(
+            "groupRemoveMember" to "Retirer",
+            "groupRemoveConfirm" to "Retirer %1\$s du groupe ? Cette personne sera informée qu'elle n'en fait plus partie.",
             "groupEndedRideContinues" to "Ce groupe est terminé. Votre sortie est toujours enregistrée.",
             "groupRemoved" to "Vous ne faites plus partie de ce groupe.",
             "groupNoticeDismiss" to "J'ai compris",
@@ -1221,6 +1227,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Session ouverte",
         ))
         "de" -> AppStrings(mapOf(
+            "groupRemoveMember" to "Entfernen",
+            "groupRemoveConfirm" to "%1\$s aus der Gruppe entfernen? Die Person wird darüber informiert.",
             "groupEndedRideContinues" to "Diese Gruppe ist beendet. Deine Fahrt wird weiter aufgezeichnet.",
             "groupRemoved" to "Du bist nicht mehr in dieser Gruppe.",
             "groupNoticeDismiss" to "Verstanden",
@@ -1607,6 +1615,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Angemeldet",
         ))
         "hi" -> AppStrings(mapOf(
+            "groupRemoveMember" to "हटाएँ",
+            "groupRemoveConfirm" to "%1\$s को ग्रुप से हटाएँ? उन्हें बताया जाएगा कि वे अब ग्रुप में नहीं हैं।",
             "groupEndedRideContinues" to "यह ग्रुप समाप्त हो गया है। आपकी सवारी अब भी रिकॉर्ड हो रही है।",
             "groupRemoved" to "आप अब इस ग्रुप में नहीं हैं।",
             "groupNoticeDismiss" to "समझ गया",
@@ -1993,6 +2003,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "साइन इन",
         ))
         "ja" -> AppStrings(mapOf(
+            "groupRemoveMember" to "削除",
+            "groupRemoveConfirm" to "%1\$sをグループから削除しますか？本人には通知されます。",
             "groupEndedRideContinues" to "このグループは終了しました。ライドの記録は続いています。",
             "groupRemoved" to "このグループのメンバーではなくなりました。",
             "groupNoticeDismiss" to "OK",
@@ -2379,6 +2391,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "サインイン済み",
         ))
         "zh" -> AppStrings(mapOf(
+            "groupRemoveMember" to "移除",
+            "groupRemoveConfirm" to "将 %1\$s 移出群组？会告知对方已不在群组中。",
             "groupEndedRideContinues" to "该群组已结束。你的骑行仍在记录中。",
             "groupRemoved" to "你已不在该群组中。",
             "groupNoticeDismiss" to "知道了",
