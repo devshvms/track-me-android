@@ -3,6 +3,7 @@ package `in`.shvms.trackme.data.remote
 import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.data.crypto.GroupCrypto
 import `in`.shvms.trackme.data.local.GroupSessionStore
+import `in`.shvms.trackme.analytics.AnalyticsManager
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -72,6 +73,8 @@ data class GroupSessionState(
     /** Set while [GroupSessionStatus.DEGRADED]; drives the honest "retrying" banner. */
     val degradedSince: Long? = null,
     val consecutiveFailures: Int = 0,
+    /** When this member joined, for §9's co-presence and time-to-first-leave metrics. */
+    val joinedAtMillis: Long = 0L,
 ) {
     val isActive: Boolean
         get() = status == GroupSessionStatus.PREPARING ||
@@ -117,6 +120,16 @@ class GroupSessionManager(
 
     /** Latest fix from `TrackingService`, or null when the member is not sharing (§8). */
     @Volatile private var pendingPosition: String? = null
+
+    /**
+     * Progress toward the group's destination, when one was set.
+     *
+     * §2.9's payoff: the estimator ships dark but MEASURED. Without this the calibration event
+     * never fires, 1.8 has no error distribution to calibrate against, and the whole reason to
+     * build ETA a release early evaporates — "the difference between deferring a feature and
+     * wasting a release".
+     */
+    @Volatile private var destinationProgress: `in`.shvms.trackme.domain.group.DestinationProgress? = null
 
     private var syncJob: Job? = null
 
@@ -205,8 +218,15 @@ class GroupSessionManager(
                     rev = created.rev,
                 ),
             )
+            AnalyticsManager.trackGroupCreated(
+                durationMinutes = durationMinutes,
+                maxMembers = maxMembers,
+                hasDestination = destinationLat != null && destinationLng != null,
+                hasStartTime = false,
+            )
             _state.value = GroupSessionState(
                 status = GroupSessionStatus.PREPARING,
+                joinedAtMillis = System.currentTimeMillis(),
                 groupId = created.groupId,
                 joinCode = created.joinCode,
                 inviteToken = token,
@@ -289,8 +309,10 @@ class GroupSessionManager(
                     rev = joined.rev,
                 ),
             )
+            AnalyticsManager.trackGroupMemberJoined(joined.memberCount, viaCode = true)
             _state.value = GroupSessionState(
                 status = statusFor(joined.state),
+                joinedAtMillis = System.currentTimeMillis(),
                 groupId = joined.groupId,
                 joinCode = joinCode,
                 inviteToken = token,
@@ -314,7 +336,10 @@ class GroupSessionManager(
     suspend fun startGroup(): Result<Unit> = setState("LIVE")
 
     /** Leader-only: ends the group for everyone and deletes all server-side state. */
-    suspend fun endGroup(): Result<Unit> = setState("ENDED").also { teardown() }
+    suspend fun endGroup(): Result<Unit> {
+        emitSessionMetrics(_state.value, leftDeliberately = false, reason = "leader_ended")
+        return setState("ENDED").also { teardown() }
+    }
 
     /**
      * Leaves the group.
@@ -325,7 +350,9 @@ class GroupSessionManager(
      * user's exit.
      */
     suspend fun leaveGroup(): Result<Unit> = withContext(Dispatchers.IO) {
-        val groupId = _state.value.groupId
+        val before = _state.value
+        val groupId = before.groupId
+        emitSessionMetrics(before, leftDeliberately = true)
         teardown()
         if (groupId == null) return@withContext Result.success(Unit)
         try {
@@ -344,7 +371,10 @@ class GroupSessionManager(
                 AppConfig.GROUP_STATE_ENDPOINT,
                 JSONObject().put("groupId", groupId).put("state", next).toString(),
             )
-            if (next == "LIVE") _state.value = _state.value.copy(status = GroupSessionStatus.LIVE)
+            if (next == "LIVE") {
+                _state.value = _state.value.copy(status = GroupSessionStatus.LIVE)
+                AnalyticsManager.trackGroupStarted(_state.value.roster.size)
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -370,6 +400,7 @@ class GroupSessionManager(
         riding: Boolean = false,
     ) {
         isSelfRiding = riding
+        trackDestinationProgress(lat, lng, speedMps)
         val key = groupKey
         val uid = currentUid()
         if (key == null || uid == null || lat == null || lng == null) {
@@ -386,6 +417,37 @@ class GroupSessionManager(
             null
         }
     }
+
+    /**
+     * Feeds one fix to the destination estimator and emits the calibration sample on arrival.
+     *
+     * Runs regardless of [GroupFeatureFlags.SHOW_ETA] — the flag gates the *display*, not the
+     * measurement (§2.9). Nothing here reaches the UI in 1.7.x.
+     */
+    private fun trackDestinationProgress(lat: Double?, lng: Double?, speedMps: Float?) {
+        val session = _state.value
+        val destLat = session.destinationLat
+        val destLng = session.destinationLng
+        if (lat == null || lng == null || destLat == null || destLng == null) {
+            destinationProgress = null
+            return
+        }
+        val progress = destinationProgress
+            ?: `in`.shvms.trackme.domain.group.DestinationProgress(destLat, destLng, currentPersona)
+                .also { destinationProgress = it }
+
+        val sample = progress.onPosition(
+            lat = lat,
+            lng = lng,
+            speedMps = speedMps?.toDouble(),
+            nowMillis = System.currentTimeMillis(),
+        )
+        // §2.9: two durations and a persona. No coordinates, no destination, no group identity.
+        if (sample != null) AnalyticsManager.trackGroupEtaCalibration(sample)
+    }
+
+    /** Set by `TrackingService`, which is the only thing that knows the ride's persona. */
+    @Volatile var currentPersona: String? = null
 
     // --- The sync loop --------------------------------------------------------------------------
 
@@ -412,6 +474,12 @@ class GroupSessionManager(
                         return@launch
                     }
                     val failures = _state.value.consecutiveFailures + 1
+                    if (_state.value.status != GroupSessionStatus.DEGRADED) {
+                        // Only on the transition. §8 has clients absorb an outage with backoff, so
+                        // without this a relay outage every client handled gracefully would never
+                        // appear in the §9 ops metrics — but one event per retry would drown them.
+                        AnalyticsManager.trackGroupDegraded(failures)
+                    }
                     _state.value = _state.value.copy(
                         status = GroupSessionStatus.DEGRADED,
                         consecutiveFailures = failures,
@@ -467,6 +535,7 @@ class GroupSessionManager(
 
     /** The group ended, expired, or we were removed. Terminal, and the same for all three. */
     private fun finish() {
+        emitSessionMetrics(_state.value, leftDeliberately = false, reason = "ended")
         _state.value = _state.value.copy(
             status = GroupSessionStatus.ENDED,
             positions = emptyList(),
@@ -482,6 +551,36 @@ class GroupSessionManager(
         syncJob = null
         store.clear()
         clearLocal()
+    }
+
+    /**
+     * §9's co-presence minutes and its safety counter-metrics, emitted once per session end.
+     *
+     * `group_left` is a **safety** metric: §9 is explicit that heavy use of the exit is healthy and
+     * that nobody should be tasked with reducing it. It carries seconds-in-group so
+     * time-to-first-leave is derivable.
+     */
+    private fun emitSessionMetrics(
+        session: GroupSessionState,
+        leftDeliberately: Boolean,
+        reason: String = "left",
+    ) {
+        if (!session.isActive || session.joinedAtMillis <= 0L) return
+        val seconds = ((System.currentTimeMillis() - session.joinedAtMillis) / 1000L).toInt()
+        if (seconds <= 0) return
+        AnalyticsManager.trackGroupCoPresence(
+            minutes = seconds / 60,
+            memberCount = session.roster.size,
+        )
+        if (leftDeliberately) {
+            AnalyticsManager.trackGroupLeft(secondsInGroup = seconds, wasLeader = session.isLeader)
+        } else {
+            AnalyticsManager.trackGroupEnded(
+                secondsAlive = seconds,
+                memberCount = session.roster.size,
+                reason = reason,
+            )
+        }
     }
 
     private fun clearLocal() {

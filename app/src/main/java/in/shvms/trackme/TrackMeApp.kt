@@ -44,6 +44,7 @@ class TrackMeApp : Application() {
     lateinit var groupSessionStore: `in`.shvms.trackme.data.local.GroupSessionStore
 
     lateinit var groupSessionManager: `in`.shvms.trackme.data.remote.GroupSessionManager
+
         private set
 
     lateinit var authManager: AuthManager
@@ -158,6 +159,7 @@ class TrackMeApp : Application() {
         // §6.1 B6: a session orphaned by an OS kill has to come back on its own, before any UI
         // exists to ask for it. restore() is a no-op when there is nothing to restore.
         groupSessionManager.restore()
+        observeGroupPresence()
 
         // Wire up AuthManager state changes to ErrorLogger
         authManager.currentUser.onEach { user ->
@@ -331,4 +333,53 @@ class TrackMeApp : Application() {
         _sosRemovalNotice.value = false
         SosRemovalNoticePolicy.acknowledge(getSharedPreferences("trackme_prefs", MODE_PRIVATE))
     }
+
+    /**
+     * Turns the tracking service's presence mode on and off as group membership changes.
+     *
+     * **This is what makes §6.1 B1's fix actually run.** `TrackingService` grew
+     * `ACTION_START_GROUP_PRESENCE` and the whole orthogonal presence path, but nothing was
+     * sending the intent — so a member could join a group, see the roster, and never push a single
+     * position. Everyone would have appeared permanently absent, with no error anywhere: exactly
+     * the silent-failure shape this feature keeps producing.
+     *
+     * One observer rather than a call at each call site, because "in a group" is reached six ways
+     * — create, join, restore-after-process-death, leave, end, and TTL expiry — and five of them
+     * would eventually be missed.
+     */
+    private fun observeGroupPresence() {
+        val scope = kotlinx.coroutines.CoroutineScope(
+            kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default,
+        )
+        scope.launch {
+            var presenceRequested = false
+            groupSessionManager.state.collect { session ->
+                if (session.isActive && !presenceRequested) {
+                    presenceRequested = true
+                    sendTrackingServiceCommand(
+                        `in`.shvms.trackme.service.TrackingService.ACTION_START_GROUP_PRESENCE,
+                    )
+                } else if (!session.isActive && presenceRequested) {
+                    presenceRequested = false
+                    sendTrackingServiceCommand(
+                        `in`.shvms.trackme.service.TrackingService.ACTION_STOP_GROUP_PRESENCE,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun sendTrackingServiceCommand(action: String) {
+        try {
+            val intent = android.content.Intent(this, `in`.shvms.trackme.service.TrackingService::class.java)
+                .apply { this.action = action }
+            androidx.core.content.ContextCompat.startForegroundService(this, intent)
+        } catch (e: Exception) {
+            // A foreground-service start can be refused (background start restrictions, or the
+            // user revoking notification access). The group session itself is unaffected — the
+            // member simply is not sharing, which §8 already has an honest banner for.
+            errorLogger.recordException(e)
+        }
+    }
+
 }

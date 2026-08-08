@@ -441,6 +441,9 @@ class TrackingService : Service() {
                 .getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
         }.getOrNull()
 
+        // The estimator needs the persona for its arrival radius (§2.9) — 40m on foot is right,
+        // 40m in a car park is not — and this service is the only thing that knows it.
+        groupSessionManager.currentPersona = trackingManager.selectedPersona.value.name
         groupSessionManager.updatePosition(
             lat = location.latitude,
             lng = location.longitude,

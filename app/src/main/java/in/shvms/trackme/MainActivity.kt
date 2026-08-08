@@ -89,8 +89,22 @@ class MainActivity : ComponentActivity() {
     }
   }
 
+
+
+  /**
+   * §7.1's cadence lever. The relay picks 10s when a human is actually looking at the map and 20s
+   * when the phone is pocketed — but only if the client says which, and nothing was saying. Left
+   * unset, every member reported `foreground = false` forever and the group always ran at the
+   * slower interval: the difference between a map that feels live and one that lags by twenty
+   * seconds.
+   */
+  private fun setGroupForeground(inForeground: Boolean) {
+      (applicationContext as? TrackMeApp)?.groupSessionManager?.isForeground = inForeground
+  }
+
   override fun onResume() {
       super.onResume()
+      setGroupForeground(true)
       val app = applicationContext as TrackMeApp
       // Service restoration belongs to the foreground lifecycle. Starting from onCreate can
       // race the activity launch and is rejected by Android 12+ background-start policy.
@@ -105,4 +119,9 @@ class MainActivity : ComponentActivity() {
       // B2: surface a weekly recap for a just-completed week (shared foreground trigger).
       app.checkWeeklyRecap()
   }
+  override fun onPause() {
+      super.onPause()
+      setGroupForeground(false)
+  }
+
 }
