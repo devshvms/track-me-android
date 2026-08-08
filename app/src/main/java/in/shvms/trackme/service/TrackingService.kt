@@ -235,8 +235,6 @@ class TrackingService : Service() {
         trackingManager = app.trackingManager
         liveShareManager = app.liveShareManager
         groupSessionManager = app.groupSessionManager
-        // A session restored by TrackMeApp before this service existed still needs presence.
-        presenceMode = groupSessionManager.state.value.isActive
         
     }
 
@@ -265,6 +263,10 @@ class TrackingService : Service() {
                 // Only restore a session that was explicitly marked active by the service.
                 if (hasPersistedActiveSession() && currentState == TrackingState.IDLE) {
                     startForegroundService()
+                } else if (groupSessionManager.state.value.isActive && !presenceMode) {
+                    // B6: a group session restored by TrackMeApp after process death needs its
+                    // presence back, and there is no ride to restore.
+                    startGroupPresence()
                 }
             }
         }
@@ -348,27 +350,60 @@ class TrackingService : Service() {
      * Turns on presence. Starts the foreground service if no ride is running, because a member who
      * has joined but not set off still has to be visible — that is the entire point of B1.
      */
+    /**
+     * Promotes to the foreground, whatever else this command is going to do.
+     *
+     * **The Android contract, and the crash it caused.** A service reached via
+     * `startForegroundService()` must call `startForeground()` within ~5 seconds on *every* path,
+     * or the system kills the process with `ForegroundServiceDidNotStartInTimeException`.
+     *
+     * `startGroupPresence()` used to skip it whenever `presenceMode` was already true — and
+     * `onCreate` set exactly that from a restored session. So on every launch with a stored group:
+     * TrackMeApp saw an active session, called `startForegroundService`, `onCreate` set
+     * `presenceMode = true`, the handler early-returned, and five seconds later the process died.
+     * The app then relaunched, restored the same session, and did it again — a crash loop that
+     * only appeared with a group already on disk, which is why nothing before this saw it.
+     *
+     * Promoting first, unconditionally, removes the whole class: no early return anywhere in a
+     * presence handler can violate the contract, because the contract is satisfied before the
+     * handler makes any decision.
+     *
+     * @return false when promotion failed and the failure has already been handled.
+     */
+    private fun ensureForegroundForPresence(): Boolean = try {
+        createNotificationChannels()
+        // The ride's own notification when a ride is running, the presence one otherwise. Calling
+        // this again when already foreground is a harmless notification update.
+        startForeground(
+            NOTIFICATION_ID,
+            if (currentState == TrackingState.IDLE) {
+                buildPresenceNotification()
+            } else {
+                getNotification(
+                    durationMillis = rideDuration,
+                    distanceMeters = trackingManager.totalDistance.value,
+                    speedMps = trackingManager.currentSpeed.value,
+                    state = currentState,
+                )
+            },
+        )
+        true
+    } catch (e: Exception) {
+        presenceMode = false
+        handleForegroundStartFailure(e)
+        false
+    }
+
     private fun startGroupPresence() {
+        // §16.4 rules out ACCESS_BACKGROUND_LOCATION, so a foreground service started while the
+        // app is visible is the ONLY thing keeping location flowing once the user switches away.
+        if (!ensureForegroundForPresence()) return
+
         if (presenceMode) {
             reconcileLocationStreams()
             return
         }
         presenceMode = true
-
-        if (currentState == TrackingState.IDLE) {
-            // No ride, so nothing has put us in the foreground yet. Presence needs the same
-            // foreground guarantee a ride does: §16.4 rules out ACCESS_BACKGROUND_LOCATION, so a
-            // foreground service started while the app is visible is the ONLY thing keeping
-            // location flowing once the user switches away.
-            try {
-                createNotificationChannels()
-                startForeground(NOTIFICATION_ID, buildPresenceNotification())
-            } catch (e: Exception) {
-                presenceMode = false
-                handleForegroundStartFailure(e)
-                return
-            }
-        }
         reconcileLocationStreams()
         postTrackingNotification(force = true)
     }
@@ -379,7 +414,17 @@ class TrackingService : Service() {
      * affect the user's own ride).
      */
     private fun stopGroupPresence() {
-        if (!presenceMode) return
+        // Same contract. TrackMeApp uses startService() for stop, but a stray
+        // startForegroundService() from anywhere must not be able to kill the app.
+        if (!ensureForegroundForPresence()) return
+
+        if (!presenceMode) {
+            if (PresenceStreamPolicy.canStopService(currentState, presenceMode = false)) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
+            return
+        }
         presenceMode = false
         reconcileLocationStreams()
 

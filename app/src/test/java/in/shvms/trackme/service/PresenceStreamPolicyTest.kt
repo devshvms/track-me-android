@@ -156,6 +156,74 @@ class PresenceStreamPolicyTest {
         }
     }
 
+    // --- The foreground-service contract ---------------------------------------------------------
+
+    @Test
+    fun `every presence command promotes to the foreground before it decides anything`() {
+        // THE CRASH THIS EXISTS FOR. A service reached via startForegroundService() must call
+        // startForeground() within ~5s on EVERY path, or Android kills the process with
+        // ForegroundServiceDidNotStartInTimeException.
+        //
+        // startGroupPresence() used to skip it when presenceMode was already true — and onCreate
+        // set exactly that from a restored session. Every launch with a group on disk became:
+        // promote-skipped, process killed, app relaunches, restores the same session, repeat. A
+        // crash loop that only appeared once a group existed, which is why no earlier check saw it.
+        //
+        // The invariant is now "promote first, decide second", and this asserts the shape rather
+        // than the intention: the first statement of each handler is the promotion.
+        val source = serviceSource()
+        for (handler in listOf("startGroupPresence", "stopGroupPresence")) {
+            val body = bodyOf(source, "private fun $handler()")
+            val firstStatement = body.lineSequence()
+                .map { it.trim() }
+                .first { it.isNotEmpty() && !it.startsWith("//") && !it.startsWith("*") && !it.startsWith("/*") }
+            assertTrue(
+                "$handler must promote to the foreground before anything else, but starts with: $firstStatement",
+                firstStatement.contains("ensureForegroundForPresence()"),
+            )
+        }
+    }
+
+    @Test
+    fun `onCreate does not pre-set presenceMode`() {
+        // The proximate cause. Seeding presenceMode in onCreate made the handler's early return
+        // reachable before any promotion had happened.
+        val onCreate = bodyOf(serviceSource(), "override fun onCreate()")
+        assertFalse(
+            "onCreate sets presenceMode, which lets startGroupPresence() early-return before promoting",
+            onCreate.contains("presenceMode ="),
+        )
+    }
+
+    private fun serviceSource(): String {
+        var dir: java.io.File? = java.io.File("").absoluteFile
+        val rel = "app/src/main/java/in/shvms/trackme/service/TrackingService.kt"
+        while (dir != null) {
+            java.io.File(dir, rel).takeIf { it.exists() }?.let { return it.readText() }
+            java.io.File(dir, rel.removePrefix("app/")).takeIf { it.exists() }?.let { return it.readText() }
+            dir = dir.parentFile
+        }
+        throw AssertionError("TrackingService.kt not found")
+    }
+
+    /** Brace-matched body of the named declaration. */
+    private fun bodyOf(source: String, declaration: String): String {
+        val start = source.indexOf(declaration)
+        require(start >= 0) { "\"$declaration\" not found — did it get renamed?" }
+        val open = source.indexOf('{', start)
+        var depth = 0
+        for (i in open until source.length) {
+            when (source[i]) {
+                '{' -> depth++
+                '}' -> {
+                    depth--
+                    if (depth == 0) return source.substring(open + 1, i)
+                }
+            }
+        }
+        throw AssertionError("unbalanced braces in $declaration")
+    }
+
     // --- Play policy constraints (§16) --------------------------------------------------------
 
     @Test

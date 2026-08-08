@@ -370,10 +370,23 @@ class TrackMeApp : Application() {
     }
 
     private fun sendTrackingServiceCommand(action: String) {
+        val stopping = action == `in`.shvms.trackme.service.TrackingService.ACTION_STOP_GROUP_PRESENCE
+
+        // Never START a service just to tell it to stop. Beyond being pointless,
+        // startForegroundService() would then oblige that brand-new service to promote itself to
+        // the foreground within five seconds or have the process killed.
+        if (stopping && !`in`.shvms.trackme.service.TrackingService.isRunning) return
+
         try {
             val intent = android.content.Intent(this, `in`.shvms.trackme.service.TrackingService::class.java)
                 .apply { this.action = action }
-            androidx.core.content.ContextCompat.startForegroundService(this, intent)
+            if (stopping) {
+                // Plain startService: the service is already running and already foreground, so
+                // this carries no promotion obligation.
+                startService(intent)
+            } else {
+                androidx.core.content.ContextCompat.startForegroundService(this, intent)
+            }
         } catch (e: Exception) {
             // A foreground-service start can be refused (background start restrictions, or the
             // user revoking notification access). The group session itself is unaffected — the
