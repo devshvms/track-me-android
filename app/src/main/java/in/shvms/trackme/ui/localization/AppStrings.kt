@@ -75,6 +75,12 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val notifTrackingMetrics: String = s("notifTrackingMetrics", "%1\$s • %2\$s • %3\$s")
     val notifTrackingPaused: String = s("notifTrackingPaused", "Paused • %1\$s")
     val notifTrackingGpsSearching: String = s("notifTrackingGpsSearching", "Searching for GPS…")
+    // Group Ride presence. §16.2 requires the foreground-service notification to state the real
+    // reason the service is running — presence keeps it alive with no ride in progress, and the
+    // March-2026 policy scrutinises exactly that.
+    val notifGroupPresenceTitle: String = s("notifGroupPresenceTitle", "Riding together")
+    val notifGroupPresenceText: String = s("notifGroupPresenceText", "Sharing your location with your group • %1\$s left")
+    val notifGroupPresenceNoLimit: String = s("notifGroupPresenceNoLimit", "Sharing your location with your group")
     val notifAutoSplitTitle: String = s("notifAutoSplitTitle", "Ride Auto-Split")
     val notifAutoSplitText: String = s("notifAutoSplitText", "Your ride reached 9,000 points and was split to keep recording.")
     val notifLongRideTitle: String = s("notifLongRideTitle", "Long Ride Warning")
@@ -400,6 +406,9 @@ val SUPPORTED_LANGUAGE_CODES: List<String> = listOf("en", "es", "fr", "de", "hi"
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
         "es" -> AppStrings(mapOf(
+            "notifGroupPresenceTitle" to "Rodando juntos",
+            "notifGroupPresenceText" to "Compartiendo tu ubicación con tu grupo • quedan %1\$s",
+            "notifGroupPresenceNoLimit" to "Compartiendo tu ubicación con tu grupo",
             "ok" to "Aceptar",
             "cancel" to "Cancelar",
             "save" to "Guardar",
@@ -742,6 +751,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
         "fr" -> AppStrings(mapOf(
+            "notifGroupPresenceTitle" to "Rouler ensemble",
+            "notifGroupPresenceText" to "Partage de votre position avec votre groupe • %1\$s restant",
+            "notifGroupPresenceNoLimit" to "Partage de votre position avec votre groupe",
             "ok" to "OK",
             "cancel" to "Annuler",
             "save" to "Enregistrer",
@@ -1084,6 +1096,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Session ouverte",
         ))
         "de" -> AppStrings(mapOf(
+            "notifGroupPresenceTitle" to "Gemeinsam unterwegs",
+            "notifGroupPresenceText" to "Standort wird mit deiner Gruppe geteilt • noch %1\$s",
+            "notifGroupPresenceNoLimit" to "Standort wird mit deiner Gruppe geteilt",
             "ok" to "OK",
             "cancel" to "Abbrechen",
             "save" to "Speichern",
@@ -1426,6 +1441,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Angemeldet",
         ))
         "hi" -> AppStrings(mapOf(
+            "notifGroupPresenceTitle" to "साथ में सवारी",
+            "notifGroupPresenceText" to "आपका स्थान आपके ग्रुप के साथ साझा किया जा रहा है • %1\$s शेष",
+            "notifGroupPresenceNoLimit" to "आपका स्थान आपके ग्रुप के साथ साझा किया जा रहा है",
             "ok" to "ठीक है",
             "cancel" to "रद्द करें",
             "save" to "सहेजें",
@@ -1768,6 +1786,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "साइन इन",
         ))
         "ja" -> AppStrings(mapOf(
+            "notifGroupPresenceTitle" to "一緒にライド中",
+            "notifGroupPresenceText" to "グループに現在地を共有中 • 残り%1\$s",
+            "notifGroupPresenceNoLimit" to "グループに現在地を共有中",
             "ok" to "OK",
             "cancel" to "キャンセル",
             "save" to "保存",
@@ -2110,6 +2131,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "サインイン済み",
         ))
         "zh" -> AppStrings(mapOf(
+            "notifGroupPresenceTitle" to "一起骑行",
+            "notifGroupPresenceText" to "正在与群组共享你的位置 • 剩余 %1\$s",
+            "notifGroupPresenceNoLimit" to "正在与群组共享你的位置",
             "ok" to "确定",
             "cancel" to "取消",
             "save" to "保存",

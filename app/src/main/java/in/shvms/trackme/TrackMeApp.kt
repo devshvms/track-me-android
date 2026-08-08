@@ -35,6 +35,15 @@ class TrackMeApp : Application() {
         private set
 
     lateinit var liveShareManager: LiveShareManager
+
+    /**
+     * Group Ride session state and the sync loop (§4.6). Created here rather than injected because
+     * the app has no DI (§6.2 H5) — every dependency is a lateinit on this class plus a hand-written
+     * factory.
+     */
+    lateinit var groupSessionStore: `in`.shvms.trackme.data.local.GroupSessionStore
+
+    lateinit var groupSessionManager: `in`.shvms.trackme.data.remote.GroupSessionManager
         private set
 
     lateinit var authManager: AuthManager
@@ -144,6 +153,11 @@ class TrackMeApp : Application() {
         )
         authManager = AuthManager()
         liveShareManager = LiveShareManager()
+        groupSessionStore = `in`.shvms.trackme.data.local.GroupSessionStore(this)
+        groupSessionManager = `in`.shvms.trackme.data.remote.GroupSessionManager(groupSessionStore)
+        // §6.1 B6: a session orphaned by an OS kill has to come back on its own, before any UI
+        // exists to ask for it. restore() is a no-op when there is nothing to restore.
+        groupSessionManager.restore()
 
         // Wire up AuthManager state changes to ErrorLogger
         authManager.currentUser.onEach { user ->

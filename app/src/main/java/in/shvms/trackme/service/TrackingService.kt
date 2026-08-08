@@ -50,6 +50,17 @@ class TrackingService : Service() {
     private lateinit var rideDao: RideDao
     private lateinit var trackingManager: TrackingManager
     private lateinit var liveShareManager: LiveShareManager
+    private lateinit var groupSessionManager: `in`.shvms.trackme.data.remote.GroupSessionManager
+
+    /**
+     * §4.6: presence is an **orthogonal flag**, not a new [TrackingState] value. It composes with
+     * whatever the recorder is doing — a member can be in a group while idle, riding, or paused,
+     * and each combination is valid.
+     */
+    private var presenceMode = false
+
+    /** Only registered when no ride stream is open. See [PresenceStreamPolicy]. */
+    private var presenceStreamActive = false
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var currentState = TrackingState.IDLE
     private var currentRideId: Long? = null
@@ -75,8 +86,20 @@ class TrackingService : Service() {
             super.onLocationResult(result)
             val location = result.lastLocation ?: return
 
+            // §6.1 B1: the group push happens HERE, above every ride-state gate below.
+            //
+            // The whole blocker is that the existing push sits inside `if (currentState ==
+            // TRACKING)`, so a member who has joined but not set off broadcasts nothing and is
+            // invisible to the people they are trying to meet. Presence is orthogonal to recording,
+            // so it runs before the recorder's states are consulted at all — paused at a café,
+            // searching for GPS, out of storage, or not riding yet.
+            pushGroupPresence(location)
+
             // 1. Strict GPS Accuracy Filter: discard indoor/multipath bounce (> 22 meters inaccuracy)
-            if (location.hasAccuracy() && location.accuracy > 22.0f) {
+            //    Applies to the RIDE only — presence uses a looser threshold above, because
+            //    BALANCED_POWER_ACCURACY routinely returns 20-100m and this gate would discard
+            //    nearly every presence fix.
+            if (location.hasAccuracy() && location.accuracy > PresenceStreamPolicy.RIDE_MAX_ACCURACY_METERS) {
                 return
             }
 
@@ -211,6 +234,9 @@ class TrackingService : Service() {
         rideDao = app.database.rideDao()
         trackingManager = app.trackingManager
         liveShareManager = app.liveShareManager
+        groupSessionManager = app.groupSessionManager
+        // A session restored by TrackMeApp before this service existed still needs presence.
+        presenceMode = groupSessionManager.state.value.isActive
         
     }
 
@@ -229,6 +255,8 @@ class TrackingService : Service() {
                     resumeTracking()
                 }
             }
+            ACTION_START_GROUP_PRESENCE -> startGroupPresence()
+            ACTION_STOP_GROUP_PRESENCE -> stopGroupPresence()
             ACTION_PAUSE_SERVICE -> pauseTracking()
             ACTION_STOP_SERVICE -> stopTracking()
             ACTION_DISCARD_NEAR_EMPTY_RIDE -> stopTracking(discardNearEmptyRide = true)
@@ -269,6 +297,9 @@ class TrackingService : Service() {
         currentPointCount = 0
         lastGpsTimeMs = System.currentTimeMillis()
         motionSensorManager.startListening()
+        // The ride is about to open its own high-accuracy stream; drop the presence one so the two
+        // are never registered at once (§4.6, "no second location subscription").
+        presenceStreamActive = false
         
         serviceScope.launch {
             try {
@@ -309,6 +340,116 @@ class TrackingService : Service() {
             }
         }
         startTimer()
+    }
+
+    // --- Group presence (§4.6, B1) ------------------------------------------------------------
+
+    /**
+     * Turns on presence. Starts the foreground service if no ride is running, because a member who
+     * has joined but not set off still has to be visible — that is the entire point of B1.
+     */
+    private fun startGroupPresence() {
+        if (presenceMode) {
+            reconcileLocationStreams()
+            return
+        }
+        presenceMode = true
+
+        if (currentState == TrackingState.IDLE) {
+            // No ride, so nothing has put us in the foreground yet. Presence needs the same
+            // foreground guarantee a ride does: §16.4 rules out ACCESS_BACKGROUND_LOCATION, so a
+            // foreground service started while the app is visible is the ONLY thing keeping
+            // location flowing once the user switches away.
+            try {
+                createNotificationChannels()
+                startForeground(NOTIFICATION_ID, buildPresenceNotification())
+            } catch (e: Exception) {
+                presenceMode = false
+                handleForegroundStartFailure(e)
+                return
+            }
+        }
+        reconcileLocationStreams()
+        postTrackingNotification(force = true)
+    }
+
+    /**
+     * Turns off presence. Stops the service **only** if no ride is running — a member leaving a
+     * group mid-ride must not have their recording torn down with it (§8: a group failure must never
+     * affect the user's own ride).
+     */
+    private fun stopGroupPresence() {
+        if (!presenceMode) return
+        presenceMode = false
+        reconcileLocationStreams()
+
+        if (PresenceStreamPolicy.canStopService(currentState, presenceMode)) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        } else {
+            postTrackingNotification(force = true)
+        }
+    }
+
+    /**
+     * Opens exactly the one location subscription [PresenceStreamPolicy] says we should have.
+     *
+     * §4.6: *"No second location subscription, no doubled GPS cost."* When a ride is running,
+     * presence rides on the stream the ride already opened; the presence stream only exists when
+     * there is no ride at all.
+     */
+    private fun reconcileLocationStreams() {
+        when (PresenceStreamPolicy.streamFor(currentState, presenceMode)) {
+            LocationStreamMode.PRESENCE_BALANCED -> {
+                if (!presenceStreamActive) {
+                    presenceStreamActive = locationHelper.startPresenceTracking(locationCallback)
+                }
+            }
+            LocationStreamMode.RIDE_HIGH_ACCURACY -> {
+                // The ride's own stream is (or is about to be) open on the same callback. Drop the
+                // presence request so the two cannot both be registered.
+                if (presenceStreamActive) {
+                    presenceStreamActive = false
+                    if (currentState == TrackingState.IDLE) {
+                        locationHelper.stopLocationTracking(locationCallback)
+                    }
+                }
+            }
+            LocationStreamMode.NONE -> {
+                if (presenceStreamActive) {
+                    presenceStreamActive = false
+                    locationHelper.stopLocationTracking(locationCallback)
+                }
+            }
+        }
+    }
+
+    /**
+     * Hands one fix to the group, sealed on the way (§4.6).
+     *
+     * `riding` is the honest answer to "has this member set off yet", which the Community roster
+     * shows for everyone (amendment A18). It is `currentRideId != null` rather than
+     * `state == TRACKING`, so a member paused at a junction still reads as riding.
+     */
+    private fun pushGroupPresence(location: Location) {
+        if (!PresenceStreamPolicy.shouldPushPresence(currentState, presenceMode)) return
+        val accuracy = if (location.hasAccuracy()) location.accuracy else null
+        if (!PresenceStreamPolicy.isAccurateEnoughForPresence(accuracy)) return
+
+        val battery = runCatching {
+            (getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager)
+                .getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        }.getOrNull()
+
+        groupSessionManager.updatePosition(
+            lat = location.latitude,
+            lng = location.longitude,
+            speedMps = if (location.hasSpeed()) location.speed else null,
+            headingDeg = if (location.hasBearing()) location.bearing else null,
+            batteryPercent = battery,
+            moving = !motionSensorManager.isDeviceStationary(),
+            riding = currentRideId != null,
+        )
     }
 
     private fun pauseTracking() {
@@ -385,8 +526,18 @@ class TrackingService : Service() {
         setPersistedActiveSession(false)
         setPersistedPausedSession(false)
         
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        
+        // §2.6: "Stopping a ride does not leave the group — the member keeps seeing others and
+        // keeps sharing presence until they explicitly leave or the group ends." So ending a ride
+        // hands the foreground service over to presence rather than tearing it down. Ride cleanup
+        // below is unchanged either way: a group must never affect the user's own ride (§8).
+        val keepAliveForPresence = !PresenceStreamPolicy.canStopService(TrackingState.IDLE, presenceMode)
+        if (keepAliveForPresence) {
+            reconcileLocationStreams()
+            postTrackingNotification(force = true)
+        } else {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        }
+
         serviceScope.launch {
             if (liveShareManager.state.value.status == LiveShareStatus.ACTIVE || liveShareManager.state.value.stopOnRideEnd) {
                 liveShareManager.stopSession("Ride ended by user.")
@@ -396,7 +547,9 @@ class TrackingService : Service() {
                     finalizeRide(rideId, finalDistance, finalDuration, discardNearEmptyRide)
                 }
             }
-            stopSelf()
+            if (!keepAliveForPresence) {
+                stopSelf()
+            }
         }
     }
 
@@ -591,9 +744,56 @@ class TrackingService : Service() {
             .build()
     }
 
+    /**
+     * The presence-only notification — §4.6 and §16.2.
+     *
+     * *"The foreground notification text becomes honest about why the service is running."* When no
+     * ride is recording, "TrackMe is recording your ride" would be plainly false, and this is the
+     * exact surface the March-2026 foreground-service policy scrutinises. It also does the product
+     * job §5.1.7 asks for: the user can see, without going looking, that they are visible and for
+     * how long.
+     *
+     * No group name here. The notification is readable on a lock screen by anyone holding the
+     * phone, and a group name is one of the things §5.3 encrypts precisely so it does not leak.
+     */
+    private fun buildPresenceNotification(): Notification {
+        val strings = appStrings()
+        val intent = android.content.Intent(this, `in`.shvms.trackme.MainActivity::class.java).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            this, 0, intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val remaining = groupSessionManager.state.value.expiresAtMillis - System.currentTimeMillis()
+        val text = if (remaining > 0) {
+            String.format(
+                java.util.Locale.getDefault(),
+                strings.notifGroupPresenceText,
+                formatTrackingNotificationDuration(remaining),
+            )
+        } else {
+            strings.notifGroupPresenceNoLimit
+        }
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setAutoCancel(false)
+            .setOngoing(true)
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setContentTitle(strings.notifGroupPresenceTitle)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(pendingIntent)
+            .build()
+    }
+
     private fun postTrackingNotification(force: Boolean = false) {
         val state = currentState
-        if (state == TrackingState.IDLE || state == TrackingState.STORAGE_LOW) return
+        // Presence with no ride still owns the foreground notification — otherwise the service
+        // would be running with stale "recording your ride" text, or none at all.
+        val presenceOnly = presenceMode && state == TrackingState.IDLE
+        if (!presenceOnly && (state == TrackingState.IDLE || state == TrackingState.STORAGE_LOW)) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
@@ -614,12 +814,16 @@ class TrackingService : Service() {
 
         NotificationManagerCompat.from(this).notify(
             NOTIFICATION_ID,
-            getNotification(
-                durationMillis = rideDuration,
-                distanceMeters = distanceMeters,
-                speedMps = trackingManager.currentSpeed.value,
-                state = state
-            )
+            if (presenceOnly) {
+                buildPresenceNotification()
+            } else {
+                getNotification(
+                    durationMillis = rideDuration,
+                    distanceMeters = distanceMeters,
+                    speedMps = trackingManager.currentSpeed.value,
+                    state = state,
+                )
+            },
         )
         lastNotifyElapsedMs = nowElapsedMs
         lastNotifyDistanceMeters = distanceMeters
@@ -869,6 +1073,10 @@ class TrackingService : Service() {
         const val ACTION_PAUSE_SERVICE = "ACTION_PAUSE_SERVICE"
         const val ACTION_STOP_SERVICE = "ACTION_STOP_SERVICE"
         const val ACTION_DISCARD_NEAR_EMPTY_RIDE = "ACTION_DISCARD_NEAR_EMPTY_RIDE"
+
+        /** §4.6: presence composes with the recorder rather than replacing it. */
+        const val ACTION_START_GROUP_PRESENCE = "ACTION_START_GROUP_PRESENCE"
+        const val ACTION_STOP_GROUP_PRESENCE = "ACTION_STOP_GROUP_PRESENCE"
         const val JUNK_RIDE_DISTANCE_METERS = 10.0
         const val JUNK_RIDE_DURATION_MILLIS = 2 * 60 * 1000L
         const val NOTIFICATION_ID = 1
