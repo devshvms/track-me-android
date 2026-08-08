@@ -331,6 +331,31 @@ class GroupSessionManager(
     }
 
     /**
+     * Joins from a shared link, where all we hold is the token.
+     *
+     * The token proves the invitation but says nothing about *which* group, so it resolves first —
+     * by `sha256(token)`, never the token itself, because a raw token in a query string lands in an
+     * access log and §10 forbids that outright (A6).
+     */
+    suspend fun joinByToken(
+        token: String,
+        displayName: String?,
+        photoUrl: String?,
+    ): Result<GroupSessionState> = withContext(Dispatchers.IO) {
+        try {
+            val hash = GroupCrypto.groupTokenHash(token)
+            val resolved = GroupWire.parseResolve(
+                get("${AppConfig.GROUP_RESOLVE_ENDPOINT}?t=$hash", authenticated = false),
+            )
+            // The code comes back on the ?t= path so a link-joiner can still re-share it. Empty
+            // is survivable — they simply have no code to pass on — but it is there, so use it.
+            joinWithToken(token, resolved.joinCode.orEmpty(), resolved.groupId, displayName, photoUrl)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Joins with an invite token taken from a share link's fragment. Used by the App Links path in
      * 1.7.1; exposed now because [joinByCode] resolves to exactly this.
      */

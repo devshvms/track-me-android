@@ -28,6 +28,7 @@ import `in`.shvms.trackme.ui.agegate.AgeSignalCheckingScreen
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+      handleGroupInvite(intent)
     val app = applicationContext as TrackMeApp
 
     enableEdgeToEdge()
@@ -98,6 +99,34 @@ class MainActivity : ComponentActivity() {
    * slower interval: the difference between a map that feels live and one that lags by twenty
    * seconds.
    */
+  /**
+   * Reads a group invite out of the launching intent.
+   *
+   * Runs on both `onCreate` and `onNewIntent`: a cold start delivers it to the former, and a tap
+   * while the app is already open delivers it to the latter. Missing the second would mean the
+   * button silently did nothing for anyone who happened to have the app in the background —
+   * which is most people, most of the time.
+   */
+  private fun handleGroupInvite(intent: android.content.Intent?) {
+      val data = intent?.data
+      val invite = `in`.shvms.trackme.domain.group.GroupInviteLink.parse(
+          uriString = data?.toString(),
+          fragment = data?.fragment,
+          queryCode = runCatching {
+              data?.getQueryParameter(`in`.shvms.trackme.domain.group.GroupInviteLink.QUERY_CODE)
+          }.getOrNull(),
+          extraToken = intent?.getStringExtra(`in`.shvms.trackme.domain.group.GroupInviteLink.EXTRA_TOKEN),
+          extraCode = intent?.getStringExtra(`in`.shvms.trackme.domain.group.GroupInviteLink.EXTRA_CODE),
+      ) ?: return
+      (applicationContext as? TrackMeApp)?.setPendingGroupInvite(invite)
+  }
+
+  override fun onNewIntent(intent: android.content.Intent) {
+      super.onNewIntent(intent)
+      setIntent(intent)
+      handleGroupInvite(intent)
+  }
+
   private fun setGroupForeground(inForeground: Boolean) {
       val app = applicationContext as? TrackMeApp ?: return
       app.groupSessionManager.isForeground = inForeground

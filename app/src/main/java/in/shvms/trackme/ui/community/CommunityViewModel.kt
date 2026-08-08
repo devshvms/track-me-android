@@ -211,6 +211,14 @@ class CommunityViewModel(
 
     fun acknowledgeEndNotice() = groupSessionManager.acknowledgeEndNotice()
 
+    fun joinByToken(token: String) {
+        local.value = LocalState(busy = true)
+        viewModelScope.launch {
+            val result = groupSessionManager.joinByToken(token, displayName(), photoUrl())
+            local.value = LocalState(error = result.exceptionOrNull()?.message)
+        }
+    }
+
     fun updateMeta(destLat: Double?, destLng: Double?, startAtMillis: Long?) {
         viewModelScope.launch {
             local.value = LocalState(busy = true)

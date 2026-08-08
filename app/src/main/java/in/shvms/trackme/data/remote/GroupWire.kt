@@ -122,6 +122,8 @@ object GroupWire {
         val expiresAtMillis: Long,
         val wrappedToken: String?,
         val encryptedMeta: String?,
+        /** Present on the `?t=` path only, so a link-joiner can still re-share the code. */
+        val joinCode: String?,
     )
 
     class WireException(message: String) : Exception(message)
@@ -166,6 +168,7 @@ object GroupWire {
             expiresAtMillis = requireLong(json, "expiresAt"),
             wrappedToken = json.optString("wrappedToken").takeIf { it.isNotEmpty() },
             encryptedMeta = json.optString("meta").takeIf { it.isNotEmpty() },
+            joinCode = json.optString("joinCode").takeIf { it.isNotEmpty() },
         )
     }
 

@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -424,6 +425,29 @@ class TrackMeApp : Application() {
             // member simply is not sharing, which §8 already has an honest banner for.
             errorLogger.recordException(e)
         }
+    }
+
+
+    private val _pendingGroupInvite =
+        MutableStateFlow<`in`.shvms.trackme.domain.group.GroupInviteLink.Invite?>(null)
+
+    /**
+     * An invite that arrived from outside the app and has not been acted on yet.
+     *
+     * Held on the application rather than passed through the activity because the deep link can
+     * land before any UI exists — a cold start from a browser tap creates the activity, the
+     * navigation graph and the Community screen in that order, and the intent is already gone by
+     * the time the screen that needs it is composed.
+     */
+    val pendingGroupInvite: StateFlow<`in`.shvms.trackme.domain.group.GroupInviteLink.Invite?> =
+        _pendingGroupInvite.asStateFlow()
+
+    fun setPendingGroupInvite(invite: `in`.shvms.trackme.domain.group.GroupInviteLink.Invite?) {
+        _pendingGroupInvite.value = invite
+    }
+
+    fun consumePendingGroupInvite() {
+        _pendingGroupInvite.value = null
     }
 
 }

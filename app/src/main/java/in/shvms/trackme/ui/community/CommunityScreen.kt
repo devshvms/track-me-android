@@ -89,6 +89,7 @@ fun CommunityScreen(
     val state by viewModel.uiState.collectAsStateCompat()
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    val app = context.applicationContext as TrackMeApp
 
     var showCreate by remember { mutableStateOf(false) }
     var showJoin by remember { mutableStateOf(false) }
@@ -97,6 +98,27 @@ fun CommunityScreen(
     // person, and the dialog says what they will be told.
     var pendingRemoval by remember { mutableStateOf<RosterMember?>(null) }
     var showEdit by remember { mutableStateOf(false) }
+    var prefilledCode by remember { mutableStateOf<String?>(null) }
+
+    // An invite that arrived from a shared link (§2.4's growth loop).
+    //
+    // A token joins outright — it is the real credential, so asking someone to retype a code they
+    // never saw would be ceremony. A code opens the join sheet PRE-FILLED rather than joining
+    // silently: §2.4 requires the join sheet to state what the user is agreeing to before they
+    // tap, and a link that joined on its own would share their location without them ever seeing
+    // that sentence.
+    val pendingInvite by app.pendingGroupInvite.collectAsStateCompat()
+    LaunchedEffect(pendingInvite, state.signedIn, state.inGroup) {
+        val invite = pendingInvite ?: return@LaunchedEffect
+        if (!state.signedIn || state.inGroup) return@LaunchedEffect
+        if (invite.hasToken) {
+            viewModel.joinByToken(invite.token!!)
+        } else {
+            prefilledCode = invite.code
+            showJoin = true
+        }
+        app.consumePendingGroupInvite()
+    }
 
     // A group that ends while the tab is open must close its sheets, or the user is left typing
     // into a group that no longer exists.
@@ -242,9 +264,11 @@ fun CommunityScreen(
     if (showJoin) {
         JoinGroupSheet(
             strings = strings,
-            onDismiss = { showJoin = false },
+            initialCode = prefilledCode,
+            onDismiss = { showJoin = false; prefilledCode = null },
             onJoin = { code ->
                 showJoin = false
+                prefilledCode = null
                 viewModel.joinByCode(code)
             },
         )

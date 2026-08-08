@@ -33,10 +33,46 @@
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+                Group invites (§2.4, and §6.1 B5 — this app had no deep links at all).
+
+                TWO filters on purpose. The custom scheme needs no verification, no hosted file and
+                no Play-signing fingerprint, so it works the moment the app is installed, including
+                sideloaded builds. That is what makes the landing page's "Open in TrackMe" button
+                work today rather than after a DAL round trip — which is the external dependency
+                §15.1 deferred join-by-link over in the first place.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="trackme" android:host="group" />
+            </intent-filter>
+
+            <!--
+                The real App Link. Better UX — a plain https link opens straight into the app with
+                no scheme in the URL — but ONLY once assetlinks.json is served AND its fingerprint
+                matches the installed build. Until then Android simply opens the browser, which is
+                a soft failure: the landing page still works and still offers the button above.
+
+                pathPrefix "/g" covers /g, /g/ and /g/anything. The token rides in the FRAGMENT,
+                which is never matched and never transmitted (A6).
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="trackme.shvms.in"
+                    android:pathPrefix="/g" />
             </intent-filter>
         </activity>
 

@@ -118,10 +118,19 @@ fun CreateGroupSheet(
 @Composable
 fun JoinGroupSheet(
     strings: AppStrings,
+    /**
+     * Pre-filled from a shared link (§2.4's growth loop).
+     *
+     * The sheet still opens rather than joining outright: §2.4 requires it to state what the user
+     * is agreeing to — "They'll see your location while the group is live." — before they tap, and
+     * a link that joined on its own would start sharing someone's location without them ever
+     * having read that sentence.
+     */
+    initialCode: String? = null,
     onDismiss: () -> Unit,
     onJoin: (code: String) -> Unit,
 ) {
-    var code by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf(initialCode.orEmpty()) }
     val normalized = GroupCrypto.normalizeJoinCode(code)
 
     AlertDialog(

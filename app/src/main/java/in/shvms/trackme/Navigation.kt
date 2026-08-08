@@ -3,6 +3,7 @@ package `in`.shvms.trackme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -86,6 +87,17 @@ fun MainNavigation() {
             currentScreenName = route
             currentScreenStartTime = now
         }
+    }
+
+    // §4.6 flagged this: "NavController is created inside MainNavigation()… must be hoisted for a
+    // deep link to land on the Community tab." Rather than hoist the controller out to the
+    // activity — which would touch every existing destination — the invite is held on the
+    // application and observed here, where the controller already lives. Same outcome, none of the
+    // blast radius.
+    val app = LocalContext.current.applicationContext as TrackMeApp
+    val pendingInvite by app.pendingGroupInvite.collectAsState()
+    LaunchedEffect(pendingInvite) {
+        if (pendingInvite != null) navigateToTab("community")
     }
 
     CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
