@@ -1,4 +1,4 @@
-# TrackMe 🚵‍♂️🗺️ (v1.7.0)
+# TrackMe 🚵‍♂️🗺️ (v1.7.1)
 
 ![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
@@ -7,7 +7,7 @@
 
 > **Product Vision:** TrackMe is designed to be the ultimate companion for cyclists, runners, and explorers. We believe in privacy-first tracking that seamlessly works offline, but elegantly syncs to the cloud when you want it to. Track your journey, analyze your performance, and share your adventures.
 
-## 🌟 Key Features (v1.7.0)
+## 🌟 Key Features (v1.7.1)
 
 *   **End-to-End Encrypted (E2EE) Group Rides:** Create or join group ride sessions with client-side AES-GCM-256 location & presence encryption. Group decryption keys (`#k=...`) remain in the URI fragment and are never shared with servers.
 *   **Live Member Roster & Presence Tracking:** Real-time presence status (active, paused, left) and live locations of group members rendered smoothly on HUD and map controls.
