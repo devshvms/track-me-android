@@ -222,10 +222,72 @@ object AnalyticsManager {
         )
     }
 
-    /** The growth loop's first step (§2.5). Records that a share sheet opened, never to whom. */
-    fun trackGroupInviteSent(viaCode: Boolean) {
+    /**
+     * The growth loop's first step (§2.5). Records that a share sheet opened, never to whom.
+     *
+     * Carries no `via_code`: §2.3's share message contains the code *and* the link together, so at
+     * send time the channel is genuinely unknowable — the recipient picks it. The property was
+     * previously passed a hardcoded `true`, which implied a distinction the data could not make.
+     * The channel is recorded where it is actually known, on [trackGroupMemberJoined].
+     */
+    fun trackGroupInviteSent() {
         if (!_isTelemetryEnabled.value) return
-        PostHog.capture("group_invite_sent", properties = mapOf("via_code" to viaCode))
+        PostHog.capture("group_invite_sent")
+    }
+
+    /**
+     * An invite reached the app — a link opened, or a code was submitted.
+     *
+     * Sits between `invite_sent` and `member_joined`, which previously ran straight into each
+     * other. Without it a link that opens the app and then fails is indistinguishable from a link
+     * nobody ever tapped, so the growth loop cannot tell a distribution problem from a join
+     * problem.
+     */
+    fun trackGroupInviteOpened(viaCode: Boolean) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("group_invite_opened", properties = mapOf("via_code" to viaCode))
+    }
+
+    /**
+     * Why a join attempt did not become a member.
+     *
+     * [reason] is a fixed vocabulary — the relay's own error codes plus the client-side ones — and
+     * never the exception message, which is prose and could carry server text. §9's constraint
+     * holds: no code, no token, no group identity, just the category.
+     */
+    fun trackGroupJoinFailed(reason: GroupJoinFailure, viaCode: Boolean) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "group_join_failed",
+            properties = mapOf("reason" to reason.analyticsValue, "via_code" to viaCode),
+        )
+    }
+
+    /**
+     * The leader removed a member — a safety control, counted for the same reason as
+     * [trackGroupLeft]: to prove it is reachable. Never who was removed.
+     */
+    fun trackGroupMemberRemoved(memberCount: Int) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("group_member_removed", properties = mapOf("member_count" to memberCount))
+    }
+
+    /**
+     * A destination or start time was set after creation.
+     *
+     * `group_created` records both as they stood at creation, so without this a group that gains a
+     * destination later is counted forever as one that never had one — and §2.9's ETA work is
+     * sized off exactly that number. Booleans only: no coordinates, no times.
+     */
+    fun trackGroupMetaUpdated(hasDestination: Boolean, hasStartTime: Boolean) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "group_meta_updated",
+            properties = mapOf(
+                "has_destination" to hasDestination,
+                "has_start_time" to hasStartTime,
+            ),
+        )
     }
 
     fun trackGroupMemberJoined(memberCount: Int, viaCode: Boolean) {
@@ -417,6 +479,32 @@ object AnalyticsManager {
 enum class RideStartAbortMethod(val analyticsValue: String) {
     PRE_COMMIT("pre_commit"),
     POST_COMMIT_UNDO("post_commit_undo")
+}
+
+/**
+ * Why a join attempt failed, as a closed vocabulary.
+ *
+ * The relay's codes are reused verbatim rather than remapped, so a spike here can be read straight
+ * against the server's own logs without a translation table in between.
+ */
+enum class GroupJoinFailure(val analyticsValue: String) {
+    /** Failed [in.shvms.trackme.domain.group.GroupCrypto.normalizeJoinCode] — never reached the relay. */
+    MALFORMED_CODE("malformed_code"),
+
+    /** Resolved, but the relay held no token for it: expired, or already ended. */
+    EXPIRED("expired"),
+
+    GROUP_FULL("group_full"),
+    GROUP_NOT_FOUND("group_not_found"),
+    JOIN_RATE_LIMITED("join_rate_limited"),
+
+    /** Signed out, so the roster could not be sealed. Distinct from a relay refusal. */
+    SIGNED_OUT("signed_out"),
+
+    /** Never reached the relay — no connectivity, DNS, or timeout. */
+    NETWORK("network"),
+
+    UNKNOWN("unknown"),
 }
 
 /** Pure consent contract used by [AnalyticsManager] and its JVM tests. */

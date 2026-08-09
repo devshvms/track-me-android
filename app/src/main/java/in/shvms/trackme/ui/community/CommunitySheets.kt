@@ -206,7 +206,10 @@ fun shareInvite(context: Context, state: CommunityUiState, strings: AppStrings) 
     // §9's funnel: group_created -> invite_sent -> member_joined. invite_sent feeds the
     // north-star k-factor, so without it the growth loop is unmeasurable at exactly the step
     // that defines it. Records that a share sheet opened, never to whom.
-    `in`.shvms.trackme.analytics.AnalyticsManager.trackGroupInviteSent(viaCode = true)
+    //
+    // No channel is reported: the message below carries the code *and* the link, so which one the
+    // recipient uses is not decided here. That distinction is recorded at join time instead.
+    `in`.shvms.trackme.analytics.AnalyticsManager.trackGroupInviteSent()
     val code = state.session.joinCode ?: return
     val link = AppConfig.GROUP_BASE_URL + AppConfig.GROUP_INVITE_LINK_PREFIX + (state.session.inviteToken ?: "")
     val message = String.format(Locale.getDefault(), strings.groupShareMessage, code, link)

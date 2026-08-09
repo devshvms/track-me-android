@@ -145,6 +145,9 @@ class MainActivity : ComponentActivity() {
           extraToken = intent?.getStringExtra(`in`.shvms.trackme.domain.group.GroupInviteLink.EXTRA_TOKEN),
           extraCode = intent?.getStringExtra(`in`.shvms.trackme.domain.group.GroupInviteLink.EXTRA_CODE),
       ) ?: return
+      // Top of the link half of the join funnel. Fired on arrival rather than on join, so an
+      // invite that opens the app and is then abandoned is distinguishable from one nobody tapped.
+      `in`.shvms.trackme.analytics.AnalyticsManager.trackGroupInviteOpened(viaCode = false)
       (applicationContext as? TrackMeApp)?.setPendingGroupInvite(invite)
   }
 

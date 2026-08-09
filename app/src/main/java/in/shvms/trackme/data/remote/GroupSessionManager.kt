@@ -4,6 +4,7 @@ import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.data.crypto.GroupCrypto
 import `in`.shvms.trackme.data.local.GroupSessionStore
 import `in`.shvms.trackme.analytics.AnalyticsManager
+import `in`.shvms.trackme.analytics.GroupJoinFailure
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -127,6 +128,12 @@ data class GroupEndNotice(
 
 class GroupHttpException(val statusCode: Int, val code: String?) :
     Exception("Group request failed with HTTP $statusCode${code?.let { " ($it)" } ?: ""}")
+
+/**
+ * Typed so a signed-out join is distinguishable from a relay refusal without matching on the
+ * message, which is user-facing prose and will be translated.
+ */
+class GroupSignedOutException : Exception("You must be signed in to ride together.")
 
 /**
  * Group Ride session lifecycle and the sync loop — SCOPE_1.7.0 §4.6.
@@ -313,19 +320,25 @@ class GroupSessionManager(
         displayName: String?,
         photoUrl: String?,
     ): Result<GroupSessionState> = withContext(Dispatchers.IO) {
+        AnalyticsManager.trackGroupInviteOpened(viaCode = true)
         try {
             val code = GroupCrypto.normalizeJoinCode(rawCode)
-                ?: return@withContext Result.failure(Exception("That code doesn't look right."))
+                ?: return@withContext failJoin(GroupJoinFailure.MALFORMED_CODE, viaCode = true) {
+                    Exception("That code doesn't look right.")
+                }
 
             val resolved = GroupWire.parseResolve(
                 get("${AppConfig.GROUP_RESOLVE_ENDPOINT}?c=$code", authenticated = false),
             )
             val wrapped = resolved.wrappedToken
-                ?: return@withContext Result.failure(Exception("This invite has expired."))
+                ?: return@withContext failJoin(GroupJoinFailure.EXPIRED, viaCode = true) {
+                    Exception("This invite has expired.")
+                }
 
             val token = GroupCrypto.unwrapTokenWithCode(code, wrapped)
-            joinWithToken(token, code, resolved.groupId, displayName, photoUrl)
+            joinWithToken(token, code, resolved.groupId, displayName, photoUrl, viaCode = true)
         } catch (e: Exception) {
+            AnalyticsManager.trackGroupJoinFailed(classifyJoinFailure(e), viaCode = true)
             Result.failure(e)
         }
     }
@@ -349,8 +362,16 @@ class GroupSessionManager(
             )
             // The code comes back on the ?t= path so a link-joiner can still re-share it. Empty
             // is survivable — they simply have no code to pass on — but it is there, so use it.
-            joinWithToken(token, resolved.joinCode.orEmpty(), resolved.groupId, displayName, photoUrl)
+            joinWithToken(
+                token,
+                resolved.joinCode.orEmpty(),
+                resolved.groupId,
+                displayName,
+                photoUrl,
+                viaCode = false,
+            )
         } catch (e: Exception) {
+            AnalyticsManager.trackGroupJoinFailed(classifyJoinFailure(e), viaCode = false)
             Result.failure(e)
         }
     }
@@ -365,6 +386,7 @@ class GroupSessionManager(
         groupId: String,
         displayName: String?,
         photoUrl: String?,
+        viaCode: Boolean,
     ): Result<GroupSessionState> = withContext(Dispatchers.IO) {
         try {
             val key = GroupCrypto.deriveGroupKey(token)
@@ -372,7 +394,9 @@ class GroupSessionManager(
                 put("groupId", groupId)
                 put("tokenHash", GroupCrypto.groupTokenHash(token))
                 put("roster", sealRoster(key, displayName, photoUrl))
-                put("viaCode", true)
+                // Both join paths funnel through here, so this was reporting every link-join as a
+                // code-join — to the relay as well as to analytics.
+                put("viaCode", viaCode)
             }
             val joined = GroupWire.parseJoin(post(AppConfig.GROUP_JOIN_ENDPOINT, body.toString()), key)
 
@@ -389,7 +413,7 @@ class GroupSessionManager(
                     rev = joined.rev,
                 ),
             )
-            AnalyticsManager.trackGroupMemberJoined(joined.memberCount, viaCode = true)
+            AnalyticsManager.trackGroupMemberJoined(joined.memberCount, viaCode = viaCode)
             _state.value = GroupSessionState(
                 status = statusFor(joined.state),
                 joinedAtMillis = System.currentTimeMillis(),
@@ -409,6 +433,10 @@ class GroupSessionManager(
             startSyncLoop()
             Result.success(_state.value)
         } catch (e: Exception) {
+            // Tracked here rather than in the callers: this returns `Result.failure` instead of
+            // throwing, so a relay refusal — GROUP_FULL being the common one — never reaches their
+            // catch blocks.
+            AnalyticsManager.trackGroupJoinFailed(classifyJoinFailure(e), viaCode = viaCode)
             Result.failure(e)
         }
     }
@@ -490,6 +518,13 @@ class GroupSessionManager(
             )
             // The estimator is bound to a fixed destination, so a change invalidates it.
             destinationProgress = null
+            // `group_created` froze both of these as they stood at creation, so a group that gains
+            // a destination later would otherwise be counted forever as one that never had one —
+            // and §2.9 sizes the ETA work off exactly that number.
+            AnalyticsManager.trackGroupMetaUpdated(
+                hasDestination = destinationLat != null && destinationLng != null,
+                hasStartTime = startAtMillis != null,
+            )
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -520,6 +555,9 @@ class GroupSessionManager(
                 roster = _state.value.roster.filterNot { it.uid == uid },
                 positions = _state.value.positions.filterNot { it.uid == uid },
             )
+            // Count only, after the roster has shrunk. Never the uid — §9 forbids any member
+            // relationship, and who removed whom is precisely that.
+            AnalyticsManager.trackGroupMemberRemoved(_state.value.roster.size)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -862,8 +900,41 @@ class GroupSessionManager(
 
     // --- Helpers --------------------------------------------------------------------------------
 
+    /**
+     * Records the failure, then builds the Result the caller returns — so the reason sits next to
+     * the condition that produced it and the two cannot drift apart.
+     */
+    private fun failJoin(
+        reason: GroupJoinFailure,
+        viaCode: Boolean,
+        error: () -> Exception,
+    ): Result<GroupSessionState> {
+        AnalyticsManager.trackGroupJoinFailed(reason, viaCode)
+        return Result.failure(error())
+    }
+
+    /**
+     * Maps a thrown failure onto the closed analytics vocabulary.
+     *
+     * Relay codes pass through by name so a spike reads directly against the server's own logs.
+     * The exception *message* is deliberately never inspected: it is prose, it gets translated,
+     * and it could carry server text into an analytics property.
+     */
+    private fun classifyJoinFailure(e: Exception): GroupJoinFailure = when {
+        e is GroupSignedOutException -> GroupJoinFailure.SIGNED_OUT
+        e is GroupHttpException -> when (e.code) {
+            "GROUP_FULL" -> GroupJoinFailure.GROUP_FULL
+            "GROUP_NOT_FOUND" -> GroupJoinFailure.GROUP_NOT_FOUND
+            "JOIN_RATE_LIMITED" -> GroupJoinFailure.JOIN_RATE_LIMITED
+            else -> GroupJoinFailure.UNKNOWN
+        }
+        // Covers UnknownHost/SocketTimeout/etc — the request never got an answer.
+        e is java.io.IOException -> GroupJoinFailure.NETWORK
+        else -> GroupJoinFailure.UNKNOWN
+    }
+
     private fun sealRoster(key: ByteArray, displayName: String?, photoUrl: String?): String {
-        val uid = currentUid() ?: throw Exception("You must be signed in to ride together.")
+        val uid = currentUid() ?: throw GroupSignedOutException()
         return GroupCrypto.seal(
             key,
             GroupWire.encodeRoster(displayName, initialsOf(displayName), photoUrl),

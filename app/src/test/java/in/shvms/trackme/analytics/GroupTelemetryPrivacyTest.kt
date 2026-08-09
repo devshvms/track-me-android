@@ -58,13 +58,43 @@ class GroupTelemetryPrivacyTest {
     fun `no group event carries the group's name`() {
         // The group name is encrypted end to end precisely so it does not leave the members'
         // devices. Sending it to PostHog would undo §5.3 for the sake of a nicer dashboard.
-        for (forbidden in listOf("group_name", "groupname", "\"name\"", "meta")) {
-            assertFalse(
-                "a group telemetry property mentions \"$forbidden\" — the group name is encrypted for a reason",
-                groupEventBlock.lowercase().contains(forbidden),
-            )
+        //
+        // Scoped to the property *keys* — what actually gets sent — rather than any occurrence of
+        // the word. A blanket substring scan failed the moment a function was legitimately named
+        // after the meta it updates, while still sending nothing but two booleans; the rule was
+        // never about identifiers. Every key is checked, so `meta`, `meta_blob` and `group_name`
+        // are all still caught.
+        for (key in propertyKeys()) {
+            for (forbidden in listOf("name", "meta")) {
+                assertFalse(
+                    "group event property \"$key\" contains \"$forbidden\" — the group name and " +
+                        "the sealed meta payload must never leave the device",
+                    key.contains(forbidden),
+                )
+            }
         }
     }
+
+    @Test
+    fun `join failures report a closed vocabulary, never a message`() {
+        // The reason must come from the GroupJoinFailure enum. An exception message would be prose
+        // — translated, and capable of carrying relay text straight into an analytics property.
+        assertTrue(groupEventBlock.contains("fun trackGroupJoinFailed"))
+        assertTrue(
+            "trackGroupJoinFailed must take the enum, not a String",
+            groupEventBlock.contains("reason: GroupJoinFailure"),
+        )
+        assertTrue(
+            "the reason must be the enum's own value",
+            groupEventBlock.contains("reason.analyticsValue"),
+        )
+    }
+
+    /** Every `"key" to value` property name in the group block. */
+    private fun propertyKeys(): List<String> =
+        Regex("\"([A-Za-z_][A-Za-z0-9_]*)\"\\s+to\\s").findAll(groupEventBlock)
+            .map { it.groupValues[1].lowercase() }
+            .toList()
 
     @Test
     fun `every group event respects the telemetry opt-out`() {
