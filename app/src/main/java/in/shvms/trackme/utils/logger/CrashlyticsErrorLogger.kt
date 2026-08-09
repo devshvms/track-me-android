@@ -24,6 +24,9 @@ class CrashlyticsErrorLogger : ErrorLogger {
     }
 
     override fun recordException(throwable: Throwable) {
+        // Dropped here rather than at the 22 call sites: a caller reporting a failure should not
+        // have to know which of its exceptions are really coroutine bookkeeping. See isReportable.
+        if (!isReportable(throwable)) return
         crashlytics.recordException(throwable)
     }
 
