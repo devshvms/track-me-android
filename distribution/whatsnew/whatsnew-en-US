@@ -1,5 +1,8 @@
 TrackMe 1.7.1
 
-• Fixed a crash that could close the app when opening a map before it had finished loading.
+• Fixed a map crash when opening camera views before map initialization completed.
 
-• Update notices now match the version actually available to you, and show properly formatted release notes.
+• Interactive First-Run Walkthrough: New onboarding guide explaining location access, privacy options, and GPS tracking.
+
+• Play In-App Updates: Update notices now match your Play Store release track with formatted release notes.
+
