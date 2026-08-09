@@ -94,4 +94,35 @@ object OnboardingGate {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(KEY, OnboardingState.DONE.stored).apply()
     }
+
+    /**
+     * Counts how many times the walkthrough has been opened, and returns the running total.
+     *
+     * This is the only trace a tour leaves before it finishes. Someone who abandons mid-way is
+     * still [OnboardingState.PENDING], so they see it again, and the second run reports
+     * `attempts = 2` — which is how abandonment becomes visible without anything being transmitted
+     * while consent is still unanswered. It is a local integer until the moment it is flushed with
+     * the completion event, and it is discarded with everything else if consent is declined.
+     */
+    fun recordAttempt(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val next = prefs.getInt(KEY_ATTEMPTS, 0) + 1
+        prefs.edit().putInt(KEY_ATTEMPTS, next).apply()
+        return next
+    }
+
+    private const val KEY_ATTEMPTS = "onboarding_attempts"
 }
+
+/**
+ * How a walkthrough ended. Counts and booleans only — nothing here identifies anyone.
+ */
+data class OnboardingOutcome(
+    val attempts: Int,
+    val furthestPage: Int,
+    val usedSkip: Boolean,
+    val seconds: Int,
+    val analyticsEnabled: Boolean,
+    val locationGranted: Boolean,
+    val notificationsGranted: Boolean,
+)

@@ -58,11 +58,12 @@ private const val PAGE_COUNT = 6
  *    analytics toggle is a real switch with a visible off position. Forcing a yes would make the
  *    consent worthless as consent.
  *
- * @param onFinish receives the analytics choice as it stood on the last screen. The caller writes
- *   it explicitly — the value stops being an implicit default and becomes a recorded decision.
+ * @param onFinish receives everything the walkthrough learned, including the analytics choice as it
+ *   stood on the last screen. The caller writes that choice explicitly — the value stops being an
+ *   implicit default and becomes a recorded decision.
  */
 @Composable
-fun OnboardingScreen(onFinish: (analyticsEnabled: Boolean) -> Unit) {
+fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
     val pager = rememberPagerState(pageCount = { PAGE_COUNT })
@@ -72,6 +73,18 @@ fun OnboardingScreen(onFinish: (analyticsEnabled: Boolean) -> Unit) {
     var locationDeclined by remember { mutableStateOf(false) }
     var notificationsGranted by remember { mutableStateOf(hasNotifications(context)) }
     var analyticsEnabled by remember { mutableStateOf(defaultAnalytics(context)) }
+
+    // Funnel state. All of it stays in memory (and one local counter) until the last screen, where
+    // the consent question is answered — nothing about a tour in progress is transmitted.
+    var attempts by remember { mutableIntStateOf(1) }
+    var furthestPage by remember { mutableIntStateOf(0) }
+    var usedSkip by remember { mutableStateOf(false) }
+    val startedAt = remember { System.currentTimeMillis() }
+
+    LaunchedEffect(Unit) { attempts = OnboardingGate.recordAttempt(context) }
+    LaunchedEffect(pager.currentPage) {
+        furthestPage = maxOf(furthestPage, pager.currentPage)
+    }
 
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -97,7 +110,10 @@ fun OnboardingScreen(onFinish: (analyticsEnabled: Boolean) -> Unit) {
                 page = pager.currentPage,
                 strings = strings,
                 onBack = { goTo(pager.currentPage - 1) },
-                onSkip = { goTo(PAGE_PERMISSIONS) },
+                onSkip = {
+                    usedSkip = true
+                    goTo(PAGE_PERMISSIONS)
+                },
             )
 
             HorizontalPager(
@@ -151,8 +167,23 @@ fun OnboardingScreen(onFinish: (analyticsEnabled: Boolean) -> Unit) {
                 page = pager.currentPage,
                 strings = strings,
                 onNext = { goTo(pager.currentPage + 1) },
-                onSkipToSetup = { goTo(PAGE_PERMISSIONS) },
-                onFinish = { onFinish(analyticsEnabled) },
+                onSkipToSetup = {
+                    usedSkip = true
+                    goTo(PAGE_PERMISSIONS)
+                },
+                onFinish = {
+                    onFinish(
+                        OnboardingOutcome(
+                            attempts = attempts,
+                            furthestPage = furthestPage,
+                            usedSkip = usedSkip,
+                            seconds = ((System.currentTimeMillis() - startedAt) / 1000L).toInt(),
+                            analyticsEnabled = analyticsEnabled,
+                            locationGranted = locationGranted,
+                            notificationsGranted = notificationsGranted,
+                        )
+                    )
+                },
             )
         }
     }

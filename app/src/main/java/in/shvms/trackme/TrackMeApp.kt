@@ -65,9 +65,24 @@ class TrackMeApp : Application() {
      * The analytics value is written explicitly rather than left to the stored default, so what
      * lands in preferences is a decision the user made on a screen they saw — not an assumption.
      */
-    fun completeOnboarding(analyticsEnabled: Boolean) {
-        preferencesManager.setTelemetryEnabled(analyticsEnabled)
-        `in`.shvms.trackme.analytics.AnalyticsManager.updateLocalConsent(analyticsEnabled)
+    fun completeOnboarding(outcome: `in`.shvms.trackme.ui.onboarding.OnboardingOutcome) {
+        // Consent first, capture second. AnalyticsManager drops every event while the flag is off,
+        // so emitting before this line would silently discard the one event describing the very
+        // screen the user just answered — and it would deserve to, because at that instant they
+        // had not yet agreed to anything.
+        preferencesManager.setTelemetryEnabled(outcome.analyticsEnabled)
+        `in`.shvms.trackme.analytics.AnalyticsManager.updateLocalConsent(outcome.analyticsEnabled)
+
+        `in`.shvms.trackme.analytics.AnalyticsManager.trackOnboardingCompleted(
+            attempts = outcome.attempts,
+            furthestPage = outcome.furthestPage,
+            usedSkip = outcome.usedSkip,
+            seconds = outcome.seconds,
+            analyticsOptIn = outcome.analyticsEnabled,
+            locationGranted = outcome.locationGranted,
+            notificationsGranted = outcome.notificationsGranted,
+        )
+
         `in`.shvms.trackme.ui.onboarding.OnboardingGate.markDone(this)
         onboardingState = `in`.shvms.trackme.ui.onboarding.OnboardingState.DONE
     }

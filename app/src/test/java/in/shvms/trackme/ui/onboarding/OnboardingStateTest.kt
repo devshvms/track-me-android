@@ -114,6 +114,54 @@ class OnboardingStateTest {
         )
     }
 
+    @Test
+    fun `consent is written before the funnel event is captured`() {
+        // AnalyticsManager drops everything while the flag is off, so emitting first would
+        // silently discard the one event describing the screen the user just answered — and it
+        // would be right to, because at that instant they had not agreed to anything. Ordering is
+        // the whole mechanism, and swapping two lines breaks it with no visible symptom.
+        val body = source("TrackMeApp.kt")
+            .substringAfter("fun completeOnboarding(")
+            .substringBefore("\n    }")
+
+        val consentAt = body.indexOf("updateLocalConsent")
+        val captureAt = body.indexOf("trackOnboardingCompleted")
+        assertTrue("completeOnboarding no longer sets consent", consentAt >= 0)
+        assertTrue("completeOnboarding no longer emits the funnel event", captureAt >= 0)
+        assertTrue(
+            "consent must be applied before trackOnboardingCompleted, or the event is dropped",
+            consentAt < captureAt,
+        )
+    }
+
+    @Test
+    fun `the walkthrough transmits nothing before the consent screen is answered`() {
+        // The funnel is one terminal event by design. A page-view stream would be reporting
+        // progress through the very screens that ask permission to report anything.
+        val screen = source("ui/onboarding/OnboardingScreen.kt")
+            .replace(Regex("/\\*[\\s\\S]*?\\*/"), "")
+            .replace(Regex("//.*"), "")
+        assertFalse(
+            "OnboardingScreen captures analytics directly — progress would leave the device " +
+                "before the user has answered the consent question",
+            screen.contains("AnalyticsManager"),
+        )
+    }
+
+    @Test
+    fun `the outcome carries only counts and booleans`() {
+        val outcome = source("ui/onboarding/OnboardingState.kt")
+            .substringAfter("data class OnboardingOutcome(")
+            .substringBefore(")")
+        val types = Regex("""val \w+: (\w+)""").findAll(outcome).map { it.groupValues[1] }.toList()
+        assertTrue("no fields found — did OnboardingOutcome move?", types.isNotEmpty())
+        assertTrue(
+            "OnboardingOutcome gained a non-primitive field ($types) — anything beyond counts and " +
+                "booleans risks carrying something identifying into the funnel",
+            types.all { it == "Int" || it == "Boolean" },
+        )
+    }
+
     private fun source(name: String): String {
         var dir: File? = File("").absoluteFile
         val rel = "app/src/main/java/in/shvms/trackme/$name"

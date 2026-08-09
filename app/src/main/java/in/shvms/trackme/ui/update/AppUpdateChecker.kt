@@ -72,6 +72,10 @@ class AppUpdateChecker(private val context: Context) {
     }
 
     init {
+        // Never unregistered, deliberately. This object is created once by TrackMeApp and lives as
+        // long as the process, so an unregister method would only ever be called at a point where
+        // the listener is about to be collected anyway — dead API that implies a lifecycle this
+        // class does not have.
         manager.registerListener(installListener)
     }
 
@@ -157,10 +161,6 @@ class AppUpdateChecker(private val context: Context) {
             .putLong(KEY_DISMISSED_AT, System.currentTimeMillis())
             .apply()
         _prompt.value = null
-    }
-
-    fun release() {
-        manager.unregisterListener(installListener)
     }
 
     /**

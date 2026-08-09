@@ -462,6 +462,45 @@ object AnalyticsManager {
         )
     }
 
+    /**
+     * The first-run walkthrough's funnel — one event, emitted when the walkthrough ends.
+     *
+     * Deliberately a single terminal event rather than a stream of page events. Everything before
+     * the last screen happens before the user has answered the consent question, and transmitting
+     * progress through the very screens that ask for consent would contradict the thing being
+     * asked. [attempts] carries most of what a stream would have said: a tour abandoned and
+     * re-entered arrives as `attempts > 1`, with nothing having left the device in between.
+     *
+     * **Read [analyticsOptIn] with care.** It can only ever arrive `true`, because a user who
+     * declines is a user whose events are not sent — that is what declining means. It is recorded
+     * so the event is self-describing, not so the opt-in *rate* can be read off it. That rate has
+     * to come from install counts against completions, and anyone reading this property as a rate
+     * will conclude everybody opts in.
+     */
+    fun trackOnboardingCompleted(
+        attempts: Int,
+        furthestPage: Int,
+        usedSkip: Boolean,
+        seconds: Int,
+        analyticsOptIn: Boolean,
+        locationGranted: Boolean,
+        notificationsGranted: Boolean,
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "onboarding_completed",
+            properties = mapOf(
+                "attempts" to attempts,
+                "furthest_page" to furthestPage,
+                "used_skip" to usedSkip,
+                "seconds" to seconds,
+                "analytics_opt_in" to analyticsOptIn,
+                "location_granted" to locationGranted,
+                "notifications_granted" to notificationsGranted,
+            )
+        )
+    }
+
     /** Age-signal compliance outcome. Category and decision are coarse, non-PII values. */
     fun trackAgeSignalChecked(platform: String = "android", category: String, decision: String) {
         if (!_isTelemetryEnabled.value) return

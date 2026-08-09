@@ -75,8 +75,8 @@ class MainActivity : ComponentActivity() {
                   // dialog over the first screen someone ever sees would be its own answer to
                   // "what is this app like".
                   `in`.shvms.trackme.ui.onboarding.OnboardingScreen(
-                    onFinish = { analyticsEnabled ->
-                      app.completeOnboarding(analyticsEnabled)
+                    onFinish = { outcome ->
+                      app.completeOnboarding(outcome)
                       showOnboarding = false
                     }
                   )
