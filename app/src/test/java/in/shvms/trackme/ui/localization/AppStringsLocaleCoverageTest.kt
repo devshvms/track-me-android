@@ -37,8 +37,15 @@ class AppStringsLocaleCoverageTest {
      * rendez-vous", which is both a real translation and better copy for a group ride than a bare
      * "Destination".
      * Raising this number is a product decision, not a merge-conflict resolution.
+     *
+     * Raised to 41 on 2026-08-09 for the 1.7.1 walkthrough's sample ride card. `48:20` is a
+     * duration in `mm:ss`, which is written the same way in all seven languages (6 entries), and
+     * `ja:obHistorySampleDistance` is "12.4 km" — Japanese uses the period decimal and the Latin
+     * unit, so it lands identical to English while es/fr/de take the comma and hi/zh take their
+     * own unit. These are illustration data rather than prose; the completeness test requires every
+     * locale to carry every key, so they cannot simply be omitted.
      */
-    private val maxEntriesIdenticalToEnglish = 34
+    private val maxEntriesIdenticalToEnglish = 41
 
     /** Every `val x: String = s("x", …)` field on the base class, derived from its getters. */
     private fun declaredStringKeys(): Set<String> =

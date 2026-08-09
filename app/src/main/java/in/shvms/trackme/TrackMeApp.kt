@@ -54,6 +54,24 @@ class TrackMeApp : Application() {
     lateinit var errorLogger: ErrorLogger
         private set
 
+    /** Resolved as the first statement of [onCreate]; see the comment there before moving it. */
+    var onboardingState: `in`.shvms.trackme.ui.onboarding.OnboardingState =
+        `in`.shvms.trackme.ui.onboarding.OnboardingState.LEGACY
+        private set
+
+    /**
+     * Records the walkthrough's outcome.
+     *
+     * The analytics value is written explicitly rather than left to the stored default, so what
+     * lands in preferences is a decision the user made on a screen they saw — not an assumption.
+     */
+    fun completeOnboarding(analyticsEnabled: Boolean) {
+        preferencesManager.setTelemetryEnabled(analyticsEnabled)
+        `in`.shvms.trackme.analytics.AnalyticsManager.updateLocalConsent(analyticsEnabled)
+        `in`.shvms.trackme.ui.onboarding.OnboardingGate.markDone(this)
+        onboardingState = `in`.shvms.trackme.ui.onboarding.OnboardingState.DONE
+    }
+
     lateinit var preferencesManager: AppPreferencesManager
         private set
 
@@ -93,6 +111,11 @@ class TrackMeApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // FIRST. Not "early" — first. SosStateCleanup below commits a flag into trackme_prefs, so
+        // after it runs a brand-new install is indistinguishable from an upgrade by preference
+        // contents alone, and the walkthrough would never show for anyone. See OnboardingGate.
+        onboardingState = `in`.shvms.trackme.ui.onboarding.OnboardingGate.resolve(this)
 
         if (BuildConfig.STRICT_MODE) {
             StrictMode.setThreadPolicy(

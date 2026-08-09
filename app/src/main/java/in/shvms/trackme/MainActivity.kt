@@ -16,7 +16,9 @@ import androidx.compose.ui.Modifier
 import `in`.shvms.trackme.theme.TrackMeTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.CompositionLocalProvider
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.localization.getAppStrings
@@ -62,6 +64,23 @@ class MainActivity : ComponentActivity() {
               null -> AgeSignalCheckingScreen()
               AgeSignalDecision.BLOCKED -> AgeRestrictedScreen()
               AgeSignalDecision.ALLOWED -> {
+                var showOnboarding by remember {
+                  mutableStateOf(
+                    app.onboardingState == `in`.shvms.trackme.ui.onboarding.OnboardingState.PENDING
+                  )
+                }
+                if (showOnboarding) {
+                  // Everything below is deliberately not composed underneath this. A fresh install
+                  // has nothing to update from and no legacy SOS state to acknowledge, and a
+                  // dialog over the first screen someone ever sees would be its own answer to
+                  // "what is this app like".
+                  `in`.shvms.trackme.ui.onboarding.OnboardingScreen(
+                    onFinish = { analyticsEnabled ->
+                      app.completeOnboarding(analyticsEnabled)
+                      showOnboarding = false
+                    }
+                  )
+                } else {
                 MainNavigation()
                 updatePrompt?.let { prompt ->
                   `in`.shvms.trackme.ui.update.AppUpdateDialog(
@@ -103,6 +122,7 @@ class MainActivity : ComponentActivity() {
                       }
                     }
                   )
+                }
                 }
               }
             }

@@ -122,8 +122,16 @@ fun HomeScreen(
     val uiPreferences = remember {
         context.getSharedPreferences("ui_prefs", android.content.Context.MODE_PRIVATE)
     }
+    // Fresh installs learn the press-and-hold gesture from the walkthrough, so the pill would be
+    // saying the same thing twice. It stays for anyone who upgraded past it — deleting it outright
+    // would strand exactly the people who were never shown the tour.
     var showStartRideHint by remember {
-        mutableStateOf(!uiPreferences.getBoolean("start_ride_hint_seen", false))
+        mutableStateOf(
+            `in`.shvms.trackme.ui.onboarding.shouldShowStartRideHint(
+                state = app.onboardingState,
+                hintAlreadySeen = uiPreferences.getBoolean("start_ride_hint_seen", false),
+            )
+        )
     }
     var showDiscardRideDialog by remember { mutableStateOf(false) }
     var hasRequestedStartRideUndo by remember { mutableStateOf(false) }

@@ -439,6 +439,47 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val startingPersona: String = s("startingPersona", "Starting %1\$s")
     val startPersona: String = s("startPersona", "Start %1\$s")
 
+
+    // First-run walkthrough (1.7.1). Replaces the startRideHint pill on fresh installs.
+    // §16.4 keeps ACCESS_BACKGROUND_LOCATION undeclared, so no copy here may promise
+    // tracking that continues in the background.
+    val obSkip: String = s("obSkip", "Skip")
+    val obNext: String = s("obNext", "Next")
+    val obContinue: String = s("obContinue", "Continue")
+    val obWelcomeTitle: String = s("obWelcomeTitle", "Your rides, private by default")
+    val obWelcomeBody: String = s("obWelcomeBody", "TrackMe records where you go, and shares it only when you choose to. Here's the 40-second tour.")
+    val obWelcomeCta: String = s("obWelcomeCta", "Take the tour")
+    val obWelcomeSkip: String = s("obWelcomeSkip", "Skip to setup")
+    val obRideTitle: String = s("obRideTitle", "Press and hold to start")
+    val obRideBody: String = s("obRideBody", "Hold the Start button, then drag to pick how you're moving — Auto, Walk, Run, Cycling, Bike or Car. Let go, and TrackMe begins recording your route, distance and pace.")
+    val obHistoryTitle: String = s("obHistoryTitle", "Every ride is kept")
+    val obHistoryBody: String = s("obHistoryBody", "Finished rides land in History with your route, distance, time and pace. Open one to replay it on the map — or pick two to compare them side by side.")
+    val obHistorySampleDistance: String = s("obHistorySampleDistance", "12.4 km")
+    val obHistorySampleDuration: String = s("obHistorySampleDuration", "48:20")
+    val obTogetherTitle: String = s("obTogetherTitle", "Ride together, on one map")
+    val obTogetherBody: String = s("obTogetherBody", "In Community, create a group and share the code or link. Everyone who joins moves on the same map, live. Sharing with just one person? Send a live link — they follow along in a browser, no app needed.")
+    val obTogetherNote: String = s("obTogetherNote", "Groups are end-to-end encrypted and expire on their own.")
+    val obPermTitle: String = s("obPermTitle", "Two things TrackMe needs")
+    val obPermScopeOff: String = s("obPermScopeOff", "Location off")
+    val obPermScopeOn: String = s("obPermScopeOn", "During a ride")
+    val obPermLocationTitle: String = s("obPermLocationTitle", "Location")
+    val obPermLocationBody: String = s("obPermLocationBody", "To draw your route while you ride. TrackMe uses location only during an active ride or group — and shows a notification the whole time it's on.")
+    val obPermLocationCta: String = s("obPermLocationCta", "Allow location")
+    val obPermNotifTitle: String = s("obPermNotifTitle", "Notifications")
+    val obPermNotifBody: String = s("obPermNotifBody", "So recording continues with your screen off, and group start reminders reach you.")
+    val obPermNotifCta: String = s("obPermNotifCta", "Allow notifications")
+    val obPermRequired: String = s("obPermRequired", "Required")
+    val obPermRecommended: String = s("obPermRecommended", "Recommended")
+    val obPermGranted: String = s("obPermGranted", "Allowed")
+    val obPermDeniedNote: String = s("obPermDeniedNote", "Without location, TrackMe can't record a ride. You can allow it later in Settings.")
+    val obReadyTitle: String = s("obReadyTitle", "Two last things")
+    val obBatteryTitle: String = s("obBatteryTitle", "Keep GPS precise")
+    val obBatteryBody: String = s("obBatteryBody", "Battery saver throttles GPS and makes routes jagged. For accurate tracking, leave TrackMe out of battery optimisation.")
+    val obBatteryCta: String = s("obBatteryCta", "Open battery settings")
+    val obAnalyticsTitle: String = s("obAnalyticsTitle", "Share anonymous usage data")
+    val obAnalyticsBody: String = s("obAnalyticsBody", "Helps us find bugs and see which features matter. Never your location, never personal details. Change it anytime in Settings.")
+    val obFinishCta: String = s("obFinishCta", "Start using TrackMe")
+
     fun personaLabel(persona: RidePersona): String = when (persona) {
         RidePersona.AUTO -> personaAuto
         RidePersona.WALK -> personaWalk
@@ -465,6 +506,42 @@ val SUPPORTED_LANGUAGE_CODES: List<String> = listOf("en", "es", "fr", "de", "hi"
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
         "es" -> AppStrings(mapOf(
+            "obHistorySampleDuration" to "48:20",
+            "obSkip" to "Omitir",
+            "obNext" to "Siguiente",
+            "obContinue" to "Continuar",
+            "obWelcomeTitle" to "Tus rutas, privadas por defecto",
+            "obWelcomeBody" to "TrackMe registra por dónde vas y lo comparte solo cuando tú lo decides. Este es el recorrido de 40 segundos.",
+            "obWelcomeCta" to "Ver el recorrido",
+            "obWelcomeSkip" to "Ir a la configuración",
+            "obRideTitle" to "Mantén pulsado para empezar",
+            "obRideBody" to "Mantén pulsado el botón de inicio y arrastra para elegir cómo te mueves: Automático, Caminar, Correr, Ciclismo, Moto o Coche. Suelta y TrackMe empezará a registrar tu ruta, distancia y ritmo.",
+            "obHistoryTitle" to "Cada ruta se guarda",
+            "obHistoryBody" to "Las rutas terminadas aparecen en Historial con tu recorrido, distancia, tiempo y ritmo. Abre una para reproducirla en el mapa, o elige dos para compararlas.",
+            "obHistorySampleDistance" to "12,4 km",
+            "obTogetherTitle" to "Salid juntos, en un mismo mapa",
+            "obTogetherBody" to "En Comunidad, crea un grupo y comparte el código o el enlace. Todos los que se unan se moverán en el mismo mapa, en directo. ¿Solo con una persona? Envía un enlace en vivo: lo seguirá desde el navegador, sin instalar nada.",
+            "obTogetherNote" to "Los grupos están cifrados de extremo a extremo y caducan solos.",
+            "obPermTitle" to "Dos cosas que TrackMe necesita",
+            "obPermScopeOff" to "Ubicación desactivada",
+            "obPermScopeOn" to "Durante la ruta",
+            "obPermLocationTitle" to "Ubicación",
+            "obPermLocationBody" to "Para trazar tu ruta mientras te mueves. TrackMe usa la ubicación solo durante una ruta o un grupo activo, y muestra una notificación todo el tiempo que está activa.",
+            "obPermLocationCta" to "Permitir ubicación",
+            "obPermNotifTitle" to "Notificaciones",
+            "obPermNotifBody" to "Para que la grabación continúe con la pantalla apagada y te lleguen los recordatorios de inicio del grupo.",
+            "obPermNotifCta" to "Permitir notificaciones",
+            "obPermRequired" to "Necesario",
+            "obPermRecommended" to "Recomendado",
+            "obPermGranted" to "Permitido",
+            "obPermDeniedNote" to "Sin ubicación, TrackMe no puede registrar una ruta. Puedes permitirlo más tarde en Ajustes.",
+            "obReadyTitle" to "Dos cosas más",
+            "obBatteryTitle" to "Mantén el GPS preciso",
+            "obBatteryBody" to "El ahorro de batería limita el GPS y hace que las rutas salgan irregulares. Para un registro preciso, deja TrackMe fuera de la optimización de batería.",
+            "obBatteryCta" to "Abrir ajustes de batería",
+            "obAnalyticsTitle" to "Compartir datos de uso anónimos",
+            "obAnalyticsBody" to "Nos ayuda a encontrar errores y ver qué funciones importan. Nunca tu ubicación, nunca datos personales. Puedes cambiarlo cuando quieras en Ajustes.",
+            "obFinishCta" to "Empezar a usar TrackMe",
             "groupEdit" to "Editar",
             "groupEditTitle" to "Detalles del grupo",
             "groupNotSet" to "--",
@@ -867,6 +944,42 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
         "fr" -> AppStrings(mapOf(
+            "obHistorySampleDuration" to "48:20",
+            "obSkip" to "Passer",
+            "obNext" to "Suivant",
+            "obContinue" to "Continuer",
+            "obWelcomeTitle" to "Vos trajets, privés par défaut",
+            "obWelcomeBody" to "TrackMe enregistre où vous allez et ne le partage que si vous le décidez. Voici la visite en 40 secondes.",
+            "obWelcomeCta" to "Faire la visite",
+            "obWelcomeSkip" to "Aller à la configuration",
+            "obRideTitle" to "Appuyez longuement pour démarrer",
+            "obRideBody" to "Maintenez le bouton Démarrer, puis faites glisser pour choisir votre déplacement : Auto, Marche, Course, Vélo, Moto ou Voiture. Relâchez et TrackMe enregistre votre trajet, votre distance et votre allure.",
+            "obHistoryTitle" to "Chaque trajet est conservé",
+            "obHistoryBody" to "Les trajets terminés arrivent dans Historique avec votre tracé, distance, durée et allure. Ouvrez-en un pour le rejouer sur la carte, ou choisissez-en deux pour les comparer.",
+            "obHistorySampleDistance" to "12,4 km",
+            "obTogetherTitle" to "Roulez ensemble, sur une seule carte",
+            "obTogetherBody" to "Dans Communauté, créez un groupe et partagez le code ou le lien. Tous ceux qui rejoignent apparaissent sur la même carte, en direct. Pour une seule personne ? Envoyez un lien en direct : elle vous suit depuis son navigateur, sans application.",
+            "obTogetherNote" to "Les groupes sont chiffrés de bout en bout et expirent d'eux-mêmes.",
+            "obPermTitle" to "Deux choses nécessaires à TrackMe",
+            "obPermScopeOff" to "Localisation désactivée",
+            "obPermScopeOn" to "Pendant le trajet",
+            "obPermLocationTitle" to "Localisation",
+            "obPermLocationBody" to "Pour tracer votre trajet pendant que vous avancez. TrackMe n'utilise la localisation que pendant un trajet ou un groupe actif, et affiche une notification tant qu'elle est active.",
+            "obPermLocationCta" to "Autoriser la localisation",
+            "obPermNotifTitle" to "Notifications",
+            "obPermNotifBody" to "Pour que l'enregistrement continue écran éteint et que les rappels de départ du groupe vous parviennent.",
+            "obPermNotifCta" to "Autoriser les notifications",
+            "obPermRequired" to "Requis",
+            "obPermRecommended" to "Recommandé",
+            "obPermGranted" to "Autorisé",
+            "obPermDeniedNote" to "Sans localisation, TrackMe ne peut pas enregistrer de trajet. Vous pourrez l'autoriser plus tard dans Réglages.",
+            "obReadyTitle" to "Deux derniers points",
+            "obBatteryTitle" to "Gardez un GPS précis",
+            "obBatteryBody" to "L'économiseur de batterie bride le GPS et rend les tracés irréguliers. Pour un suivi précis, excluez TrackMe de l'optimisation de la batterie.",
+            "obBatteryCta" to "Ouvrir les réglages de batterie",
+            "obAnalyticsTitle" to "Partager des données d'usage anonymes",
+            "obAnalyticsBody" to "Cela nous aide à trouver les bugs et à voir quelles fonctions comptent. Jamais votre position, jamais de données personnelles. Modifiable à tout moment dans Réglages.",
+            "obFinishCta" to "Commencer à utiliser TrackMe",
             "groupEdit" to "Modifier",
             "groupEditTitle" to "Détails du groupe",
             "groupNotSet" to "--",
@@ -1269,6 +1382,42 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Session ouverte",
         ))
         "de" -> AppStrings(mapOf(
+            "obHistorySampleDuration" to "48:20",
+            "obSkip" to "Überspringen",
+            "obNext" to "Weiter",
+            "obContinue" to "Fortfahren",
+            "obWelcomeTitle" to "Deine Touren, standardmäßig privat",
+            "obWelcomeBody" to "TrackMe zeichnet auf, wo du unterwegs bist, und teilt es nur, wenn du es willst. Hier die 40-Sekunden-Tour.",
+            "obWelcomeCta" to "Tour ansehen",
+            "obWelcomeSkip" to "Zur Einrichtung",
+            "obRideTitle" to "Zum Starten gedrückt halten",
+            "obRideBody" to "Halte die Start-Taste gedrückt und zieh dann, um deine Fortbewegung zu wählen: Auto-Erkennung, Gehen, Laufen, Radfahren, Motorrad oder Auto. Loslassen — und TrackMe zeichnet Route, Distanz und Tempo auf.",
+            "obHistoryTitle" to "Jede Tour bleibt erhalten",
+            "obHistoryBody" to "Beendete Touren landen im Verlauf mit Route, Distanz, Zeit und Tempo. Öffne eine, um sie auf der Karte abzuspielen — oder wähle zwei zum Vergleichen.",
+            "obHistorySampleDistance" to "12,4 km",
+            "obTogetherTitle" to "Gemeinsam unterwegs, auf einer Karte",
+            "obTogetherBody" to "Erstelle unter Community eine Gruppe und teile Code oder Link. Alle, die beitreten, bewegen sich live auf derselben Karte. Nur für eine Person? Schick einen Live-Link — sie folgt dir im Browser, ganz ohne App.",
+            "obTogetherNote" to "Gruppen sind Ende-zu-Ende-verschlüsselt und laufen von selbst ab.",
+            "obPermTitle" to "Zwei Dinge braucht TrackMe",
+            "obPermScopeOff" to "Standort aus",
+            "obPermScopeOn" to "Während der Tour",
+            "obPermLocationTitle" to "Standort",
+            "obPermLocationBody" to "Um deine Route aufzuzeichnen, während du unterwegs bist. TrackMe nutzt den Standort nur während einer aktiven Tour oder Gruppe — und zeigt die ganze Zeit eine Benachrichtigung.",
+            "obPermLocationCta" to "Standort erlauben",
+            "obPermNotifTitle" to "Benachrichtigungen",
+            "obPermNotifBody" to "Damit die Aufzeichnung bei ausgeschaltetem Display weiterläuft und dich Starterinnerungen der Gruppe erreichen.",
+            "obPermNotifCta" to "Benachrichtigungen erlauben",
+            "obPermRequired" to "Erforderlich",
+            "obPermRecommended" to "Empfohlen",
+            "obPermGranted" to "Erlaubt",
+            "obPermDeniedNote" to "Ohne Standort kann TrackMe keine Tour aufzeichnen. Du kannst es später in den Einstellungen erlauben.",
+            "obReadyTitle" to "Noch zwei Dinge",
+            "obBatteryTitle" to "GPS genau halten",
+            "obBatteryBody" to "Der Energiesparmodus drosselt das GPS und macht Routen zackig. Für genaue Aufzeichnung nimm TrackMe von der Akku-Optimierung aus.",
+            "obBatteryCta" to "Akku-Einstellungen öffnen",
+            "obAnalyticsTitle" to "Anonyme Nutzungsdaten teilen",
+            "obAnalyticsBody" to "Hilft uns, Fehler zu finden und zu sehen, welche Funktionen zählen. Niemals dein Standort, niemals persönliche Daten. Jederzeit in den Einstellungen änderbar.",
+            "obFinishCta" to "TrackMe starten",
             "groupEdit" to "Bearbeiten",
             "groupEditTitle" to "Gruppendetails",
             "groupNotSet" to "--",
@@ -1671,6 +1820,42 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Angemeldet",
         ))
         "hi" -> AppStrings(mapOf(
+            "obHistorySampleDuration" to "48:20",
+            "obSkip" to "छोड़ें",
+            "obNext" to "आगे",
+            "obContinue" to "जारी रखें",
+            "obWelcomeTitle" to "आपकी यात्राएँ, डिफ़ॉल्ट रूप से निजी",
+            "obWelcomeBody" to "TrackMe रिकॉर्ड करता है कि आप कहाँ जाते हैं, और इसे तभी साझा करता है जब आप चाहें। यह रहा 40 सेकंड का परिचय।",
+            "obWelcomeCta" to "परिचय देखें",
+            "obWelcomeSkip" to "सेटअप पर जाएँ",
+            "obRideTitle" to "शुरू करने के लिए दबाकर रखें",
+            "obRideBody" to "स्टार्ट बटन दबाए रखें, फिर खींचकर चुनें कि आप कैसे चल रहे हैं — ऑटो, पैदल, दौड़, साइकिल, बाइक या कार। छोड़ें, और TrackMe आपका मार्ग, दूरी और गति रिकॉर्ड करना शुरू कर देगा।",
+            "obHistoryTitle" to "हर यात्रा सहेजी जाती है",
+            "obHistoryBody" to "पूरी हुई यात्राएँ मार्ग, दूरी, समय और गति के साथ इतिहास में आती हैं। किसी एक को खोलकर नक्शे पर दोबारा देखें — या दो चुनकर उनकी तुलना करें।",
+            "obHistorySampleDistance" to "12.4 किमी",
+            "obTogetherTitle" to "साथ चलें, एक ही नक्शे पर",
+            "obTogetherBody" to "कम्युनिटी में एक ग्रुप बनाएँ और कोड या लिंक साझा करें। जुड़ने वाला हर व्यक्ति उसी नक्शे पर लाइव दिखता है। सिर्फ़ एक व्यक्ति के साथ? लाइव लिंक भेजें — वे ब्राउज़र में देख सकते हैं, ऐप की ज़रूरत नहीं।",
+            "obTogetherNote" to "ग्रुप एंड-टू-एंड एन्क्रिप्टेड होते हैं और अपने आप समाप्त हो जाते हैं।",
+            "obPermTitle" to "TrackMe को दो चीज़ें चाहिए",
+            "obPermScopeOff" to "लोकेशन बंद",
+            "obPermScopeOn" to "यात्रा के दौरान",
+            "obPermLocationTitle" to "लोकेशन",
+            "obPermLocationBody" to "चलते समय आपका मार्ग बनाने के लिए। TrackMe लोकेशन का उपयोग सिर्फ़ सक्रिय यात्रा या ग्रुप के दौरान करता है — और जब तक यह चालू है, एक सूचना दिखाता रहता है।",
+            "obPermLocationCta" to "लोकेशन की अनुमति दें",
+            "obPermNotifTitle" to "सूचनाएँ",
+            "obPermNotifBody" to "ताकि स्क्रीन बंद होने पर रिकॉर्डिंग चलती रहे और ग्रुप के शुरू होने की याद आप तक पहुँचे।",
+            "obPermNotifCta" to "सूचनाओं की अनुमति दें",
+            "obPermRequired" to "आवश्यक",
+            "obPermRecommended" to "अनुशंसित",
+            "obPermGranted" to "अनुमति दी गई",
+            "obPermDeniedNote" to "लोकेशन के बिना TrackMe यात्रा रिकॉर्ड नहीं कर सकता। आप इसे बाद में सेटिंग्स में अनुमति दे सकते हैं।",
+            "obReadyTitle" to "आख़िरी दो बातें",
+            "obBatteryTitle" to "GPS को सटीक रखें",
+            "obBatteryBody" to "बैटरी सेवर GPS को धीमा कर देता है जिससे मार्ग टूटे-फूटे दिखते हैं। सटीक ट्रैकिंग के लिए TrackMe को बैटरी ऑप्टिमाइज़ेशन से बाहर रखें।",
+            "obBatteryCta" to "बैटरी सेटिंग्स खोलें",
+            "obAnalyticsTitle" to "गुमनाम उपयोग डेटा साझा करें",
+            "obAnalyticsBody" to "इससे हमें बग ढूँढ़ने और यह देखने में मदद मिलती है कि कौन-सी सुविधाएँ मायने रखती हैं। कभी आपकी लोकेशन नहीं, कभी निजी जानकारी नहीं। इसे सेटिंग्स में कभी भी बदलें।",
+            "obFinishCta" to "TrackMe इस्तेमाल शुरू करें",
             "groupEdit" to "संपादित करें",
             "groupEditTitle" to "ग्रुप विवरण",
             "groupNotSet" to "--",
@@ -2073,6 +2258,42 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "साइन इन",
         ))
         "ja" -> AppStrings(mapOf(
+            "obHistorySampleDuration" to "48:20",
+            "obHistorySampleDistance" to "12.4 km",
+            "obSkip" to "スキップ",
+            "obNext" to "次へ",
+            "obContinue" to "続ける",
+            "obWelcomeTitle" to "あなたの記録は、はじめから非公開",
+            "obWelcomeBody" to "TrackMe は移動した場所を記録し、あなたが選んだときだけ共有します。40秒の紹介です。",
+            "obWelcomeCta" to "紹介を見る",
+            "obWelcomeSkip" to "設定へ進む",
+            "obRideTitle" to "長押しして開始",
+            "obRideBody" to "スタートボタンを長押しし、そのままドラッグして移動手段を選びます — 自動、徒歩、ランニング、自転車、バイク、車。離すと、ルート・距離・ペースの記録が始まります。",
+            "obHistoryTitle" to "すべての記録が残ります",
+            "obHistoryBody" to "終了した記録は、ルート・距離・時間・ペースとともに履歴に保存されます。開けば地図上で再生でき、2つ選んで並べて比較することもできます。",
+            "obTogetherTitle" to "ひとつの地図で、一緒に",
+            "obTogetherBody" to "コミュニティでグループを作り、コードかリンクを共有します。参加した全員が同じ地図上でリアルタイムに動きます。ひとりだけに知らせたいときは、ライブリンクを送れば、相手はアプリなしでブラウザから見られます。",
+            "obTogetherNote" to "グループはエンドツーエンドで暗号化され、自動的に期限切れになります。",
+            "obPermTitle" to "TrackMe に必要な2つのこと",
+            "obPermScopeOff" to "位置情報オフ",
+            "obPermScopeOn" to "記録中",
+            "obPermLocationTitle" to "位置情報",
+            "obPermLocationBody" to "移動中のルートを描くために使います。TrackMe が位置情報を使うのは、記録中またはグループが有効な間だけで、その間はずっと通知が表示されます。",
+            "obPermLocationCta" to "位置情報を許可",
+            "obPermNotifTitle" to "通知",
+            "obPermNotifBody" to "画面を消しても記録が続き、グループの開始リマインダーが届くようにするためです。",
+            "obPermNotifCta" to "通知を許可",
+            "obPermRequired" to "必須",
+            "obPermRecommended" to "推奨",
+            "obPermGranted" to "許可済み",
+            "obPermDeniedNote" to "位置情報がないと記録できません。あとから設定で許可できます。",
+            "obReadyTitle" to "最後に2つ",
+            "obBatteryTitle" to "GPS の精度を保つ",
+            "obBatteryBody" to "省電力モードは GPS を制限し、ルートがギザギザになります。正確に記録するには、TrackMe をバッテリー最適化の対象から外してください。",
+            "obBatteryCta" to "バッテリー設定を開く",
+            "obAnalyticsTitle" to "匿名の利用データを共有",
+            "obAnalyticsBody" to "不具合の発見と、どの機能が役立っているかの把握に使います。位置情報や個人情報は一切含みません。設定でいつでも変更できます。",
+            "obFinishCta" to "TrackMe を始める",
             "groupEdit" to "編集",
             "groupEditTitle" to "グループの詳細",
             "groupNotSet" to "--",
@@ -2475,6 +2696,42 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "サインイン済み",
         ))
         "zh" -> AppStrings(mapOf(
+            "obHistorySampleDuration" to "48:20",
+            "obSkip" to "跳过",
+            "obNext" to "下一步",
+            "obContinue" to "继续",
+            "obWelcomeTitle" to "你的行程，默认私密",
+            "obWelcomeBody" to "TrackMe 记录你去过的地方，只有你决定分享时才会分享。这是 40 秒的快速介绍。",
+            "obWelcomeCta" to "查看介绍",
+            "obWelcomeSkip" to "直接去设置",
+            "obRideTitle" to "长按开始",
+            "obRideBody" to "按住开始按钮，然后拖动选择出行方式——自动、步行、跑步、骑行、摩托或驾车。松开后，TrackMe 就会开始记录路线、距离和配速。",
+            "obHistoryTitle" to "每次行程都会保存",
+            "obHistoryBody" to "结束的行程会进入历史记录，包含路线、距离、时间和配速。打开任意一条即可在地图上回放，或选择两条并排对比。",
+            "obHistorySampleDistance" to "12.4 公里",
+            "obTogetherTitle" to "同一张地图，一起出发",
+            "obTogetherBody" to "在社区中创建群组，分享代码或链接。加入的人都会实时出现在同一张地图上。只想告诉一个人？发送实时链接，对方在浏览器里就能跟随，无需安装应用。",
+            "obTogetherNote" to "群组端到端加密，并会自动过期。",
+            "obPermTitle" to "TrackMe 需要两项权限",
+            "obPermScopeOff" to "定位关闭",
+            "obPermScopeOn" to "行程期间",
+            "obPermLocationTitle" to "定位",
+            "obPermLocationBody" to "用于在你移动时绘制路线。TrackMe 只在行程或群组进行期间使用定位，并且全程显示一条通知。",
+            "obPermLocationCta" to "允许定位",
+            "obPermNotifTitle" to "通知",
+            "obPermNotifBody" to "让你在息屏时也能继续记录，并收到群组的出发提醒。",
+            "obPermNotifCta" to "允许通知",
+            "obPermRequired" to "必需",
+            "obPermRecommended" to "建议",
+            "obPermGranted" to "已允许",
+            "obPermDeniedNote" to "没有定位权限，TrackMe 无法记录行程。你可以稍后在设置中开启。",
+            "obReadyTitle" to "最后两件事",
+            "obBatteryTitle" to "保持 GPS 精准",
+            "obBatteryBody" to "省电模式会限制 GPS，让路线变得锯齿状。为了记录准确，请将 TrackMe 排除在电池优化之外。",
+            "obBatteryCta" to "打开电池设置",
+            "obAnalyticsTitle" to "分享匿名使用数据",
+            "obAnalyticsBody" to "帮助我们发现问题、了解哪些功能真正有用。绝不包含你的位置或个人信息。可随时在设置中更改。",
+            "obFinishCta" to "开始使用 TrackMe",
             "groupEdit" to "编辑",
             "groupEditTitle" to "群组详情",
             "groupNotSet" to "--",
