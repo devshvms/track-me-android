@@ -184,6 +184,7 @@ dependencies {
   implementation(libs.play.services.location)
   implementation(libs.play.age.signals)
   implementation(libs.play.review.ktx) // B4 in-app review
+  implementation(libs.play.app.update.ktx) // 1.7.1: track-aware update checks
   implementation(libs.credentials)
   implementation(libs.credentials.play.services.auth)
   implementation(libs.googleid)

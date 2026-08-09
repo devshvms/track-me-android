@@ -1,3 +1,5 @@
-TrackMe 1.6.6
+TrackMe 1.7.1
 
-• Controls Clear of the Navigation Bar: The start button, ride controls, and map attribution no longer sit underneath the system navigation bar on phones using 3-button navigation.
+• Fixed a crash that could close the app when opening a map before it had finished loading.
+
+• Update notices now match the version actually available to you, and show properly formatted release notes.

@@ -24,14 +24,28 @@ jobs:
           VERSION=$(grep 'versionName = ' app/build.gradle.kts | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Generate Detailed Release Notes
+      # The release body is shown verbatim to users in the app's update dialog, so it must be the
+      # same human-written copy that goes to the Play listing — not a commit log. Raw `git log`
+      # previously surfaced things like "Merge branch 'feat/1.6.6-edge-to-edge'" to end users.
+      # distribution/whatsnew/whatsnew-en-US is the single source of truth; the commit log is kept
+      # only as a fallback, and clearly marked when it appears.
+      - name: Generate Release Notes
         run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)
-          echo "### TrackMe Release v${VERSION}" > release_notes.md
-          echo "" >> release_notes.md
-          echo "#### Changes & Highlights" >> release_notes.md
-          git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" >> release_notes.md
-          echo "" >> release_notes.md
+          WHATSNEW="distribution/whatsnew/whatsnew-en-US"
+          if [ -s "$WHATSNEW" ]; then
+            echo "Using human-written notes from $WHATSNEW"
+            cp "$WHATSNEW" release_notes.md
+          else
+            echo "::warning::$WHATSNEW missing or empty — falling back to the commit log."
+            PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)
+            {
+              echo "### TrackMe v${VERSION}"
+              echo ""
+              echo "#### Changes"
+              git log "${PREV_TAG}..HEAD" --no-merges --pretty=format:"- %s"
+              echo ""
+            } > release_notes.md
+          fi
 
       - name: Create GitHub Release with Auto-Generated Notes
         env:

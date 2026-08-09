@@ -1,9 +1,12 @@
 package `in`.shvms.trackme
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,6 +29,16 @@ import `in`.shvms.trackme.ui.agegate.AgeRestrictedScreen
 import `in`.shvms.trackme.ui.agegate.AgeSignalCheckingScreen
 
 class MainActivity : ComponentActivity() {
+
+  /**
+   * Receives the result of Play's in-app update flow. Registered as a field so it is in place
+   * before `onCreate` finishes, as the Activity Result API requires. The result itself needs no
+   * handling — a cancelled or failed update simply leaves the prompt to reappear on the next
+   * check.
+   */
+  private val updateLauncher =
+    registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
       handleGroupInvite(intent)
@@ -37,7 +50,8 @@ class MainActivity : ComponentActivity() {
       val dynamicColor by app.preferencesManager.dynamicColor.collectAsState()
       val appLanguage by app.preferencesManager.appLanguage.collectAsState()
       val appStrings = remember(appLanguage) { getAppStrings(appLanguage) }
-      val updateInfo by app.appUpdateChecker.updateInfo.collectAsState()
+      val updatePrompt by app.appUpdateChecker.prompt.collectAsState()
+      val updateReadyToInstall by app.appUpdateChecker.readyToInstall.collectAsState()
       val ageDecision by app.ageSignalManager.decision().collectAsState()
       val sosRemovalNotice by app.sosRemovalNotice.collectAsState()
 
@@ -49,10 +63,23 @@ class MainActivity : ComponentActivity() {
               AgeSignalDecision.BLOCKED -> AgeRestrictedScreen()
               AgeSignalDecision.ALLOWED -> {
                 MainNavigation()
-                updateInfo?.let { info ->
+                updatePrompt?.let { prompt ->
                   `in`.shvms.trackme.ui.update.AppUpdateDialog(
-                    updateInfo = info,
-                    onDismiss = { app.appUpdateChecker.dismissUpdate(info.latestVersionCode) }
+                    prompt = prompt,
+                    onUpdate = {
+                      // Play installs in-app. Only if that flow can't start — a sideloaded build,
+                      // or Play unavailable — do we fall back to opening the listing.
+                      if (!app.appUpdateChecker.startUpdate(updateLauncher)) {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(prompt.updateUrl)))
+                      }
+                    },
+                    onDismiss = { app.appUpdateChecker.dismissUpdate(prompt.latestVersionCode) }
+                  )
+                }
+                if (updateReadyToInstall) {
+                  `in`.shvms.trackme.ui.update.UpdateReadyDialog(
+                    onRestart = { app.appUpdateChecker.completeUpdate() },
+                    onDismiss = { app.appUpdateChecker.dismissInstallPrompt() }
                   )
                 }
                 // TG-A06: one-time, must-acknowledge notice for users who had completed
