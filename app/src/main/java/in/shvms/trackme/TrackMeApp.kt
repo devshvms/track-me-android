@@ -132,6 +132,22 @@ class TrackMeApp : Application() {
         errorLogger.init()
         `in`.shvms.trackme.analytics.AnalyticsManager.init(this)
 
+        // Install the Maps SDK's static delegates before any screen can reach for them.
+        //
+        // `CameraUpdateFactory` is a façade over a delegate the SDK installs when it loads, and
+        // until then every factory call throws `NullPointerException: CameraUpdateFactory is not
+        // initialized` — fatally. Four screens animate a camera from a `LaunchedEffect` or a tap,
+        // and those race map initialisation: a quick first location fix wins on a slow device.
+        //
+        // After errorLogger.init() on purpose, so a failure here is reportable rather than silent.
+        // Best-effort: `animateSafely`/`moveSafely` guard the call sites for the cases this cannot
+        // cover — no Play Services, or a renderer the device refuses to load.
+        try {
+            com.google.android.gms.maps.MapsInitializer.initialize(this)
+        } catch (e: Exception) {
+            errorLogger.recordException(e)
+        }
+
         preferencesManager = AppPreferencesManager(this)
         ageSignalManager = `in`.shvms.trackme.data.AgeSignalManager(this)
         rideStatsStore = `in`.shvms.trackme.data.local.RideStatsStore(this)

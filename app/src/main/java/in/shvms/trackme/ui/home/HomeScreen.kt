@@ -47,6 +47,7 @@ import kotlinx.coroutines.launch
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.home.components.RadialStartRideButton
 import `in`.shvms.trackme.ui.home.components.ActiveRideHudPanel
+import `in`.shvms.trackme.ui.components.animateSafely
 import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
@@ -288,9 +289,9 @@ fun HomeScreen(
                     if (loc != null) {
                         hasCenteredOnLocation = true
                         coroutineScope.launch {
-                            cameraPositionState.animate(
+                            cameraPositionState.animateSafely {
                                 CameraUpdateFactory.newLatLngZoom(com.google.android.gms.maps.model.LatLng(loc.latitude, loc.longitude), 17f)
-                            )
+                            }
                         }
                     }
                 }
@@ -301,7 +302,7 @@ fun HomeScreen(
     LaunchedEffect(uiState.pathPoints) {
         if (uiState.trackingState == TrackingState.TRACKING && uiState.pathPoints.isNotEmpty()) {
             val lastPoint = uiState.pathPoints.last()
-            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(lastPoint, 17f))
+            cameraPositionState.animateSafely { CameraUpdateFactory.newLatLngZoom(lastPoint, 17f) }
         }
     }
 
@@ -559,7 +560,7 @@ fun HomeScreen(
                         val target = uiState.pathPoints.lastOrNull()
                         if (target != null) {
                             coroutineScope.launch {
-                                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(target, 17f))
+                                cameraPositionState.animateSafely { CameraUpdateFactory.newLatLngZoom(target, 17f) }
                             }
                         } else if (hasLocationPermission) {
                             try {
@@ -567,23 +568,23 @@ fun HomeScreen(
                                     .addOnSuccessListener { loc ->
                                         if (loc != null) {
                                             coroutineScope.launch {
-                                                cameraPositionState.animate(
+                                                cameraPositionState.animateSafely {
                                                     CameraUpdateFactory.newLatLngZoom(
                                                         com.google.android.gms.maps.model.LatLng(loc.latitude, loc.longitude),
                                                         17f
                                                     )
-                                                )
+                                                }
                                             }
                                         } else {
                                             fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
                                                 if (lastLoc != null) {
                                                     coroutineScope.launch {
-                                                        cameraPositionState.animate(
+                                                        cameraPositionState.animateSafely {
                                                             CameraUpdateFactory.newLatLngZoom(
                                                                 com.google.android.gms.maps.model.LatLng(lastLoc.latitude, lastLoc.longitude),
                                                                 17f
                                                             )
-                                                        )
+                                                        }
                                                     }
                                                 }
                                             }
@@ -599,14 +600,14 @@ fun HomeScreen(
                     contentDescription = strings.compassNorth,
                     onClick = {
                         coroutineScope.launch {
-                            cameraPositionState.animate(
+                            cameraPositionState.animateSafely {
                                 CameraUpdateFactory.newCameraPosition(
                                     com.google.android.gms.maps.model.CameraPosition.Builder(cameraPositionState.position)
                                         .bearing(0f)
                                         .tilt(0f)
                                         .build()
                                 )
-                            )
+                            }
                         }
                     }
                 )

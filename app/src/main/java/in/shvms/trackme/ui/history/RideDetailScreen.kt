@@ -32,6 +32,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.style.TextOverflow
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.ui.components.icon
+import `in`.shvms.trackme.ui.components.moveSafely
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -434,7 +435,7 @@ fun RideDetailScreen(
                             uiSettings = MapUiSettings(zoomControlsEnabled = false),
                             onMapLoaded = {
                                 if (latLngs.size > 1) {
-                                    cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 100))
+                                    cameraPositionState.moveSafely { CameraUpdateFactory.newLatLngBounds(bounds, 100) }
                                 }
                                 isMapLoaded = true
                             }
@@ -911,7 +912,7 @@ fun RideDetailScreen(
                 }
                 LaunchedEffect(bounds) {
                     kotlinx.coroutines.delay(200)
-                    cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 80))
+                    cameraPositionState.moveSafely { CameraUpdateFactory.newLatLngBounds(bounds, 80) }
                 }
                 val pausedForRoute = remember(pausedLocations, routePoints) {
                     pausedLocations.filter { location ->

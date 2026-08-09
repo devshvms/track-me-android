@@ -62,6 +62,7 @@ import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import `in`.shvms.trackme.domain.export.ComparisonImageExporter
 import `in`.shvms.trackme.theme.BrandThemeConfig
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.ui.components.moveSafely
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -213,7 +214,7 @@ fun MultiRideCompareScreen(
                     }
                     LaunchedEffect(bounds) {
                         kotlinx.coroutines.delay(200)
-                        cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 72))
+                        cameraPositionState.moveSafely { CameraUpdateFactory.newLatLngBounds(bounds, 72) }
                     }
                 }
             } else {
@@ -416,7 +417,7 @@ private fun UnifiedAggregateRidePreviewDialog(
             }
             LaunchedEffect(bounds) {
                 kotlinx.coroutines.delay(200)
-                cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(bounds, 72))
+                cameraPositionState.moveSafely { CameraUpdateFactory.newLatLngBounds(bounds, 72) }
             }
             Box(modifier) {
                 GoogleMap(
