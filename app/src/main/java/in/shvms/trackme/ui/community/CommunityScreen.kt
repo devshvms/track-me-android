@@ -1,5 +1,11 @@
 package `in`.shvms.trackme.ui.community
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -44,6 +51,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.foundation.layout.heightIn
+import `in`.shvms.trackme.domain.group.MemberDirections
+import `in`.shvms.trackme.domain.group.PresenceAge
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
@@ -99,6 +111,11 @@ fun CommunityScreen(
     var pendingRemoval by remember { mutableStateOf<RosterMember?>(null) }
     var showEdit by remember { mutableStateOf(false) }
     var prefilledCode by remember { mutableStateOf<String?>(null) }
+    var showStatusPicker by remember { mutableStateOf(false) }
+    // §5.2's per-group mute. Session-scoped on purpose: it mutes interruption for this group, and a
+    // group is ephemeral by construction — carrying it across groups would silence a future one the
+    // rider never chose to silence.
+    var alertsMuted by remember(state.session.groupId) { mutableStateOf(false) }
 
     // An invite that arrived from a shared link (§2.4's growth loop).
     //
@@ -199,6 +216,12 @@ fun CommunityScreen(
                 onShare = { shareInvite(context, state, strings) },
                 onRemoveMember = { pendingRemoval = it },
                 onShowOnMap = onOpenHome,
+                onDirections = { member ->
+                    member.freshPosition?.let { (lat, lng) -> openDirections(context, lat, lng, strings) }
+                },
+                onSetStatus = { showStatusPicker = true },
+                onToggleMute = { alertsMuted = !alertsMuted },
+                alertsMuted = alertsMuted,
             )
             else -> NoGroupState(
                 strings = strings,
@@ -250,6 +273,23 @@ fun CommunityScreen(
         )
     }
 
+    if (showStatusPicker) {
+        StatusPickerSheet(
+            persona = viewModel.selfPersona,
+            currentCode = state.session.selfStatusCode,
+            strings = strings,
+            onSelect = { code ->
+                showStatusPicker = false
+                viewModel.setStatus(code)
+            },
+            onClear = {
+                showStatusPicker = false
+                viewModel.clearStatus()
+            },
+            onDismiss = { showStatusPicker = false },
+        )
+    }
+
     if (showCreate) {
         CreateGroupSheet(
             strings = strings,
@@ -272,6 +312,22 @@ fun CommunityScreen(
                 viewModel.joinByCode(code)
             },
         )
+    }
+}
+
+/**
+ * Opens a route preview, never turn-by-turn (§5.3, A30).
+ *
+ * The https `dir/?api=1` form resolves to whichever app claims maps links, and falls back to a
+ * browser on a device with none — rather than to nothing.
+ */
+private fun openDirections(context: Context, lat: Double, lng: Double, strings: AppStrings) {
+    try {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(MemberDirections.routePreviewUrl(lat, lng))),
+        )
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, strings.groupNoMapsAppDirections, Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -389,6 +445,10 @@ private fun GroupRoster(
     onShare: () -> Unit,
     onRemoveMember: (RosterMember) -> Unit,
     onShowOnMap: () -> Unit,
+    onDirections: (RosterMember) -> Unit,
+    onSetStatus: () -> Unit,
+    onToggleMute: () -> Unit,
+    alertsMuted: Boolean,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -461,16 +521,58 @@ private fun GroupRoster(
             }
         }
 
-        items(state.roster, key = { it.uid }) { member ->
+        // **A31**: severity-1 members pin above the roster in their own section rather than sorting
+        // into it, so A18's stable order is never silently disturbed. The section is absent
+        // entirely when nobody is at severity 1 — never an empty "Needs the group" header, which
+        // would read as an unanswered question.
+        if (state.needsAttention.isNotEmpty()) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        strings.groupNeedsTheGroup,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = SeverityAlert,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = onToggleMute) {
+                        Text(if (alertsMuted) strings.groupUnmuteAlerts else strings.groupMuteAlerts)
+                    }
+                }
+                HorizontalDivider(color = SeverityAlert)
+            }
+            items(state.needsAttention, key = { "alert-${'$'}{it.uid}" }) { member ->
+                RosterRow(member, strings, onDirections, null)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+            item {
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    strings.groupInThisGroup,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+        }
+
+        items(state.everyoneElse, key = { it.uid }) { member ->
             RosterRow(
                 member = member,
                 strings = strings,
+                onDirections = onDirections,
                 // Only the leader, and never against themselves — removing yourself is `leave`,
                 // which ends the group for everyone (§8), and routing it through here would end
                 // the group by a path whose confirm dialog never said so.
                 onRemove = if (state.session.isLeader && !member.isSelf) {
                     { onRemoveMember(member) }
                 } else null,
+                onSetStatus = if (member.isSelf) onSetStatus else null,
+                statusPending = member.isSelf && !state.session.selfStatusAcknowledged,
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
@@ -525,7 +627,10 @@ private fun GroupHeader(state: CommunityUiState, strings: AppStrings) {
 private fun RosterRow(
     member: RosterMember,
     strings: AppStrings,
+    onDirections: (RosterMember) -> Unit,
     onRemove: (() -> Unit)? = null,
+    onSetStatus: (() -> Unit)? = null,
+    statusPending: Boolean = false,
 ) {
     val statusText = when (member.status) {
         MemberStatus.RIDING -> strings.groupStatusRiding
@@ -533,17 +638,39 @@ private fun RosterRow(
         MemberStatus.NO_RECENT_LOCATION -> strings.groupStatusNoLocation
     }
     val name = member.displayName ?: member.initials ?: ""
+    val ageText = strings.ageText(member.positionAge)
+    val riderStatus = member.riderStatus
+    val riderStatusLabel = riderStatus?.let { strings.statusLabel(it) }
+    // §2.3: absent, not disabled. A directions button routing to a nine-minute-old point is not a
+    // degraded feature, it is a wrong answer, and §3.9's tone rules do not permit shipping one
+    // with a caveat under it.
+    val canRoute = member.freshPosition != null && !member.isSelf
+
+    // §3.6 of 1.7.0, A18: one merged node, so TalkBack reads a whole sentence rather than walking
+    // five children. Directions is a custom ACTION on that node, not a sixth focusable child.
     val spoken = listOfNotNull(
         name.takeIf { it.isNotBlank() },
         strings.groupLeaderBadge.takeIf { member.isLeader },
+        riderStatusLabel,
+        strings.statusAgeText(member.riderStatusAge)?.let { age -> riderStatusLabel?.let { age } },
         statusText,
+        ageText,
     ).joinToString(", ")
+
+    val rowSemantics = Modifier.clearAndSetSemantics {
+        contentDescription = spoken
+        if (canRoute) {
+            customActions = listOf(
+                CustomAccessibilityAction(strings.groupDirections) { onDirections(member); true },
+            )
+        }
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 12.dp)
-            .clearAndSetSemantics { contentDescription = spoken },
+            .then(rowSemantics),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         MemberAvatar(member)
@@ -564,14 +691,69 @@ private fun RosterRow(
                     )
                 }
             }
-            Text(
-                statusText,
-                style = MaterialTheme.typography.bodySmall,
-                color = when (member.status) {
-                    MemberStatus.RIDING -> MaterialTheme.colorScheme.primary
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
+
+            if (riderStatus != null && riderStatusLabel != null) {
+                Spacer(Modifier.height(4.dp))
+                StatusChip(
+                    label = riderStatusLabel,
+                    severity = riderStatus.severity,
+                    // "Not sent yet" / "Clearing…" outrank the age: a rider who believes they have
+                    // been heard when they have not is the failure this whole surface guards against.
+                    age = if (statusPending) strings.groupStatusNotSent
+                    else strings.statusAgeText(member.riderStatusAge),
+                    // Freshness outranks status. A confidently-red chip on a nine-minute-old
+                    // position would be the §6.3 defect in a new costume.
+                    dimmed = member.status == MemberStatus.NO_RECENT_LOCATION,
+                )
+            } else if (onSetStatus != null) {
+                Spacer(Modifier.height(4.dp))
+                AssistChip(
+                    onClick = onSetStatus,
+                    label = { Text(strings.groupStatusSet, style = MaterialTheme.typography.labelSmall) },
+                    modifier = Modifier.heightIn(min = 32.dp),
+                )
+            }
+
+            Spacer(Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    statusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = when (member.status) {
+                        MemberStatus.RIDING -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+                // Your own row says "Last shared" only when it has drifted — "you are fine" is not
+                // information, and a permanent counter under your own name is noise (§2.2).
+                if (ageText != null && !(member.isSelf && member.positionAge == PresenceAge.Bucket.Now)) {
+                    Text(
+                        " · " + if (member.isSelf) {
+                            String.format(Locale.getDefault(), strings.groupLastShared, ageText)
+                        } else {
+                            ageText
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (canRoute) {
+                TextButton(
+                    onClick = { onDirections(member) },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text(
+                        if (ageText != null) {
+                            String.format(Locale.getDefault(), strings.groupDirectionsWithAge, ageText)
+                        } else {
+                            strings.groupDirections
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+            }
         }
         onRemove?.let { RemoveMemberAction(strings, it) }
     }

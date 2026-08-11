@@ -7,6 +7,13 @@ import `in`.shvms.trackme.data.remote.GroupSessionManager
 import `in`.shvms.trackme.data.remote.GroupSessionState
 import `in`.shvms.trackme.data.remote.GroupSessionStatus
 import `in`.shvms.trackme.data.remote.GroupWire
+import `in`.shvms.trackme.domain.group.PresenceAge
+import `in`.shvms.trackme.domain.group.RiderStatus
+import `in`.shvms.trackme.domain.group.RiderStatusCodec
+import `in`.shvms.trackme.domain.group.StatusPersona
+import `in`.shvms.trackme.ui.home.components.MarkerFreshness
+import `in`.shvms.trackme.ui.home.components.MemberMarkerPolicy
+import android.os.SystemClock
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +42,26 @@ data class RosterMember(
     val isLeader: Boolean,
     val isSelf: Boolean,
     val status: MemberStatus,
-)
+
+    // --- SCOPE_1.7.2 ---------------------------------------------------------------------
+
+    /** This member's self-declared status, parsed. Null when they have set none (§2.4). */
+    val riderStatus: RiderStatus? = null,
+    /** How long that status has been standing, anchored server-side (§4.3). */
+    val riderStatusAge: PresenceAge.Bucket = PresenceAge.Bucket.Unknown,
+    /** How long since the relay last heard a position from them (§2.2). */
+    val positionAge: PresenceAge.Bucket = PresenceAge.Bucket.Unknown,
+    /**
+     * Where they were, for the Directions action — **only when the fix is fresh** (§2.3).
+     *
+     * Null for a stale or dropped member, which is what makes the action *absent* rather than
+     * disabled: a route to a nine-minute-old point is not a degraded feature, it is a wrong answer.
+     */
+    val freshPosition: Pair<Double, Double>? = null,
+) {
+    /** A31: severity-1 members pin above the roster rather than sorting into it. */
+    val needsTheGroup: Boolean get() = riderStatus?.isAlert == true
+}
 
 enum class MemberStatus {
     /** Sharing a fresh position, and has started a ride. */
@@ -63,6 +89,14 @@ data class CommunityUiState(
     val busy: Boolean = false,
     val error: String? = null,
 ) {
+    /**
+     * **A31**: severity-1 members are pinned into their own section rather than sorted into the
+     * roster, so A18's stable order — *"so a roster that updates every few seconds does not reshuffle
+     * under the reader's finger"* — is never silently disturbed. A declared exception with a visible
+     * boundary beats a quiet reshuffle.
+     */
+    val needsAttention: List<RosterMember> get() = roster.filter { it.needsTheGroup }
+    val everyoneElse: List<RosterMember> get() = roster.filterNot { it.needsTheGroup }
     val inGroup: Boolean get() = session.isActive
     val canStart: Boolean
         get() = session.isLeader &&
@@ -122,8 +156,30 @@ class CommunityViewModel(
     private fun buildRoster(session: GroupSessionState): List<RosterMember> {
         val uid = currentUid()
         val positions: Map<String, GroupWire.MemberPosition> = session.positions.associateBy { it.uid }
+        val statuses = session.statuses.associateBy { it.uid }
+        val nowElapsed = SystemClock.elapsedRealtime()
 
         val entries = session.roster.map { entry ->
+            val position = positions[entry.uid]
+            val positionAge = position?.let { ageOf(session, it.serverTsMillis, null, nowElapsed) }
+                ?: PresenceAge.Bucket.Unknown
+
+            // §2.3: the action exists only for a FRESH fix. Freshness comes from the same
+            // `MemberMarkerPolicy` the map uses, so a row and a marker can never disagree about it.
+            val fresh = position != null && session.serverNowMillis > 0L &&
+                MemberMarkerPolicy.freshnessFor(
+                    serverTsMillis = position.serverTsMillis,
+                    nowMillis = session.serverNowMillis,
+                    syncIntervalSec = session.syncIntervalSec,
+                ) == MarkerFreshness.FRESH
+
+            val wireStatus = statuses[entry.uid]
+            val riderStatus = if (entry.uid == uid) {
+                session.selfStatusCode?.let { RiderStatusCodec.parse(it) }
+            } else {
+                wireStatus?.let { RiderStatusCodec.parse(it.code) }
+            }
+
             RosterMember(
                 uid = entry.uid,
                 displayName = entry.displayName,
@@ -132,6 +188,12 @@ class CommunityViewModel(
                 isLeader = session.isLeader && entry.uid == uid,
                 isSelf = entry.uid == uid,
                 status = statusFor(entry.uid, uid, positions),
+                riderStatus = riderStatus,
+                riderStatusAge = wireStatus?.let {
+                    ageOf(session, it.serverTsMillis, it.stAgeSeconds, nowElapsed)
+                } ?: PresenceAge.Bucket.Unknown,
+                positionAge = positionAge,
+                freshPosition = if (fresh) position!!.lat to position.lng else null,
             )
         }
         // Self first, then everyone else alphabetically — a stable order, so a roster that updates
@@ -154,6 +216,57 @@ class CommunityViewModel(
         val position = positions[memberUid] ?: return MemberStatus.NO_RECENT_LOCATION
         return if (position.riding) MemberStatus.RIDING else MemberStatus.JOINED_NOT_STARTED
     }
+
+    /**
+     * Anchors an age to the relay's clock and advances it on ours (§4.3, **A32**).
+     *
+     * When `serverNow` is absent the relay predates the field, and we fall back to the device wall
+     * clock — the old, defective behaviour, kept only so a 1.7.2 client against a not-yet-deployed
+     * relay degrades to what 1.7.1 already did rather than showing nothing at all.
+     */
+    private fun ageOf(
+        session: GroupSessionState,
+        serverTsMillis: Long,
+        stAgeSeconds: Long?,
+        nowElapsed: Long,
+    ): PresenceAge.Bucket {
+        if (serverTsMillis <= 0L) return PresenceAge.Bucket.Unknown
+        val anchor = if (session.serverNowMillis > 0L) {
+            if (stAgeSeconds != null || session.selfStatusCode != null) {
+                PresenceAge.anchorStatus(
+                    session.serverNowMillis, serverTsMillis, stAgeSeconds, session.syncReceivedAtElapsed,
+                )
+            } else {
+                PresenceAge.anchorPosition(
+                    session.serverNowMillis, serverTsMillis, session.syncReceivedAtElapsed,
+                )
+            }
+        } else {
+            PresenceAge.anchorPositionWithoutServerNow(
+                System.currentTimeMillis(), serverTsMillis, session.syncReceivedAtElapsed,
+            )
+        }
+        return PresenceAge.bucket(anchor, nowElapsed, session.syncIntervalSec)
+    }
+
+    /**
+     * Which status vocabulary to offer (§3.3).
+     *
+     * Read at the moment the picker opens rather than held in state: `currentPersona` is set by the
+     * tracking service on every fix, and mirroring a value that changes that often into observed
+     * state would recompose the roster for something only one sheet ever reads.
+     */
+    val selfPersona: StatusPersona?
+        get() = if (groupSessionManager.isSelfRiding) {
+            StatusPersona.forRideName(groupSessionManager.currentPersona)
+        } else {
+            null
+        }
+
+    /** §2.4 — set, replace, or clear this rider's own status. */
+    fun setStatus(code: String) = groupSessionManager.setStatus(code)
+
+    fun clearStatus() = groupSessionManager.clearStatus()
 
     fun createGroup(name: String, durationMinutes: Int, maxMembers: Int) = run {
         local.value = LocalState(busy = true)

@@ -67,6 +67,23 @@ enum class StatusPersona(val letter: Char) {
 
     companion object {
         fun fromLetter(letter: Char): StatusPersona? = entries.firstOrNull { it.letter == letter }
+
+        /**
+         * Maps a `RidePersona` name onto the wire alphabet.
+         *
+         * Takes the name rather than the enum so the domain layer does not depend on the ride model
+         * — and returns null for "no ride started", which the catalogue reads as the generic set
+         * (§3.3), never as an empty picker.
+         */
+        fun forRideName(name: String?): StatusPersona? = when (name) {
+            "BIKE_DRIVE" -> BIKE_DRIVE
+            "CAR_DRIVE" -> CAR_DRIVE
+            "CYCLING" -> CYCLING
+            "WALK" -> WALK
+            "RUN" -> RUN
+            "AUTO" -> AUTO
+            else -> null
+        }
     }
 }
 
