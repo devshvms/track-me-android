@@ -2,6 +2,7 @@ package `in`.shvms.trackme.data.remote
 
 import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.data.crypto.GroupCrypto
+import `in`.shvms.trackme.domain.group.AlertPolicy
 import `in`.shvms.trackme.domain.group.GroupPresencePolicy
 import `in`.shvms.trackme.domain.group.RiderStatusCodec
 import android.os.SystemClock
@@ -225,6 +226,24 @@ class GroupSessionManager(
     @Volatile private var selfStatusBootEpoch: Long = 0L
 
     /**
+     * What each member's status was on the previous sync, and whether *this device* raised an alert
+     * for it — §5.2's "once per transition" rule and §3.7's "only people who saw the alarm see the
+     * resolution", both of which need memory the sync response does not carry.
+     *
+     * Sync is a **state** snapshot, not an event stream: without this, the same "Need help" arriving
+     * every ten seconds would re-alert every ten seconds, which is the fastest way to make the tier
+     * worthless.
+     */
+    private val lastSeenStatus = mutableMapOf<String, String?>()
+    private val alertRaisedFor = mutableSetOf<String>()
+
+    /** Set by the UI (§5.2). Session-scoped, because a group is ephemeral by construction. */
+    @Volatile var alertsMuted: Boolean = false
+
+    /** Wired by the service so the domain layer never learns what a notification is. */
+    @Volatile var onAlertSignal: ((AlertPolicy.Signal, String, String) -> Unit)? = null
+
+    /**
      * Progress toward the group's destination, when one was set.
      *
      * §2.9's payoff: the estimator ships dark but MEASURED. Without this the calibration event
@@ -262,7 +281,15 @@ class GroupSessionManager(
                 maxMembers = record.maxMembers,
                 rev = record.rev,
                 degradedSince = System.currentTimeMillis(),
+                sessionStartedElapsed = SystemClock.elapsedRealtime(),
+                // A restored status outlives process death (§4.4). Its age may not — the boot epoch
+                // is what decides that, and `statusAgeSeconds()` checks it before every send.
+                selfStatusCode = record.statusCode,
+                selfStatusAcknowledged = false,
             )
+            selfStatusSetAtElapsed = record.statusSetAtElapsed
+            selfStatusBootEpoch = record.statusBootEpoch
+            record.statusCode?.let { resealPendingStatus(it) }
             startSyncLoop()
             true
         } catch (e: Exception) {
@@ -331,6 +358,7 @@ class GroupSessionManager(
             _state.value = GroupSessionState(
                 status = GroupSessionStatus.PREPARING,
                 joinedAtMillis = System.currentTimeMillis(),
+                sessionStartedElapsed = SystemClock.elapsedRealtime(),
                 groupId = created.groupId,
                 joinCode = created.joinCode,
                 inviteToken = token,
@@ -460,6 +488,7 @@ class GroupSessionManager(
             _state.value = GroupSessionState(
                 status = statusFor(joined.state),
                 joinedAtMillis = System.currentTimeMillis(),
+                sessionStartedElapsed = SystemClock.elapsedRealtime(),
                 groupId = joined.groupId,
                 joinCode = joinCode,
                 inviteToken = token,
@@ -702,7 +731,95 @@ class GroupSessionManager(
      */
     // --- Rider status (§2.4, §3.7) ---------------------------------------------------------------
 
+    /**
+     * Turns a sync response into at most one signal per member (§5.2, §3.8).
+     *
+     * Deliberately here rather than in the UI: the sync loop runs in the tracking service, which is
+     * alive with the screen off — and a status nobody notices while riding is decoration.
+     */
+    private fun evaluateAlerts(result: GroupWire.SyncResult, selfUid: String, receivedAt: Long) {
+        val session = _state.value
+        val incoming = result.statuses.associateBy { it.uid }
+        val sinceJoin = if (session.sessionStartedElapsed > 0L) {
+            receivedAt - session.sessionStartedElapsed
+        } else {
+            Long.MAX_VALUE
+        }
+
+        val seen = mutableSetOf<String>()
+        for (entry in session.roster) {
+            val memberUid = entry.uid
+            seen += memberUid
+            val currentCode = incoming[memberUid]?.code
+            val previousCode = lastSeenStatus[memberUid]
+            if (currentCode == previousCode) continue
+
+            val current = currentCode?.let { RiderStatusCodec.parse(it) }
+            val previous = previousCode?.let { RiderStatusCodec.parse(it) }
+
+            // Freshness of their POSITION, not of their status — an alert riding on a
+            // four-minute-old fix is history, not news.
+            val position = result.positions.firstOrNull { it.uid == memberUid }
+            val stale = position == null || result.serverNowMillis <= 0L ||
+                (result.serverNowMillis - position.serverTsMillis) >=
+                (session.syncIntervalSec.coerceAtLeast(1) * 2L * 1000L)
+
+            val signal = AlertPolicy.signalFor(
+                AlertPolicy.Input(
+                    memberUid = memberUid,
+                    selfUid = selfUid,
+                    previous = previous,
+                    current = current,
+                    raisedForPrevious = memberUid in alertRaisedFor,
+                    senderStale = stale,
+                    muted = alertsMuted,
+                    millisSinceJoin = sinceJoin,
+                ),
+            )
+
+            when (signal) {
+                AlertPolicy.Signal.ALERT_RAISED -> alertRaisedFor += memberUid
+                AlertPolicy.Signal.ALERT_RESOLVED -> alertRaisedFor -= memberUid
+                AlertPolicy.Signal.NONE -> Unit
+            }
+            lastSeenStatus[memberUid] = currentCode
+
+            if (signal != AlertPolicy.Signal.NONE) {
+                val name = entry.displayName ?: entry.initials ?: ""
+                val code = (current ?: previous)?.code.orEmpty()
+                onAlertSignal?.invoke(signal, name, code)
+            }
+        }
+        // A member who left takes their history with them, so rejoining is a clean slate rather
+        // than a suppressed alert.
+        lastSeenStatus.keys.retainAll(seen)
+        alertRaisedFor.retainAll(seen)
+    }
+
     private fun selfStatusCodeOrNull(): String? = _state.value.selfStatusCode
+
+    /**
+     * Re-seals a status restored from disk, so it can be re-sent after process death.
+     *
+     * This is the one place a re-seal is correct: the envelope bytes did not survive the restart,
+     * so there is nothing to resend idempotently — unlike a retry, where re-sealing would make the
+     * status get younger every time the network flapped (A34). The age comes from
+     * [statusAgeSeconds], which returns null when a reboot voided the monotonic base.
+     */
+    private fun resealPendingStatus(code: String) {
+        val key = groupKey ?: return
+        val uid = currentUid() ?: return
+        pendingStatusEnvelope = try {
+            GroupCrypto.seal(
+                key,
+                GroupWire.encodeStatus(code, statusAgeSeconds()),
+                GroupCrypto.Purpose.Status(uid),
+            )
+        } catch (e: Exception) {
+            null
+        }
+        if (pendingStatusEnvelope != null) pendingStatusOp = "set"
+    }
 
     /**
      * Sets or replaces this rider's status.
@@ -904,6 +1021,8 @@ class GroupSessionManager(
             pendingStatusOp = ""
             pendingStatusEnvelope = null
         }
+
+        evaluateAlerts(result, uid, receivedAt)
 
         _state.value = current.copy(
             status = statusFor(result.state),

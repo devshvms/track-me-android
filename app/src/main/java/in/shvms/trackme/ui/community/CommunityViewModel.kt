@@ -263,6 +263,16 @@ class CommunityViewModel(
             null
         }
 
+    /**
+     * §5.2's per-group mute.
+     *
+     * Lives on the manager rather than in Compose state because the alert path runs in the tracking
+     * service with the screen off — a mute held only in the UI would silence nothing.
+     */
+    var alertsMuted: Boolean
+        get() = groupSessionManager.alertsMuted
+        set(value) { groupSessionManager.alertsMuted = value }
+
     /** §2.4 — set, replace, or clear this rider's own status. */
     fun setStatus(code: String) = groupSessionManager.setStatus(code)
 

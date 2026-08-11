@@ -115,7 +115,7 @@ fun CommunityScreen(
     // §5.2's per-group mute. Session-scoped on purpose: it mutes interruption for this group, and a
     // group is ephemeral by construction — carrying it across groups would silence a future one the
     // rider never chose to silence.
-    var alertsMuted by remember(state.session.groupId) { mutableStateOf(false) }
+    var alertsMuted by remember(state.session.groupId) { mutableStateOf(viewModel.alertsMuted) }
 
     // An invite that arrived from a shared link (§2.4's growth loop).
     //
@@ -220,7 +220,10 @@ fun CommunityScreen(
                     member.freshPosition?.let { (lat, lng) -> openDirections(context, lat, lng, strings) }
                 },
                 onSetStatus = { showStatusPicker = true },
-                onToggleMute = { alertsMuted = !alertsMuted },
+                onToggleMute = {
+                    alertsMuted = !alertsMuted
+                    viewModel.alertsMuted = alertsMuted
+                },
                 alertsMuted = alertsMuted,
             )
             else -> NoGroupState(
