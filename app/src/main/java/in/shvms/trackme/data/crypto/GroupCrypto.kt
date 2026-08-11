@@ -75,6 +75,16 @@ object GroupCrypto {
         object Code : Purpose("$ENVELOPE_VERSION:code")
         class Roster(uid: String) : Purpose("$ENVELOPE_VERSION:roster:$uid")
         class Position(uid: String) : Purpose("$ENVELOPE_VERSION:pos:$uid")
+
+        /**
+         * A rider's self-declared status — SCOPE_1.7.2 §4.7, amendment **A33**.
+         *
+         * Its own slot, and therefore its own context, for the reason this whole class exists: a
+         * relay that could move a status envelope into a position field, or into another member's
+         * status field, could make "Need help" appear under the wrong name. Binding it here means
+         * such a move fails to decrypt rather than succeeding and producing a lie.
+         */
+        class Status(uid: String) : Purpose("$ENVELOPE_VERSION:status:$uid")
     }
 
     class EnvelopeException(message: String) : Exception(message)

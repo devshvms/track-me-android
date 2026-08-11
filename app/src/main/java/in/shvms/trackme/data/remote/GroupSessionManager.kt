@@ -2,6 +2,9 @@ package `in`.shvms.trackme.data.remote
 
 import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.data.crypto.GroupCrypto
+import `in`.shvms.trackme.domain.group.GroupPresencePolicy
+import `in`.shvms.trackme.domain.group.RiderStatusCodec
+import android.os.SystemClock
 import `in`.shvms.trackme.data.local.GroupSessionStore
 import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.analytics.GroupJoinFailure
@@ -87,6 +90,32 @@ data class GroupSessionState(
      * way for this feature to be wrong.
      */
     val isSharingPosition: Boolean = false,
+
+    // --- SCOPE_1.7.2 -----------------------------------------------------------------------
+
+    /** Other members' statuses, raw. Parsing is `RiderStatusCodec`'s job (§4.2). */
+    val statuses: List<GroupWire.MemberStatus> = emptyList(),
+    /** This rider's own status code, or null. Survives process death via `GroupSessionStore`. */
+    val selfStatusCode: String? = null,
+    /** False until the relay echoes our status back. Drives `Not sent yet` — never optimistic. */
+    val selfStatusAcknowledged: Boolean = false,
+    /**
+     * The relay's clock from the last sync, and the anchor every age is measured against (**A32**).
+     * Zero when the relay predates the field, in which case callers fall back to the device clock.
+     */
+    val serverNowMillis: Long = 0L,
+    /** `SystemClock.elapsedRealtime()` alongside [serverNowMillis]. */
+    val syncReceivedAtElapsed: Long = 0L,
+    /** When this session became active. The staleness reference before any sync has succeeded. */
+    val sessionStartedElapsed: Long = 0L,
+    /** Last valid authenticated sync response. Drives the Home pill (§4.5). */
+    val lastSuccessfulSyncElapsed: Long? = null,
+    /**
+     * Last time the relay **accepted a new position** — not the same fact as a successful sync.
+     * Drives "Last shared" (§4.4); a healthy network with a frozen GPS must not read as fresh.
+     */
+    val lastOwnPositionAckElapsed: Long? = null,
+    val lastSyncFailureKind: GroupPresencePolicy.FailureKind? = null,
 ) {
     val isActive: Boolean
         get() = status == GroupSessionStatus.PREPARING ||
@@ -180,6 +209,20 @@ class GroupSessionManager(
 
     /** Latest fix from `TrackingService`, or null when the member is not sharing (§8). */
     @Volatile private var pendingPosition: String? = null
+
+    /**
+     * The sealed status envelope waiting to be acknowledged, and the monotonic instant it was set.
+     *
+     * **The envelope is retained, not re-sealed on retry.** A34's idempotency rule keys on the
+     * relay seeing byte-identical ciphertext; re-sealing would mint a fresh nonce, the relay would
+     * treat it as new, and the status would get *younger* every time the network flapped. The
+     * natural implementation re-seals, which is exactly why this is a field rather than a
+     * recomputation.
+     */
+    @Volatile private var pendingStatusEnvelope: String? = null
+    @Volatile private var pendingStatusOp: String = ""
+    @Volatile private var selfStatusSetAtElapsed: Long = 0L
+    @Volatile private var selfStatusBootEpoch: Long = 0L
 
     /**
      * Progress toward the group's destination, when one was set.
@@ -657,6 +700,84 @@ class GroupSessionManager(
      * Only meaningful while in a group — outside one, "not sharing" is not a warning, it is the
      * normal state.
      */
+    // --- Rider status (§2.4, §3.7) ---------------------------------------------------------------
+
+    private fun selfStatusCodeOrNull(): String? = _state.value.selfStatusCode
+
+    /**
+     * Sets or replaces this rider's status.
+     *
+     * Works with no position, no GPS fix, and no location permission — that independence is the
+     * entire reason status has its own slot (§4.7), and the rider who cannot share a position is
+     * precisely the one most likely to need the alert tier.
+     *
+     * The envelope is sealed **once, here**, and the same bytes are resent until the relay
+     * acknowledges (A34). `stAge` is measured from a monotonic clock, so it is a duration rather
+     * than an instant and a skewed device clock cannot distort it.
+     */
+    fun setStatus(code: String) {
+        val key = groupKey ?: return
+        val uid = currentUid() ?: return
+        if (RiderStatusCodec.parse(code) == null) return
+
+        val now = SystemClock.elapsedRealtime()
+        selfStatusSetAtElapsed = now
+        selfStatusBootEpoch = System.currentTimeMillis() - now
+        pendingStatusEnvelope = try {
+            GroupCrypto.seal(key, GroupWire.encodeStatus(code, 0L), GroupCrypto.Purpose.Status(uid))
+        } catch (e: Exception) {
+            null
+        }
+        if (pendingStatusEnvelope == null) return
+        pendingStatusOp = "set"
+        _state.value = _state.value.copy(selfStatusCode = code, selfStatusAcknowledged = false)
+        persistStatus(code)
+    }
+
+    /**
+     * Clears this rider's status.
+     *
+     * An explicit relay op, not an absent field — absence has to mean "unchanged" so a status
+     * survives syncs that carry nothing new. Until the relay confirms, the UI reads `Clearing…`:
+     * a rider who believes they have withdrawn "Need help" while the group still sees it is the
+     * same class of failure as one who believes they are sharing when they are not.
+     */
+    fun clearStatus() {
+        pendingStatusEnvelope = null
+        pendingStatusOp = "clear"
+        selfStatusSetAtElapsed = 0L
+        selfStatusBootEpoch = 0L
+        _state.value = _state.value.copy(selfStatusCode = null, selfStatusAcknowledged = false)
+        persistStatus(null)
+    }
+
+    /**
+     * How long this rider has held their status, in whole seconds, or null when that is unknowable.
+     *
+     * Monotonic clocks survive process death but **reset across reboot**, so a persisted elapsed
+     * value is meaningless afterwards. `bootEpoch` (wall clock minus elapsed, stable within a boot)
+     * detects that. When it has moved, the honest answer is that we know *what* they said and not
+     * *when* — so the age is dropped rather than fabricated, and the status itself is kept, because
+     * dropping a "Need help" because we lost its clock would be far worse than either.
+     */
+    private fun statusAgeSeconds(): Long? {
+        if (selfStatusSetAtElapsed <= 0L) return null
+        val currentBootEpoch = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+        if (kotlin.math.abs(currentBootEpoch - selfStatusBootEpoch) > BOOT_EPOCH_TOLERANCE_MS) return null
+        return (SystemClock.elapsedRealtime() - selfStatusSetAtElapsed) / 1000L
+    }
+
+    private fun persistStatus(code: String?) {
+        val record = store.load() ?: return
+        store.save(
+            record.copy(
+                statusCode = code,
+                statusSetAtElapsed = selfStatusSetAtElapsed,
+                statusBootEpoch = selfStatusBootEpoch,
+            ),
+        )
+    }
+
     private fun markSharing(sharing: Boolean) {
         val current = _state.value
         if (current.isActive && current.isSharingPosition != sharing) {
@@ -699,12 +820,30 @@ class GroupSessionManager(
                         status = GroupSessionStatus.DEGRADED,
                         consecutiveFailures = failures,
                         degradedSince = _state.value.degradedSince ?: System.currentTimeMillis(),
+                        // Names the pill's explanation only, never whether there is a problem —
+                        // that is decided by the sync having gone unanswered (§4.5).
+                        lastSyncFailureKind = failureKindFor(failure),
                     )
                     GroupBackoff.delayMillis(failures)
                 }
                 if (delayMs <= 0L) break
                 delay(delayMs)
             }
+        }
+    }
+
+    /**
+     * Which sentence the Home pill uses. §4.5: the cause selects the remedy — "check your signal"
+     * versus "wait, it's ours" — and getting it backwards blames the rider for our outage.
+     */
+    private fun failureKindFor(failure: Throwable): GroupPresencePolicy.FailureKind {
+        val status = (failure as? GroupHttpException)?.statusCode
+        return when {
+            status == 401 || status == 403 -> GroupPresencePolicy.FailureKind.AUTH
+            status != null && status >= 500 -> GroupPresencePolicy.FailureKind.SERVICE_UNAVAILABLE
+            failure is GroupWire.WireException -> GroupPresencePolicy.FailureKind.PROTOCOL
+            failure is java.io.IOException -> GroupPresencePolicy.FailureKind.NO_INTERNET
+            else -> GroupPresencePolicy.FailureKind.SERVICE_UNAVAILABLE
         }
     }
 
@@ -729,6 +868,12 @@ class GroupSessionManager(
             // roster we actually hold, rather than by the revision we were told, is self-correcting
             // — it also recovers a roster lost to a restore, a decrypt failure, or a dropped sync.
             put("rev", if (current.roster.isEmpty()) FORCE_ROSTER_REV else current.rev)
+            // §4.7: an empty op means "unchanged", which is why clearing has to be explicit rather
+            // than an absent field — a status must survive every sync that carries no new one.
+            if (pendingStatusOp.isNotEmpty()) {
+                put("statusOp", pendingStatusOp)
+                pendingStatusEnvelope?.let { put("status", it) }
+            }
         }
 
         val result = GroupWire.parseSync(post(AppConfig.GROUP_SYNC_ENDPOINT, body.toString()), key, uid)
@@ -739,6 +884,27 @@ class GroupSessionManager(
         }
 
         store.updateRev(result.rev)
+        val receivedAt = SystemClock.elapsedRealtime()
+
+        // A13's echo, finally read. The relay returns our own entry deliberately — it is the only
+        // proof a client has that its push landed — and 1.7.0 discarded it. Comparing what came back
+        // with what we sent is what separates "the relay is reachable" from "the relay took my
+        // position", which the Home pill and the self roster row need to tell apart (§4.4).
+        val positionAccepted = result.ownPosition != null &&
+            (pendingPosition == null || result.ownPosition.serverTsMillis > 0L)
+        val statusAcknowledged = when {
+            pendingStatusOp == "clear" -> result.ownStatus == null
+            pendingStatusOp == "set" -> result.ownStatus?.code == RiderStatusCodec.parse(
+                selfStatusCodeOrNull(),
+            )?.code
+            else -> current.selfStatusAcknowledged || result.ownStatus != null
+        }
+        // Stop retrying only once the relay agrees with us. Until then the same bytes go again.
+        if (statusAcknowledged) {
+            pendingStatusOp = ""
+            pendingStatusEnvelope = null
+        }
+
         _state.value = current.copy(
             status = statusFor(result.state),
             expiresAtMillis = result.expiresAtMillis.takeIf { it > 0 } ?: current.expiresAtMillis,
@@ -757,6 +923,13 @@ class GroupSessionManager(
             syncIntervalSec = result.nextSyncInSec.coerceAtLeast(1),
             consecutiveFailures = 0,
             degradedSince = null,
+            statuses = result.statuses,
+            selfStatusAcknowledged = statusAcknowledged,
+            serverNowMillis = result.serverNowMillis,
+            syncReceivedAtElapsed = receivedAt,
+            lastSuccessfulSyncElapsed = receivedAt,
+            lastOwnPositionAckElapsed = if (positionAccepted) receivedAt else current.lastOwnPositionAckElapsed,
+            lastSyncFailureKind = null,
         )
         return GroupBackoff.nextDelayMillis(0, result.nextSyncInSec)
     }
@@ -951,6 +1124,14 @@ class GroupSessionManager(
     companion object {
         /** No real revision is negative, so this always reads as stale and forces a roster send. */
         const val FORCE_ROSTER_REV = -1
+
+        /**
+         * How far the derived boot epoch may drift before the monotonic base is treated as void.
+         *
+         * Generous on purpose: NTP corrections of a second or two are routine and must not be
+         * mistaken for a reboot, while an actual reboot moves this by the length of the uptime.
+         */
+        const val BOOT_EPOCH_TOLERANCE_MS = 10_000L
 
         /**
          * First letter of the first and last word — §3.3's rule. Kept here rather than in the UI

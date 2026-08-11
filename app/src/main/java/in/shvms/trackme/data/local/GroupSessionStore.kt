@@ -42,6 +42,20 @@ class GroupSessionStore(context: Context) {
         val maxMembers: Int,
         /** Last roster revision seen, so a resumed session does not refetch the roster needlessly. */
         val rev: Int,
+
+        /**
+         * This rider's status, so a "Need help" survives a service restart or process death
+         * (SCOPE_1.7.2 §4.4). Null when none is set.
+         *
+         * Added without a [VERSION] bump on purpose: every field here is optional on read, so an
+         * existing 1.7.1 record still loads. Bumping would have made `load` discard it and drop
+         * riders out of a live group mid-ride, purely to record a field that can default.
+         */
+        val statusCode: String? = null,
+        /** `SystemClock.elapsedRealtime()` when the status was set. Void after a reboot. */
+        val statusSetAtElapsed: Long = 0L,
+        /** Wall clock minus elapsed at set-time — stable within a boot, so it detects one. */
+        val statusBootEpoch: Long = 0L,
     )
 
     /** Null when there is no session, or when the stored one has already expired. */
@@ -58,6 +72,9 @@ class GroupSessionStore(context: Context) {
                 expiresAtMillis = json.getLong(FIELD_EXPIRES_AT),
                 maxMembers = json.optInt(FIELD_MAX_MEMBERS, 5),
                 rev = json.optInt(FIELD_REV, 0),
+                statusCode = json.optString(FIELD_STATUS_CODE).takeIf { it.isNotEmpty() },
+                statusSetAtElapsed = json.optLong(FIELD_STATUS_SET_AT, 0L),
+                statusBootEpoch = json.optLong(FIELD_STATUS_BOOT_EPOCH, 0L),
             )
         } catch (e: Exception) {
             // Fail closed. A record we cannot read is a session we cannot resume, and carrying a
@@ -82,6 +99,11 @@ class GroupSessionStore(context: Context) {
             put(FIELD_EXPIRES_AT, record.expiresAtMillis)
             put(FIELD_MAX_MEMBERS, record.maxMembers)
             put(FIELD_REV, record.rev)
+            record.statusCode?.let { put(FIELD_STATUS_CODE, it) }
+            if (record.statusSetAtElapsed > 0L) {
+                put(FIELD_STATUS_SET_AT, record.statusSetAtElapsed)
+                put(FIELD_STATUS_BOOT_EPOCH, record.statusBootEpoch)
+            }
         }
         // commit(), not apply(): this is written on the path where the process is about to be
         // killed, which is the exact case B6 exists for. An async write that loses the race is the
@@ -126,5 +148,8 @@ class GroupSessionStore(context: Context) {
         private const val FIELD_EXPIRES_AT = "expiresAt"
         private const val FIELD_MAX_MEMBERS = "maxMembers"
         private const val FIELD_REV = "rev"
+        private const val FIELD_STATUS_CODE = "st"
+        private const val FIELD_STATUS_SET_AT = "stAt"
+        private const val FIELD_STATUS_BOOT_EPOCH = "stBoot"
     }
 }
