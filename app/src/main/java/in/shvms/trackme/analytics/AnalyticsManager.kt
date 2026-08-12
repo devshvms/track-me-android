@@ -350,6 +350,57 @@ object AnalyticsManager {
      * §8's degraded state, so the ops metrics in §9 ("503 rate", "position staleness p95") have a
      * client-side counterpart. A relay outage the clients absorbed silently is still an outage.
      */
+    /**
+     * §7 — status usage, at the coarsest resolution that can answer the question.
+     *
+     * **The 4-character code deliberately never leaves the device.** The draft argued four
+     * characters carry no PII; that was wrong. "Crashed", "Need help" and "Tired" are health- and
+     * safety-adjacent information about a person, and the code *is* that information in compressed
+     * form. Unlinked sensitive-category data is still sensitive-category data, and logging it would
+     * also drag a health disclosure into Play Data Safety and the App Store privacy label —
+     * directly against §5.1's posture.
+     *
+     * Severity tier is retained because it is the one aggregate that answers a question we must be
+     * able to answer: is the alert tier being used, and is it being muted?
+     */
+    fun trackGroupStatusSet(severityDigit: Char) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("group_status_set", properties = mapOf("severity" to severityDigit.toString()))
+    }
+
+    fun trackGroupStatusCleared(byUser: Boolean) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("group_status_cleared", properties = mapOf("by_user" to byUser))
+    }
+
+    /**
+     * The alert-fatigue signal, and §7's **named falsifier**: if the mute rate climbs, E3 was the
+     * wrong call and a later release demotes alerting to passive. Stated up front so it cannot be
+     * rationalised away later.
+     */
+    fun trackGroupAlert(event: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("group_status_alert_${'$'}event")
+    }
+
+    /** §7 — if most taps route to a stale age, §5.3's freshness gate is too loose. */
+    fun trackGroupDirectionsOpened(ageBucket: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("group_directions_opened", properties = mapOf("age_bucket" to ageBucket))
+    }
+
+    /**
+     * §7 — finally distinguishes our outages from riders' dead zones, which we cannot tell apart
+     * today. No uid, no group, no coordinates.
+     */
+    fun trackGroupPresencePaused(cause: String, durationBucket: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "group_presence_paused",
+            properties = mapOf("cause" to cause, "duration_bucket" to durationBucket),
+        )
+    }
+
     fun trackGroupDegraded(consecutiveFailures: Int) {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture("group_degraded", properties = mapOf("consecutive_failures" to consecutiveFailures))

@@ -39,16 +39,19 @@ import androidx.core.graphics.ColorUtils
  */
 @Composable
 fun SeverityBadgeMarker(
+    /** The member this decorates. The marker state is keyed on it, never on the position. */
+    uid: String,
     position: LatLng,
     severity: StatusSeverity,
     dimmed: Boolean,
 ) {
     val density = LocalDensity.current.density
     Marker(
-        // A distinct key per member is the caller's job via `position`; the state is keyed on the
-        // same LatLng the avatar uses, in the same composition pass, so the two cannot drift apart
-        // by a frame while a member is moving at speed.
-        state = rememberMarkerState(key = "badge-${severity.name}-$position", position = position),
+        // Keyed on the member, exactly like the avatar marker beside it. Keying on the position
+        // would mint a fresh MarkerState on every sync, so the badge would jump rather than animate
+        // and would visibly separate from the avatar at speed — the failure §3.5 warns about.
+        // Both markers take the same LatLng in the same composition pass.
+        state = rememberMarkerState(key = "badge-$uid", position = position),
         icon = badgeDescriptor(severity, dimmed, density),
         // Top-right of the 40dp avatar, which is anchored at its centre.
         anchor = Offset(-0.6f, 1.4f),

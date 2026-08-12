@@ -226,6 +226,18 @@ class GroupSessionManager(
     @Volatile private var selfStatusBootEpoch: Long = 0L
 
     /**
+     * The relay's timestamp on our own last accepted position.
+     *
+     * Needed because A34 deliberately does *not* advance that timestamp for an unchanged resend —
+     * so comparing against the previous value is the only way to tell a fresh acceptance from an
+     * idempotent echo.
+     */
+    @Volatile private var lastOwnPositionServerTs: Long = 0L
+
+    /** Holds a severity-1 status back for its undo window (O12). */
+    private var undoJob: Job? = null
+
+    /**
      * What each member's status was on the previous sync, and whether *this device* raised an alert
      * for it — §5.2's "once per transition" rule and §3.7's "only people who saw the alarm see the
      * resolution", both of which need memory the sync response does not carry.
@@ -778,7 +790,10 @@ class GroupSessionManager(
             )
 
             when (signal) {
-                AlertPolicy.Signal.ALERT_RAISED -> alertRaisedFor += memberUid
+                AlertPolicy.Signal.ALERT_RAISED -> {
+                    alertRaisedFor += memberUid
+                    AnalyticsManager.trackGroupAlert("shown")
+                }
                 AlertPolicy.Signal.ALERT_RESOLVED -> alertRaisedFor -= memberUid
                 AlertPolicy.Signal.NONE -> Unit
             }
@@ -846,9 +861,46 @@ class GroupSessionManager(
             null
         }
         if (pendingStatusEnvelope == null) return
-        pendingStatusOp = "set"
+
+        // O12 / §3.3 — undo beats confirm. The status shows locally at once, but for severity 1 the
+        // outbound write is HELD for a few seconds, so a mis-tap never leaves the device and no
+        // notification fires that would then have to be un-rung. It costs nothing that matters: the
+        // sync interval is ~10s, so the hold sits inside jitter riders already experience, and in
+        // the common case adds zero latency because the next sync had not fired yet.
+        //
+        // Tiers 2 and 3 go immediately — they raise no notification, so there is nothing to buy.
+        val parsed = RiderStatusCodec.parse(code)
+        val holdMillis = if (parsed?.isAlert == true) ALERT_UNDO_WINDOW_MS else 0L
+        pendingStatusOp = if (holdMillis > 0L) "" else "set"
         _state.value = _state.value.copy(selfStatusCode = code, selfStatusAcknowledged = false)
         persistStatus(code)
+        parsed?.let { AnalyticsManager.trackGroupStatusSet(it.severity.digit) }
+
+        if (holdMillis > 0L) {
+            undoJob?.cancel()
+            undoJob = scope.launch {
+                delay(holdMillis)
+                // Still the same status? Then the rider meant it, and it goes.
+                if (_state.value.selfStatusCode == code) pendingStatusOp = "set"
+            }
+        }
+    }
+
+    /**
+     * Withdraws a status inside its undo window (§3.7).
+     *
+     * **This is not a clear.** Nothing was sent, so there is nothing to withdraw from the relay and
+     * no resolution to broadcast — the status simply never existed for anyone else.
+     */
+    fun undoStatus() {
+        undoJob?.cancel()
+        undoJob = null
+        pendingStatusEnvelope = null
+        pendingStatusOp = ""
+        selfStatusSetAtElapsed = 0L
+        selfStatusBootEpoch = 0L
+        _state.value = _state.value.copy(selfStatusCode = null, selfStatusAcknowledged = false)
+        persistStatus(null)
     }
 
     /**
@@ -860,6 +912,9 @@ class GroupSessionManager(
      * same class of failure as one who believes they are sharing when they are not.
      */
     fun clearStatus() {
+        undoJob?.cancel()
+        undoJob = null
+        AnalyticsManager.trackGroupStatusCleared(byUser = true)
         pendingStatusEnvelope = null
         pendingStatusOp = "clear"
         selfStatusSetAtElapsed = 0L
@@ -1007,8 +1062,13 @@ class GroupSessionManager(
         // proof a client has that its push landed — and 1.7.0 discarded it. Comparing what came back
         // with what we sent is what separates "the relay is reachable" from "the relay took my
         // position", which the Home pill and the self roster row need to tell apart (§4.4).
-        val positionAccepted = result.ownPosition != null &&
-            (pendingPosition == null || result.ownPosition.serverTsMillis > 0L)
+        // A34 makes an unchanged resend keep its original relay timestamp, so "the relay echoed a
+        // position back" is NOT the same as "the relay accepted a new one". Only a timestamp that
+        // actually moved proves the group has something newer about us — anything looser would put
+        // the frozen-GPS lie back on the self row after we just removed it from the map.
+        val ownTs = result.ownPosition?.serverTsMillis ?: 0L
+        val positionAccepted = ownTs > 0L && ownTs > lastOwnPositionServerTs
+        if (positionAccepted) lastOwnPositionServerTs = ownTs
         val statusAcknowledged = when {
             pendingStatusOp == "clear" -> result.ownStatus == null
             pendingStatusOp == "set" -> result.ownStatus?.code == RiderStatusCodec.parse(
@@ -1251,6 +1311,14 @@ class GroupSessionManager(
          * mistaken for a reboot, while an actual reboot moves this by the length of the uptime.
          */
         const val BOOT_EPOCH_TOLERANCE_MS = 10_000L
+
+        /**
+         * How long a severity-1 status is held before it is allowed onto the wire (O12).
+         *
+         * Well inside the ~10s sync interval, so it is invisible in the common case and buys a
+         * mis-tap that never reaches another device.
+         */
+        const val ALERT_UNDO_WINDOW_MS = 4_000L
 
         /**
          * First letter of the first and last word — §3.3's rule. Kept here rather than in the UI

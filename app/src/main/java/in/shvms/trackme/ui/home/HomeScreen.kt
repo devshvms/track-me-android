@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import java.time.Instant
 import java.time.Duration
+import android.os.SystemClock
 import kotlinx.coroutines.delay
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -513,6 +514,7 @@ fun HomeScreen(
 
                         memberStatus?.let { parsed ->
                             SeverityBadgeMarker(
+                                uid = member.uid,
                                 position = point,
                                 severity = parsed.severity,
                                 dimmed = freshness == MarkerFreshness.STALE,
@@ -567,6 +569,18 @@ fun HomeScreen(
             // that the person who got a flat tyre is the one the group most needs to see.
             var groupPresencePillShown by remember { mutableStateOf(false) }
             if (groupSession.isActive) {
+                // A 1 Hz tick, because `elapsedRealtime()` is not observable state: without it the
+                // pill would never appear when the threshold is crossed, and "Last shared 2m ago"
+                // would freeze until some unrelated recomposition happened to occur. The map's
+                // markers already tick at this rate for the same reason (HomeScreen.kt:408), so the
+                // pill's age and the markers' ages advance together rather than drifting apart.
+                var presenceTick by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+                LaunchedEffect(groupSession.isActive) {
+                    while (groupSession.isActive) {
+                        presenceTick = SystemClock.elapsedRealtime()
+                        delay(1_000L)
+                    }
+                }
                 val presencePill = GroupPresencePolicy.evaluate(
                     GroupPresencePolicy.Input(
                         sessionActive = true,
@@ -579,9 +593,7 @@ fun HomeScreen(
                         selfStatus = groupSession.selfStatusCode?.let { RiderStatusCodec.parse(it) },
                         selfStatusAcknowledged = groupSession.selfStatusAcknowledged,
                         syncIntervalSec = groupSession.syncIntervalSec,
-                        // The same 1 Hz tick the markers already use, so the pill's age and the
-                        // markers' ages can never disagree by a frame.
-                        nowElapsed = android.os.SystemClock.elapsedRealtime(),
+                        nowElapsed = presenceTick,
                     ),
                 )
                 // The shield is suppressed only for the states that contradict it — a status
