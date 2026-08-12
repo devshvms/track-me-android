@@ -58,6 +58,7 @@ import `in`.shvms.trackme.domain.group.MemberDirections
 import `in`.shvms.trackme.domain.group.PresenceAge
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.filled.ContentCopy
@@ -194,23 +195,42 @@ fun CommunityScreen(
         val endNotice by viewModel.endNotice.collectAsStateCompat()
         Column(modifier = Modifier.fillMaxSize()) {
             endNotice?.let { notice ->
+                // Rebuilt after device testing: this was a tall card whose text sat left while its
+                // only button floated right, with 16dp of its own padding on top of the page's — so it
+                // used a third of the screen to say one sentence and lined up with nothing.
+                //
+                // It is now a single row: icon, sentence, action. Same rhythm as every other card
+                // on the page, and it takes the height the sentence actually needs.
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     ),
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.size(12.dp))
                         Text(
                             groupEndNoticeText(notice, strings),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.weight(1f),
                         )
-                        Spacer(Modifier.height(8.dp))
-                        TextButton(
-                            onClick = { viewModel.acknowledgeEndNotice() },
-                            modifier = Modifier.align(Alignment.End),
-                        ) { Text(strings.groupNoticeDismiss) }
+                        Spacer(Modifier.size(8.dp))
+                        TextButton(onClick = { viewModel.acknowledgeEndNotice() }) {
+                            Text(strings.groupNoticeDismiss)
+                        }
                     }
                 }
             }

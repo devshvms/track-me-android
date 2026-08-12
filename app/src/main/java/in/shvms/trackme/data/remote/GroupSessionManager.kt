@@ -651,13 +651,35 @@ class GroupSessionManager(
     private suspend fun setState(next: String): Result<Unit> = withContext(Dispatchers.IO) {
         val groupId = _state.value.groupId ?: return@withContext Result.failure(Exception("Not in a group."))
         try {
-            post(
+            val body = post(
                 AppConfig.GROUP_STATE_ENDPOINT,
                 JSONObject().put("groupId", groupId).put("state", next).toString(),
             )
             if (next == "LIVE") {
-                _state.value = _state.value.copy(status = GroupSessionStatus.LIVE)
+                // The relay restarts the countdown at LIVE so it measures the ride rather than the
+                // wait before it. Adopt the new expiry now instead of showing the creation-time one
+                // until the next sync — the leader is looking at the timer as they tap Start.
+                val restarted = runCatching { JSONObject(body).optLong("expiresAt", 0L) }.getOrDefault(0L)
+                _state.value = _state.value.copy(
+                    status = GroupSessionStatus.LIVE,
+                    expiresAtMillis = restarted.takeIf { it > 0L } ?: _state.value.expiresAtMillis,
+                )
                 AnalyticsManager.trackGroupStarted(_state.value.roster.size)
+
+                // If nobody scheduled a start time, the ride starting IS the start time. Leaving it
+                // as "--" after the group is live states that nothing was planned, when in fact the
+                // plan just happened — and it is the leader's own action, so there is nothing to
+                // guess. Leader-only, because meta is theirs to write.
+                if (_state.value.isLeader && _state.value.startAtMillis == null) {
+                    val startedAt = System.currentTimeMillis()
+                    runCatching {
+                        updateMeta(
+                            destinationLat = _state.value.destinationLat,
+                            destinationLng = _state.value.destinationLng,
+                            startAtMillis = startedAt,
+                        )
+                    }
+                }
             }
             Result.success(Unit)
         } catch (e: Exception) {

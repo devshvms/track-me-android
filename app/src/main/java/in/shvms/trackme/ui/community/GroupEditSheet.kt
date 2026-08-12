@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import `in`.shvms.trackme.data.remote.GroupSessionState
+import `in`.shvms.trackme.data.remote.GroupSessionStatus
 import `in`.shvms.trackme.domain.group.GroupStartReminder
 import `in`.shvms.trackme.ui.localization.AppStrings
 import java.util.Calendar
@@ -52,6 +53,13 @@ fun GroupEditSheet(
     var destLat by remember { mutableStateOf(session.destinationLat) }
     var destLng by remember { mutableStateOf(session.destinationLng) }
     var startAt by remember { mutableStateOf(session.startAtMillis) }
+
+    // Once the ride is under way the start time is a fact, not a plan — it is when the group
+    // actually set off, and rewriting it would be editing history rather than the itinerary.
+    // The destination stays editable, because §8 explicitly allows changing it mid-ride: "visible
+    // to all, never silent. All ETAs recompute."
+    val rideUnderWay = session.status == GroupSessionStatus.LIVE ||
+        session.status == GroupSessionStatus.DEGRADED
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
@@ -102,17 +110,32 @@ fun GroupEditSheet(
             Text(
                 startAt?.let { formatDateTime(it) } ?: strings.groupNotSet,
                 style = MaterialTheme.typography.bodyMedium,
+                color = if (rideUnderWay) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
-                    pickDateTime(context, startAt) { picked -> startAt = picked }
-                }) { Text(strings.groupStartTimeLabel) }
-                if (startAt != null) {
-                    TextButton(onClick = { startAt = null }) { Text(strings.groupClearStartTime) }
+            if (rideUnderWay) {
+                // Shown rather than silently hidden: a control that vanishes reads as a bug, and
+                // the leader deserves to know why it is gone.
+                Text(
+                    strings.groupStartTimeLocked,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        pickDateTime(context, startAt) { picked -> startAt = picked }
+                    }) { Text(strings.groupStartTimeLabel) }
+                    if (startAt != null) {
+                        TextButton(onClick = { startAt = null }) { Text(strings.groupClearStartTime) }
+                    }
                 }
             }
 
-            if (startAt != null) {
+            if (startAt != null && !rideUnderWay) {
                 Spacer(8.dp)
                 // D9, said out loud to the one person most likely to assume otherwise.
                 Text(
