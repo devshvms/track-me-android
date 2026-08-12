@@ -57,6 +57,15 @@ import androidx.compose.foundation.layout.heightIn
 import `in`.shvms.trackme.domain.group.MemberDirections
 import `in`.shvms.trackme.domain.group.PresenceAge
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.PersonRemove
+import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.text.font.FontWeight
@@ -459,12 +468,23 @@ private fun GroupRoster(
     ) {
         item {
             GroupHeader(state, strings)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             // Shown to everyone, not just the leader: "where are we going and when" is the group's
-            // shared plan, and a member who cannot see it has to ask.
-            DestinationRow(state.session, strings, onShowOnMap = onShowOnMap)
-            StartTimeRow(state.session, strings)
-            Spacer(Modifier.height(16.dp))
+            // shared plan, and a member who cannot see it has to ask. Carded like everything else —
+            // these were bare text on a background while the rows beneath them were cards, which is
+            // what made the page look half-finished.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    DestinationRow(state.session, strings, onShowOnMap = onShowOnMap)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    StartTimeRow(state.session, strings)
+                }
+            }
+            Spacer(Modifier.height(20.dp))
         }
 
         // §8: "Location permission revoked mid-session — stop pushing, stay in the group as a
@@ -531,40 +551,60 @@ private fun GroupRoster(
         if (state.needsAttention.isNotEmpty()) {
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = SeverityAlert,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.size(6.dp))
                     Text(
                         strings.groupNeedsTheGroup,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = SeverityAlert,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = onToggleMute) {
-                        Text(if (alertsMuted) strings.groupUnmuteAlerts else strings.groupMuteAlerts)
+                    TextButton(onClick = onToggleMute, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                        Text(
+                            if (alertsMuted) strings.groupUnmuteAlerts else strings.groupMuteAlerts,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
                     }
                 }
-                HorizontalDivider(color = SeverityAlert)
             }
             items(state.needsAttention, key = { "alert-${'$'}{it.uid}" }) { member ->
-                RosterRow(member, strings, onDirections, null)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                RosterCard(
+                    member = member,
+                    strings = strings,
+                    onDirections = onDirections,
+                    onRemove = if (state.session.isLeader && !member.isSelf) {
+                        { onRemoveMember(member) }
+                    } else null,
+                    // Your own alert lives here too, and it must stay editable — this omission is
+                    // what made "Need help" impossible to clear on device.
+                    onEditStatus = if (member.isSelf) onSetStatus else null,
+                    statusPending = member.isSelf && !state.session.selfStatusAcknowledged,
+                )
+                Spacer(Modifier.height(8.dp))
             }
             item {
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(16.dp))
                 Text(
                     strings.groupInThisGroup,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
 
         items(state.everyoneElse, key = { it.uid }) { member ->
-            RosterRow(
+            RosterCard(
                 member = member,
                 strings = strings,
                 onDirections = onDirections,
@@ -574,10 +614,10 @@ private fun GroupRoster(
                 onRemove = if (state.session.isLeader && !member.isSelf) {
                     { onRemoveMember(member) }
                 } else null,
-                onSetStatus = if (member.isSelf) onSetStatus else null,
+                onEditStatus = if (member.isSelf) onSetStatus else null,
                 statusPending = member.isSelf && !state.session.selfStatusAcknowledged,
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(8.dp))
         }
 
         item {
@@ -589,32 +629,69 @@ private fun GroupRoster(
 
 @Composable
 private fun GroupHeader(state: CommunityUiState, strings: AppStrings) {
-    Column {
-        Text(
-            state.session.groupName ?: strings.groupSignedOutTitle,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.height(4.dp))
-        // §2.5: "Both roles get the same persistent, honest summary: 'You are visible to N people
-        // until HH:MM.'" §3.5: always state duration and audience together.
-        Text(
-            String.format(
-                Locale.getDefault(),
-                strings.groupVisibleUntil,
-                (state.roster.size - 1).coerceAtLeast(0),
-                formatClockTime(state.session.expiresAtMillis),
-            ),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        state.session.joinCode?.let { code ->
-            Spacer(Modifier.height(8.dp))
+    val context = LocalContext.current
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // The group name is NOT repeated here. It is already the top bar title, and showing it
+            // twice — once in the bar, once as a headline directly beneath it — was the first thing
+            // that read as unfinished on device.
+            //
+            // §2.5 leads with the honest summary instead: "visible to N people until HH:MM", which
+            // §3.5 requires to state audience and duration together.
             Text(
-                "${strings.groupCodeLabel}: $code",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
+                String.format(
+                    Locale.getDefault(),
+                    strings.groupVisibleUntil,
+                    (state.roster.size - 1).coerceAtLeast(0),
+                    formatClockTime(state.session.expiresAtMillis),
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            state.session.joinCode?.let { code ->
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            strings.groupCodeLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            code,
+                            // Monospaced and spaced out: this gets read aloud across a car park,
+                            // so the characters have to be individually distinguishable.
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 4.sp,
+                            ),
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                                as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(
+                                android.content.ClipData.newPlainText(strings.groupCodeLabel, code),
+                            )
+                        },
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = strings.groupCodeLabel,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -626,13 +703,25 @@ private fun GroupHeader(state: CommunityUiState, strings: AppStrings) {
  * semantics node, so TalkBack reads "Alice Kaur, leader, riding" rather than walking three
  * separate nodes.
  */
+/**
+ * One member, as a card.
+ *
+ * Rewritten after device testing. The previous version was a bare `Row` with a divider, which read
+ * as a different app from `HistoryScreen` and `SettingsScreen` — both card-based — and whose height
+ * jumped whenever anyone set a status, so the avatar and the trailing action drifted out of line
+ * with the name.
+ *
+ * The fix is a **fixed leading block and a fixed trailing block**, with only the middle column
+ * growing. The avatar and the actions are top-aligned to the name rather than centred on a column
+ * whose height depends on content, so a row with a status and a row without one still line up.
+ */
 @Composable
-private fun RosterRow(
+private fun RosterCard(
     member: RosterMember,
     strings: AppStrings,
     onDirections: (RosterMember) -> Unit,
     onRemove: (() -> Unit)? = null,
-    onSetStatus: (() -> Unit)? = null,
+    onEditStatus: (() -> Unit)? = null,
     statusPending: Boolean = false,
 ) {
     val statusText = when (member.status) {
@@ -644,121 +733,143 @@ private fun RosterRow(
     val ageText = strings.ageText(member.positionAge)
     val riderStatus = member.riderStatus
     val riderStatusLabel = riderStatus?.let { strings.statusLabel(it) }
-    // §2.3: absent, not disabled. A directions button routing to a nine-minute-old point is not a
-    // degraded feature, it is a wrong answer, and §3.9's tone rules do not permit shipping one
-    // with a caveat under it.
+    // §2.3: absent, not disabled. A route to a nine-minute-old point is a wrong answer, not a
+    // degraded feature.
     val canRoute = member.freshPosition != null && !member.isSelf
 
-    // §3.6 of 1.7.0, A18: one merged node, so TalkBack reads a whole sentence rather than walking
-    // five children. Directions is a custom ACTION on that node, not a sixth focusable child.
     val spoken = listOfNotNull(
         name.takeIf { it.isNotBlank() },
         strings.groupLeaderBadge.takeIf { member.isLeader },
         riderStatusLabel,
-        strings.statusAgeText(member.riderStatusAge)?.let { age -> riderStatusLabel?.let { age } },
         statusText,
         ageText,
     ).joinToString(", ")
 
-    val rowSemantics = Modifier.clearAndSetSemantics {
-        contentDescription = spoken
-        if (canRoute) {
-            customActions = listOf(
-                CustomAccessibilityAction(strings.groupDirections) { onDirections(member); true },
-            )
-        }
-    }
-
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp)
-            .then(rowSemantics),
-        verticalAlignment = Alignment.CenterVertically,
+            // §3.6 of 1.7.0, A18: one merged node, so TalkBack reads a sentence rather than walking
+            // five children. Directions and edit-status are custom ACTIONS on that node.
+            .clearAndSetSemantics {
+                contentDescription = spoken
+                customActions = listOfNotNull(
+                    onEditStatus?.let {
+                        CustomAccessibilityAction(strings.groupStatusSet) { it(); true }
+                    },
+                    if (canRoute) {
+                        CustomAccessibilityAction(strings.groupDirections) { onDirections(member); true }
+                    } else null,
+                    onRemove?.let {
+                        CustomAccessibilityAction(strings.groupRemoveMember) { it(); true }
+                    },
+                )
+            },
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
-        MemberAvatar(member)
-        Spacer(Modifier.size(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    name.ifBlank { strings.groupStatusNoLocation },
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (member.isSelf) FontWeight.Bold else FontWeight.Normal,
-                )
-                if (member.isLeader) {
-                    Spacer(Modifier.size(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            // Top, not centre. Centring against a growing column is what made the avatar drift
+            // down as soon as a member set a status.
+            verticalAlignment = Alignment.Top,
+        ) {
+            MemberAvatar(member)
+            Spacer(Modifier.size(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        strings.groupLeaderBadge,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        name.ifBlank { strings.groupStatusNoLocation },
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (member.isSelf) FontWeight.SemiBold else FontWeight.Normal,
                     )
+                    if (member.isLeader) {
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            strings.groupLeaderBadge,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
-            }
 
-            if (riderStatus != null && riderStatusLabel != null) {
-                Spacer(Modifier.height(4.dp))
-                StatusChip(
-                    label = riderStatusLabel,
-                    severity = riderStatus.severity,
-                    // "Not sent yet" / "Clearing…" outrank the age: a rider who believes they have
-                    // been heard when they have not is the failure this whole surface guards against.
-                    age = if (statusPending) strings.groupStatusNotSent
-                    else strings.statusAgeText(member.riderStatusAge),
-                    // Freshness outranks status. A confidently-red chip on a nine-minute-old
-                    // position would be the §6.3 defect in a new costume.
-                    dimmed = member.status == MemberStatus.NO_RECENT_LOCATION,
-                )
-            } else if (onSetStatus != null) {
-                Spacer(Modifier.height(4.dp))
-                AssistChip(
-                    onClick = onSetStatus,
-                    label = { Text(strings.groupStatusSet, style = MaterialTheme.typography.labelSmall) },
-                    modifier = Modifier.heightIn(min = 32.dp),
-                )
-            }
-
-            Spacer(Modifier.height(2.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
+                // One line, always present, so every card has the same second row whether or not
+                // anyone has set a status.
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    statusText,
+                    listOfNotNull(
+                        statusText,
+                        ageText?.takeIf { !(member.isSelf && member.positionAge == PresenceAge.Bucket.Now) }
+                            ?.let { age ->
+                                if (member.isSelf) {
+                                    String.format(Locale.getDefault(), strings.groupLastShared, age)
+                                } else {
+                                    age
+                                }
+                            },
+                    ).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = when (member.status) {
                         MemberStatus.RIDING -> MaterialTheme.colorScheme.primary
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
-                // Your own row says "Last shared" only when it has drifted — "you are fine" is not
-                // information, and a permanent counter under your own name is noise (§2.2).
-                if (ageText != null && !(member.isSelf && member.positionAge == PresenceAge.Bucket.Now)) {
-                    Text(
-                        " · " + if (member.isSelf) {
-                            String.format(Locale.getDefault(), strings.groupLastShared, ageText)
-                        } else {
-                            ageText
+
+                if (riderStatus != null && riderStatusLabel != null) {
+                    Spacer(Modifier.height(8.dp))
+                    StatusChip(
+                        label = riderStatusLabel,
+                        severity = riderStatus.severity,
+                        age = if (statusPending) strings.groupStatusNotSent
+                        else strings.statusAgeText(member.riderStatusAge),
+                        dimmed = member.status == MemberStatus.NO_RECENT_LOCATION,
+                        // THE BUG FOUND ON DEVICE. Your own chip must always reopen the picker.
+                        // Previously the affordance was an `else` branch to the chip, so the moment
+                        // you set anything it vanished — and a severity-1 status put you in the
+                        // attention section, which passed no callback at all. Between them, "Need
+                        // help" could not be withdrawn from anywhere in the app.
+                        onClick = onEditStatus,
+                    )
+                } else if (onEditStatus != null) {
+                    Spacer(Modifier.height(8.dp))
+                    AssistChip(
+                        onClick = onEditStatus,
+                        label = { Text(strings.groupStatusSet, style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                         },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.height(32.dp),
                     )
                 }
             }
 
-            if (canRoute) {
-                TextButton(
-                    onClick = { onDirections(member) },
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) {
-                    Text(
-                        if (ageText != null) {
-                            String.format(Locale.getDefault(), strings.groupDirectionsWithAge, ageText)
-                        } else {
-                            strings.groupDirections
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                    )
+            // Fixed-width trailing block, so cards with and without actions align down the page.
+            Row(verticalAlignment = Alignment.Top) {
+                if (canRoute) {
+                    IconButton(
+                        onClick = { onDirections(member) },
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Navigation,
+                            // Null: the card owns the description, and a second announced node
+                            // would make TalkBack read every member twice.
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                onRemove?.let {
+                    IconButton(onClick = it, modifier = Modifier.size(40.dp)) {
+                        Icon(
+                            Icons.Default.PersonRemove,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
         }
-        onRemove?.let { RemoveMemberAction(strings, it) }
     }
 }
 

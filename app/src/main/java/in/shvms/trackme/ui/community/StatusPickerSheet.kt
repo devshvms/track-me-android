@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -221,12 +222,23 @@ fun StatusChip(
     age: String?,
     modifier: Modifier = Modifier,
     dimmed: Boolean = false,
+    /**
+     * Non-null on **your own** chip, where it reopens the picker.
+     *
+     * Device testing found the chip was a dead end: the "set status" affordance was an `else` to
+     * this chip, so it disappeared the moment anything was set, and a severity-1 status moved you
+     * into the attention section which wired no callback at all. "Need help" became unwithdrawable.
+     * The chip itself is now the way back in.
+     */
+    onClick: (() -> Unit)? = null,
 ) {
     val accent = severity.color().let { if (dimmed) it.copy(alpha = 0.45f) else it }
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = accent,
-        modifier = modifier,
+        modifier = modifier
+            .then(if (onClick != null) Modifier.heightIn(min = 32.dp) else Modifier)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -245,6 +257,15 @@ fun StatusChip(
                 fontWeight = FontWeight.Bold,
                 color = Color.Black,
             )
+            if (onClick != null) {
+                // Signals "you can change this" without a second control competing for the tap.
+                Icon(
+                    Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = Color.Black,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
         }
     }
 }

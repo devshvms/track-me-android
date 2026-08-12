@@ -624,7 +624,13 @@ fun HomeScreen(
                 // roster, where Leave lives.
                 GroupMapButton(
                     session = groupSession,
-                    memberCount = (groupSession.roster.size - 1).coerceAtLeast(0),
+                    // The badge counts EVERYONE in the group, you included. It was showing
+                    // others-only, so a group of two read "1" — which looks like a bug rather than
+                    // a definition. The accessibility sentence still says "visible to N people",
+                    // where N deliberately excludes you, because audience and headcount are
+                    // genuinely different numbers.
+                    memberCount = groupSession.roster.size.coerceAtLeast(0),
+                    audienceCount = (groupSession.roster.size - 1).coerceAtLeast(0),
                     onClick = onOpenCommunity,
                 )
 
