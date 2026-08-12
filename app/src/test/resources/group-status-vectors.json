@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "canonical": "track-me-web/tests/fixtures — copy to each client, same as group-crypto-vectors.json",
   "note": "SCOPE_1.7.2 §4.3 — the cross-platform status contract. Android and iOS must both produce and consume exactly these. E1 exists because a silent divergence here is invisible until a real group is riding: one platform would render nothing where the other renders 'Need help'.",
   "grammar": "^[0-9][A-Z][A-Z]{2}(:[A-Za-z0-9]{1,8})?$",
   "codes": [
