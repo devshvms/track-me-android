@@ -110,3 +110,18 @@ fun AppStrings.statusAgeText(bucket: PresenceAge.Bucket): String? = when (bucket
     is PresenceAge.Bucket.Hours -> String.format(Locale.getDefault(), groupAgeSetHours, bucket.value)
     PresenceAge.Bucket.Unknown -> null
 }
+
+/**
+ * A coarse age label for telemetry (§7).
+ *
+ * Deliberately coarser than the UI's own buckets: the question is "are riders routing to stale
+ * points", and a bucket answers it while an exact age would be a needlessly fine-grained trace of
+ * one person's session.
+ */
+fun PresenceAge.Bucket.telemetryBucket(): String = when (this) {
+    PresenceAge.Bucket.Now -> "now"
+    is PresenceAge.Bucket.Seconds -> "under_1m"
+    is PresenceAge.Bucket.Minutes -> if (value < 5) "under_5m" else "over_5m"
+    is PresenceAge.Bucket.Hours -> "over_1h"
+    PresenceAge.Bucket.Unknown -> "unknown"
+}

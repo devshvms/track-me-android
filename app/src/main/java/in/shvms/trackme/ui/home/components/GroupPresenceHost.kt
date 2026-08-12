@@ -195,3 +195,17 @@ private fun describe(
         pill.status?.severity,
     )
 }
+
+/**
+ * Coarse pause durations for §7's ops metric.
+ *
+ * Buckets, not seconds: the question is whether outages are brief blips or sustained, and a bucket
+ * answers it. An exact duration would be a finer-grained trace of one rider's connectivity than the
+ * question needs, and §7's rule is the coarsest resolution that can answer it.
+ */
+fun pauseDurationBucket(millis: Long): String = when {
+    millis < 60_000L -> "under_1m"
+    millis < 5 * 60_000L -> "under_5m"
+    millis < 30 * 60_000L -> "under_30m"
+    else -> "over_30m"
+}

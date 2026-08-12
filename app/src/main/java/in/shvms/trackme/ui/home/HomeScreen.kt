@@ -53,6 +53,7 @@ import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.domain.group.GroupPresencePolicy
 import `in`.shvms.trackme.domain.group.RiderStatusCodec
 import `in`.shvms.trackme.ui.home.components.GroupPresenceHost
+import `in`.shvms.trackme.ui.home.components.pauseDurationBucket
 import `in`.shvms.trackme.ui.home.components.SeverityBadgeMarker
 import `in`.shvms.trackme.ui.home.components.MarkerFreshness
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
@@ -568,6 +569,8 @@ fun HomeScreen(
             // still in the group had no pill row at all before this, and §2.6 of 1.7.0 is explicit
             // that the person who got a flat tyre is the one the group most needs to see.
             var groupPresencePillShown by remember { mutableStateOf(false) }
+            var pauseStartedElapsed by remember { mutableLongStateOf(0L) }
+            var pauseCause by remember { mutableStateOf("") }
             if (groupSession.isActive) {
                 // A 1 Hz tick, because `elapsedRealtime()` is not observable state: without it the
                 // pill would never appear when the threshold is crossed, and "Last shared 2m ago"
@@ -601,6 +604,30 @@ fun HomeScreen(
                 groupPresencePillShown = presencePill is GroupPresencePolicy.Pill.Paused ||
                     presencePill is GroupPresencePolicy.Pill.PausedWithUnsentAlert ||
                     presencePill is GroupPresencePolicy.Pill.NotSharing
+
+                // §7: this is the event that finally distinguishes OUR outages from riders' dead
+                // zones — today we cannot tell them apart at all. Emitted on the way OUT of a pause
+                // rather than into one, because the duration is the interesting half and it does
+                // not exist until the pause ends.
+                val pausedCause = when (presencePill) {
+                    is GroupPresencePolicy.Pill.Paused -> presencePill.cause
+                    is GroupPresencePolicy.Pill.PausedWithUnsentAlert -> presencePill.cause
+                    else -> null
+                }
+                LaunchedEffect(pausedCause) {
+                    if (pausedCause != null) {
+                        pauseStartedElapsed = SystemClock.elapsedRealtime()
+                        pauseCause = pausedCause.name.lowercase()
+                    } else if (pauseStartedElapsed > 0L) {
+                        AnalyticsManager.trackGroupPresencePaused(
+                            cause = pauseCause,
+                            durationBucket = pauseDurationBucket(
+                                SystemClock.elapsedRealtime() - pauseStartedElapsed,
+                            ),
+                        )
+                        pauseStartedElapsed = 0L
+                    }
+                }
 
                 GroupPresenceHost(
                     pill = presencePill,

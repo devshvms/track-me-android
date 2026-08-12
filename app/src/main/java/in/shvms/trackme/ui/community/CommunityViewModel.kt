@@ -3,6 +3,7 @@ package `in`.shvms.trackme.ui.community
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.data.remote.GroupSessionManager
 import `in`.shvms.trackme.data.remote.GroupSessionState
 import `in`.shvms.trackme.data.remote.GroupSessionStatus
@@ -271,7 +272,13 @@ class CommunityViewModel(
      */
     var alertsMuted: Boolean
         get() = groupSessionManager.alertsMuted
-        set(value) { groupSessionManager.alertsMuted = value }
+        set(value) {
+            groupSessionManager.alertsMuted = value
+            // §7's named falsifier. If the mute rate climbs, E3 was the wrong call and a later
+            // release demotes alerting to passive — so the one event that could overturn the
+            // decision has to actually fire.
+            if (value) AnalyticsManager.trackGroupAlert("muted")
+        }
 
     /** §2.4 — set, replace, or clear this rider's own status. */
     fun setStatus(code: String) = groupSessionManager.setStatus(code)

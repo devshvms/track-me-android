@@ -74,6 +74,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import `in`.shvms.trackme.TrackMeApp
+import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.data.remote.GroupSessionStatus
 import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
@@ -246,7 +247,10 @@ fun CommunityScreen(
                 onRemoveMember = { pendingRemoval = it },
                 onShowOnMap = onOpenHome,
                 onDirections = { member ->
-                    member.freshPosition?.let { (lat, lng) -> openDirections(context, lat, lng, strings) }
+                    member.freshPosition?.let { (lat, lng) ->
+                        AnalyticsManager.trackGroupDirectionsOpened(member.positionAge.telemetryBucket())
+                        openDirections(context, lat, lng, strings)
+                    }
                 },
                 onSetStatus = { showStatusPicker = true },
                 onToggleMute = {
