@@ -1,8 +1,11 @@
-TrackMe 1.7.1
+TrackMe 1.7.2
 
-• Fixed a map crash when opening camera views before map initialization completed.
+• Ride Together statuses: tell your group you've stopped for fuel, hit a vehicle issue, or are taking a break — without typing.
 
-• Interactive First-Run Walkthrough: New onboarding guide explaining location access, privacy options, and GPS tracking.
+• Every rider's row now shows when the group last heard from them, so you can tell "just now" from "ten minutes ago".
 
-• Play In-App Updates: Update notices now match your Play Store release track with formatted release notes.
+• Open directions to a rider's last known point.
 
+• Your own screen now tells you when the group has stopped receiving your updates.
+
+• More accurate freshness: stale positions no longer look current.

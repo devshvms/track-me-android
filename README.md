@@ -1,4 +1,4 @@
-# TrackMe 🚵‍♂️🗺️ (v1.7.1)
+# TrackMe 🚵‍♂️🗺️ (v1.7.2)
 
 ![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
@@ -7,9 +7,11 @@
 
 > **Product Vision:** TrackMe is designed to be the ultimate companion for cyclists, runners, and explorers. We believe in privacy-first tracking that seamlessly works offline, but elegantly syncs to the cloud when you want it to. Track your journey, analyze your performance, and share your adventures.
 
-## 🌟 Key Features (v1.7.1)
+## 🌟 Key Features (v1.7.2)
 
 *   **End-to-End Encrypted (E2EE) Group Rides:** Create or join group ride sessions with client-side AES-GCM-256 location & presence encryption. Group decryption keys (`#k=...`) remain in the URI fragment and are never shared with servers.
+*   **Rider Status (1.7.2):** Say what is happening — a fuel stop, a vehicle issue, a break — as a structured code whose severity is readable without knowing the message, so an older client renders a newer status at the right urgency instead of dropping it. Statuses travel in their own encrypted slot, so a rider whose location permission is revoked can still be heard.
+*   **Honest freshness (1.7.2):** Every roster row carries how long ago the group last heard from that member, anchored to the relay's clock and advanced on a monotonic one — no device wall clock enters the answer. Home says plainly when the group has stopped receiving your updates.
 *   **Live Member Roster & Presence Tracking:** Real-time presence status (active, paused, left) and live locations of group members rendered smoothly on HUD and map controls.
 *   **Leader Controls & Universal Invite Links:** Session leaders can edit ride destination and start time, remove members, or end the group session seamlessly. Deep link opening via `/g/{code}#k={key}` with Android Digital Asset Links & fallback support.
 *   **Production-Grade Firestore Security Lockdown:** Enforces strict user-isolated access control lists (`firestore.rules`) validating `uid`-based ownership across all user data, ride histories, emergency contacts, and feedback submissions.
