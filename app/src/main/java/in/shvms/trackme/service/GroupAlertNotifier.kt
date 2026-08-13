@@ -124,12 +124,19 @@ class GroupAlertNotifier(private val context: Context) {
         } ?: return
         if (!vibrator.hasVibrator()) return
 
-        val effect = if (raised) {
-            VibrationEffect.createWaveform(longArrayOf(0, 220, 130, 220), -1)
-        } else {
-            VibrationEffect.createOneShot(120, VibrationEffect.DEFAULT_AMPLITUDE)
+        // minSdk is 24 and VibrationEffect arrived in 26, so the modern path has to be guarded.
+        // Caught by lint rather than by testing: the alert haptic is the one code path that only
+        // runs when someone is in trouble, so an unguarded call here would have crashed the
+        // tracking service on Android 7 at the exact moment the feature mattered most.
+        val pattern = if (raised) longArrayOf(0, 220, 130, 220) else longArrayOf(0, 120)
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(pattern, -1)
+            }
         }
-        runCatching { vibrator.vibrate(effect) }
     }
 
     private fun notificationId(uid: String): Int = NOTIFICATION_ID_BASE + (uid.hashCode() and 0xFFFF)

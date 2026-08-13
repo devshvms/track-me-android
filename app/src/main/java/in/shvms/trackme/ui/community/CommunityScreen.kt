@@ -53,7 +53,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.foundation.layout.heightIn
 import `in`.shvms.trackme.domain.group.MemberDirections
 import `in`.shvms.trackme.ui.home.components.formatRemaining
 import `in`.shvms.trackme.domain.group.PresenceAge
