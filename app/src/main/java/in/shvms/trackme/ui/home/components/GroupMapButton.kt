@@ -52,7 +52,19 @@ import java.util.Locale
 @Composable
 fun GroupMapButton(
     session: GroupSessionState,
+    /**
+     * Everyone in the group, **including you** — this is a headcount, and a group of two that reads
+     * "1" looks like a bug rather than a definition.
+     */
     memberCount: Int,
+    /**
+     * How many people can see you — everyone **except** you.
+     *
+     * Deliberately a second parameter rather than a derivation of [memberCount]: they are genuinely
+     * different numbers, and §5.1.7 wants the spoken consent sentence to state the audience, not the
+     * headcount. Sharing one value made the badge and TalkBack disagree about which was meant.
+     */
+    audienceCount: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -62,7 +74,7 @@ fun GroupMapButton(
     val remaining = session.expiresAtMillis - System.currentTimeMillis()
     val summary = groupPresenceSummary(
         session = session,
-        memberCount = memberCount,
+        memberCount = audienceCount,
         remainingMillis = remaining,
         timeLeftFormat = strings.groupTimeLeft,
         visibleUntilFormat = strings.groupVisibleUntil,

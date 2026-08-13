@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import java.time.Instant
 import java.time.Duration
+import android.os.SystemClock
 import kotlinx.coroutines.delay
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -49,6 +50,12 @@ import `in`.shvms.trackme.ui.home.components.RadialStartRideButton
 import `in`.shvms.trackme.ui.home.components.ActiveRideHudPanel
 import `in`.shvms.trackme.ui.components.animateSafely
 import `in`.shvms.trackme.ui.components.rememberIsOffline
+import `in`.shvms.trackme.domain.group.GroupPresencePolicy
+import `in`.shvms.trackme.domain.group.RiderStatusCodec
+import `in`.shvms.trackme.ui.home.components.GroupPresenceHost
+import `in`.shvms.trackme.ui.home.components.pauseDurationBucket
+import `in`.shvms.trackme.ui.home.components.SeverityBadgeMarker
+import `in`.shvms.trackme.ui.home.components.MarkerFreshness
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
 import `in`.shvms.trackme.ui.home.components.GroupMapButton
@@ -496,6 +503,24 @@ fun HomeScreen(
                         val roster = groupSession.roster.firstOrNull { it.uid == member.uid }
                         val name = roster?.displayName ?: strings.groupStatusRiding
                         val age = MemberMarkerPolicy.ageMinutes(member.serverTsMillis, nowMs)
+                        // §3.5, A37: the badge is a SEPARATE marker, never part of the avatar
+                        // bitmap. §3.3 of 1.7.0 builds that bitmap once per member per session and
+                        // is emphatic about why; tinting it by status would make it
+                        // status-dependent and reintroduce exactly the per-change rebuild that rule
+                        // exists to prevent. Badge bitmaps are cached by SEVERITY alone, so three
+                        // serve the whole session however large the group.
+                        val memberStatus = groupSession.statuses
+                            .firstOrNull { it.uid == member.uid }
+                            ?.let { RiderStatusCodec.parse(it.code) }
+
+                        memberStatus?.let { parsed ->
+                            SeverityBadgeMarker(
+                                uid = member.uid,
+                                position = point,
+                                severity = parsed.severity,
+                                dimmed = freshness == MarkerFreshness.STALE,
+                            )
+                        }
 
                         Marker(
                             state = rememberMarkerState(key = member.uid, position = point),
@@ -539,6 +564,82 @@ fun HomeScreen(
             val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
             val isOffline = rememberIsOffline()
 
+            // **A29**: renders whenever the session is active, independent of `ActiveRideHudPanel`
+            // — which only exists when tracking is not IDLE. A rider who stopped their ride but is
+            // still in the group had no pill row at all before this, and §2.6 of 1.7.0 is explicit
+            // that the person who got a flat tyre is the one the group most needs to see.
+            var groupPresencePillShown by remember { mutableStateOf(false) }
+            var pauseStartedElapsed by remember { mutableLongStateOf(0L) }
+            var pauseCause by remember { mutableStateOf("") }
+            if (groupSession.isActive) {
+                // A 1 Hz tick, because `elapsedRealtime()` is not observable state: without it the
+                // pill would never appear when the threshold is crossed, and "Last shared 2m ago"
+                // would freeze until some unrelated recomposition happened to occur. The map's
+                // markers already tick at this rate for the same reason (HomeScreen.kt:408), so the
+                // pill's age and the markers' ages advance together rather than drifting apart.
+                var presenceTick by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+                LaunchedEffect(groupSession.isActive) {
+                    while (groupSession.isActive) {
+                        presenceTick = SystemClock.elapsedRealtime()
+                        delay(1_000L)
+                    }
+                }
+                val presencePill = GroupPresencePolicy.evaluate(
+                    GroupPresencePolicy.Input(
+                        sessionActive = true,
+                        sessionStartedElapsed = groupSession.sessionStartedElapsed,
+                        lastSuccessfulSyncElapsed = groupSession.lastSuccessfulSyncElapsed,
+                        lastOwnPositionAckElapsed = groupSession.lastOwnPositionAckElapsed,
+                        lastFailureKind = groupSession.lastSyncFailureKind,
+                        isSharingPosition = groupSession.isSharingPosition,
+                        isRideRecording = uiState.trackingState != TrackingState.IDLE,
+                        selfStatus = groupSession.selfStatusCode?.let { RiderStatusCodec.parse(it) },
+                        selfStatusAcknowledged = groupSession.selfStatusAcknowledged,
+                        syncIntervalSec = groupSession.syncIntervalSec,
+                        nowElapsed = presenceTick,
+                    ),
+                )
+                // The shield is suppressed only for the states that contradict it — a status
+                // reminder says nothing about connectivity and must not silence it.
+                groupPresencePillShown = presencePill is GroupPresencePolicy.Pill.Paused ||
+                    presencePill is GroupPresencePolicy.Pill.PausedWithUnsentAlert ||
+                    presencePill is GroupPresencePolicy.Pill.NotSharing
+
+                // §7: this is the event that finally distinguishes OUR outages from riders' dead
+                // zones — today we cannot tell them apart at all. Emitted on the way OUT of a pause
+                // rather than into one, because the duration is the interesting half and it does
+                // not exist until the pause ends.
+                val pausedCause = when (presencePill) {
+                    is GroupPresencePolicy.Pill.Paused -> presencePill.cause
+                    is GroupPresencePolicy.Pill.PausedWithUnsentAlert -> presencePill.cause
+                    else -> null
+                }
+                LaunchedEffect(pausedCause) {
+                    if (pausedCause != null) {
+                        pauseStartedElapsed = SystemClock.elapsedRealtime()
+                        pauseCause = pausedCause.name.lowercase()
+                    } else if (pauseStartedElapsed > 0L) {
+                        AnalyticsManager.trackGroupPresencePaused(
+                            cause = pauseCause,
+                            durationBucket = pauseDurationBucket(
+                                SystemClock.elapsedRealtime() - pauseStartedElapsed,
+                            ),
+                        )
+                        pauseStartedElapsed = 0L
+                    }
+                }
+
+                GroupPresenceHost(
+                    pill = presencePill,
+                    strings = strings,
+                    onOpenCommunity = onOpenCommunity,
+                    onClearStatus = { app.groupSessionManager.clearStatus() },
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = topPadding + 16.dp),
+                )
+            }
+
             Column(
 
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = topPadding + 80.dp, end = 12.dp),
@@ -550,7 +651,13 @@ fun HomeScreen(
                 // roster, where Leave lives.
                 GroupMapButton(
                     session = groupSession,
-                    memberCount = (groupSession.roster.size - 1).coerceAtLeast(0),
+                    // The badge counts EVERYONE in the group, you included. It was showing
+                    // others-only, so a group of two read "1" — which looks like a bug rather than
+                    // a definition. The accessibility sentence still says "visible to N people",
+                    // where N deliberately excludes you, because audience and headcount are
+                    // genuinely different numbers.
+                    memberCount = groupSession.roster.size.coerceAtLeast(0),
+                    audienceCount = (groupSession.roster.size - 1).coerceAtLeast(0),
                     onClick = onOpenCommunity,
                 )
 
@@ -790,6 +897,7 @@ fun HomeScreen(
                     isAuthenticated = uiState.isAuthenticated,
                     liveShareAuthRequired = strings.liveShareAuthRequired,
                     isOffline = isOffline,
+                    groupPresencePillShown = groupPresencePillShown,
                     onPauseToggle = {
                         if (uiState.trackingState == TrackingState.TRACKING) {
                             viewModel.pauseTracking()

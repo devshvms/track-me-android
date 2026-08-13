@@ -94,6 +94,15 @@ fun ActiveRideHudPanel(
     isAuthenticated: Boolean,
     liveShareAuthRequired: String,
     isOffline: Boolean = false,
+    /**
+     * True while the group-presence host (A29) is already showing a paused state.
+     *
+     * §2.5: the green shield is correct about the ride and badly wrong about the group — it
+     * reassures at the exact moment the group stopped receiving updates. In Group Mode it is
+     * **replaced**, not accompanied; two contradictory pills is worse than either. Outside Group
+     * Mode it is unchanged and still correct.
+     */
+    groupPresencePillShown: Boolean = false,
     onPauseToggle: () -> Unit,
 
     onStopRide: () -> Unit,
@@ -231,7 +240,7 @@ fun ActiveRideHudPanel(
             }
 
             // Offline Shield Pill
-            if (isOffline) {
+            if (isOffline && !groupPresencePillShown) {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     // C1: semantic — "shield active" is a positive state, not brand accent.

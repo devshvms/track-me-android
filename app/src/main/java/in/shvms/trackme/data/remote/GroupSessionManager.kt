@@ -2,6 +2,10 @@ package `in`.shvms.trackme.data.remote
 
 import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.data.crypto.GroupCrypto
+import `in`.shvms.trackme.domain.group.AlertPolicy
+import `in`.shvms.trackme.domain.group.GroupPresencePolicy
+import `in`.shvms.trackme.domain.group.RiderStatusCodec
+import android.os.SystemClock
 import `in`.shvms.trackme.data.local.GroupSessionStore
 import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.analytics.GroupJoinFailure
@@ -87,6 +91,32 @@ data class GroupSessionState(
      * way for this feature to be wrong.
      */
     val isSharingPosition: Boolean = false,
+
+    // --- SCOPE_1.7.2 -----------------------------------------------------------------------
+
+    /** Other members' statuses, raw. Parsing is `RiderStatusCodec`'s job (§4.2). */
+    val statuses: List<GroupWire.MemberStatus> = emptyList(),
+    /** This rider's own status code, or null. Survives process death via `GroupSessionStore`. */
+    val selfStatusCode: String? = null,
+    /** False until the relay echoes our status back. Drives `Not sent yet` — never optimistic. */
+    val selfStatusAcknowledged: Boolean = false,
+    /**
+     * The relay's clock from the last sync, and the anchor every age is measured against (**A32**).
+     * Zero when the relay predates the field, in which case callers fall back to the device clock.
+     */
+    val serverNowMillis: Long = 0L,
+    /** `SystemClock.elapsedRealtime()` alongside [serverNowMillis]. */
+    val syncReceivedAtElapsed: Long = 0L,
+    /** When this session became active. The staleness reference before any sync has succeeded. */
+    val sessionStartedElapsed: Long = 0L,
+    /** Last valid authenticated sync response. Drives the Home pill (§4.5). */
+    val lastSuccessfulSyncElapsed: Long? = null,
+    /**
+     * Last time the relay **accepted a new position** — not the same fact as a successful sync.
+     * Drives "Last shared" (§4.4); a healthy network with a frozen GPS must not read as fresh.
+     */
+    val lastOwnPositionAckElapsed: Long? = null,
+    val lastSyncFailureKind: GroupPresencePolicy.FailureKind? = null,
 ) {
     val isActive: Boolean
         get() = status == GroupSessionStatus.PREPARING ||
@@ -182,6 +212,50 @@ class GroupSessionManager(
     @Volatile private var pendingPosition: String? = null
 
     /**
+     * The sealed status envelope waiting to be acknowledged, and the monotonic instant it was set.
+     *
+     * **The envelope is retained, not re-sealed on retry.** A34's idempotency rule keys on the
+     * relay seeing byte-identical ciphertext; re-sealing would mint a fresh nonce, the relay would
+     * treat it as new, and the status would get *younger* every time the network flapped. The
+     * natural implementation re-seals, which is exactly why this is a field rather than a
+     * recomputation.
+     */
+    @Volatile private var pendingStatusEnvelope: String? = null
+    @Volatile private var pendingStatusOp: String = ""
+    @Volatile private var selfStatusSetAtElapsed: Long = 0L
+    @Volatile private var selfStatusBootEpoch: Long = 0L
+
+    /**
+     * The relay's timestamp on our own last accepted position.
+     *
+     * Needed because A34 deliberately does *not* advance that timestamp for an unchanged resend —
+     * so comparing against the previous value is the only way to tell a fresh acceptance from an
+     * idempotent echo.
+     */
+    @Volatile private var lastOwnPositionServerTs: Long = 0L
+
+    /** Holds a severity-1 status back for its undo window (O12). */
+    private var undoJob: Job? = null
+
+    /**
+     * What each member's status was on the previous sync, and whether *this device* raised an alert
+     * for it — §5.2's "once per transition" rule and §3.7's "only people who saw the alarm see the
+     * resolution", both of which need memory the sync response does not carry.
+     *
+     * Sync is a **state** snapshot, not an event stream: without this, the same "Need help" arriving
+     * every ten seconds would re-alert every ten seconds, which is the fastest way to make the tier
+     * worthless.
+     */
+    private val lastSeenStatus = mutableMapOf<String, String?>()
+    private val alertRaisedFor = mutableSetOf<String>()
+
+    /** Set by the UI (§5.2). Session-scoped, because a group is ephemeral by construction. */
+    @Volatile var alertsMuted: Boolean = false
+
+    /** Wired by the service so the domain layer never learns what a notification is. */
+    @Volatile var onAlertSignal: ((AlertPolicy.Signal, String, String) -> Unit)? = null
+
+    /**
      * Progress toward the group's destination, when one was set.
      *
      * §2.9's payoff: the estimator ships dark but MEASURED. Without this the calibration event
@@ -219,7 +293,15 @@ class GroupSessionManager(
                 maxMembers = record.maxMembers,
                 rev = record.rev,
                 degradedSince = System.currentTimeMillis(),
+                sessionStartedElapsed = SystemClock.elapsedRealtime(),
+                // A restored status outlives process death (§4.4). Its age may not — the boot epoch
+                // is what decides that, and `statusAgeSeconds()` checks it before every send.
+                selfStatusCode = record.statusCode,
+                selfStatusAcknowledged = false,
             )
+            selfStatusSetAtElapsed = record.statusSetAtElapsed
+            selfStatusBootEpoch = record.statusBootEpoch
+            record.statusCode?.let { resealPendingStatus(it) }
             startSyncLoop()
             true
         } catch (e: Exception) {
@@ -288,6 +370,7 @@ class GroupSessionManager(
             _state.value = GroupSessionState(
                 status = GroupSessionStatus.PREPARING,
                 joinedAtMillis = System.currentTimeMillis(),
+                sessionStartedElapsed = SystemClock.elapsedRealtime(),
                 groupId = created.groupId,
                 joinCode = created.joinCode,
                 inviteToken = token,
@@ -417,6 +500,7 @@ class GroupSessionManager(
             _state.value = GroupSessionState(
                 status = statusFor(joined.state),
                 joinedAtMillis = System.currentTimeMillis(),
+                sessionStartedElapsed = SystemClock.elapsedRealtime(),
                 groupId = joined.groupId,
                 joinCode = joinCode,
                 inviteToken = token,
@@ -443,6 +527,39 @@ class GroupSessionManager(
 
     /** Leader-only: `PREPARING → LIVE`. */
     suspend fun startGroup(): Result<Unit> = setState("LIVE")
+
+    /** A sealed meta envelope plus the plaintext start time it carries, so the caller can adopt it. */
+    private data class StartMeta(val envelope: String, val startAtMillis: Long)
+
+    /**
+     * Re-seals the group meta with the tap time as the start, when none was scheduled (A40).
+     *
+     * Returns null when a start time already exists — an explicitly scheduled time is the leader's
+     * plan and must not be overwritten by when they happened to press the button — or when this
+     * client is not the leader, since meta is theirs to write.
+     */
+    private fun sealStartMetaIfMissing(): StartMeta? {
+        val session = _state.value
+        if (!session.isLeader || session.startAtMillis != null) return null
+        val key = groupKey ?: return null
+        val startedAt = System.currentTimeMillis()
+        return runCatching {
+            StartMeta(
+                envelope = GroupCrypto.seal(
+                    key,
+                    GroupWire.encodeMeta(
+                        name = session.groupName.orEmpty(),
+                        ownerDisplayName = null,
+                        destLat = session.destinationLat,
+                        destLng = session.destinationLng,
+                        startAtMillis = startedAt,
+                    ),
+                    GroupCrypto.Purpose.Meta,
+                ),
+                startAtMillis = startedAt,
+            )
+        }.getOrNull()
+    }
 
     /** Leader-only: ends the group for everyone and deletes all server-side state. */
     suspend fun endGroup(): Result<Unit> {
@@ -567,12 +684,42 @@ class GroupSessionManager(
     private suspend fun setState(next: String): Result<Unit> = withContext(Dispatchers.IO) {
         val groupId = _state.value.groupId ?: return@withContext Result.failure(Exception("Not in a group."))
         try {
-            post(
+            // A40: when the group has no scheduled start, the tap time IS the start time, and it
+            // must ride along INSIDE the state request. Doing it as a second meta call afterwards
+            // left a window where the group was LIVE with no start time — and if that second call
+            // failed, permanently so. The relay commits the meta and the revision bump inside the
+            // same compare-and-swap, so either both land or neither does.
+            val startMeta = if (next == "LIVE") sealStartMetaIfMissing() else null
+
+            val body = post(
                 AppConfig.GROUP_STATE_ENDPOINT,
-                JSONObject().put("groupId", groupId).put("state", next).toString(),
+                JSONObject()
+                    .put("groupId", groupId)
+                    .put("state", next)
+                    .apply { startMeta?.let { put("meta", it.envelope) } }
+                    .toString(),
             )
             if (next == "LIVE") {
-                _state.value = _state.value.copy(status = GroupSessionStatus.LIVE)
+                val json = runCatching { JSONObject(body) }.getOrNull()
+                // The relay restarts the countdown at LIVE so it measures the ride rather than the
+                // wait before it. Adopt the new expiry now instead of showing the creation-time one
+                // until the next sync — the leader is looking at the timer as they tap Start.
+                val restarted = json?.optLong("expiresAt", 0L) ?: 0L
+                val committedRev = json?.optInt("rev", -1) ?: -1
+                val metaCommitted = json?.optBoolean("metaUpdated", false) ?: false
+
+                _state.value = _state.value.copy(
+                    status = GroupSessionStatus.LIVE,
+                    expiresAtMillis = restarted.takeIf { it > 0L } ?: _state.value.expiresAtMillis,
+                    rev = committedRev.takeIf { it >= 0 } ?: _state.value.rev,
+                    // Only claim the start time locally once the relay says it committed it. An
+                    // optimistic write here would show a start time the group never received.
+                    startAtMillis = if (metaCommitted && startMeta != null) {
+                        startMeta.startAtMillis
+                    } else {
+                        _state.value.startAtMillis
+                    },
+                )
                 AnalyticsManager.trackGroupStarted(_state.value.roster.size)
             }
             Result.success(Unit)
@@ -657,6 +804,215 @@ class GroupSessionManager(
      * Only meaningful while in a group — outside one, "not sharing" is not a warning, it is the
      * normal state.
      */
+    // --- Rider status (§2.4, §3.7) ---------------------------------------------------------------
+
+    /**
+     * Turns a sync response into at most one signal per member (§5.2, §3.8).
+     *
+     * Deliberately here rather than in the UI: the sync loop runs in the tracking service, which is
+     * alive with the screen off — and a status nobody notices while riding is decoration.
+     */
+    private fun evaluateAlerts(result: GroupWire.SyncResult, selfUid: String, receivedAt: Long) {
+        val session = _state.value
+        val incoming = result.statuses.associateBy { it.uid }
+        val sinceJoin = if (session.sessionStartedElapsed > 0L) {
+            receivedAt - session.sessionStartedElapsed
+        } else {
+            Long.MAX_VALUE
+        }
+
+        val seen = mutableSetOf<String>()
+        for (entry in session.roster) {
+            val memberUid = entry.uid
+            seen += memberUid
+            val currentCode = incoming[memberUid]?.code
+            val previousCode = lastSeenStatus[memberUid]
+            if (currentCode == previousCode) continue
+
+            val current = currentCode?.let { RiderStatusCodec.parse(it) }
+            val previous = previousCode?.let { RiderStatusCodec.parse(it) }
+
+            // Freshness of their POSITION, not of their status — an alert riding on a
+            // four-minute-old fix is history, not news.
+            val position = result.positions.firstOrNull { it.uid == memberUid }
+            val stale = position == null || result.serverNowMillis <= 0L ||
+                (result.serverNowMillis - position.serverTsMillis) >=
+                (session.syncIntervalSec.coerceAtLeast(1) * 2L * 1000L)
+
+            val signal = AlertPolicy.signalFor(
+                AlertPolicy.Input(
+                    memberUid = memberUid,
+                    selfUid = selfUid,
+                    previous = previous,
+                    current = current,
+                    raisedForPrevious = memberUid in alertRaisedFor,
+                    senderStale = stale,
+                    muted = alertsMuted,
+                    millisSinceJoin = sinceJoin,
+                ),
+            )
+
+            when (signal) {
+                AlertPolicy.Signal.ALERT_RAISED -> {
+                    alertRaisedFor += memberUid
+                    AnalyticsManager.trackGroupAlert("shown")
+                }
+                AlertPolicy.Signal.ALERT_RESOLVED -> alertRaisedFor -= memberUid
+                AlertPolicy.Signal.NONE -> Unit
+            }
+            lastSeenStatus[memberUid] = currentCode
+
+            if (signal != AlertPolicy.Signal.NONE) {
+                val name = entry.displayName ?: entry.initials ?: ""
+                val code = (current ?: previous)?.code.orEmpty()
+                onAlertSignal?.invoke(signal, name, code)
+            }
+        }
+        // A member who left takes their history with them, so rejoining is a clean slate rather
+        // than a suppressed alert.
+        lastSeenStatus.keys.retainAll(seen)
+        alertRaisedFor.retainAll(seen)
+    }
+
+    private fun selfStatusCodeOrNull(): String? = _state.value.selfStatusCode
+
+    /**
+     * Re-seals a status restored from disk, so it can be re-sent after process death.
+     *
+     * This is the one place a re-seal is correct: the envelope bytes did not survive the restart,
+     * so there is nothing to resend idempotently — unlike a retry, where re-sealing would make the
+     * status get younger every time the network flapped (A34). The age comes from
+     * [statusAgeSeconds], which returns null when a reboot voided the monotonic base.
+     */
+    private fun resealPendingStatus(code: String) {
+        val key = groupKey ?: return
+        val uid = currentUid() ?: return
+        pendingStatusEnvelope = try {
+            GroupCrypto.seal(
+                key,
+                GroupWire.encodeStatus(code, statusAgeSeconds()),
+                GroupCrypto.Purpose.Status(uid),
+            )
+        } catch (e: Exception) {
+            null
+        }
+        if (pendingStatusEnvelope != null) pendingStatusOp = "set"
+    }
+
+    /**
+     * Sets or replaces this rider's status.
+     *
+     * Works with no position, no GPS fix, and no location permission — that independence is the
+     * entire reason status has its own slot (§4.7), and the rider who cannot share a position is
+     * precisely the one most likely to need the alert tier.
+     *
+     * The envelope is sealed **once, here**, and the same bytes are resent until the relay
+     * acknowledges (A34). `stAge` is measured from a monotonic clock, so it is a duration rather
+     * than an instant and a skewed device clock cannot distort it.
+     */
+    fun setStatus(code: String) {
+        val key = groupKey ?: return
+        val uid = currentUid() ?: return
+        if (RiderStatusCodec.parse(code) == null) return
+
+        val now = SystemClock.elapsedRealtime()
+        selfStatusSetAtElapsed = now
+        selfStatusBootEpoch = System.currentTimeMillis() - now
+        pendingStatusEnvelope = try {
+            GroupCrypto.seal(key, GroupWire.encodeStatus(code, 0L), GroupCrypto.Purpose.Status(uid))
+        } catch (e: Exception) {
+            null
+        }
+        if (pendingStatusEnvelope == null) return
+
+        // O12 / §3.3 — undo beats confirm. The status shows locally at once, but for severity 1 the
+        // outbound write is HELD for a few seconds, so a mis-tap never leaves the device and no
+        // notification fires that would then have to be un-rung. It costs nothing that matters: the
+        // sync interval is ~10s, so the hold sits inside jitter riders already experience, and in
+        // the common case adds zero latency because the next sync had not fired yet.
+        //
+        // Tiers 2 and 3 go immediately — they raise no notification, so there is nothing to buy.
+        val parsed = RiderStatusCodec.parse(code)
+        val holdMillis = if (parsed?.isAlert == true) ALERT_UNDO_WINDOW_MS else 0L
+        pendingStatusOp = if (holdMillis > 0L) "" else "set"
+        _state.value = _state.value.copy(selfStatusCode = code, selfStatusAcknowledged = false)
+        persistStatus(code)
+        parsed?.let { AnalyticsManager.trackGroupStatusSet(it.severity.digit) }
+
+        if (holdMillis > 0L) {
+            undoJob?.cancel()
+            undoJob = scope.launch {
+                delay(holdMillis)
+                // Still the same status? Then the rider meant it, and it goes.
+                if (_state.value.selfStatusCode == code) pendingStatusOp = "set"
+            }
+        }
+    }
+
+    /**
+     * Withdraws a status inside its undo window (§3.7).
+     *
+     * **This is not a clear.** Nothing was sent, so there is nothing to withdraw from the relay and
+     * no resolution to broadcast — the status simply never existed for anyone else.
+     */
+    fun undoStatus() {
+        undoJob?.cancel()
+        undoJob = null
+        pendingStatusEnvelope = null
+        pendingStatusOp = ""
+        selfStatusSetAtElapsed = 0L
+        selfStatusBootEpoch = 0L
+        _state.value = _state.value.copy(selfStatusCode = null, selfStatusAcknowledged = false)
+        persistStatus(null)
+    }
+
+    /**
+     * Clears this rider's status.
+     *
+     * An explicit relay op, not an absent field — absence has to mean "unchanged" so a status
+     * survives syncs that carry nothing new. Until the relay confirms, the UI reads `Clearing…`:
+     * a rider who believes they have withdrawn "Need help" while the group still sees it is the
+     * same class of failure as one who believes they are sharing when they are not.
+     */
+    fun clearStatus() {
+        undoJob?.cancel()
+        undoJob = null
+        AnalyticsManager.trackGroupStatusCleared(byUser = true)
+        pendingStatusEnvelope = null
+        pendingStatusOp = "clear"
+        selfStatusSetAtElapsed = 0L
+        selfStatusBootEpoch = 0L
+        _state.value = _state.value.copy(selfStatusCode = null, selfStatusAcknowledged = false)
+        persistStatus(null)
+    }
+
+    /**
+     * How long this rider has held their status, in whole seconds, or null when that is unknowable.
+     *
+     * Monotonic clocks survive process death but **reset across reboot**, so a persisted elapsed
+     * value is meaningless afterwards. `bootEpoch` (wall clock minus elapsed, stable within a boot)
+     * detects that. When it has moved, the honest answer is that we know *what* they said and not
+     * *when* — so the age is dropped rather than fabricated, and the status itself is kept, because
+     * dropping a "Need help" because we lost its clock would be far worse than either.
+     */
+    private fun statusAgeSeconds(): Long? {
+        if (selfStatusSetAtElapsed <= 0L) return null
+        val currentBootEpoch = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+        if (kotlin.math.abs(currentBootEpoch - selfStatusBootEpoch) > BOOT_EPOCH_TOLERANCE_MS) return null
+        return (SystemClock.elapsedRealtime() - selfStatusSetAtElapsed) / 1000L
+    }
+
+    private fun persistStatus(code: String?) {
+        val record = store.load() ?: return
+        store.save(
+            record.copy(
+                statusCode = code,
+                statusSetAtElapsed = selfStatusSetAtElapsed,
+                statusBootEpoch = selfStatusBootEpoch,
+            ),
+        )
+    }
+
     private fun markSharing(sharing: Boolean) {
         val current = _state.value
         if (current.isActive && current.isSharingPosition != sharing) {
@@ -699,12 +1055,30 @@ class GroupSessionManager(
                         status = GroupSessionStatus.DEGRADED,
                         consecutiveFailures = failures,
                         degradedSince = _state.value.degradedSince ?: System.currentTimeMillis(),
+                        // Names the pill's explanation only, never whether there is a problem —
+                        // that is decided by the sync having gone unanswered (§4.5).
+                        lastSyncFailureKind = failureKindFor(failure),
                     )
                     GroupBackoff.delayMillis(failures)
                 }
                 if (delayMs <= 0L) break
                 delay(delayMs)
             }
+        }
+    }
+
+    /**
+     * Which sentence the Home pill uses. §4.5: the cause selects the remedy — "check your signal"
+     * versus "wait, it's ours" — and getting it backwards blames the rider for our outage.
+     */
+    private fun failureKindFor(failure: Throwable): GroupPresencePolicy.FailureKind {
+        val status = (failure as? GroupHttpException)?.statusCode
+        return when {
+            status == 401 || status == 403 -> GroupPresencePolicy.FailureKind.AUTH
+            status != null && status >= 500 -> GroupPresencePolicy.FailureKind.SERVICE_UNAVAILABLE
+            failure is GroupWire.WireException -> GroupPresencePolicy.FailureKind.PROTOCOL
+            failure is java.io.IOException -> GroupPresencePolicy.FailureKind.NO_INTERNET
+            else -> GroupPresencePolicy.FailureKind.SERVICE_UNAVAILABLE
         }
     }
 
@@ -729,6 +1103,12 @@ class GroupSessionManager(
             // roster we actually hold, rather than by the revision we were told, is self-correcting
             // — it also recovers a roster lost to a restore, a decrypt failure, or a dropped sync.
             put("rev", if (current.roster.isEmpty()) FORCE_ROSTER_REV else current.rev)
+            // §4.7: an empty op means "unchanged", which is why clearing has to be explicit rather
+            // than an absent field — a status must survive every sync that carries no new one.
+            if (pendingStatusOp.isNotEmpty()) {
+                put("statusOp", pendingStatusOp)
+                pendingStatusEnvelope?.let { put("status", it) }
+            }
         }
 
         val result = GroupWire.parseSync(post(AppConfig.GROUP_SYNC_ENDPOINT, body.toString()), key, uid)
@@ -739,6 +1119,34 @@ class GroupSessionManager(
         }
 
         store.updateRev(result.rev)
+        val receivedAt = SystemClock.elapsedRealtime()
+
+        // A13's echo, finally read. The relay returns our own entry deliberately — it is the only
+        // proof a client has that its push landed — and 1.7.0 discarded it. Comparing what came back
+        // with what we sent is what separates "the relay is reachable" from "the relay took my
+        // position", which the Home pill and the self roster row need to tell apart (§4.4).
+        // A34 makes an unchanged resend keep its original relay timestamp, so "the relay echoed a
+        // position back" is NOT the same as "the relay accepted a new one". Only a timestamp that
+        // actually moved proves the group has something newer about us — anything looser would put
+        // the frozen-GPS lie back on the self row after we just removed it from the map.
+        val ownTs = result.ownPosition?.serverTsMillis ?: 0L
+        val positionAccepted = ownTs > 0L && ownTs > lastOwnPositionServerTs
+        if (positionAccepted) lastOwnPositionServerTs = ownTs
+        val statusAcknowledged = when {
+            pendingStatusOp == "clear" -> result.ownStatus == null
+            pendingStatusOp == "set" -> result.ownStatus?.code == RiderStatusCodec.parse(
+                selfStatusCodeOrNull(),
+            )?.code
+            else -> current.selfStatusAcknowledged || result.ownStatus != null
+        }
+        // Stop retrying only once the relay agrees with us. Until then the same bytes go again.
+        if (statusAcknowledged) {
+            pendingStatusOp = ""
+            pendingStatusEnvelope = null
+        }
+
+        evaluateAlerts(result, uid, receivedAt)
+
         _state.value = current.copy(
             status = statusFor(result.state),
             expiresAtMillis = result.expiresAtMillis.takeIf { it > 0 } ?: current.expiresAtMillis,
@@ -757,6 +1165,13 @@ class GroupSessionManager(
             syncIntervalSec = result.nextSyncInSec.coerceAtLeast(1),
             consecutiveFailures = 0,
             degradedSince = null,
+            statuses = result.statuses,
+            selfStatusAcknowledged = statusAcknowledged,
+            serverNowMillis = result.serverNowMillis,
+            syncReceivedAtElapsed = receivedAt,
+            lastSuccessfulSyncElapsed = receivedAt,
+            lastOwnPositionAckElapsed = if (positionAccepted) receivedAt else current.lastOwnPositionAckElapsed,
+            lastSyncFailureKind = null,
         )
         return GroupBackoff.nextDelayMillis(0, result.nextSyncInSec)
     }
@@ -951,6 +1366,22 @@ class GroupSessionManager(
     companion object {
         /** No real revision is negative, so this always reads as stale and forces a roster send. */
         const val FORCE_ROSTER_REV = -1
+
+        /**
+         * How far the derived boot epoch may drift before the monotonic base is treated as void.
+         *
+         * Generous on purpose: NTP corrections of a second or two are routine and must not be
+         * mistaken for a reboot, while an actual reboot moves this by the length of the uptime.
+         */
+        const val BOOT_EPOCH_TOLERANCE_MS = 10_000L
+
+        /**
+         * How long a severity-1 status is held before it is allowed onto the wire (O12).
+         *
+         * Well inside the ~10s sync interval, so it is invisible in the common case and buys a
+         * mis-tap that never reaches another device.
+         */
+        const val ALERT_UNDO_WINDOW_MS = 4_000L
 
         /**
          * First letter of the first and last word — §3.3's rule. Kept here rather than in the UI

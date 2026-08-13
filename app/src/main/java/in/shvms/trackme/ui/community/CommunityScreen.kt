@@ -1,5 +1,11 @@
 package `in`.shvms.trackme.ui.community
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -44,7 +51,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import `in`.shvms.trackme.domain.group.MemberDirections
+import `in`.shvms.trackme.ui.home.components.formatRemaining
+import `in`.shvms.trackme.domain.group.PresenceAge
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.PersonRemove
+import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +74,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import `in`.shvms.trackme.TrackMeApp
+import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.data.remote.GroupSessionStatus
 import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
@@ -99,6 +122,11 @@ fun CommunityScreen(
     var pendingRemoval by remember { mutableStateOf<RosterMember?>(null) }
     var showEdit by remember { mutableStateOf(false) }
     var prefilledCode by remember { mutableStateOf<String?>(null) }
+    var showStatusPicker by remember { mutableStateOf(false) }
+    // §5.2's per-group mute. Session-scoped on purpose: it mutes interruption for this group, and a
+    // group is ephemeral by construction — carrying it across groups would silence a future one the
+    // rider never chose to silence.
+    var alertsMuted by remember(state.session.groupId) { mutableStateOf(viewModel.alertsMuted) }
 
     // An invite that arrived from a shared link (§2.4's growth loop).
     //
@@ -168,23 +196,42 @@ fun CommunityScreen(
         val endNotice by viewModel.endNotice.collectAsStateCompat()
         Column(modifier = Modifier.fillMaxSize()) {
             endNotice?.let { notice ->
+                // Rebuilt after device testing: this was a tall card whose text sat left while its
+                // only button floated right, with 16dp of its own padding on top of the page's — so it
+                // used a third of the screen to say one sentence and lined up with nothing.
+                //
+                // It is now a single row: icon, sentence, action. Same rhythm as every other card
+                // on the page, and it takes the height the sentence actually needs.
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     ),
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.size(12.dp))
                         Text(
                             groupEndNoticeText(notice, strings),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.weight(1f),
                         )
-                        Spacer(Modifier.height(8.dp))
-                        TextButton(
-                            onClick = { viewModel.acknowledgeEndNotice() },
-                            modifier = Modifier.align(Alignment.End),
-                        ) { Text(strings.groupNoticeDismiss) }
+                        Spacer(Modifier.size(8.dp))
+                        TextButton(onClick = { viewModel.acknowledgeEndNotice() }) {
+                            Text(strings.groupNoticeDismiss)
+                        }
                     }
                 }
             }
@@ -199,6 +246,18 @@ fun CommunityScreen(
                 onShare = { shareInvite(context, state, strings) },
                 onRemoveMember = { pendingRemoval = it },
                 onShowOnMap = onOpenHome,
+                onDirections = { member ->
+                    member.lastKnownPosition?.let { (lat, lng) ->
+                        AnalyticsManager.trackGroupDirectionsOpened(member.positionAge.telemetryBucket())
+                        openDirections(context, lat, lng, strings)
+                    }
+                },
+                onSetStatus = { showStatusPicker = true },
+                onToggleMute = {
+                    alertsMuted = !alertsMuted
+                    viewModel.alertsMuted = alertsMuted
+                },
+                alertsMuted = alertsMuted,
             )
             else -> NoGroupState(
                 strings = strings,
@@ -250,6 +309,23 @@ fun CommunityScreen(
         )
     }
 
+    if (showStatusPicker) {
+        StatusPickerSheet(
+            persona = viewModel.selfPersona,
+            currentCode = state.session.selfStatusCode,
+            strings = strings,
+            onSelect = { code ->
+                showStatusPicker = false
+                viewModel.setStatus(code)
+            },
+            onClear = {
+                showStatusPicker = false
+                viewModel.clearStatus()
+            },
+            onDismiss = { showStatusPicker = false },
+        )
+    }
+
     if (showCreate) {
         CreateGroupSheet(
             strings = strings,
@@ -272,6 +348,22 @@ fun CommunityScreen(
                 viewModel.joinByCode(code)
             },
         )
+    }
+}
+
+/**
+ * Opens a route preview, never turn-by-turn (§5.3, A30).
+ *
+ * The https `dir/?api=1` form resolves to whichever app claims maps links, and falls back to a
+ * browser on a device with none — rather than to nothing.
+ */
+private fun openDirections(context: Context, lat: Double, lng: Double, strings: AppStrings) {
+    try {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(MemberDirections.routePreviewUrl(lat, lng))),
+        )
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, strings.groupNoMapsAppDirections, Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -389,6 +481,10 @@ private fun GroupRoster(
     onShare: () -> Unit,
     onRemoveMember: (RosterMember) -> Unit,
     onShowOnMap: () -> Unit,
+    onDirections: (RosterMember) -> Unit,
+    onSetStatus: () -> Unit,
+    onToggleMute: () -> Unit,
+    alertsMuted: Boolean,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -396,12 +492,23 @@ private fun GroupRoster(
     ) {
         item {
             GroupHeader(state, strings)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             // Shown to everyone, not just the leader: "where are we going and when" is the group's
-            // shared plan, and a member who cannot see it has to ask.
-            DestinationRow(state.session, strings, onShowOnMap = onShowOnMap)
-            StartTimeRow(state.session, strings)
-            Spacer(Modifier.height(16.dp))
+            // shared plan, and a member who cannot see it has to ask. Carded like everything else —
+            // these were bare text on a background while the rows beneath them were cards, which is
+            // what made the page look half-finished.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    DestinationRow(state.session, strings, onShowOnMap = onShowOnMap)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    StartTimeRow(state.session, strings)
+                }
+            }
+            Spacer(Modifier.height(20.dp))
         }
 
         // §8: "Location permission revoked mid-session — stop pushing, stay in the group as a
@@ -461,18 +568,80 @@ private fun GroupRoster(
             }
         }
 
-        items(state.roster, key = { it.uid }) { member ->
-            RosterRow(
+        // **A31**: severity-1 members pin above the roster in their own section rather than sorting
+        // into it, so A18's stable order is never silently disturbed. The section is absent
+        // entirely when nobody is at severity 1 — never an empty "Needs the group" header, which
+        // would read as an unanswered question.
+        if (state.needsAttention.isNotEmpty()) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = SeverityAlert,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.size(6.dp))
+                    Text(
+                        strings.groupNeedsTheGroup,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = SeverityAlert,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = onToggleMute, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                        Text(
+                            if (alertsMuted) strings.groupUnmuteAlerts else strings.groupMuteAlerts,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    }
+                }
+            }
+            items(state.needsAttention, key = { "alert-${'$'}{it.uid}" }) { member ->
+                RosterCard(
+                    member = member,
+                    strings = strings,
+                    onDirections = onDirections,
+                    onRemove = if (state.session.isLeader && !member.isSelf) {
+                        { onRemoveMember(member) }
+                    } else null,
+                    // Your own alert lives here too, and it must stay editable — this omission is
+                    // what made "Need help" impossible to clear on device.
+                    onEditStatus = if (member.isSelf) onSetStatus else null,
+                    statusPending = member.isSelf && !state.session.selfStatusAcknowledged,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+            item {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    strings.groupInThisGroup,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+        }
+
+        items(state.everyoneElse, key = { it.uid }) { member ->
+            RosterCard(
                 member = member,
                 strings = strings,
+                onDirections = onDirections,
                 // Only the leader, and never against themselves — removing yourself is `leave`,
                 // which ends the group for everyone (§8), and routing it through here would end
                 // the group by a path whose confirm dialog never said so.
                 onRemove = if (state.session.isLeader && !member.isSelf) {
                     { onRemoveMember(member) }
                 } else null,
+                onEditStatus = if (member.isSelf) onSetStatus else null,
+                statusPending = member.isSelf && !state.session.selfStatusAcknowledged,
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(8.dp))
         }
 
         item {
@@ -484,32 +653,95 @@ private fun GroupRoster(
 
 @Composable
 private fun GroupHeader(state: CommunityUiState, strings: AppStrings) {
-    Column {
-        Text(
-            state.session.groupName ?: strings.groupSignedOutTitle,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.height(4.dp))
-        // §2.5: "Both roles get the same persistent, honest summary: 'You are visible to N people
-        // until HH:MM.'" §3.5: always state duration and audience together.
-        Text(
-            String.format(
-                Locale.getDefault(),
-                strings.groupVisibleUntil,
-                (state.roster.size - 1).coerceAtLeast(0),
-                formatClockTime(state.session.expiresAtMillis),
-            ),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        state.session.joinCode?.let { code ->
-            Spacer(Modifier.height(8.dp))
+    val context = LocalContext.current
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // The group name is NOT repeated here. It is already the top bar title, and showing it
+            // twice — once in the bar, once as a headline directly beneath it — was the first thing
+            // that read as unfinished on device.
+            //
+            // §2.5 leads with the honest summary instead: "visible to N people until HH:MM", which
+            // §3.5 requires to state audience and duration together.
             Text(
-                "${strings.groupCodeLabel}: $code",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
+                String.format(
+                    Locale.getDefault(),
+                    strings.groupVisibleUntil,
+                    (state.roster.size - 1).coerceAtLeast(0),
+                    formatClockTime(state.session.expiresAtMillis),
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            // §2.5a: the ride window belongs to the ride. While the group is still assembling there
+            // is nothing to count down, and showing the creation-based expiry made it look as
+            // though the clock had already been running — which, before A39, it had been.
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    strings.groupTimeLeftLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.size(6.dp))
+                Text(
+                    if (state.session.status == GroupSessionStatus.PREPARING) {
+                        strings.groupNotStarted
+                    } else {
+                        String.format(
+                            Locale.getDefault(),
+                            strings.groupTimeLeft,
+                            formatRemaining(state.session.expiresAtMillis - System.currentTimeMillis()),
+                        )
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+
+            state.session.joinCode?.let { code ->
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            strings.groupCodeLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            code,
+                            // Monospaced and spaced out: this gets read aloud across a car park,
+                            // so the characters have to be individually distinguishable.
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 4.sp,
+                            ),
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                                as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(
+                                android.content.ClipData.newPlainText(strings.groupCodeLabel, code),
+                            )
+                        },
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = strings.groupCodeLabel,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -521,11 +753,26 @@ private fun GroupHeader(state: CommunityUiState, strings: AppStrings) {
  * semantics node, so TalkBack reads "Alice Kaur, leader, riding" rather than walking three
  * separate nodes.
  */
+/**
+ * One member, as a card.
+ *
+ * Rewritten after device testing. The previous version was a bare `Row` with a divider, which read
+ * as a different app from `HistoryScreen` and `SettingsScreen` — both card-based — and whose height
+ * jumped whenever anyone set a status, so the avatar and the trailing action drifted out of line
+ * with the name.
+ *
+ * The fix is a **fixed leading block and a fixed trailing block**, with only the middle column
+ * growing. The avatar and the actions are top-aligned to the name rather than centred on a column
+ * whose height depends on content, so a row with a status and a row without one still line up.
+ */
 @Composable
-private fun RosterRow(
+private fun RosterCard(
     member: RosterMember,
     strings: AppStrings,
+    onDirections: (RosterMember) -> Unit,
     onRemove: (() -> Unit)? = null,
+    onEditStatus: (() -> Unit)? = null,
+    statusPending: Boolean = false,
 ) {
     val statusText = when (member.status) {
         MemberStatus.RIDING -> strings.groupStatusRiding
@@ -533,47 +780,155 @@ private fun RosterRow(
         MemberStatus.NO_RECENT_LOCATION -> strings.groupStatusNoLocation
     }
     val name = member.displayName ?: member.initials ?: ""
+    val ageText = strings.ageText(member.positionAge)
+    val riderStatus = member.riderStatus
+    val riderStatusLabel = riderStatus?.let { strings.statusLabel(it) }
+    // §2.3 (revised): the action survives staleness. It desaturates with the avatar and keeps
+    // routing to an explicitly labelled last known point, disappearing only when the relay stops
+    // returning a coordinate at all. Hiding it left a rider searching for someone who had stopped
+    // with nothing, at precisely the moment they needed it most — and the age on the button says
+    // how far to trust the pin.
+    val canRoute = member.lastKnownPosition != null && !member.isSelf
+
     val spoken = listOfNotNull(
         name.takeIf { it.isNotBlank() },
         strings.groupLeaderBadge.takeIf { member.isLeader },
+        riderStatusLabel,
         statusText,
+        ageText,
     ).joinToString(", ")
 
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp)
-            .clearAndSetSemantics { contentDescription = spoken },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MemberAvatar(member)
-        Spacer(Modifier.size(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    name.ifBlank { strings.groupStatusNoLocation },
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (member.isSelf) FontWeight.Bold else FontWeight.Normal,
+            // §3.6 of 1.7.0, A18: one merged node, so TalkBack reads a sentence rather than walking
+            // five children. Directions and edit-status are custom ACTIONS on that node.
+            .clearAndSetSemantics {
+                contentDescription = spoken
+                customActions = listOfNotNull(
+                    onEditStatus?.let {
+                        CustomAccessibilityAction(strings.groupStatusSet) { it(); true }
+                    },
+                    if (canRoute) {
+                        CustomAccessibilityAction(strings.groupDirections) { onDirections(member); true }
+                    } else null,
+                    onRemove?.let {
+                        CustomAccessibilityAction(strings.groupRemoveMember) { it(); true }
+                    },
                 )
-                if (member.isLeader) {
-                    Spacer(Modifier.size(8.dp))
+            },
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            // Top, not centre. Centring against a growing column is what made the avatar drift
+            // down as soon as a member set a status.
+            verticalAlignment = Alignment.Top,
+        ) {
+            MemberAvatar(member)
+            Spacer(Modifier.size(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        strings.groupLeaderBadge,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        name.ifBlank { strings.groupStatusNoLocation },
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (member.isSelf) FontWeight.SemiBold else FontWeight.Normal,
+                    )
+                    if (member.isLeader) {
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            strings.groupLeaderBadge,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+
+                // One line, always present, so every card has the same second row whether or not
+                // anyone has set a status.
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    listOfNotNull(
+                        statusText,
+                        ageText?.takeIf { !(member.isSelf && member.positionAge == PresenceAge.Bucket.Now) }
+                            ?.let { age ->
+                                if (member.isSelf) {
+                                    String.format(Locale.getDefault(), strings.groupLastShared, age)
+                                } else {
+                                    age
+                                }
+                            },
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = when (member.status) {
+                        MemberStatus.RIDING -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+
+                if (riderStatus != null && riderStatusLabel != null) {
+                    Spacer(Modifier.height(8.dp))
+                    StatusChip(
+                        label = riderStatusLabel,
+                        severity = riderStatus.severity,
+                        age = if (statusPending) strings.groupStatusNotSent
+                        else strings.statusAgeText(member.riderStatusAge),
+                        dimmed = member.status == MemberStatus.NO_RECENT_LOCATION,
+                        // THE BUG FOUND ON DEVICE. Your own chip must always reopen the picker.
+                        // Previously the affordance was an `else` branch to the chip, so the moment
+                        // you set anything it vanished — and a severity-1 status put you in the
+                        // attention section, which passed no callback at all. Between them, "Need
+                        // help" could not be withdrawn from anywhere in the app.
+                        onClick = onEditStatus,
+                    )
+                } else if (onEditStatus != null) {
+                    Spacer(Modifier.height(8.dp))
+                    AssistChip(
+                        onClick = onEditStatus,
+                        label = { Text(strings.groupStatusSet, style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        modifier = Modifier.height(32.dp),
                     )
                 }
             }
-            Text(
-                statusText,
-                style = MaterialTheme.typography.bodySmall,
-                color = when (member.status) {
-                    MemberStatus.RIDING -> MaterialTheme.colorScheme.primary
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
+
+            // Fixed-width trailing block, so cards with and without actions align down the page.
+            Row(verticalAlignment = Alignment.Top) {
+                if (canRoute) {
+                    IconButton(
+                        onClick = { onDirections(member) },
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Navigation,
+                            // Null: the card owns the description, and a second announced node
+                            // would make TalkBack read every member twice.
+                            contentDescription = null,
+                            // Desaturated with the avatar when the fix is old — still offered,
+                            // visibly less trustworthy.
+                            tint = if (member.positionIsFresh) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                            },
+                        )
+                    }
+                }
+                onRemove?.let {
+                    IconButton(onClick = it, modifier = Modifier.size(40.dp)) {
+                        Icon(
+                            Icons.Default.PersonRemove,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
         }
-        onRemove?.let { RemoveMemberAction(strings, it) }
     }
 }
 

@@ -123,6 +123,89 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupOpenInMaps: String = s("groupOpenInMaps", "Open in Maps")
     val groupShowOnMap: String = s("groupShowOnMap", "Show on my map")
     val groupStartTimeLabel: String = s("groupStartTimeLabel", "Starts at")
+
+    // --- SCOPE_1.7.2: rider status, ages, directions, presence -------------------------------
+
+    // Status labels. The wire carries the CODE, never these — otherwise a Hindi rider's status
+    // would render as Hindi text on a German rider's phone (§4.2).
+    val groupStatus3GBR: String = s("groupStatus3GBR", "Short break")
+    val groupStatus3GTI: String = s("groupStatus3GTI", "Tired")
+    val groupStatus2GVI: String = s("groupStatus2GVI", "Vehicle issue")
+    val groupStatus1GNH: String = s("groupStatus1GNH", "Need help")
+    val groupStatus1GCR: String = s("groupStatus1GCR", "Crashed")
+    val groupStatus3MFS: String = s("groupStatus3MFS", "Fuel stop")
+    val groupStatus2MEH: String = s("groupStatus2MEH", "Engine heat")
+    val groupStatus3CFS: String = s("groupStatus3CFS", "Fuel stop")
+    val groupStatus3CIC: String = s("groupStatus3CIC", "On a call")
+    val groupStatus3BWA: String = s("groupStatus3BWA", "Water break")
+    val groupStatus2BPU: String = s("groupStatus2BPU", "Puncture")
+    val groupStatus3WWA: String = s("groupStatus3WWA", "Water break")
+    val groupStatus3RWA: String = s("groupStatus3RWA", "Water break")
+
+    // Fallbacks for a code this build has never seen. Severity is readable from the code even when
+    // the message is not, so an unknown status still lands at the right urgency (§4.2).
+    val groupSeverityAlert: String = s("groupSeverityAlert", "Needs the group")
+    val groupSeverityCaution: String = s("groupSeverityCaution", "Something's wrong")
+    val groupSeverityInfo: String = s("groupSeverityInfo", "Update")
+
+    // Picker
+    val groupTimeLeftLabel: String = s("groupTimeLeftLabel", "Time left")
+    val groupNotStarted: String = s("groupNotStarted", "Not started")
+    val groupStartTimeLocked: String = s(
+        "groupStartTimeLocked",
+        "The ride has started, so this is when you set off. Only the destination can change now.",
+    )
+    val groupStatusTitle: String = s("groupStatusTitle", "Your status")
+    val groupStatusNone: String = s("groupStatusNone", "None")
+    val groupStatusSet: String = s("groupStatusSet", "Set status")
+    val groupStatusNotSent: String = s("groupStatusNotSent", "Not sent yet")
+    val groupStatusClearing: String = s("groupStatusClearing", "Clearing…")
+    val groupStatusClear: String = s("groupStatusClear", "Clear status")
+    val groupStatusClearAction: String = s("groupStatusClearAction", "Clear")
+    /**
+     * §5.1, and not negotiable. `1.6.4` removed the SOS trigger and `1.6.5` retired emergency
+     * contacts; this feature must not walk that back by implication. Translated, never
+     * transliterated — it is the one legal-adjacent sentence in the release.
+     */
+    val groupStatusAlertDisclaimer: String = s(
+        "groupStatusAlertDisclaimer",
+        "This tells the people in this group. It does not contact emergency services. " +
+            "They'll see it when their app next syncs.",
+    )
+    val groupStatusUndo: String = s("groupStatusUndo", "Undo")
+    val groupStatusSending: String = s("groupStatusSending", "Sending…")
+
+    // Roster
+    val groupNeedsTheGroup: String = s("groupNeedsTheGroup", "NEEDS THE GROUP")
+    val groupInThisGroup: String = s("groupInThisGroup", "IN THIS GROUP")
+    val groupMuteAlerts: String = s("groupMuteAlerts", "Mute alerts")
+    val groupUnmuteAlerts: String = s("groupUnmuteAlerts", "Unmute alerts")
+    val groupLastShared: String = s("groupLastShared", "Last shared %1\$s")
+    val groupDirections: String = s("groupDirections", "Directions")
+    val groupDirectionsWithAge: String = s("groupDirectionsWithAge", "Directions · %1\$s")
+    val groupNoMapsAppDirections: String = s("groupNoMapsAppDirections", "No maps app to open directions.")
+
+    // Ages (§2.2 — buckets, not a stopwatch)
+    val groupAgeNow: String = s("groupAgeNow", "Now")
+    val groupAgeSeconds: String = s("groupAgeSeconds", "%1\$ds ago")
+    val groupAgeMinutes: String = s("groupAgeMinutes", "%1\$dm ago")
+    val groupAgeHours: String = s("groupAgeHours", "%1\$dh ago")
+    val groupAgeSetSeconds: String = s("groupAgeSetSeconds", "%1\$ds")
+    val groupAgeSetMinutes: String = s("groupAgeSetMinutes", "%1\$dm")
+    val groupAgeSetHours: String = s("groupAgeSetHours", "%1\$dh")
+
+    // Home presence pill (§3.6). Composed, so the clauses are separate strings.
+    val groupPillRideRecording: String = s("groupPillRideRecording", "Ride recording on this phone")
+    val groupPillUpdatesPaused: String = s("groupPillUpdatesPaused", "Group updates paused")
+    val groupPillRelayUnavailable: String = s("groupPillRelayUnavailable", "Group sharing unavailable · retrying")
+    val groupPillNotSent: String = s("groupPillNotSent", "%1\$s not sent")
+    val groupPillSent: String = s("groupPillSent", "%1\$s sent")
+
+    // Alerting (§3.8)
+    val groupAlertChannelName: String = s("groupAlertChannelName", "Group ride alerts")
+    val groupAlertSetBody: String = s("groupAlertSetBody", "%1\$s set their status to %2\$s")
+    val groupAlertClearedBody: String = s("groupAlertClearedBody", "%1\$s cleared %2\$s")
+    val groupAlertViewGroup: String = s("groupAlertViewGroup", "View group")
     val groupAddToCalendar: String = s("groupAddToCalendar", "Add to calendar")
     val groupUseMyLocation: String = s("groupUseMyLocation", "Use my current location")
     val groupClearDestination: String = s("groupClearDestination", "Clear destination")
@@ -548,6 +631,59 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupOpenInMaps" to "Abrir en Mapas",
             "groupShowOnMap" to "Ver en mi mapa",
             "groupStartTimeLabel" to "Empieza a las",
+            "groupStatus3GBR" to "Descanso breve",
+            "groupStatus3GTI" to "Cansado",
+            "groupStatus2GVI" to "Problema con el vehículo",
+            "groupStatus1GNH" to "Necesito ayuda",
+            "groupStatus1GCR" to "Accidente",
+            "groupStatus3MFS" to "Parada de combustible",
+            "groupStatus2MEH" to "Motor caliente",
+            "groupStatus3CFS" to "Parada de combustible",
+            "groupStatus3CIC" to "En una llamada",
+            "groupStatus3BWA" to "Pausa para beber",
+            "groupStatus2BPU" to "Pinchazo",
+            "groupStatus3WWA" to "Pausa para beber",
+            "groupStatus3RWA" to "Pausa para beber",
+            "groupSeverityAlert" to "Necesita al grupo",
+            "groupSeverityCaution" to "Algo va mal",
+            "groupSeverityInfo" to "Novedad",
+            "groupTimeLeftLabel" to "Tiempo restante",
+            "groupNotStarted" to "Sin empezar",
+            "groupStartTimeLocked" to "La ruta ya ha empezado, así que esta es la hora de salida. Ahora solo se puede cambiar el destino.",
+            "groupStatusTitle" to "Tu estado",
+            "groupStatusNone" to "Ninguno",
+            "groupStatusSet" to "Poner estado",
+            "groupStatusNotSent" to "Sin enviar",
+            "groupStatusClearing" to "Quitando…",
+            "groupStatusClear" to "Quitar estado",
+            "groupStatusClearAction" to "Quitar",
+            "groupStatusAlertDisclaimer" to "Esto avisa a las personas de este grupo. No contacta con los servicios de emergencia. Lo verán la próxima vez que su app se sincronice.",
+            "groupStatusUndo" to "Deshacer",
+            "groupStatusSending" to "Enviando…",
+            "groupNeedsTheGroup" to "NECESITA AL GRUPO",
+            "groupInThisGroup" to "EN ESTE GRUPO",
+            "groupMuteAlerts" to "Silenciar avisos",
+            "groupUnmuteAlerts" to "Activar avisos",
+            "groupLastShared" to "Compartido hace %1\$s",
+            "groupDirections" to "Cómo llegar",
+            "groupDirectionsWithAge" to "Cómo llegar · %1\$s",
+            "groupNoMapsAppDirections" to "No hay ninguna app de mapas para abrir la ruta.",
+            "groupAgeNow" to "Ahora",
+            "groupAgeSeconds" to "hace %1\$d s",
+            "groupAgeMinutes" to "hace %1\$d min",
+            "groupAgeHours" to "hace %1\$d h",
+            "groupAgeSetSeconds" to "%1\$d s",
+            "groupAgeSetMinutes" to "%1\$d min",
+            "groupAgeSetHours" to "%1\$d h",
+            "groupPillRideRecording" to "Grabando la ruta en este teléfono",
+            "groupPillUpdatesPaused" to "Actualizaciones del grupo en pausa",
+            "groupPillRelayUnavailable" to "Uso compartido no disponible · reintentando",
+            "groupPillNotSent" to "%1\$s sin enviar",
+            "groupPillSent" to "%1\$s enviado",
+            "groupAlertChannelName" to "Avisos de ruta en grupo",
+            "groupAlertSetBody" to "%1\$s ha puesto su estado en %2\$s",
+            "groupAlertClearedBody" to "%1\$s ha quitado %2\$s",
+            "groupAlertViewGroup" to "Ver grupo",
             "groupAddToCalendar" to "Añadir al calendario",
             "groupUseMyLocation" to "Usar mi ubicación actual",
             "groupClearDestination" to "Borrar destino",
@@ -986,6 +1122,59 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupOpenInMaps" to "Ouvrir dans Plans",
             "groupShowOnMap" to "Voir sur ma carte",
             "groupStartTimeLabel" to "Départ à",
+            "groupStatus3GBR" to "Petite pause",
+            "groupStatus3GTI" to "Fatigué",
+            "groupStatus2GVI" to "Problème de véhicule",
+            "groupStatus1GNH" to "Besoin d'aide",
+            "groupStatus1GCR" to "Accident",
+            "groupStatus3MFS" to "Arrêt carburant",
+            "groupStatus2MEH" to "Moteur chaud",
+            "groupStatus3CFS" to "Arrêt carburant",
+            "groupStatus3CIC" to "En appel",
+            "groupStatus3BWA" to "Pause hydratation",
+            "groupStatus2BPU" to "Crevaison",
+            "groupStatus3WWA" to "Pause hydratation",
+            "groupStatus3RWA" to "Pause hydratation",
+            "groupSeverityAlert" to "A besoin du groupe",
+            "groupSeverityCaution" to "Quelque chose ne va pas",
+            "groupSeverityInfo" to "Info",
+            "groupTimeLeftLabel" to "Temps restant",
+            "groupNotStarted" to "Pas encore parti",
+            "groupStartTimeLocked" to "Le trajet a commencé, c'est donc l'heure de départ réelle. Seule la destination peut encore changer.",
+            "groupStatusTitle" to "Votre statut",
+            "groupStatusNone" to "Aucun",
+            "groupStatusSet" to "Définir un statut",
+            "groupStatusNotSent" to "Pas encore envoyé",
+            "groupStatusClearing" to "Suppression…",
+            "groupStatusClear" to "Effacer le statut",
+            "groupStatusClearAction" to "Effacer",
+            "groupStatusAlertDisclaimer" to "Cela prévient les personnes de ce groupe. Cela ne contacte pas les services d'urgence. Elles le verront à la prochaine synchronisation de leur app.",
+            "groupStatusUndo" to "Annuler",
+            "groupStatusSending" to "Envoi…",
+            "groupNeedsTheGroup" to "A BESOIN DU GROUPE",
+            "groupInThisGroup" to "DANS CE GROUPE",
+            "groupMuteAlerts" to "Couper les alertes",
+            "groupUnmuteAlerts" to "Réactiver les alertes",
+            "groupLastShared" to "Partagé il y a %1\$s",
+            "groupDirections" to "Itinéraire",
+            "groupDirectionsWithAge" to "Itinéraire · %1\$s",
+            "groupNoMapsAppDirections" to "Aucune app de cartes pour ouvrir l'itinéraire.",
+            "groupAgeNow" to "Maintenant",
+            "groupAgeSeconds" to "il y a %1\$d s",
+            "groupAgeMinutes" to "il y a %1\$d min",
+            "groupAgeHours" to "il y a %1\$d h",
+            "groupAgeSetSeconds" to "%1\$d s",
+            "groupAgeSetMinutes" to "%1\$d min",
+            "groupAgeSetHours" to "%1\$d h",
+            "groupPillRideRecording" to "Trajet enregistré sur ce téléphone",
+            "groupPillUpdatesPaused" to "Mises à jour du groupe en pause",
+            "groupPillRelayUnavailable" to "Partage indisponible · nouvel essai",
+            "groupPillNotSent" to "%1\$s non envoyé",
+            "groupPillSent" to "%1\$s envoyé",
+            "groupAlertChannelName" to "Alertes de sortie en groupe",
+            "groupAlertSetBody" to "%1\$s a défini son statut sur %2\$s",
+            "groupAlertClearedBody" to "%1\$s a effacé %2\$s",
+            "groupAlertViewGroup" to "Voir le groupe",
             "groupAddToCalendar" to "Ajouter au calendrier",
             "groupUseMyLocation" to "Utiliser ma position actuelle",
             "groupClearDestination" to "Effacer la destination",
@@ -1424,6 +1613,59 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupOpenInMaps" to "In Karten öffnen",
             "groupShowOnMap" to "Auf meiner Karte zeigen",
             "groupStartTimeLabel" to "Beginnt um",
+            "groupStatus3GBR" to "Kurze Pause",
+            "groupStatus3GTI" to "Müde",
+            "groupStatus2GVI" to "Fahrzeugproblem",
+            "groupStatus1GNH" to "Brauche Hilfe",
+            "groupStatus1GCR" to "Sturz",
+            "groupStatus3MFS" to "Tankstopp",
+            "groupStatus2MEH" to "Motor heiß",
+            "groupStatus3CFS" to "Tankstopp",
+            "groupStatus3CIC" to "Im Gespräch",
+            "groupStatus3BWA" to "Trinkpause",
+            "groupStatus2BPU" to "Reifenpanne",
+            "groupStatus3WWA" to "Trinkpause",
+            "groupStatus3RWA" to "Trinkpause",
+            "groupSeverityAlert" to "Braucht die Gruppe",
+            "groupSeverityCaution" to "Etwas stimmt nicht",
+            "groupSeverityInfo" to "Hinweis",
+            "groupTimeLeftLabel" to "Verbleibende Zeit",
+            "groupNotStarted" to "Noch nicht gestartet",
+            "groupStartTimeLocked" to "Die Fahrt läuft, das ist also der tatsächliche Startzeitpunkt. Jetzt lässt sich nur noch das Ziel ändern.",
+            "groupStatusTitle" to "Dein Status",
+            "groupStatusNone" to "Keiner",
+            "groupStatusSet" to "Status setzen",
+            "groupStatusNotSent" to "Noch nicht gesendet",
+            "groupStatusClearing" to "Wird entfernt…",
+            "groupStatusClear" to "Status entfernen",
+            "groupStatusClearAction" to "Entfernen",
+            "groupStatusAlertDisclaimer" to "Das sagt den Leuten in dieser Gruppe Bescheid. Es kontaktiert keine Rettungsdienste. Sie sehen es, sobald ihre App das nächste Mal synchronisiert.",
+            "groupStatusUndo" to "Rückgängig",
+            "groupStatusSending" to "Wird gesendet…",
+            "groupNeedsTheGroup" to "BRAUCHT DIE GRUPPE",
+            "groupInThisGroup" to "IN DIESER GRUPPE",
+            "groupMuteAlerts" to "Warnungen stummschalten",
+            "groupUnmuteAlerts" to "Warnungen aktivieren",
+            "groupLastShared" to "Zuletzt geteilt vor %1\$s",
+            "groupDirections" to "Route",
+            "groupDirectionsWithAge" to "Route · %1\$s",
+            "groupNoMapsAppDirections" to "Keine Karten-App für die Route gefunden.",
+            "groupAgeNow" to "Jetzt",
+            "groupAgeSeconds" to "vor %1\$d s",
+            "groupAgeMinutes" to "vor %1\$d Min.",
+            "groupAgeHours" to "vor %1\$d Std.",
+            "groupAgeSetSeconds" to "%1\$d s",
+            "groupAgeSetMinutes" to "%1\$d Min.",
+            "groupAgeSetHours" to "%1\$d Std.",
+            "groupPillRideRecording" to "Fahrt wird auf diesem Handy aufgezeichnet",
+            "groupPillUpdatesPaused" to "Gruppen-Updates pausiert",
+            "groupPillRelayUnavailable" to "Gruppenfreigabe nicht verfügbar · neuer Versuch",
+            "groupPillNotSent" to "%1\$s nicht gesendet",
+            "groupPillSent" to "%1\$s gesendet",
+            "groupAlertChannelName" to "Gruppenfahrt-Warnungen",
+            "groupAlertSetBody" to "%1\$s hat den Status auf %2\$s gesetzt",
+            "groupAlertClearedBody" to "%1\$s hat %2\$s entfernt",
+            "groupAlertViewGroup" to "Gruppe ansehen",
             "groupAddToCalendar" to "Zum Kalender hinzufügen",
             "groupUseMyLocation" to "Meinen aktuellen Standort verwenden",
             "groupClearDestination" to "Ziel löschen",
@@ -1862,6 +2104,59 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupOpenInMaps" to "मैप्स में खोलें",
             "groupShowOnMap" to "मेरे मैप पर दिखाएँ",
             "groupStartTimeLabel" to "शुरू होगा",
+            "groupStatus3GBR" to "छोटा ब्रेक",
+            "groupStatus3GTI" to "थका हुआ",
+            "groupStatus2GVI" to "गाड़ी में दिक्कत",
+            "groupStatus1GNH" to "मदद चाहिए",
+            "groupStatus1GCR" to "दुर्घटना",
+            "groupStatus3MFS" to "ईंधन के लिए रुके",
+            "groupStatus2MEH" to "इंजन गर्म",
+            "groupStatus3CFS" to "ईंधन के लिए रुके",
+            "groupStatus3CIC" to "कॉल पर",
+            "groupStatus3BWA" to "पानी का ब्रेक",
+            "groupStatus2BPU" to "पंक्चर",
+            "groupStatus3WWA" to "पानी का ब्रेक",
+            "groupStatus3RWA" to "पानी का ब्रेक",
+            "groupSeverityAlert" to "समूह की ज़रूरत है",
+            "groupSeverityCaution" to "कुछ गड़बड़ है",
+            "groupSeverityInfo" to "जानकारी",
+            "groupTimeLeftLabel" to "बचा हुआ समय",
+            "groupNotStarted" to "अभी शुरू नहीं हुई",
+            "groupStartTimeLocked" to "राइड शुरू हो चुकी है, इसलिए यही निकलने का समय है। अब सिर्फ़ गंतव्य बदला जा सकता है।",
+            "groupStatusTitle" to "आपकी स्थिति",
+            "groupStatusNone" to "कोई नहीं",
+            "groupStatusSet" to "स्थिति चुनें",
+            "groupStatusNotSent" to "अभी भेजा नहीं गया",
+            "groupStatusClearing" to "हटाया जा रहा है…",
+            "groupStatusClear" to "स्थिति हटाएँ",
+            "groupStatusClearAction" to "हटाएँ",
+            "groupStatusAlertDisclaimer" to "इससे इस समूह के लोगों को पता चलेगा। यह आपातकालीन सेवाओं से संपर्क नहीं करता। उनका ऐप अगली बार सिंक होने पर उन्हें दिखेगा।",
+            "groupStatusUndo" to "पहले जैसा करें",
+            "groupStatusSending" to "भेजा जा रहा है…",
+            "groupNeedsTheGroup" to "समूह की ज़रूरत है",
+            "groupInThisGroup" to "इस समूह में",
+            "groupMuteAlerts" to "अलर्ट म्यूट करें",
+            "groupUnmuteAlerts" to "अलर्ट चालू करें",
+            "groupLastShared" to "%1\$s पहले साझा किया",
+            "groupDirections" to "रास्ता",
+            "groupDirectionsWithAge" to "रास्ता · %1\$s",
+            "groupNoMapsAppDirections" to "रास्ता खोलने के लिए कोई मैप ऐप नहीं है।",
+            "groupAgeNow" to "अभी",
+            "groupAgeSeconds" to "%1\$d से पहले",
+            "groupAgeMinutes" to "%1\$d मि पहले",
+            "groupAgeHours" to "%1\$d घं पहले",
+            "groupAgeSetSeconds" to "%1\$d से",
+            "groupAgeSetMinutes" to "%1\$d मि",
+            "groupAgeSetHours" to "%1\$d घं",
+            "groupPillRideRecording" to "राइड इसी फ़ोन पर रिकॉर्ड हो रही है",
+            "groupPillUpdatesPaused" to "समूह अपडेट रुके हुए हैं",
+            "groupPillRelayUnavailable" to "समूह साझाकरण उपलब्ध नहीं · फिर कोशिश",
+            "groupPillNotSent" to "%1\$s भेजा नहीं गया",
+            "groupPillSent" to "%1\$s भेजा गया",
+            "groupAlertChannelName" to "समूह राइड अलर्ट",
+            "groupAlertSetBody" to "%1\$s ने अपनी स्थिति %2\$s रखी",
+            "groupAlertClearedBody" to "%1\$s ने %2\$s हटाया",
+            "groupAlertViewGroup" to "समूह देखें",
             "groupAddToCalendar" to "कैलेंडर में जोड़ें",
             "groupUseMyLocation" to "मेरा वर्तमान स्थान उपयोग करें",
             "groupClearDestination" to "गंतव्य हटाएँ",
@@ -2300,6 +2595,59 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupOpenInMaps" to "マップで開く",
             "groupShowOnMap" to "自分の地図で表示",
             "groupStartTimeLabel" to "開始",
+            "groupStatus3GBR" to "小休止",
+            "groupStatus3GTI" to "疲れた",
+            "groupStatus2GVI" to "車両トラブル",
+            "groupStatus1GNH" to "助けが必要",
+            "groupStatus1GCR" to "転倒・事故",
+            "groupStatus3MFS" to "給油中",
+            "groupStatus2MEH" to "エンジン過熱",
+            "groupStatus3CFS" to "給油中",
+            "groupStatus3CIC" to "通話中",
+            "groupStatus3BWA" to "給水休憩",
+            "groupStatus2BPU" to "パンク",
+            "groupStatus3WWA" to "給水休憩",
+            "groupStatus3RWA" to "給水休憩",
+            "groupSeverityAlert" to "助けが必要",
+            "groupSeverityCaution" to "何か問題あり",
+            "groupSeverityInfo" to "お知らせ",
+            "groupTimeLeftLabel" to "残り時間",
+            "groupNotStarted" to "未開始",
+            "groupStartTimeLocked" to "走行が始まっているので、これが実際の出発時刻です。これ以降は目的地のみ変更できます。",
+            "groupStatusTitle" to "あなたの状態",
+            "groupStatusNone" to "なし",
+            "groupStatusSet" to "状態を設定",
+            "groupStatusNotSent" to "未送信",
+            "groupStatusClearing" to "解除中…",
+            "groupStatusClear" to "状態を解除",
+            "groupStatusClearAction" to "解除",
+            "groupStatusAlertDisclaimer" to "これはこのグループのメンバーに伝わります。緊急サービスには連絡しません。相手のアプリが次に同期したときに表示されます。",
+            "groupStatusUndo" to "取り消す",
+            "groupStatusSending" to "送信中…",
+            "groupNeedsTheGroup" to "助けが必要",
+            "groupInThisGroup" to "このグループ",
+            "groupMuteAlerts" to "通知をミュート",
+            "groupUnmuteAlerts" to "通知をオン",
+            "groupLastShared" to "最終共有 %1\$s",
+            "groupDirections" to "経路",
+            "groupDirectionsWithAge" to "経路 · %1\$s",
+            "groupNoMapsAppDirections" to "経路を開ける地図アプリがありません。",
+            "groupAgeNow" to "現在",
+            "groupAgeSeconds" to "%1\$d秒前",
+            "groupAgeMinutes" to "%1\$d分前",
+            "groupAgeHours" to "%1\$d時間前",
+            "groupAgeSetSeconds" to "%1\$d秒",
+            "groupAgeSetMinutes" to "%1\$d分",
+            "groupAgeSetHours" to "%1\$d時間",
+            "groupPillRideRecording" to "この端末で記録中",
+            "groupPillUpdatesPaused" to "グループ更新が一時停止",
+            "groupPillRelayUnavailable" to "グループ共有を利用できません · 再試行中",
+            "groupPillNotSent" to "%1\$s は未送信",
+            "groupPillSent" to "%1\$s を送信",
+            "groupAlertChannelName" to "グループライドの通知",
+            "groupAlertSetBody" to "%1\$s さんが状態を「%2\$s」にしました",
+            "groupAlertClearedBody" to "%1\$s さんが「%2\$s」を解除しました",
+            "groupAlertViewGroup" to "グループを見る",
             "groupAddToCalendar" to "カレンダーに追加",
             "groupUseMyLocation" to "現在地を使う",
             "groupClearDestination" to "目的地を消去",
@@ -2738,6 +3086,59 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupOpenInMaps" to "在地图中打开",
             "groupShowOnMap" to "在我的地图上显示",
             "groupStartTimeLabel" to "开始于",
+            "groupStatus3GBR" to "短暂休息",
+            "groupStatus3GTI" to "疲劳",
+            "groupStatus2GVI" to "车辆故障",
+            "groupStatus1GNH" to "需要帮助",
+            "groupStatus1GCR" to "发生事故",
+            "groupStatus3MFS" to "加油停靠",
+            "groupStatus2MEH" to "发动机过热",
+            "groupStatus3CFS" to "加油停靠",
+            "groupStatus3CIC" to "正在通话",
+            "groupStatus3BWA" to "补水休息",
+            "groupStatus2BPU" to "爆胎",
+            "groupStatus3WWA" to "补水休息",
+            "groupStatus3RWA" to "补水休息",
+            "groupSeverityAlert" to "需要队友帮忙",
+            "groupSeverityCaution" to "有点问题",
+            "groupSeverityInfo" to "动态",
+            "groupTimeLeftLabel" to "剩余时间",
+            "groupNotStarted" to "尚未开始",
+            "groupStartTimeLocked" to "行程已开始，这就是实际出发时间。现在只能修改目的地。",
+            "groupStatusTitle" to "你的状态",
+            "groupStatusNone" to "无",
+            "groupStatusSet" to "设置状态",
+            "groupStatusNotSent" to "尚未发送",
+            "groupStatusClearing" to "正在清除…",
+            "groupStatusClear" to "清除状态",
+            "groupStatusClearAction" to "清除",
+            "groupStatusAlertDisclaimer" to "这会告知本群组的成员。它不会联系紧急服务。他们的应用下次同步时就会看到。",
+            "groupStatusUndo" to "撤销",
+            "groupStatusSending" to "正在发送…",
+            "groupNeedsTheGroup" to "需要队友帮忙",
+            "groupInThisGroup" to "本群组",
+            "groupMuteAlerts" to "静音提醒",
+            "groupUnmuteAlerts" to "开启提醒",
+            "groupLastShared" to "上次共享于%1\$s",
+            "groupDirections" to "路线",
+            "groupDirectionsWithAge" to "路线 · %1\$s",
+            "groupNoMapsAppDirections" to "没有可打开路线的地图应用。",
+            "groupAgeNow" to "刚刚",
+            "groupAgeSeconds" to "%1\$d秒前",
+            "groupAgeMinutes" to "%1\$d分钟前",
+            "groupAgeHours" to "%1\$d小时前",
+            "groupAgeSetSeconds" to "%1\$d秒",
+            "groupAgeSetMinutes" to "%1\$d分钟",
+            "groupAgeSetHours" to "%1\$d小时",
+            "groupPillRideRecording" to "正在本机记录行程",
+            "groupPillUpdatesPaused" to "群组更新已暂停",
+            "groupPillRelayUnavailable" to "群组共享不可用 · 正在重试",
+            "groupPillNotSent" to "%1\$s 未发送",
+            "groupPillSent" to "%1\$s 已发送",
+            "groupAlertChannelName" to "群骑提醒",
+            "groupAlertSetBody" to "%1\$s 将状态设为%2\$s",
+            "groupAlertClearedBody" to "%1\$s 清除了%2\$s",
+            "groupAlertViewGroup" to "查看群组",
             "groupAddToCalendar" to "添加到日历",
             "groupUseMyLocation" to "使用我的当前位置",
             "groupClearDestination" to "清除目的地",

@@ -27,6 +27,7 @@ import `in`.shvms.trackme.utils.RideUtils
 import `in`.shvms.trackme.utils.StorageHealthMonitor
 import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.getAppStrings
+import `in`.shvms.trackme.ui.community.statusLabelForCode
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.maps.model.LatLng
@@ -276,6 +277,7 @@ class TrackingService : Service() {
     private fun startForegroundService() {
         try {
             createNotificationChannels()
+        wireGroupAlerts()
             startForeground(
                 NOTIFICATION_ID,
                 getNotification(
@@ -883,6 +885,29 @@ class TrackingService : Service() {
         val language = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
             .getString("app_language", "en") ?: "en"
         return getAppStrings(language)
+    }
+
+    /**
+     * Connects the sync loop's alert signals to a notification and a haptic.
+     *
+     * The wiring lives here because the tracking service is what stays alive with the screen off —
+     * which is when a rider most needs to be told, and the whole reason E3 chose a notification over
+     * an in-app banner.
+     */
+    private fun wireGroupAlerts() {
+        val notifier = GroupAlertNotifier(this)
+        notifier.ensureChannel(appStrings())
+        groupSessionManager.onAlertSignal = { signal, memberName, code ->
+            val s = appStrings()
+            notifier.post(
+                signal = signal,
+                memberUid = memberName,
+                memberName = memberName,
+                statusLabel = s.statusLabelForCode(code) ?: code,
+                groupName = groupSessionManager.state.value.groupName,
+                strings = s,
+            )
+        }
     }
 
     private fun createNotificationChannels() {

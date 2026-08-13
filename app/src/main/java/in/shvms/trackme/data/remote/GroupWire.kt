@@ -44,6 +44,25 @@ object GroupWire {
         val serverTsMillis: Long,
     )
 
+    /**
+     * A member's decrypted status — SCOPE_1.7.2 §4.7, amendments **A26** and **A33**.
+     *
+     * [stAgeSeconds] is how long the sender had held the status when they sealed this, measured on
+     * *their* monotonic clock. Null means the sender rebooted and lost the age (§4.3): the status
+     * is still true, its age is simply unrecoverable, and a fabricated one would be worse.
+     *
+     * [serverTsMillis] is the relay's own stamp on the **status** slot, deliberately independent of
+     * the position stamp — saying "Need help" must never make a twenty-minute-old position look
+     * fresh on anyone's map.
+     */
+    data class MemberStatus(
+        val uid: String,
+        /** The raw wire code. Parsing and validation are `RiderStatusCodec`'s job, not this layer's. */
+        val code: String,
+        val stAgeSeconds: Long?,
+        val serverTsMillis: Long,
+    )
+
     data class RosterEntry(
         val uid: String,
         val displayName: String?,
@@ -84,6 +103,25 @@ object GroupWire {
         val maxMembers: Int,
         val nextSyncInSec: Int,
         val positions: List<MemberPosition>,
+        /**
+         * The relay's clock at the moment it built this response, and the anchor every age in it is
+         * measured against (§4.3, **A32**).
+         *
+         * Zero when the relay predates this field. Callers must fall back rather than treating that
+         * as "the epoch" — see `PresenceAge.anchorPositionWithoutServerNow`.
+         */
+        val serverNowMillis: Long,
+        val statuses: List<MemberStatus>,
+        /**
+         * The caller's own position, echoed back by the relay.
+         *
+         * A13 has the relay return this deliberately — it is the only proof a client has that its
+         * push actually landed, and 1.7.0 threw it away. Reading it is what makes
+         * `lastOwnPositionAckElapsed` possible without any protocol change (§4.4).
+         */
+        val ownPosition: MemberPosition?,
+        /** The caller's own status, echoed back, for the same reason. */
+        val ownStatus: MemberStatus?,
         /** Present only when the client's `rev` was stale. */
         val roster: List<RosterEntry>?,
         val meta: GroupMeta?,
@@ -181,11 +219,11 @@ object GroupWire {
         val json = obj(body)
         val positions = mutableListOf<MemberPosition>()
         val undecryptable = mutableListOf<String>()
+        var ownPosition: MemberPosition? = null
 
         val posJson = json.optJSONObject("positions")
         if (posJson != null) {
             for (uid in posJson.keys()) {
-                if (uid == selfUid) continue
                 val entry = posJson.optJSONObject(uid) ?: continue
                 val envelope = entry.optString("e").takeIf { it.isNotEmpty() } ?: continue
                 val ts = entry.optLong("ts", 0L)
@@ -193,7 +231,7 @@ object GroupWire {
                     val plain = JSONObject(
                         GroupCrypto.open(key, envelope, GroupCrypto.Purpose.Position(uid)),
                     )
-                    positions += MemberPosition(
+                    val position = MemberPosition(
                         uid = uid,
                         lat = plain.getDouble("lat"),
                         lng = plain.getDouble("lng"),
@@ -204,6 +242,10 @@ object GroupWire {
                         riding = plain.optBoolean("riding", false),
                         serverTsMillis = ts,
                     )
+                    // §4.1 still keeps self off the map — we never draw ourselves twice — but the
+                    // entry is now *read* rather than skipped, because its timestamp is the only
+                    // evidence that our own push was accepted (A13, §4.4).
+                    if (uid == selfUid) ownPosition = position else positions += position
                 } catch (e: Exception) {
                     // One member we cannot read costs one absent marker, never the whole map (§8).
                     undecryptable += uid
@@ -233,6 +275,37 @@ object GroupWire {
             out
         }
 
+        // Statuses ride in their own slot, so a status can arrive with no position behind it — the
+        // rider with revoked location permission is precisely the one most likely to need the alert
+        // tier (§4.7). A malformed or unreadable one costs that member their chip, never the map.
+        val statuses = mutableListOf<MemberStatus>()
+        var ownStatus: MemberStatus? = null
+        val statusJson = json.optJSONObject("statuses")
+        if (statusJson != null) {
+            for (uid in statusJson.keys()) {
+                val entry = statusJson.optJSONObject(uid) ?: continue
+                val envelope = entry.optString("e").takeIf { it.isNotEmpty() } ?: continue
+                val ts = entry.optLong("ts", 0L)
+                try {
+                    val plain = JSONObject(
+                        GroupCrypto.open(key, envelope, GroupCrypto.Purpose.Status(uid)),
+                    )
+                    val code = plain.optString("st").takeIf { it.isNotEmpty() } ?: continue
+                    val status = MemberStatus(
+                        uid = uid,
+                        code = code,
+                        // Absent means the sender rebooted and lost the age (§4.3). Distinct from
+                        // zero, which means "set just now" — so `has` rather than a 0 default.
+                        stAgeSeconds = if (plain.has("stAge")) plain.optLong("stAge") else null,
+                        serverTsMillis = ts,
+                    )
+                    if (uid == selfUid) ownStatus = status else statuses += status
+                } catch (e: Exception) {
+                    undecryptable += uid
+                }
+            }
+        }
+
         return SyncResult(
             state = json.optString("state", "LIVE"),
             expiresAtMillis = json.optLong("expiresAt", 0L),
@@ -240,6 +313,10 @@ object GroupWire {
             maxMembers = json.optInt("maxMembers", 5),
             nextSyncInSec = json.optInt("nextSyncInSec", GroupBackoff.DEFAULT_SYNC_INTERVAL_SEC),
             positions = positions,
+            serverNowMillis = json.optLong("serverNow", 0L),
+            statuses = statuses,
+            ownPosition = ownPosition,
+            ownStatus = ownStatus,
             roster = roster,
             meta = json.optString("meta").takeIf { it.isNotEmpty() }?.let { openMeta(key, it) },
             undecryptable = undecryptable,
@@ -265,6 +342,19 @@ object GroupWire {
         put("riding", riding)
         // No timestamp: the relay stamps it, so a skewed device clock cannot poison freshness for
         // the whole group (§4.4, §8).
+    }.toString()
+
+    /**
+     * The status payload. Tiny by design — it is sent on change and on unacknowledged retry, never
+     * every sync, so §7.3 of 1.7.0's bandwidth claim is untouched.
+     *
+     * [stAgeSeconds] is a monotonic **duration**, never a wall-clock instant: a skewed sender clock
+     * therefore cannot distort how old their status looks to anyone (§4.3). Null omits the field,
+     * which is how the reboot case travels.
+     */
+    fun encodeStatus(code: String, stAgeSeconds: Long?): String = JSONObject().apply {
+        put("st", code)
+        if (stAgeSeconds != null) put("stAge", stAgeSeconds.coerceAtLeast(0L))
     }.toString()
 
     fun encodeRoster(displayName: String?, initials: String?, photoUrl: String?): String =
