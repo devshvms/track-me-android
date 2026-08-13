@@ -149,6 +149,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupSeverityInfo: String = s("groupSeverityInfo", "Update")
 
     // Picker
+    val groupTimeLeftLabel: String = s("groupTimeLeftLabel", "Time left")
+    val groupNotStarted: String = s("groupNotStarted", "Not started")
     val groupStartTimeLocked: String = s(
         "groupStartTimeLocked",
         "The ride has started, so this is when you set off. Only the destination can change now.",
@@ -645,6 +647,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSeverityAlert" to "Necesita al grupo",
             "groupSeverityCaution" to "Algo va mal",
             "groupSeverityInfo" to "Novedad",
+            "groupTimeLeftLabel" to "Tiempo restante",
+            "groupNotStarted" to "Sin empezar",
             "groupStartTimeLocked" to "La ruta ya ha empezado, así que esta es la hora de salida. Ahora solo se puede cambiar el destino.",
             "groupStatusTitle" to "Tu estado",
             "groupStatusNone" to "Ninguno",
@@ -1134,6 +1138,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSeverityAlert" to "A besoin du groupe",
             "groupSeverityCaution" to "Quelque chose ne va pas",
             "groupSeverityInfo" to "Info",
+            "groupTimeLeftLabel" to "Temps restant",
+            "groupNotStarted" to "Pas encore parti",
             "groupStartTimeLocked" to "Le trajet a commencé, c'est donc l'heure de départ réelle. Seule la destination peut encore changer.",
             "groupStatusTitle" to "Votre statut",
             "groupStatusNone" to "Aucun",
@@ -1623,6 +1629,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSeverityAlert" to "Braucht die Gruppe",
             "groupSeverityCaution" to "Etwas stimmt nicht",
             "groupSeverityInfo" to "Hinweis",
+            "groupTimeLeftLabel" to "Verbleibende Zeit",
+            "groupNotStarted" to "Noch nicht gestartet",
             "groupStartTimeLocked" to "Die Fahrt läuft, das ist also der tatsächliche Startzeitpunkt. Jetzt lässt sich nur noch das Ziel ändern.",
             "groupStatusTitle" to "Dein Status",
             "groupStatusNone" to "Keiner",
@@ -2112,6 +2120,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSeverityAlert" to "समूह की ज़रूरत है",
             "groupSeverityCaution" to "कुछ गड़बड़ है",
             "groupSeverityInfo" to "जानकारी",
+            "groupTimeLeftLabel" to "बचा हुआ समय",
+            "groupNotStarted" to "अभी शुरू नहीं हुई",
             "groupStartTimeLocked" to "राइड शुरू हो चुकी है, इसलिए यही निकलने का समय है। अब सिर्फ़ गंतव्य बदला जा सकता है।",
             "groupStatusTitle" to "आपकी स्थिति",
             "groupStatusNone" to "कोई नहीं",
@@ -2601,6 +2611,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSeverityAlert" to "助けが必要",
             "groupSeverityCaution" to "何か問題あり",
             "groupSeverityInfo" to "お知らせ",
+            "groupTimeLeftLabel" to "残り時間",
+            "groupNotStarted" to "未開始",
             "groupStartTimeLocked" to "走行が始まっているので、これが実際の出発時刻です。これ以降は目的地のみ変更できます。",
             "groupStatusTitle" to "あなたの状態",
             "groupStatusNone" to "なし",
@@ -3090,6 +3102,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSeverityAlert" to "需要队友帮忙",
             "groupSeverityCaution" to "有点问题",
             "groupSeverityInfo" to "动态",
+            "groupTimeLeftLabel" to "剩余时间",
+            "groupNotStarted" to "尚未开始",
             "groupStartTimeLocked" to "行程已开始，这就是实际出发时间。现在只能修改目的地。",
             "groupStatusTitle" to "你的状态",
             "groupStatusNone" to "无",

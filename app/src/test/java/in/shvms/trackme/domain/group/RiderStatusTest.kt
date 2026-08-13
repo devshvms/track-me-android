@@ -166,12 +166,31 @@ class RiderStatusTest {
     }
 
     @Test
-    fun `walkers and runners are not offered Crashed`() {
-        listOf(StatusPersona.WALK, StatusPersona.RUN).forEach { persona ->
+    fun `Crashed decodes but is never offered — O16`() {
+        // Decode yes: removing a value from the picker must not make an older or newer peer's valid
+        // status disappear, or fail quiet to the wrong tier.
+        val decoded = RiderStatusCodec.parse(RiderStatusCatalog.CRASHED)
+        assertNotNull("1GCR must still parse", decoded)
+        assertTrue("1GCR must still render as Alert", decoded!!.isAlert)
+        assertTrue("1GCR must still have a label", decoded.isKnown)
+
+        // Offer no: not in any persona's picker, including the generic set.
+        (StatusPersona.entries + null).forEach { persona ->
             assertFalse(
-                "$persona should not be offered Crashed",
+                "$persona must not be offered Crashed",
                 RiderStatusCatalog.CRASHED in RiderStatusCatalog.optionsFor(persona),
             )
+        }
+    }
+
+    @Test
+    fun `Need help is the only selectable Alert`() {
+        (StatusPersona.entries + null).forEach { persona ->
+            val alerts = RiderStatusCatalog.optionsFor(persona)
+                .mapNotNull { RiderStatusCodec.parse(it) }
+                .filter { it.isAlert }
+            assertTrue("$persona offers ${'$'}{alerts.size} alerts, expected at most 1", alerts.size <= 1)
+            alerts.forEach { assertEquals(RiderStatusCatalog.NEED_HELP, it.code) }
         }
     }
 

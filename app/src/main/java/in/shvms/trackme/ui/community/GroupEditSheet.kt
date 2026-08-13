@@ -101,30 +101,23 @@ fun GroupEditSheet(
 
             Spacer(16.dp)
 
-            // --- Scheduled start ---
-            Text(
-                strings.groupStartTimeLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                startAt?.let { formatDateTime(it) } ?: strings.groupNotSet,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (rideUnderWay) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
-            )
-            if (rideUnderWay) {
-                // Shown rather than silently hidden: a control that vanishes reads as a bug, and
-                // the leader deserves to know why it is gone.
+            // A40: once the ride is under way the editor exposes **destination only**.
+            //
+            // The start time has stopped being a plan and become a fact — when the group actually
+            // set off — so there is nothing here to edit. It is hidden rather than shown disabled:
+            // a permanently inert control with an apology beside it is worse than an editor that
+            // simply offers what can still be changed.
+            if (!rideUnderWay) {
+                // --- Scheduled start ---
                 Text(
-                    strings.groupStartTimeLocked,
-                    style = MaterialTheme.typography.bodySmall,
+                    strings.groupStartTimeLabel,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            } else {
+                Text(
+                    startAt?.let { formatDateTime(it) } ?: strings.groupNotSet,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = {
                         pickDateTime(context, startAt) { picked -> startAt = picked }

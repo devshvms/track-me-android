@@ -198,8 +198,16 @@ object RiderStatusCatalog {
     const val NEED_HELP = "1GNH"
 
     /**
-     * Crashed is `G`, not per-persona, because it means the same thing to everyone — it is simply
-     * not *offered* to walkers and runners. Visibility is the catalogue's job; the code stays shared.
+     * **O16: reserved and decodable, but never offered.**
+     *
+     * `Need help` carries the actionable fact without implying crash detection, medical certainty,
+     * or emergency-service delivery. A self-reported `Crashed` creates the strongest expectation in
+     * the catalogue while resting on polling, local notifications, and no acknowledgement channel
+     * from another human — a mismatch a second Alert label does not justify.
+     *
+     * The code stays parsed, localized and rendered as Alert, because removing a value from the
+     * picker must never make an older or newer peer's valid status disappear or fail quiet to the
+     * wrong tier. Both clients test **decode yes, offer no**.
      */
     const val CRASHED = "1GCR"
 
@@ -220,12 +228,13 @@ object RiderStatusCatalog {
      * with no empty persona section.
      */
     fun optionsFor(persona: StatusPersona?): List<String> = when (persona) {
+        // CRASHED is deliberately absent from every list (O16) — reserved on the wire, never offered.
         StatusPersona.BIKE_DRIVE ->
-            listOf(FUEL_STOP_BIKE, SHORT_BREAK, ENGINE_HEAT, VEHICLE_ISSUE, NEED_HELP, CRASHED)
+            listOf(FUEL_STOP_BIKE, SHORT_BREAK, ENGINE_HEAT, VEHICLE_ISSUE, NEED_HELP)
         StatusPersona.CAR_DRIVE ->
-            listOf(FUEL_STOP_CAR, SHORT_BREAK, ON_A_CALL, VEHICLE_ISSUE, NEED_HELP, CRASHED)
+            listOf(FUEL_STOP_CAR, SHORT_BREAK, ON_A_CALL, VEHICLE_ISSUE, NEED_HELP)
         StatusPersona.CYCLING ->
-            listOf(WATER_BREAK_CYCLE, SHORT_BREAK, PUNCTURE, VEHICLE_ISSUE, NEED_HELP, CRASHED)
+            listOf(WATER_BREAK_CYCLE, SHORT_BREAK, PUNCTURE, VEHICLE_ISSUE, NEED_HELP)
         StatusPersona.WALK ->
             listOf(WATER_BREAK_WALK, SHORT_BREAK, TIRED, NEED_HELP)
         StatusPersona.RUN ->

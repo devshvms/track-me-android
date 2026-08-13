@@ -528,6 +528,39 @@ class GroupSessionManager(
     /** Leader-only: `PREPARING → LIVE`. */
     suspend fun startGroup(): Result<Unit> = setState("LIVE")
 
+    /** A sealed meta envelope plus the plaintext start time it carries, so the caller can adopt it. */
+    private data class StartMeta(val envelope: String, val startAtMillis: Long)
+
+    /**
+     * Re-seals the group meta with the tap time as the start, when none was scheduled (A40).
+     *
+     * Returns null when a start time already exists — an explicitly scheduled time is the leader's
+     * plan and must not be overwritten by when they happened to press the button — or when this
+     * client is not the leader, since meta is theirs to write.
+     */
+    private fun sealStartMetaIfMissing(): StartMeta? {
+        val session = _state.value
+        if (!session.isLeader || session.startAtMillis != null) return null
+        val key = groupKey ?: return null
+        val startedAt = System.currentTimeMillis()
+        return runCatching {
+            StartMeta(
+                envelope = GroupCrypto.seal(
+                    key,
+                    GroupWire.encodeMeta(
+                        name = session.groupName.orEmpty(),
+                        ownerDisplayName = null,
+                        destLat = session.destinationLat,
+                        destLng = session.destinationLng,
+                        startAtMillis = startedAt,
+                    ),
+                    GroupCrypto.Purpose.Meta,
+                ),
+                startAtMillis = startedAt,
+            )
+        }.getOrNull()
+    }
+
     /** Leader-only: ends the group for everyone and deletes all server-side state. */
     suspend fun endGroup(): Result<Unit> {
         emitSessionMetrics(_state.value, leftDeliberately = false, reason = "leader_ended")
@@ -651,35 +684,43 @@ class GroupSessionManager(
     private suspend fun setState(next: String): Result<Unit> = withContext(Dispatchers.IO) {
         val groupId = _state.value.groupId ?: return@withContext Result.failure(Exception("Not in a group."))
         try {
+            // A40: when the group has no scheduled start, the tap time IS the start time, and it
+            // must ride along INSIDE the state request. Doing it as a second meta call afterwards
+            // left a window where the group was LIVE with no start time — and if that second call
+            // failed, permanently so. The relay commits the meta and the revision bump inside the
+            // same compare-and-swap, so either both land or neither does.
+            val startMeta = if (next == "LIVE") sealStartMetaIfMissing() else null
+
             val body = post(
                 AppConfig.GROUP_STATE_ENDPOINT,
-                JSONObject().put("groupId", groupId).put("state", next).toString(),
+                JSONObject()
+                    .put("groupId", groupId)
+                    .put("state", next)
+                    .apply { startMeta?.let { put("meta", it.envelope) } }
+                    .toString(),
             )
             if (next == "LIVE") {
+                val json = runCatching { JSONObject(body) }.getOrNull()
                 // The relay restarts the countdown at LIVE so it measures the ride rather than the
                 // wait before it. Adopt the new expiry now instead of showing the creation-time one
                 // until the next sync — the leader is looking at the timer as they tap Start.
-                val restarted = runCatching { JSONObject(body).optLong("expiresAt", 0L) }.getOrDefault(0L)
+                val restarted = json?.optLong("expiresAt", 0L) ?: 0L
+                val committedRev = json?.optInt("rev", -1) ?: -1
+                val metaCommitted = json?.optBoolean("metaUpdated", false) ?: false
+
                 _state.value = _state.value.copy(
                     status = GroupSessionStatus.LIVE,
                     expiresAtMillis = restarted.takeIf { it > 0L } ?: _state.value.expiresAtMillis,
+                    rev = committedRev.takeIf { it >= 0 } ?: _state.value.rev,
+                    // Only claim the start time locally once the relay says it committed it. An
+                    // optimistic write here would show a start time the group never received.
+                    startAtMillis = if (metaCommitted && startMeta != null) {
+                        startMeta.startAtMillis
+                    } else {
+                        _state.value.startAtMillis
+                    },
                 )
                 AnalyticsManager.trackGroupStarted(_state.value.roster.size)
-
-                // If nobody scheduled a start time, the ride starting IS the start time. Leaving it
-                // as "--" after the group is live states that nothing was planned, when in fact the
-                // plan just happened — and it is the leader's own action, so there is nothing to
-                // guess. Leader-only, because meta is theirs to write.
-                if (_state.value.isLeader && _state.value.startAtMillis == null) {
-                    val startedAt = System.currentTimeMillis()
-                    runCatching {
-                        updateMeta(
-                            destinationLat = _state.value.destinationLat,
-                            destinationLng = _state.value.destinationLng,
-                            startAtMillis = startedAt,
-                        )
-                    }
-                }
             }
             Result.success(Unit)
         } catch (e: Exception) {

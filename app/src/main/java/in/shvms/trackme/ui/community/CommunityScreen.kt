@@ -55,6 +55,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.foundation.layout.heightIn
 import `in`.shvms.trackme.domain.group.MemberDirections
+import `in`.shvms.trackme.ui.home.components.formatRemaining
 import `in`.shvms.trackme.domain.group.PresenceAge
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -247,7 +248,7 @@ fun CommunityScreen(
                 onRemoveMember = { pendingRemoval = it },
                 onShowOnMap = onOpenHome,
                 onDirections = { member ->
-                    member.freshPosition?.let { (lat, lng) ->
+                    member.lastKnownPosition?.let { (lat, lng) ->
                         AnalyticsManager.trackGroupDirectionsOpened(member.positionAge.telemetryBucket())
                         openDirections(context, lat, lng, strings)
                     }
@@ -677,6 +678,32 @@ private fun GroupHeader(state: CommunityUiState, strings: AppStrings) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            // §2.5a: the ride window belongs to the ride. While the group is still assembling there
+            // is nothing to count down, and showing the creation-based expiry made it look as
+            // though the clock had already been running — which, before A39, it had been.
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    strings.groupTimeLeftLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.size(6.dp))
+                Text(
+                    if (state.session.status == GroupSessionStatus.PREPARING) {
+                        strings.groupNotStarted
+                    } else {
+                        String.format(
+                            Locale.getDefault(),
+                            strings.groupTimeLeft,
+                            formatRemaining(state.session.expiresAtMillis - System.currentTimeMillis()),
+                        )
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+
             state.session.joinCode?.let { code ->
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -757,9 +784,12 @@ private fun RosterCard(
     val ageText = strings.ageText(member.positionAge)
     val riderStatus = member.riderStatus
     val riderStatusLabel = riderStatus?.let { strings.statusLabel(it) }
-    // §2.3: absent, not disabled. A route to a nine-minute-old point is a wrong answer, not a
-    // degraded feature.
-    val canRoute = member.freshPosition != null && !member.isSelf
+    // §2.3 (revised): the action survives staleness. It desaturates with the avatar and keeps
+    // routing to an explicitly labelled last known point, disappearing only when the relay stops
+    // returning a coordinate at all. Hiding it left a rider searching for someone who had stopped
+    // with nothing, at precisely the moment they needed it most — and the age on the button says
+    // how far to trust the pin.
+    val canRoute = member.lastKnownPosition != null && !member.isSelf
 
     val spoken = listOfNotNull(
         name.takeIf { it.isNotBlank() },
@@ -879,7 +909,13 @@ private fun RosterCard(
                             // Null: the card owns the description, and a second announced node
                             // would make TalkBack read every member twice.
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            // Desaturated with the avatar when the fix is old — still offered,
+                            // visibly less trustworthy.
+                            tint = if (member.positionIsFresh) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                            },
                         )
                     }
                 }

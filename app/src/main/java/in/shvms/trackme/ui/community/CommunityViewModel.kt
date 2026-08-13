@@ -53,12 +53,16 @@ data class RosterMember(
     /** How long since the relay last heard a position from them (§2.2). */
     val positionAge: PresenceAge.Bucket = PresenceAge.Bucket.Unknown,
     /**
-     * Where they were, for the Directions action — **only when the fix is fresh** (§2.3).
+     * The last coordinate the relay still holds for them, fresh or not (§2.3, revised).
      *
-     * Null for a stale or dropped member, which is what makes the action *absent* rather than
-     * disabled: a route to a nine-minute-old point is not a degraded feature, it is a wrong answer.
+     * Non-null for as long as the relay returns *anything* — the action only disappears at the
+     * ghost horizon, on removal, or at group end. Staleness desaturates it rather than removing it:
+     * a rider looking for someone who has stopped needs the last place they were **most** when it
+     * is old, and hiding it left them with nothing at exactly that moment.
      */
-    val freshPosition: Pair<Double, Double>? = null,
+    val lastKnownPosition: Pair<Double, Double>? = null,
+    /** Whether that coordinate is still fresh. Drives desaturation, never visibility. */
+    val positionIsFresh: Boolean = false,
 ) {
     /** A31: severity-1 members pin above the roster rather than sorting into it. */
     val needsTheGroup: Boolean get() = riderStatus?.isAlert == true
@@ -194,7 +198,8 @@ class CommunityViewModel(
                     ageOf(session, it.serverTsMillis, it.stAgeSeconds, nowElapsed)
                 } ?: PresenceAge.Bucket.Unknown,
                 positionAge = positionAge,
-                freshPosition = if (fresh) position!!.lat to position.lng else null,
+                lastKnownPosition = position?.let { it.lat to it.lng },
+                positionIsFresh = fresh,
             )
         }
         // Self first, then everyone else alphabetically — a stable order, so a roster that updates
