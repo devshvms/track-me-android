@@ -618,9 +618,22 @@ fun SettingsScreen(
             }
         }
         
+        // 1.8.0 design system: debug-only entry to the token gallery. Stripped from release
+        // builds by the BuildConfig.DEBUG guard. See docs/DESIGN_SYSTEM_1.8.md §9.
+        if (`in`.shvms.trackme.BuildConfig.DEBUG) {
+            OutlinedButton(
+                onClick = { navController?.navigate("design_catalog") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            ) {
+                Text("Design catalog (debug)")
+            }
+        }
+
         Spacer(modifier = Modifier.weight(1f))
-        
-        val packageInfo = remember { 
+
+        val packageInfo = remember {
             try { context.packageManager.getPackageInfo(context.packageName, 0) } catch(e: Exception) { null } 
         }
         packageInfo?.let {

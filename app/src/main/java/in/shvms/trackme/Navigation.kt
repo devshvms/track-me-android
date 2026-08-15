@@ -157,6 +157,16 @@ fun MainNavigation() {
             composable("help_feedback") {
                 `in`.shvms.trackme.ui.settings.HelpFeedbackScreen(navController = navController)
             }
+            // 1.8.0 design system: the token gallery and phase-2 screenshot-test surface.
+            // Debug-only — the route does not exist in release builds, so the entry point in
+            // SettingsScreen cannot navigate to a missing destination.
+            if (BuildConfig.DEBUG) {
+                composable("design_catalog") {
+                    `in`.shvms.trackme.ui.catalog.DesignCatalogScreen(
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+            }
         }
     }
 }

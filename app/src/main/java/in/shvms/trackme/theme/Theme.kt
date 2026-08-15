@@ -3,128 +3,39 @@ package `in`.shvms.trackme.theme
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
 
-internal val TrackMeDarkColorScheme =
-  darkColorScheme(
-    primary = CyanBright,
-    onPrimary = Navy900,
-    primaryContainer = CyanDeep,
-    onPrimaryContainer = Color.White,
-    // C1: secondary is a BRAND role, so it stays in the cyan family. Semantic success uses
-    // the named `SuccessGreen` token, never this role. Drives the bottom-nav selected
-    // indicator, which reads `secondaryContainer` via NavigationBarItemDefaults.
-    secondary = CyanBright,
-    onSecondary = Navy900,
-    secondaryContainer = CyanDeep,
-    onSecondaryContainer = Color.White,
-    tertiary = AmberWarn,
-    onTertiary = Navy900,
-    tertiaryContainer = AmberContainerDark,
-    onTertiaryContainer = AmberContainerLight,
-    error = RedTextDark,
-    onError = Navy900,
-    errorContainer = ErrorContainerDark,
-    onErrorContainer = ErrorContainerLight,
-    background = Navy900,
-    onBackground = Slate50,
-    surface = Navy800,
-    onSurface = Slate50,
-    surfaceVariant = Navy700,
-    onSurfaceVariant = Slate200,
-    outline = Slate400,
-    outlineVariant = Slate400,
-    surfaceTint = CyanBright,
-    inverseSurface = Slate50,
-    inverseOnSurface = Slate800,
-    inversePrimary = CyanDeep,
-    scrim = Color.Black,
-    surfaceBright = Slate700,
-    surfaceDim = Navy900,
-    surfaceContainerLowest = SurfaceDarkLowest,
-    surfaceContainerLow = Navy900,
-    surfaceContainer = Navy800,
-    surfaceContainerHigh = Navy700,
-    surfaceContainerHighest = Slate800,
-    primaryFixed = CyanContainerLight,
-    primaryFixedDim = CyanBright,
-    onPrimaryFixed = Slate800,
-    onPrimaryFixedVariant = Slate800,
-    secondaryFixed = CyanContainerLight,
-    secondaryFixedDim = CyanBright,
-    onSecondaryFixed = Slate800,
-    onSecondaryFixedVariant = Slate800,
-    tertiaryFixed = AmberContainerLight,
-    tertiaryFixedDim = AmberWarn,
-    onTertiaryFixed = Slate800,
-    onTertiaryFixedVariant = Slate800,
-  )
+/**
+ * Backwards-compatible aliases.
+ *
+ * `ThemeContrastTest` and any future caller reference these names. The schemes themselves now
+ * live in [TrackMeColorSchemes.kt] and are generated from tone positions rather than hand-picked
+ * hex values — see `docs/DESIGN_SYSTEM_1.8.md`.
+ */
+internal val TrackMeLightColorScheme = TrackMeLightScheme
+internal val TrackMeDarkColorScheme = TrackMeDarkScheme
 
-internal val TrackMeLightColorScheme =
-  lightColorScheme(
-    primary = CyanDeep,
-    onPrimary = Color.White,
-    primaryContainer = CyanContainerLight,
-    onPrimaryContainer = Slate800,
-    // C1: brand role → cyan family (see the dark scheme note above). On light surfaces the
-    // interactive cyan must be cyan/deep for AA; cyan/bright is dark-surface only.
-    secondary = CyanDeep,
-    onSecondary = Color.White,
-    secondaryContainer = CyanContainerLight,
-    onSecondaryContainer = Slate800,
-    tertiary = AmberWarn,
-    onTertiary = Slate800,
-    tertiaryContainer = AmberContainerLight,
-    onTertiaryContainer = AmberContainerDark,
-    error = RedSos,
-    onError = Color.White,
-    errorContainer = ErrorContainerLight,
-    onErrorContainer = ErrorContainerDark,
-    background = Slate50,
-    onBackground = Slate800,
-    surface = Color.White,
-    onSurface = Slate800,
-    surfaceVariant = Slate200,
-    onSurfaceVariant = Slate600,
-    outline = Slate500,
-    outlineVariant = Slate500,
-    surfaceTint = CyanDeep,
-    inverseSurface = Slate800,
-    inverseOnSurface = Slate50,
-    inversePrimary = CyanBright,
-    scrim = Color.Black,
-    surfaceBright = Color.White,
-    surfaceDim = Slate200,
-    surfaceContainerLowest = Color.White,
-    surfaceContainerLow = Slate50,
-    surfaceContainer = Slate100,
-    surfaceContainerHigh = Slate200,
-    surfaceContainerHighest = Slate300,
-    primaryFixed = CyanContainerLight,
-    primaryFixedDim = CyanBright,
-    onPrimaryFixed = Slate800,
-    onPrimaryFixedVariant = Slate800,
-    secondaryFixed = CyanContainerLight,
-    secondaryFixedDim = CyanBright,
-    onSecondaryFixed = Slate800,
-    onSecondaryFixedVariant = Slate800,
-    tertiaryFixed = AmberContainerLight,
-    tertiaryFixedDim = AmberWarn,
-    onTertiaryFixed = Slate800,
-    onTertiaryFixedVariant = Slate800,
-  )
-
+/**
+ * The app theme.
+ *
+ * This function **composes and provides**; it holds no values. Every colour, shape, spacing,
+ * elevation and motion constant lives in a token file with a single responsibility, and changing
+ * one of them must never require editing this file.
+ *
+ * Ambient tokens are provided as separate [CompositionLocalProvider] entries rather than one
+ * bundled object, so a screen that reads motion does not acquire a dependency on spacing.
+ *
+ * @param themeMode 0 = follow system, 1 = light, 2 = dark. Unchanged from 1.7.x.
+ * @param dynamicColor opt-in only. Wallpaper palettes replace the brand hues by design.
+ */
 @Composable
 fun TrackMeTheme(
   themeMode: Int = 0,
   darkTheme: Boolean = isSystemInDarkTheme(),
-  // Opt-in only: dynamic colors replace the locked TrackMe brand palette.
   dynamicColor: Boolean = false,
   content: @Composable () -> Unit,
 ) {
@@ -134,6 +45,7 @@ fun TrackMeTheme(
       2 -> true
       else -> darkTheme
     }
+
   val colorScheme =
     when {
       dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
@@ -141,21 +53,43 @@ fun TrackMeTheme(
         val wallpaperScheme =
           if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
 
-        // Wallpaper palettes must never dilute emergency or warning affordances.
-        wallpaperScheme.copy(
-          error = RedSos,
-          onError = Color.White,
-          errorContainer = if (isDark) ErrorContainerDark else ErrorContainerLight,
-          onErrorContainer = if (isDark) ErrorContainerLight else ErrorContainerDark,
-          tertiary = AmberWarn,
-          onTertiary = Navy900,
-          tertiaryContainer = if (isDark) AmberContainerDark else AmberContainerLight,
-          onTertiaryContainer = if (isDark) AmberContainerLight else AmberContainerDark,
-        )
+        // A wallpaper palette must never dilute the error affordance. Only the error family is
+        // pinned now — warning no longer lives in ColorScheme at all (it moved to
+        // TrackMeSemantics, because `tertiary` is a brand accent slot, not a state slot), which
+        // makes it wallpaper-proof by construction rather than by patching.
+        if (isDark) {
+          wallpaperScheme.copy(
+            error = Tone.Error80,
+            onError = Tone.Error20,
+            errorContainer = Tone.Error30,
+            onErrorContainer = Tone.Error90,
+          )
+        } else {
+          wallpaperScheme.copy(
+            error = Tone.Error40,
+            onError = Tone.Error100,
+            errorContainer = Tone.Error90,
+            onErrorContainer = Tone.Error10,
+          )
+        }
       }
-      isDark -> TrackMeDarkColorScheme
-      else -> TrackMeLightColorScheme
+      isDark -> TrackMeDarkScheme
+      else -> TrackMeLightScheme
     }
 
-  MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  val semantics = if (isDark) TrackMeSemantics.Dark else TrackMeSemantics.Light
+
+  CompositionLocalProvider(
+    LocalTrackMeSemantics provides semantics,
+    LocalTrackMeSpacing provides TrackMeSpacing(),
+    LocalTrackMeElevation provides TrackMeElevation(),
+    LocalTrackMeMotion provides TrackMeMotionScheme.Standard,
+  ) {
+    MaterialTheme(
+      colorScheme = colorScheme,
+      typography = Typography,
+      shapes = TrackMeShapes,
+      content = content,
+    )
+  }
 }

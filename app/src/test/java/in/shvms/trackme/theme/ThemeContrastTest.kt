@@ -38,13 +38,18 @@ class ThemeContrastTest {
         "dark secondary container" to TrackMeDarkColorScheme.secondaryContainer,
         "dark secondary fixed dim" to TrackMeDarkColorScheme.secondaryFixedDim,
       )
-    val cyanFamily = setOf(CyanBright, CyanDeep, CyanContainerLight)
     brandRoles.forEach { (role, color) ->
+      // 1.8.0: brand roles are now generated from the #29B6F6 seed rather than picked from a
+      // fixed set of three constants, so family membership is asserted by HUE ORDERING instead of
+      // identity. In the cyan family blue dominates green dominates red — which excludes semantic
+      // green (g > b), warning amber (r > g > b) and error red (r > g > b) by construction, and
+      // keeps working after the palette is regenerated with Material Color Utilities.
       assertTrue(
-        "$role must be a cyan brand token but was $color",
-        color in cyanFamily,
+        "$role must be cyan-family (blue > green > red) but was $color",
+        color.blue > color.green && color.green > color.red,
       )
       assertTrue("$role must never be semantic green", color != GreenGo)
+      assertTrue("$role must never be semantic warning amber", color != AmberWarn)
     }
   }
 
@@ -100,13 +105,26 @@ class ThemeContrastTest {
   fun `cyan bright is never used as interactive cyan on light surfaces`() {
     // BRAND_SYSTEM contrast discipline: #29B6F6 fails AA on white, so light-scheme
     // interactive cyan must be cyan/deep.
-    assertTrue(
-      "light primary must be cyan/deep, not cyan/bright",
-      TrackMeLightColorScheme.primary == CyanDeep,
+    // 1.8.0: this is a CONTRAST rule, not an identity rule. What matters is that whatever tone
+    // light-scheme primary lands on clears AA against a light surface — asserting the property
+    // rather than the constant keeps the guard alive after the palette is regenerated.
+    assertContrast(
+      "light primary as text on surface",
+      TrackMeLightColorScheme.primary,
+      TrackMeLightColorScheme.surface,
     )
+    assertContrast(
+      "light secondary as text on surface",
+      TrackMeLightColorScheme.secondary,
+      TrackMeLightColorScheme.surface,
+    )
+    // And the reason the rule exists: cyan/bright must still fail on a light surface. If this
+    // ever passes, the constraint that forces light primary to a darker tone has stopped holding
+    // and the tone assignment should be revisited rather than silently inherited.
     assertTrue(
-      "light secondary must be cyan/deep, not cyan/bright",
-      TrackMeLightColorScheme.secondary == CyanDeep,
+      "cyan/bright must still fail AA on a light surface (was " +
+        "${contrastRatio(CyanBright, TrackMeLightColorScheme.surface)}:1)",
+      contrastRatio(CyanBright, TrackMeLightColorScheme.surface) < 4.5,
     )
   }
 
@@ -203,8 +221,27 @@ class ThemeContrastTest {
     surfaces.forEach { (role, surface) ->
       assertDefined("$name $role", surface)
       assertContrast("$name text on $role", scheme.onSurface, surface)
+
+      // `outline` draws meaningful boundaries — text-field borders, selected states — so it is a
+      // user interface component under WCAG 1.4.11 and holds the full 3:1.
       assertContrast("$name outline on $role", scheme.outline, surface, minimum = 3.0)
-      assertContrast("$name outline variant on $role", scheme.outlineVariant, surface, minimum = 3.0)
+
+      // 1.8.0: `outlineVariant` is a DECORATIVE divider. WCAG 1.4.11 exempts decoration, and M3
+      // defines this role as the low-emphasis tier precisely so it reads quieter than `outline`.
+      // Demanding 3:1 of both is what forced master to bind them to the SAME grey — which made
+      // dividers and borders indistinguishable, the defect this branch fixes. So the assertion is
+      // restated as the two properties that actually matter: visible, and quieter than `outline`.
+      val variantRatio = contrastRatio(scheme.outlineVariant, surface)
+      val outlineRatio = contrastRatio(scheme.outline, surface)
+      assertTrue(
+        "$name outline variant on $role must stay visible against the surface (was $variantRatio)",
+        variantRatio > 1.15,
+      )
+      assertTrue(
+        "$name outline variant on $role must read quieter than outline " +
+          "(variant $variantRatio vs outline $outlineRatio)",
+        variantRatio < outlineRatio,
+      )
     }
   }
 
