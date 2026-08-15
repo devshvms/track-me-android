@@ -86,18 +86,29 @@ class ThemeContrastTest {
       TrackMeDarkColorScheme.onPrimary,
       TrackMeDarkColorScheme.primary,
     )
-    // Regression guard: the STARTING/RELEASE/DRAG-TO-SELECT captions must stay at full
-    // opacity. At the 90% alpha they used to carry, white on cyan/deep composites to 4.27:1,
-    // which fails AA for 8-9sp text. If someone reintroduces the alpha, this fails.
+    // Regression guard for the STARTING/RELEASE/DRAG-TO-SELECT captions.
+    //
+    // 1.8.0: this guard has INVERTED, and that is the intended outcome. It used to assert that
+    // white at 90% alpha composites BELOW AA — 4.27:1 against the old cyan/deep primary — which
+    // was the evidence that those captions had to stay at full opacity.
+    //
+    // Light primary is now tone 40 (#00658D) rather than cyan/deep (#0277B6). It is darker, so
+    // the same 90% caption composites to 5.59:1 and clears AA. The hazard the guard was built to
+    // catch no longer exists.
+    //
+    // So it is restated in the direction that is now true, which keeps it a live guard rather
+    // than a historical note: if primary is ever lightened back toward cyan/bright, this drops
+    // under 4.5 and fails — surfacing the hazard's return at exactly the moment it returns.
     val lightCaptionAt90 =
       composite(
         TrackMeLightColorScheme.onPrimary.copy(alpha = 0.90f),
         TrackMeLightColorScheme.primary,
       )
+    val captionRatio = contrastRatio(lightCaptionAt90, TrackMeLightColorScheme.primary)
     assertTrue(
-      "start button captions must not be dimmed on light cyan (90% alpha = " +
-        "${contrastRatio(lightCaptionAt90, TrackMeLightColorScheme.primary)}:1, below AA)",
-      contrastRatio(lightCaptionAt90, TrackMeLightColorScheme.primary) < 4.5,
+      "a 90% alpha caption on light primary must clear AA (was $captionRatio:1). If this fails, " +
+        "light primary has been lightened and the captions must go back to full opacity.",
+      captionRatio >= 4.5,
     )
   }
 

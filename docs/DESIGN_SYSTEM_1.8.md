@@ -308,6 +308,21 @@ content*; a decorative divider is neither, and is exempt.
 asserted to be (a) visible at all, above 1.15:1, and (b) strictly quieter than `outline` on the
 same surface. That tests the property the role actually has.
 
+**3. The dimmed-caption guard inverted — and that is the intended outcome.**
+
+`brand action content pairs meet AA` carried a regression guard asserting that a caption at 90%
+alpha composites **below** AA (4.27:1 against the old cyan/deep primary). That was the evidence
+those captions had to stay at full opacity.
+
+Light primary is now tone 40 (`#00658D`) instead of cyan/deep (`#0277B6`). It is darker, so the
+same 90% caption composites to **5.59:1** and clears AA. The hazard the guard existed to catch
+no longer exists, and the assertion failed for that reason — it was pinning a bad condition that
+the new palette removed.
+
+It is restated in the direction that is now true, so it stays a live guard: if primary is ever
+lightened back toward cyan/bright, the ratio drops under 4.5 and the test fails, surfacing the
+hazard exactly when it returns.
+
 **2. Brand-role identity checks became hue-family checks.**
 
 The old test asserted `TrackMeLightColorScheme.primary == CyanDeep` and that brand roles were
@@ -321,14 +336,33 @@ shipped in 1.5.11 — is preserved and slightly strengthened: brand roles must s
 `cyan/bright fails AA on light` rule is now asserted as a contrast property rather than as an
 equality against a constant.
 
-### 10.2 What was verified without a JVM
+### 10.2 Verified build status
 
-All 104 colour assertions in `ThemeContrastTest.assertSchemeContrast` were replicated in pure
-colour math and run against the proposed schemes before the code was written. Result: **104/104
-pass.** That covers every text pair, every fixed-role pair, and every outline pair across both
-schemes and all seven surfaces.
+| Gate | Command | Result |
+|---|---|---|
+| Kotlin compile | `:app:compileDebugKotlin` | **pass**, 0 warnings |
+| Debug APK | `:app:assembleDebug` | **pass**, 29 MB APK produced |
+| Unit tests | `:app:testReleaseUnitTest` | **pass — 556 tests, 0 failures** |
+| Release lint | `:app:lintRelease` | **pass**, 0 errors, 0 issues in any new file |
 
-That is genuinely verified. **Everything else in this branch is not** — see §12.
+Toolchain: Temurin JDK 17.0.20, Android SDK platform 36 / build-tools 36.0.0, Gradle 9.4.1
+via the wrapper.
+
+Note that unit tests only exist for the **release** variant — there is no `testDebugUnitTest`
+task in this project, which is why CI runs `:app:testReleaseUnitTest`. Running it locally trips
+the signing-config guard in `build.gradle.kts`, so `local.properties` needs the same dummy
+keystore values CI falls back to. No signing actually occurs.
+
+### 10.3 Three defects the build found
+
+Recording these because they are the argument for compiling before claiming done:
+
+1. **`import androidx.compose.foundation.lazy.item`** — no such symbol. `item` is a member of
+   `LazyListScope`, not a top-level function, so it needs no import.
+2. **`Icons.Filled.ArrowBack` is deprecated** in favour of `Icons.AutoMirrored.Filled.ArrowBack`.
+   A real defect, not noise: the app ships seven languages and the non-mirrored arrow points the
+   wrong way in RTL.
+3. **`ThemeContrastTest > brand action content pairs meet AA` failed** — see §10.1, item 3.
 
 ---
 
@@ -348,8 +382,13 @@ Each phase ends somewhere a release could be cut.
 
 ## 12. Known limitations of this branch
 
-- **Not compiled.** The environment this was authored in has no JDK and no Android SDK. Every
-  line is unverified. First compile is expected to surface import and signature errors.
+- **Compiled, unit-tested and linted — but never run on a device or emulator.** The catalog
+  screen has not been looked at by a human, and no screenshot tests exist yet (phase 2). The
+  build gates in §10.2 prove it assembles and that the token layer is internally consistent;
+  they prove nothing about how it looks.
+- **`google-services.json` used locally is a placeholder.** The real Firebase config is not in
+  the repo. It is structurally valid so the plugin and compiler are satisfied; Firebase will not
+  function at runtime with it. Anyone building locally needs the real file.
 - Ramp values are CIELCh approximations of HCT (see §4.3).
 - `Color.kt` legacy aliases are retained and still used by ~40 files. That migration is phase 2.
 - No component library yet — the catalog renders raw Material components against the new tokens.
