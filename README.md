@@ -1,4 +1,4 @@
-# TrackMe 🚵‍♂️🗺️ (v1.7.2)
+# TrackMe 🚵‍♂️🗺️ (v1.8.0)
 
 ![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
@@ -7,19 +7,20 @@
 
 > **Product Vision:** TrackMe is designed to be the ultimate companion for cyclists, runners, and explorers. We believe in privacy-first tracking that seamlessly works offline, but elegantly syncs to the cloud when you want it to. Track your journey, analyze your performance, and share your adventures.
 
-## 🌟 Key Features (v1.7.2)
+## 🌟 Key Features (v1.8.0)
+
+*   **Material 3 Design System (1.8.0):** Every colour in the app is now generated from a single brand seed (`#29B6F6`) as tonal ramps, rather than hand-picked hex values — with shape, spacing, elevation and motion tokens alongside it. Fixes a live accessibility defect where warning amber measured 2.15:1 on light surfaces, below the WCAG AA minimum of 4.5:1. Phase 1 of 5; see [`docs/DESIGN_SYSTEM_1.8.md`](docs/DESIGN_SYSTEM_1.8.md).
 
 *   **End-to-End Encrypted (E2EE) Group Rides:** Create or join group ride sessions with client-side AES-GCM-256 location & presence encryption. Group decryption keys (`#k=...`) remain in the URI fragment and are never shared with servers.
 *   **Rider Status (1.7.2):** Say what is happening — a fuel stop, a vehicle issue, a break — as a structured code whose severity is readable without knowing the message, so an older client renders a newer status at the right urgency instead of dropping it. Statuses travel in their own encrypted slot, so a rider whose location permission is revoked can still be heard.
 *   **Honest freshness (1.7.2):** Every roster row carries how long ago the group last heard from that member, anchored to the relay's clock and advanced on a monotonic one — no device wall clock enters the answer. Home says plainly when the group has stopped receiving your updates.
 *   **Live Member Roster & Presence Tracking:** Real-time presence status (active, paused, left) and live locations of group members rendered smoothly on HUD and map controls.
 *   **Leader Controls & Universal Invite Links:** Session leaders can edit ride destination and start time, remove members, or end the group session seamlessly. Deep link opening via `/g/{code}#k={key}` with Android Digital Asset Links & fallback support.
-*   **Production-Grade Firestore Security Lockdown:** Enforces strict user-isolated access control lists (`firestore.rules`) validating `uid`-based ownership across all user data, ride histories, emergency contacts, and feedback submissions.
-*   **PostHog Telemetry Engine & Remote Kill-Switch:** Comprehensive privacy-aware event tracking (`AnalyticsManager`) across authentication, ride lifecycle, live sharing, and SOS beacons—dynamically toggled via Firebase Remote Config (`telemetry_enabled`).
+*   **Production-Grade Firestore Security Lockdown:** Enforces strict user-isolated access control lists (`firestore.rules`) validating `uid`-based ownership across all user data, ride histories, and feedback submissions.
+*   **PostHog Telemetry Engine & Remote Kill-Switch:** Comprehensive privacy-aware event tracking (`AnalyticsManager`) across authentication, ride lifecycle, live sharing, and group rides—dynamically toggled via Firebase Remote Config (`telemetry_enabled`).
 *   **Centralized UI Theming & Chart Polish:** Standardized color tokens across `RideDetailScreen`, `HomeScreen`, `ActiveRideHudPanel`, and `InteractiveShareLocationButton`, along with improved padding and edge avoidance on interactive scrubbable charts.
 *   **Complete Data Ownership & Cloud Export:** Download your entire tracking history from the cloud in a secure, tokenized on-demand ZIP flow to prevent vendor lock-in.
 *   **Live Ride Sharing with Notifications:** Share your real-time ride progress with friends or family via a secure live-tracking link, complete with interactive red-dot UI notifications and personalized SMS templates.
-*   **Emergency SOS & Safety Beacon:** Configure emergency contacts and broadcast immediate emergency alerts with a streamlined push-button action directly from the HUD.
 *   **Offline-First Architecture:** Rides are saved locally to a robust Room Database. No internet required to track a ride—even in the most remote locations.
 *   **Smart Cloud Synchronization (`WorkManager`):** Automated daily periodic background syncing (`SyncWorker`) with lightweight downstream lazy-loading (`syncPeriodic`), plus manual full cloud sync (`syncAll`) with a sleek `CloudSync` button.
 *   **Global Multi-Language Localization:** Built-in dynamic locale support for 7 languages (`en`, `es`, `fr`, `de`, `hi`, `ja`, `zh`) across all application screens.
@@ -29,6 +30,7 @@
 
 *   **Language:** Kotlin
 *   **UI Toolkit:** Jetpack Compose, Material Design 3
+*   **Design System:** Two-tier design tokens generated from a single brand seed — colour, shape, spacing, elevation and spring-based motion ([`docs/DESIGN_SYSTEM_1.8.md`](docs/DESIGN_SYSTEM_1.8.md))
 *   **Architecture:** MVVM (Model-View-ViewModel) with Clean Architecture principles
 *   **Asynchronous Programming:** Kotlin Coroutines & `StateFlow`
 *   **Background Tasks:** Android Jetpack `WorkManager` (`SyncWorker`)

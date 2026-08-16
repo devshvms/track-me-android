@@ -1,11 +1,11 @@
-TrackMe 1.7.2
+TrackMe 1.8.0
 
-• Ride Together statuses: tell your group you've stopped for fuel, hit a vehicle issue, or are taking a break — without typing.
+• Warning text is readable again. The amber used for warnings failed the accessibility contrast minimum on light backgrounds — it now clears it comfortably in both light and dark.
 
-• Every rider's row now shows when the group last heard from them, so you can tell "just now" from "ten minutes ago".
+• Cleaner surfaces. Cards, sheets and the navigation bar now sit at genuinely different levels instead of blending into the background.
 
-• Open directions to a rider's last known point.
+• Dividers and borders no longer look identical, so lists and grouped settings are easier to scan.
 
-• Your own screen now tells you when the group has stopped receiving your updates.
+• Groundwork for a wider visual refresh arriving over the next few releases.
 
-• More accurate freshness: stale positions no longer look current.
+Nothing about tracking, group rides, sync or export changes in this update.
