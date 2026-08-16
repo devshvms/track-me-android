@@ -539,6 +539,11 @@ class TrackingService : Service() {
         app.errorLogger.recordException(error)
         val outcome = ForegroundStartPolicy.classify(error, Build.VERSION.SDK_INT)
         app.abandonPersistedTrackingSession(outcome)
+        // Same ordering rule as stopTracking: this service is no longer recording anything, so the
+        // id goes before the IDLE claim (§0 contract 2). The unfinished ride row itself is left for
+        // OrphanedRideRecoveryManager, which is what abandonPersistedTrackingSession sets up.
+        currentRideId = null
+        activeRideId = null
         updateState(TrackingState.IDLE)
         isTimerEnabled = false
         stopSelf()
@@ -559,20 +564,25 @@ class TrackingService : Service() {
         discardNearEmptyRide: Boolean = false,
         preserveRideForRecovery: Boolean = false
     ) {
-        updateState(TrackingState.IDLE)
         isTimerEnabled = false
         motionSensorManager.stopListening()
         locationHelper.stopLocationTracking(locationCallback)
-        
+
         val finalDistance = trackingManager.totalDistance.value.toDouble()
         val finalDuration = rideDuration
         val rideToProcess = currentRideId
-        
+
+        // Release the ride BEFORE publishing IDLE. §0 contract 2 makes "observed IDLE" mean
+        // "nothing is being recorded", so the id has to be gone by the time that claim is made —
+        // otherwise the honest state and the published state disagree for the width of this
+        // function, which is exactly the shape of the §2(b) defect.
+        currentRideId = null
+        activeRideId = null
+        updateState(TrackingState.IDLE)
+
         trackingManager.reset()
         rideDuration = 0L
         lastLocation = null
-        currentRideId = null
-        activeRideId = null
         setPersistedActiveSession(false)
         setPersistedPausedSession(false)
         
@@ -603,11 +613,34 @@ class TrackingService : Service() {
         }
     }
 
+    /**
+     * Publishes the recorder's state to the UI, honouring SCOPE_1.7.3 §0 contract 2 —
+     * *"a ride recording is always visible"*.
+     *
+     * [RecordingVisibilityPolicy] is consulted rather than trusted-by-convention: any future path
+     * that tries to observe IDLE while `currentRideId` is still held gets corrected here and
+     * reported, instead of silently recording behind an idle screen the way the auto-split did
+     * (§2(b)). The service's own `currentState` tracks the corrected value too, so the two halves
+     * of the fact cannot drift apart again.
+     */
     private fun updateState(newState: TrackingState) {
-        val stateChanged = newState != currentState
-        currentState = newState
-        trackingManager.updateState(newState)
-        if (stateChanged && newState != TrackingState.IDLE && newState != TrackingState.STORAGE_LOW) {
+        val observed = RecordingVisibilityPolicy.observedStateFor(
+            serviceState = newState,
+            hasActiveRide = currentRideId != null,
+        )
+        if (observed != newState) {
+            // Reaching here is a bug in a caller, not a normal state. Record it — an invisible
+            // recording ride is a consent problem, and it is invisible to bug reports by definition.
+            (application as? TrackMeApp)?.errorLogger?.recordException(
+                IllegalStateException(
+                    "Refused to publish IDLE while ride $currentRideId is recording (SCOPE_1.7.3 §0.2)"
+                )
+            )
+        }
+        val stateChanged = observed != currentState
+        currentState = observed
+        trackingManager.updateState(observed)
+        if (stateChanged && observed != TrackingState.IDLE && observed != TrackingState.STORAGE_LOW) {
             postTrackingNotification(force = true)
         }
     }
@@ -1071,25 +1104,38 @@ class TrackingService : Service() {
         }
     }
 
+    /**
+     * Ends the current ride and immediately opens its continuation.
+     *
+     * **§2(b): the recorder never stops here, so the UI must never say it did.** This used to call
+     * [TrackingManager.reset], which published [TrackingState.IDLE] while the location callback
+     * carried on writing points — the app recording a ride the user could not see, pause, or stop.
+     * [TrackingManager.resetForContinuation] clears the metrics for Part 2 and leaves the tracking
+     * state (and the rider's persona) alone, which is the honest description of what is happening.
+     *
+     * Part 2's row is inserted asynchronously, so `currentRideId` briefly still points at Part 1 —
+     * deliberately. A gap where it were null is a gap where [updateState] would be entitled to
+     * publish IDLE, and points arriving in that window would land in Part 1 rather than vanish.
+     */
     private fun splitRide() {
         val oldRideId = currentRideId
         val finalDistance = trackingManager.totalDistance.value.toDouble()
         val finalDuration = rideDuration
-        
+
         currentPointCount = 0
         rideDuration = 0L
         elapsedWallClockDuration = 0L
         adaptiveAutoPauseEngine.reset()
         timeStarted = android.os.SystemClock.elapsedRealtime()
-        trackingManager.reset()
-        
+        trackingManager.resetForContinuation()
+
         serviceScope.launch {
             oldRideId?.let { rideId ->
                 finalizeRide(rideId, finalDistance, finalDuration)
             }
 
             (application as TrackMeApp).emergencyManager.beginRideSession()
-            
+
             val startTime = System.currentTimeMillis()
             val rideId = rideDao.insertRide(
                 RideEntity(
@@ -1100,7 +1146,11 @@ class TrackingService : Service() {
             )
             currentRideId = rideId
             activeRideId = rideId
-            
+            // Republish so the HUD is unambiguously live for Part 2 and the notification reflects
+            // the new ride. Cheap, and it closes the window where a caller could have observed a
+            // stale value between the two rides.
+            updateState(TrackingState.TRACKING)
+
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             val strings = appStrings()
             val splitNotification = NotificationCompat.Builder(this@TrackingService, SYNC_CHANNEL_ID)
