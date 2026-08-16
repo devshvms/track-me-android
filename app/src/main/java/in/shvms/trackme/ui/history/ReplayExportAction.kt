@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.history
 
+import `in`.shvms.trackme.ui.components.rememberMessenger
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.core.animateFloatAsState
@@ -147,6 +148,7 @@ fun ReplayExportAction(
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
+    val messenger = rememberMessenger()
     val scope = rememberCoroutineScope()
     var progress by remember { mutableFloatStateOf(0f) }
     var exporting by remember { mutableStateOf(false) }
@@ -178,7 +180,7 @@ fun ReplayExportAction(
         val routePoints = replayRoutePoints(rideWithPoints.points, settings.privacyTrim)
         if (routePoints.size < 2) {
             exporting = false
-            android.widget.Toast.makeText(context, strings.replayExportFailed, android.widget.Toast.LENGTH_SHORT).show()
+            messenger.show(strings.replayExportFailed)
             return@onClick
         }
         val frameSize = replayFrameSize(settings.ratio)
@@ -204,7 +206,7 @@ fun ReplayExportAction(
                     exportJob = null
                 },
                 onJobCreated = { exportJob = it },
-                onFailure = { android.widget.Toast.makeText(context, strings.replayExportFailed, android.widget.Toast.LENGTH_SHORT).show() }
+                onFailure = { messenger.show(strings.replayExportFailed) }
             )
         }
     }

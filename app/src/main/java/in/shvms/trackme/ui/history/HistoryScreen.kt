@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.history
 
+import `in`.shvms.trackme.ui.components.rememberMessenger
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -74,6 +75,7 @@ fun HistoryScreen(
     var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
+    val messenger = rememberMessenger()
     val app = context.applicationContext as `in`.shvms.trackme.TrackMeApp
     val unitSystem by app.preferencesManager.unitSystem.collectAsState()
     val imperial = unitSystem == "imperial"
@@ -107,7 +109,7 @@ fun HistoryScreen(
                 }
 
                 if (name.isNotEmpty() && !name.lowercase(Locale.ROOT).endsWith(".gpx")) {
-                    android.widget.Toast.makeText(context, "Please select a valid .gpx file.", android.widget.Toast.LENGTH_SHORT).show()
+                    messenger.show("Please select a valid .gpx file.")
                     return@rememberLauncherForActivityResult
                 }
 
@@ -115,7 +117,7 @@ fun HistoryScreen(
                     viewModel.importGPX(inputStream)
                 }
             } catch (e: Exception) {
-                android.widget.Toast.makeText(context, "Error opening file. Please ensure it's a valid GPX format.", android.widget.Toast.LENGTH_SHORT).show()
+                messenger.show("Error opening file. Please ensure it's a valid GPX format.")
             }
         }
     }
@@ -123,8 +125,8 @@ fun HistoryScreen(
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
             when (event) {
-                is HistoryViewModel.UiEvent.ShowError -> android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
-                is HistoryViewModel.UiEvent.Success -> android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                is HistoryViewModel.UiEvent.ShowError -> messenger.show(event.message)
+                is HistoryViewModel.UiEvent.Success -> messenger.show(event.message)
                 is HistoryViewModel.UiEvent.BatchDeleteCompleted -> {
                     val message = if (event.failedCount == 0) {
                         String.format(Locale.getDefault(), strings.deleteSelectedRidesSuccess, event.deletedCount)
@@ -136,7 +138,7 @@ fun HistoryScreen(
                             event.failedCount
                         )
                     }
-                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                    messenger.show(message)
                 }
             }
         }

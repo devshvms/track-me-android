@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.settings
 
+import `in`.shvms.trackme.ui.components.rememberMessenger
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -35,7 +36,6 @@ import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.localization.SUPPORTED_LANGUAGE_CODES
 import `in`.shvms.trackme.ui.components.OfflineShieldBanner
 import `in`.shvms.trackme.ui.components.rememberIsOffline
-import android.widget.Toast
 
 private val languageDisplayNames = mapOf(
     "en" to "English",
@@ -59,6 +59,7 @@ fun SettingsScreen(
     val syncResult by viewModel.syncResult.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val messenger = rememberMessenger()
     val isOffline = rememberIsOffline()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
@@ -660,12 +661,12 @@ fun SettingsScreen(
                     onClick = {
                         val app = context.applicationContext as? TrackMeApp
                         app?.let { trackMeApp ->
-                            Toast.makeText(context, "Checking Google Play Store...", Toast.LENGTH_SHORT).show()
+                            messenger.show("Checking Google Play Store...")
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 val hasUpdate = trackMeApp.appUpdateChecker.checkForUpdate(forceCheck = true)
                                 if (!hasUpdate) {
                                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                        Toast.makeText(context, "TrackMe is up to date on Google Play!", Toast.LENGTH_SHORT).show()
+                                        messenger.show("TrackMe is up to date on Google Play!")
                                     }
                                 }
                             }

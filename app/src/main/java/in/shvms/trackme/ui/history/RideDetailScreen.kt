@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.history
 
+import `in`.shvms.trackme.ui.components.rememberMessenger
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -149,6 +150,7 @@ fun RideDetailScreen(
     val rideWithPoints by viewModel.rideWithPoints.collectAsState()
     val loadState by viewModel.loadState.collectAsState()
     val context = LocalContext.current
+    val messenger = rememberMessenger()
     val app = context.applicationContext as `in`.shvms.trackme.TrackMeApp
     val unitSystem by app.preferencesManager.unitSystem.collectAsState()
     val imperial = unitSystem == "imperial"
@@ -176,11 +178,11 @@ fun RideDetailScreen(
                     } ?: error("Unable to open destination")
                 }.onSuccess {
                     withContext(Dispatchers.Main) {
-                        android.widget.Toast.makeText(context, "Saved successfully", android.widget.Toast.LENGTH_SHORT).show()
+                        messenger.show("Saved successfully")
                     }
                 }.onFailure { error ->
                     withContext(Dispatchers.Main) {
-                        android.widget.Toast.makeText(context, "Error saving GPX: ${error.message}", android.widget.Toast.LENGTH_SHORT).show()
+                        messenger.show("Error saving GPX: ${error.message}")
                     }
                 }
             }
@@ -203,7 +205,7 @@ fun RideDetailScreen(
                 withContext(Dispatchers.Main) {
                     exportInProgress = false
                     if (saved) {
-                        android.widget.Toast.makeText(context, "Saved to gallery", android.widget.Toast.LENGTH_SHORT).show()
+                        messenger.show("Saved to gallery")
                         showExportDialog = false
                     } else {
                         exportFailure = ExportPreviewFailure.Save
@@ -227,11 +229,11 @@ fun RideDetailScreen(
         viewModel.uiEvent.collect { event ->
             when (event) {
                 is RideDetailViewModel.UiEvent.NavigateBack -> {
-                    android.widget.Toast.makeText(context, "Ride deleted", android.widget.Toast.LENGTH_SHORT).show()
+                    messenger.show("Ride deleted")
                     navController?.popBackStack()
                 }
                 is RideDetailViewModel.UiEvent.ShowError -> {
-                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                    messenger.show(event.message)
                 }
             }
         }
@@ -703,7 +705,7 @@ fun RideDetailScreen(
                                                     gpxFile.inputStream().use { input -> input.copyTo(out) }
                                                 } ?: error("Unable to open Downloads")
                                                 withContext(Dispatchers.Main) {
-                                                    android.widget.Toast.makeText(context, "Saved to Downloads", android.widget.Toast.LENGTH_SHORT).show()
+                                                    messenger.show("Saved to Downloads")
                                                 }
                                             } else {
                                                 error("Unable to create Downloads entry")
@@ -716,7 +718,7 @@ fun RideDetailScreen(
                                         }
                                     } catch (e: Exception) {
                                         withContext(Dispatchers.Main) {
-                                            android.widget.Toast.makeText(context, strings.exportFailed, android.widget.Toast.LENGTH_SHORT).show()
+                                            messenger.show(strings.exportFailed)
                                         }
                                     }
                                 }
@@ -836,7 +838,7 @@ fun RideDetailScreen(
                             withContext(Dispatchers.Main) {
                                 exportInProgress = false
                                 if (saved) {
-                                    android.widget.Toast.makeText(context, "Saved to gallery", android.widget.Toast.LENGTH_SHORT).show()
+                                    messenger.show("Saved to gallery")
                                     showExportDialog = false
                                 } else {
                                     exportFailure = ExportPreviewFailure.Save

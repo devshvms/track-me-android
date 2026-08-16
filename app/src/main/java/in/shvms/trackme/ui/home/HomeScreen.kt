@@ -1,5 +1,7 @@
 package `in`.shvms.trackme.ui.home
 
+import androidx.compose.material3.SnackbarDuration
+import `in`.shvms.trackme.ui.components.rememberMessenger
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -124,6 +126,7 @@ fun HomeScreen(
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    val messenger = rememberMessenger()
     val app = context.applicationContext as TrackMeApp
     val imperialUnits by app.preferencesManager.unitSystem.collectAsState()
     val uiPreferences = remember {
@@ -222,17 +225,17 @@ fun HomeScreen(
                     context.startService(intent)
                 }
                 HomeViewModel.UiEvent.LiveShareAuthRequired ->
-                    android.widget.Toast.makeText(context, strings.liveShareAuthRequired, android.widget.Toast.LENGTH_LONG).show()
+                    messenger.show(strings.liveShareAuthRequired, duration = SnackbarDuration.Long)
                 is HomeViewModel.UiEvent.LiveShareStarted -> {
                     val msg = if (event.isTrackingActive) strings.liveShareReadyActive else strings.liveShareReadyIdle
-                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                    messenger.show(msg, duration = SnackbarDuration.Long)
                 }
                 HomeViewModel.UiEvent.LiveShareAuthExpired ->
-                    android.widget.Toast.makeText(context, strings.liveShareAuthExpired, android.widget.Toast.LENGTH_LONG).show()
+                    messenger.show(strings.liveShareAuthExpired, duration = SnackbarDuration.Long)
                 is HomeViewModel.UiEvent.LiveShareGracefulError ->
-                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_LONG).show()
+                    messenger.show(event.message, duration = SnackbarDuration.Long)
                 HomeViewModel.UiEvent.LiveShareStopped ->
-                    android.widget.Toast.makeText(context, strings.liveShareStoppedToast, android.widget.Toast.LENGTH_SHORT).show()
+                    messenger.show(strings.liveShareStoppedToast)
             }
         }
     }
@@ -244,7 +247,7 @@ fun HomeScreen(
                 // only as the fallback confirmation for rides that earn no reveal (e.g. a
                 // sub-threshold "junk" ride the user chose to save anyway).
                 if (app.pendingRevealStore.pending.value == null) {
-                    android.widget.Toast.makeText(context, strings.rideSaved, android.widget.Toast.LENGTH_SHORT).show()
+                    messenger.show(strings.rideSaved)
                 }
             }
         }
@@ -912,7 +915,7 @@ fun HomeScreen(
                             showDiscardRideDialog = true
                         } else {
                             viewModel.stopTracking()
-                            android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
+                            messenger.show(strings.savingRide)
                         }
                     },
                     onStartShare = {
@@ -924,18 +927,17 @@ fun HomeScreen(
                         // Two location broadcasts at once would also double the network cost of a
                         // feature whose entire battery budget (§7.4) assumes one.
                         if (groupSession.isActive) {
-                            android.widget.Toast.makeText(
-                                context,
+                            messenger.show(
                                 strings.groupLiveShareBlocked,
-                                android.widget.Toast.LENGTH_LONG,
-                            ).show()
+                                duration = SnackbarDuration.Long,
+                            )
                         } else {
                             viewModel.startLiveShare(durationMinutes = 1440, stopOnRideEnd = true)
                         }
                     },
                     onStopShare = {
                         viewModel.stopLiveShare()
-                        android.widget.Toast.makeText(context, strings.liveShareStoppedToast, android.widget.Toast.LENGTH_SHORT).show()
+                        messenger.show(strings.liveShareStoppedToast)
                     },
                     onSendShare = {
                         val shareLink = uiState.liveShareState.shareLink
@@ -955,7 +957,7 @@ fun HomeScreen(
                             val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                             val clip = android.content.ClipData.newPlainText("Live Share Link", shareLink)
                             clipboard.setPrimaryClip(clip)
-                            android.widget.Toast.makeText(context, strings.linkCopied, android.widget.Toast.LENGTH_SHORT).show()
+                            messenger.show(strings.linkCopied)
                         }
                     },
                         modifier = Modifier.padding(bottom = 8.dp)
@@ -983,7 +985,7 @@ fun HomeScreen(
                         TextButton(onClick = {
                             showDiscardRideDialog = false
                             viewModel.stopTracking()
-                            android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
+                            messenger.show(strings.savingRide)
                         }) {
                             Text(strings.saveAnyway)
                         }

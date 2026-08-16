@@ -1,5 +1,7 @@
 package `in`.shvms.trackme.ui.settings
 
+import androidx.compose.material3.SnackbarDuration
+import `in`.shvms.trackme.ui.components.rememberMessenger
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -51,6 +53,7 @@ fun AccountManagementScreen(
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    val messenger = rememberMessenger()
     val isOffline = rememberIsOffline()
     val user by viewModel.currentUser.collectAsState()
     var isPrivacyExpanded by remember { mutableStateOf(false) }
@@ -195,11 +198,10 @@ fun AccountManagementScreen(
                                                     }
                                                 }
                                             } else {
-                                                android.widget.Toast.makeText(
-                                                    context,
+                                                messenger.show(
                                                     strings.dataExportFailed,
-                                                    android.widget.Toast.LENGTH_LONG
-                                                ).show()
+                                                    duration = SnackbarDuration.Long,
+                                                )
                                             }
                                         }
                                     }
@@ -277,9 +279,9 @@ fun AccountManagementScreen(
                     scope.launch {
                         val result = viewModel.deleteCloudData()
                         if (result.isSuccess) {
-                            android.widget.Toast.makeText(context, strings.cloudDataDeletedSuccess, android.widget.Toast.LENGTH_SHORT).show()
+                            messenger.show(strings.cloudDataDeletedSuccess)
                         } else {
-                            android.widget.Toast.makeText(context, strings.cloudDataDeletedFailed, android.widget.Toast.LENGTH_SHORT).show()
+                            messenger.show(strings.cloudDataDeletedFailed)
                         }
                     }
                 }) {
@@ -334,10 +336,10 @@ fun AccountManagementScreen(
                             isDeleting = false
                             showDeleteAccountWarning = false
                             if (result.isSuccess) {
-                                android.widget.Toast.makeText(context, strings.accountDeletedSuccess, android.widget.Toast.LENGTH_SHORT).show()
+                                messenger.show(strings.accountDeletedSuccess)
                             } else {
                                 val err = result.exceptionOrNull()?.message ?: strings.unknown
-                                android.widget.Toast.makeText(context, "${strings.accountDeletedFailed}$err", android.widget.Toast.LENGTH_SHORT).show()
+                                messenger.show("${strings.accountDeletedFailed}$err")
                             }
                         }
                     },
@@ -469,17 +471,9 @@ fun AccountManagementScreen(
                                 }
                             }
 
-                            android.widget.Toast.makeText(
-                                context,
-                                strings.dataExportSuccess,
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
+                            messenger.show(strings.dataExportSuccess)
                         } catch (_: Exception) {
-                            android.widget.Toast.makeText(
-                                context,
-                                strings.dataExportFailed,
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
+                            messenger.show(strings.dataExportFailed)
                         }
                     }) {
                         Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))

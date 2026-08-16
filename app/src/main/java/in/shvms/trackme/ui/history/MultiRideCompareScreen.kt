@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.history
 
+import `in`.shvms.trackme.ui.components.rememberMessenger
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -126,6 +127,7 @@ fun MultiRideCompareScreen(
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    val messenger = rememberMessenger()
     val routes = remember(rides) { prepareComparisonRoutes(rides) }
     val visibleRoutes = remember(routes) { routes.filter { it.points.isNotEmpty() } }
     val connectors = remember(routes) { comparisonConnectors(routes) }
@@ -144,7 +146,7 @@ fun MultiRideCompareScreen(
     }
     val openPreview = {
         if (visibleRoutes.isEmpty()) {
-            toast(context, strings.compareRidesMapNotReady)
+            messenger.show(strings.compareRidesMapNotReady)
         } else {
             showPreview = true
         }
@@ -285,6 +287,7 @@ private fun UnifiedAggregateRidePreviewDialog(
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    val messenger = rememberMessenger()
     val scope = rememberCoroutineScope()
     var previewMapInstance by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
     var isExporting by remember { mutableStateOf(false) }
@@ -307,7 +310,7 @@ private fun UnifiedAggregateRidePreviewDialog(
                 withContext(Dispatchers.Main) {
                     isExporting = false
                     if (saved) {
-                        toast(context, "Saved to gallery")
+                        messenger.show("Saved to gallery")
                         onDismiss()
                     } else {
                         exportFailure = ExportPreviewFailure.Save
@@ -320,7 +323,7 @@ private fun UnifiedAggregateRidePreviewDialog(
     fun exportPreview(settings: ExportPreviewSettings, share: Boolean) {
         val map = previewMapInstance
         if (map == null || isExporting) {
-            toast(context, strings.compareRidesMapNotReady)
+            messenger.show(strings.compareRidesMapNotReady)
             return
         }
         isExporting = true
@@ -360,7 +363,7 @@ private fun UnifiedAggregateRidePreviewDialog(
                         withContext(Dispatchers.Main) {
                             isExporting = false
                             if (saved) {
-                                toast(context, "Saved to gallery")
+                                messenger.show("Saved to gallery")
                                 onDismiss()
                             } else {
                                 exportFailure = ExportPreviewFailure.Save
@@ -544,8 +547,3 @@ private fun shareComparisonFile(context: Context, file: java.io.File) {
 private fun saveComparisonImage(context: Context, file: java.io.File): Boolean =
     saveImageToGallery(context, file, "Aggregate")
 
-private fun toast(context: Context, message: String) {
-    android.os.Handler(android.os.Looper.getMainLooper()).post {
-        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
-    }
-}
