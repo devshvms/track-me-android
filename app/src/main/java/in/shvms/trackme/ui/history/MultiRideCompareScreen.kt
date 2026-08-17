@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -56,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -65,6 +67,8 @@ import `in`.shvms.trackme.domain.export.ComparisonImageExporter
 import `in`.shvms.trackme.theme.BrandThemeConfig
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.components.moveSafely
+import `in`.shvms.trackme.ui.components.captureOffscreenMap
+import `in`.shvms.trackme.ui.components.visibleBounds
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -73,6 +77,8 @@ import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.MapStyleOptions
+import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.PolylineOptions
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapEffect
 import com.google.maps.android.compose.MapProperties
@@ -87,6 +93,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+
+/** POI-only style; the aggregate preview has never hidden transit icons. */
+private const val AGGREGATE_HIDE_PLACES_STYLE =
+    "[{\"featureType\":\"poi\",\"stylers\":[{\"visibility\":\"off\"}]}]"
 
 private val comparisonRouteColors = listOf(
     0xFF00A6C7.toInt(), // TrackMe cyan
@@ -330,11 +340,69 @@ private fun UnifiedAggregateRidePreviewDialog(
         }
         isExporting = true
         exportFailure = null
-        map.snapshot { snapshot ->
+
+        // Re-rendered at the selected ratio's true pixel size rather than screenshotting the
+        // preview view, which produced an image whose resolution depended on screen density. The
+        // framing travels as bounds because zoom means nothing without a viewport size.
+        val framing = map.visibleBounds()
+        val (exportWidth, exportHeight) = settings.exportSize
+        val exportRoutes = routes
+            .map { route -> if (settings.privacyTrim) route else route.copy(points = route.ride.points) }
+            .filter { it.points.isNotEmpty() }
+        val exportConnectors = comparisonConnectors(exportRoutes)
+        val exportMarkerSize = ExportRenderScale.markerSize(exportWidth)
+        val exportStroke = ExportRenderScale.routeStroke(exportWidth)
+
+        captureOffscreenMap(
+            context = context,
+            widthPx = exportWidth,
+            heightPx = exportHeight,
+            mapType = settings.mapType,
+            configure = { exportMap ->
+                if (settings.hidePlaces && settings.mapType == MapType.NORMAL) {
+                    exportMap.setMapStyle(MapStyleOptions(AGGREGATE_HIDE_PLACES_STYLE))
+                }
+                val allPoints = mutableListOf<LatLng>()
+                exportRoutes.forEachIndexed { index, route ->
+                    val routeColor = comparisonRouteColors[index % comparisonRouteColors.size]
+                    val latLngs = route.points.map { LatLng(it.latitude, it.longitude) }
+                    allPoints += latLngs
+                    exportMap.addPolyline(
+                        PolylineOptions().addAll(latLngs).color(routeColor).width(exportStroke)
+                    )
+                    if (settings.showMarkers) {
+                        exportMap.addMarker(
+                            MarkerOptions()
+                                .position(latLngs.first())
+                                .icon(letterMarkerIcon(context, route.label, routeColor, exportMarkerSize))
+                                .title(route.label)
+                        )
+                    }
+                }
+                if (settings.showSequence) {
+                    exportConnectors.forEach { connector ->
+                        exportMap.addPolyline(
+                            PolylineOptions()
+                                .add(
+                                    LatLng(connector.from.latitude, connector.from.longitude),
+                                    LatLng(connector.to.latitude, connector.to.longitude)
+                                )
+                                .color(android.graphics.Color.GRAY)
+                                .width(exportStroke * 0.6f)
+                                .pattern(listOf(Dot(), Gap(12f)))
+                        )
+                    }
+                }
+                val target = framing ?: LatLngBounds.Builder()
+                    .also { builder -> allPoints.forEach(builder::include) }
+                    .build()
+                exportMap.moveCamera(CameraUpdateFactory.newLatLngBounds(target, 0))
+            }
+        ) { snapshot, _ ->
             if (snapshot == null) {
                 isExporting = false
                 exportFailure = ExportPreviewFailure.Render
-                return@snapshot
+                return@captureOffscreenMap
             }
             scope.launch(Dispatchers.IO) {
                 runCatching {
@@ -420,30 +488,58 @@ private fun UnifiedAggregateRidePreviewDialog(
             val cameraPositionState = rememberCameraPositionState {
                 position = initialRouteCamera(allLatLngs, bounds)
             }
-            LaunchedEffect(bounds) {
-                kotlinx.coroutines.delay(200)
-                cameraPositionState.moveSafely { CameraUpdateFactory.newLatLngBounds(bounds, 72) }
-            }
-            Box(modifier) {
+            BoxWithConstraints(modifier) {
+                // Preview drawing scales from the preview's own pixel size so that what is on
+                // screen and what lands in the file are the same picture — see ExportRenderScale.
+                val density = LocalDensity.current
+                val previewWidthPx = with(density) { maxWidth.roundToPx() }
+                val previewHeightPx = with(density) { maxHeight.roundToPx() }
+
+                // Keyed on the viewport, not only the routes: changing ratio reshapes the viewport,
+                // and a fit computed for the previous shape leaves the routes cropped.
+                LaunchedEffect(bounds, previewWidthPx, previewHeightPx) {
+                    if (previewWidthPx <= 0 || previewHeightPx <= 0) return@LaunchedEffect
+                    kotlinx.coroutines.delay(200)
+                    cameraPositionState.moveSafely {
+                        CameraUpdateFactory.newLatLngBounds(
+                            bounds,
+                            ExportRenderScale.fitPadding(previewWidthPx, previewHeightPx)
+                        )
+                    }
+                }
+
+                val previewStroke = ExportRenderScale.routeStroke(previewWidthPx)
+                val previewMarkerSize = ExportRenderScale.markerSize(previewWidthPx)
+
                 GoogleMap(
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = cameraPositionState,
                     properties = MapProperties(
                         mapType = settings.mapType,
                         isTrafficEnabled = false,
-                        mapStyleOptions = if (settings.hidePlaces) MapStyleOptions("[{\"featureType\":\"poi\",\"stylers\":[{\"visibility\":\"off\"}]}]") else null
+                        mapStyleOptions = if (settings.hidePlaces) MapStyleOptions(AGGREGATE_HIDE_PLACES_STYLE) else null
                     ),
-                    uiSettings = MapUiSettings(zoomControlsEnabled = false, compassEnabled = false)
+                    // Rotation and tilt off: the export has no notion of a rotated frame, and every
+                    // extra gesture the map claims is one more way a pan can be misread.
+                    uiSettings = MapUiSettings(
+                        zoomControlsEnabled = false,
+                        compassEnabled = false,
+                        rotationGesturesEnabled = false,
+                        tiltGesturesEnabled = false,
+                        mapToolbarEnabled = false
+                    )
                 ) {
                     MapEffect { map -> previewMapInstance = map }
                     previewRoutes.forEachIndexed { index, route ->
                         val routeColor = comparisonRouteColors[index % comparisonRouteColors.size]
                         val latLngs = route.points.map { LatLng(it.latitude, it.longitude) }
-                        Polyline(points = latLngs, color = Color(routeColor), width = 8f)
+                        Polyline(points = latLngs, color = Color(routeColor), width = previewStroke)
                         if (settings.showMarkers) {
                             Marker(
                                 state = remember(route.ride.ride.id) { MarkerState(position = latLngs.first()) },
-                                icon = remember(route.label, routeColor) { letterMarkerIcon(context, route.label, routeColor) },
+                                icon = remember(route.label, routeColor, previewMarkerSize) {
+                                    letterMarkerIcon(context, route.label, routeColor, previewMarkerSize)
+                                },
                                 title = route.label
                             )
                         }
@@ -456,7 +552,7 @@ private fun UnifiedAggregateRidePreviewDialog(
                                     LatLng(connector.to.latitude, connector.to.longitude)
                                 ),
                                 color = Color.Gray,
-                                width = 5f,
+                                width = previewStroke * 0.6f,
                                 pattern = listOf(Dot(), Gap(12f))
                             )
                         }
@@ -516,12 +612,12 @@ private fun AggregateLegendPanel(
 }
 
 
-private fun letterMarkerIcon(context: Context, label: String, color: Int): BitmapDescriptor {
+private fun letterMarkerIcon(context: Context, label: String, color: Int, sizePx: Int? = null): BitmapDescriptor {
     val density = context.resources.displayMetrics.density
     // Keep comparison markers close to the native location-dot visual scale. These markers are
     // informational (there is no marker click action), so the map remains readable when several
     // rides start near one another while the letter stays legible inside the filled circle.
-    val size = (24f * density).toInt().coerceAtLeast(24)
+    val size = sizePx ?: (24f * density).toInt().coerceAtLeast(24)
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color; style = Paint.Style.FILL }

@@ -410,6 +410,15 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val done: String = s("done", "Done")
     val share: String = s("share", "Share")
     val aspectRatio: String = s("aspectRatio", "Aspect Ratio:")
+
+    // Export preview control rail. Short by design — these are labels under a 22dp icon, not
+    // headings, so they must survive a phone width in every locale.
+    val exportCategoryRatio: String = s("exportCategoryRatio", "Ratio")
+    val exportCategoryMap: String = s("exportCategoryMap", "Map")
+    val exportCategoryPrivacy: String = s("exportCategoryPrivacy", "Privacy")
+    val exportCategoryMarkers: String = s("exportCategoryMarkers", "Markers")
+    val exportCategoryStats: String = s("exportCategoryStats", "Stats")
+    val exportCategoryLegend: String = s("exportCategoryLegend", "Legend")
     val privacyTrim: String = s("privacyTrim", "Privacy trim (200 m)")
     val retry: String = s("retry", "Retry")
     val exportRetryMessage: String = s("exportRetryMessage", "Map capture failed. Check that the preview is ready, then retry.")
@@ -902,6 +911,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "selectionSelected" to "Seleccionado",
             "selectionNotSelected" to "No seleccionado",
             "aspectRatio" to "Proporción:",
+            "exportCategoryRatio" to "Formato",
+            "exportCategoryMap" to "Mapa",
+            "exportCategoryPrivacy" to "Privacidad",
+            "exportCategoryMarkers" to "Marcas",
+            "exportCategoryStats" to "Datos",
+            "exportCategoryLegend" to "Leyenda",
             "privacyTrim" to "Recorte de privacidad (200 m)",
             "retry" to "Reintentar",
             "exportRetryMessage" to "No se pudo capturar el mapa. Comprueba la vista previa y reintenta.",
@@ -1398,6 +1413,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "selectionSelected" to "Sélectionné",
             "selectionNotSelected" to "Non sélectionné",
             "aspectRatio" to "Format :",
+            "exportCategoryRatio" to "Format",
+            "exportCategoryMap" to "Carte",
+            "exportCategoryPrivacy" to "Confidentialité",
+            "exportCategoryMarkers" to "Repères",
+            "exportCategoryStats" to "Données",
+            "exportCategoryLegend" to "Légende",
             "privacyTrim" to "Découpe de confidentialité (200 m)",
             "retry" to "Réessayer",
             "exportRetryMessage" to "La capture de la carte a échoué. Vérifiez l’aperçu, puis réessayez.",
@@ -1894,6 +1915,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "selectionSelected" to "Ausgewählt",
             "selectionNotSelected" to "Nicht ausgewählt",
             "aspectRatio" to "Seitenverhältnis:",
+            "exportCategoryRatio" to "Format",
+            "exportCategoryMap" to "Karte",
+            "exportCategoryPrivacy" to "Privatsphäre",
+            "exportCategoryMarkers" to "Marker",
+            "exportCategoryStats" to "Werte",
+            "exportCategoryLegend" to "Legende",
             "privacyTrim" to "Privatsphären-Zuschnitt (200 m)",
             "retry" to "Erneut versuchen",
             "exportRetryMessage" to "Die Kartenaufnahme ist fehlgeschlagen. Prüfen Sie die Vorschau und versuchen Sie es erneut.",
@@ -2390,6 +2417,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "selectionSelected" to "चयनित",
             "selectionNotSelected" to "चयनित नहीं",
             "aspectRatio" to "आस्पेक्ट रेशियो:",
+            "exportCategoryRatio" to "अनुपात",
+            "exportCategoryMap" to "मानचित्र",
+            "exportCategoryPrivacy" to "निजता",
+            "exportCategoryMarkers" to "मार्कर",
+            "exportCategoryStats" to "आंकड़े",
+            "exportCategoryLegend" to "लेजेंड",
             "privacyTrim" to "प्राइवेसी ट्रिम (200 मीटर)",
             "retry" to "फिर कोशिश करें",
             "exportRetryMessage" to "मैप कैप्चर विफल हुआ। प्रीव्यू तैयार है या नहीं जांचकर फिर कोशिश करें।",
@@ -2886,6 +2919,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "selectionSelected" to "選択中",
             "selectionNotSelected" to "未選択",
             "aspectRatio" to "アスペクト比:",
+            "exportCategoryRatio" to "比率",
+            "exportCategoryMap" to "地図",
+            "exportCategoryPrivacy" to "プライバシー",
+            "exportCategoryMarkers" to "マーカー",
+            "exportCategoryStats" to "データ",
+            "exportCategoryLegend" to "凡例",
             "privacyTrim" to "プライバシートリム（200 m）",
             "retry" to "再試行",
             "exportRetryMessage" to "地図のキャプチャに失敗しました。プレビューを確認して再試行してください。",
@@ -3382,6 +3421,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "selectionSelected" to "已选中",
             "selectionNotSelected" to "未选中",
             "aspectRatio" to "宽高比：",
+            "exportCategoryRatio" to "比例",
+            "exportCategoryMap" to "地图",
+            "exportCategoryPrivacy" to "隐私",
+            "exportCategoryMarkers" to "标记",
+            "exportCategoryStats" to "数据",
+            "exportCategoryLegend" to "图例",
             "privacyTrim" to "隐私裁剪（200 米）",
             "retry" to "重试",
             "exportRetryMessage" to "地图捕获失败。请确认预览已准备好后重试。",

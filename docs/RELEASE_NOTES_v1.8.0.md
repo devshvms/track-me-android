@@ -432,6 +432,84 @@ reported as fixed when it was not. All are gone:
 The remaining warnings in CI logs come from GitHub's own Node runtime (`punycode`, `url.parse`) and
 are not ours to fix.
 
+## The export preview, rebuilt
+
+Reported against both previews: the options should read like an editing app, the map should get
+real space and behave the same at every ratio, and pinching or dragging the map moved the whole
+page instead.
+
+All three came from one decision. **The preview and every control lived in the same
+`verticalScroll` column.**
+
+**Controls are now two tiers.** A rail of six category icons — Ratio, Map, Privacy, Markers, Stats,
+Legend — and above it the values for whichever is selected. Legend is aggregate-only, as before.
+Every value is a chip, including the ones that were switches: a switch inside a horizontally
+scrolling row is a drag target inside a drag surface. What was wrong with the old layout was not
+its style but that up to eighteen controls shared a scroll container with the preview, so reaching
+anything below the fold scrolled the preview out of sight — you could not see what you were
+changing.
+
+**The preview is a fixed stage.** It takes everything the chrome leaves rather than a hardcoded
+`420.dp`, which is where the ratio inconsistency came from: at 16:9 that constant wasted about
+190dp of vertical space, at 9:16 it left wide side gutters, and because the container wrapped its
+height inside a scroller, changing ratio reflowed the whole page.
+
+**The gesture fight is gone by construction, not by arbitration.** The preview hosts a live
+`GoogleMap` — an `AndroidView` — and a map inside `verticalScroll` competes with the scroll
+container for every vertical drag, with no `nestedScroll` or `requestDisallowInterceptTouchEvent`
+anywhere to settle it. Whichever won was timing-dependent, which is exactly "sometimes the map
+pans, sometimes the page moves". Taking the scroller out of the map's ancestry ends it. Rotation
+and tilt gestures are now off as well: a rotated export frame is not something these screens offer,
+and every extra gesture the map claims is one more way a pan can be misread.
+
+**The camera re-fits when the ratio changes.** It was keyed on the route bounds alone, so changing
+ratio reshaped the viewport and left the route framed for the previous shape. Fit padding is now a
+fraction of the shorter edge rather than a fixed 80 or 72 pixels, which was a different proportion
+of a tall frame than of a wide one.
+
+### The export was a screenshot of the preview
+
+Underneath all of it: `NativeSnapshotImageExporterImpl` accepted `ratioWidth, ratioHeight` and
+**discarded them** — `finalW = mapSnapshot.width`. The exported PNG was a screenshot of the
+on-screen preview map, so:
+
+- **The ratio chips never set the export ratio.** They resized the on-screen box and the file
+  inherited whatever that box measured. `AppConfig.HQ_IMAGE_WIDTH` and `HQ_IMAGE_RATIO_9_16` were
+  passed in and thrown away.
+- **Export resolution depended on screen density.** A "1080×1920" story came out around 708×1260 on
+  a 3× phone and 472×840 on a 2×. Same setting, different file per device, always below the
+  intended size.
+- **The gesture bug corrupted output rather than merely annoying.** Camera position at snapshot
+  time *was* the framing, so a drag the page stole half of shipped that framing. Scrolling to reach
+  a toggle could silently re-frame an export.
+- **The stats banner was sized from the image *width*** — 11% of the height on a 9:16 story, 36% on
+  a 16:9 — while the on-screen preview drew it as `fillMaxHeight(0.2f)`. Preview and export
+  disagreed at every ratio except square, and disagreed in opposite directions.
+- The aggregate exporter had **no ratio parameter at all**.
+
+Exports now render **offscreen at the ratio's true pixel size** (`exportPixelSize`: 1:1 → 1080×1080,
+4:3 → 1440×1080, 16:9 → 1920×1080, 9:16 → 1080×1920), reusing the framing the user composed. The
+framing travels as **geographic bounds, not zoom** — zoom means nothing without a viewport size,
+since the same zoom on a larger surface shows more ground, so bounds are what reproduce a framing
+at a different resolution.
+
+`captureOffscreenMap` is the shared harness. The non-obvious part is that the `MapView` must be
+attached to a real window: Maps' GL surface only renders once it joins the view hierarchy, and a
+view that is merely measured and laid out calls back from `snapshot()` perfectly happily with blank
+tiles. So it is added to the decor view and pushed outside the visible frame with `translationX` —
+not `alpha = 0` and not `GONE`, both of which stop the surface rendering on some devices.
+
+**Stroke widths and marker sizes are now fractions of the render width, not pixel constants.** A
+10px polyline and a 64px marker are a hairline on a dense surface and a band on a sparse one, and
+the screenshot export inherited whichever the device produced. As fractions, the preview and the
+export draw the same picture at different resolutions, which is what a preview is for.
+
+**Known, not fixed here:** the stats and legend banners sit flush to the bottom of the map and
+partially cover the Google attribution logo, in both the preview and the exported file. Maps
+Platform terms require it to stay visible. Tracked separately — the fix is to inset the banner, and
+it changes the look of every exported image, so it is a deliberate design decision rather than a
+side effect of this work.
+
 ---
 
 ## Phase map

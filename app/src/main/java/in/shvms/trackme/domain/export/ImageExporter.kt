@@ -189,7 +189,11 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
         }
         
         if (options.showStats) {
-            val bannerHeight = (finalW * AppConfig.OVERLAY_BANNER_HEIGHT_RATIO).toInt()
+            // Height, not width. The constant is documented as "bottom 20% of the image" and the
+            // on-screen preview implements it as `fillMaxHeight(0.2f)` — but this took 20% of the
+            // *width*, so preview and export disagreed at every ratio except square, and the
+            // disagreement ran opposite ways: 11% of height on a 9:16 story, 36% on a 16:9.
+            val bannerHeight = (finalH * AppConfig.OVERLAY_BANNER_HEIGHT_RATIO).toInt()
             val bannerTop = (finalH - bannerHeight).toFloat()
             
             // Draw the banner

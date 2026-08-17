@@ -30,6 +30,7 @@ import `in`.shvms.trackme.theme.*
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.drawText
@@ -37,6 +38,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.ui.components.moveSafely
+import `in`.shvms.trackme.ui.components.captureOffscreenMap
+import `in`.shvms.trackme.ui.components.visibleBounds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -124,8 +127,33 @@ fun vectorToBitmap(context: android.content.Context, id: Int, color: Int): Bitma
     return BitmapDescriptorFactory.fromBitmap(bitmap)
 }
 
-private fun markerCircleIcon(fillColor: Int): BitmapDescriptor? = runCatching {
-    val size = 64
+/** Turning off POI and transit labels; the only style the export preview applies. */
+private const val HIDE_PLACES_MAP_STYLE =
+    "[{\"featureType\":\"poi\",\"stylers\":[{\"visibility\":\"off\"}]}," +
+        "{\"featureType\":\"transit\",\"elementType\":\"labels.icon\",\"stylers\":[{\"visibility\":\"off\"}]}]"
+
+/** The translucent amber ring marking an auto-pause. */
+private fun markerPauseIcon(size: Int = 64): BitmapDescriptor? = runCatching {
+    val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val stroke = (size * 0.04f).coerceAtLeast(1.5f)
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.FILL
+        color = AmberWarn.copy(alpha = 0.2f).toArgb()
+    }
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f - stroke, paint)
+    paint.style = android.graphics.Paint.Style.STROKE
+    paint.color = android.graphics.Color.argb(180, 255, 255, 255)
+    paint.strokeWidth = stroke
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f - stroke, paint)
+    BitmapDescriptorFactory.fromBitmap(bitmap)
+}.getOrNull()
+
+/**
+ * @param size edge length in pixels. Was a hardcoded 64, which is a different visual size on every
+ *   render surface — see [ExportRenderScale].
+ */
+private fun markerCircleIcon(fillColor: Int, size: Int = 64): BitmapDescriptor? = runCatching {
     val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
     val canvas = android.graphics.Canvas(bitmap)
     val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -241,26 +269,7 @@ fun RideDetailScreen(
         }
     }
 
-    val pauseCircleIcon = remember {
-        try {
-            val size = 64
-            val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
-            val canvas = android.graphics.Canvas(bitmap)
-            val paint = android.graphics.Paint().apply {
-                isAntiAlias = true
-                style = android.graphics.Paint.Style.FILL
-                color = AmberWarn.copy(alpha = 0.2f).toArgb()
-            }
-            canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2f, paint)
-            paint.style = android.graphics.Paint.Style.STROKE
-            paint.color = android.graphics.Color.argb(180, 255, 255, 255)
-            paint.strokeWidth = 2.5f
-            canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2f, paint)
-            BitmapDescriptorFactory.fromBitmap(bitmap)
-        } catch (e: Exception) {
-            null
-        }
-    }
+    val pauseCircleIcon = remember { markerPauseIcon() }
     val startCircleIcon = remember { markerCircleIcon(GreenGo.toArgb()) }
     val finishCircleIcon = remember { markerCircleIcon(CyanBright.toArgb()) }
 
@@ -786,11 +795,74 @@ fun RideDetailScreen(
             }
             exportFailure = null
             exportInProgress = true
-            previewMapInstance?.snapshot { bitmap ->
+
+            // The framing the user actually composed, as geographic bounds rather than as a zoom
+            // level. Zoom is meaningless without a viewport size — the same zoom on a larger
+            // surface shows more ground — so carrying bounds is what makes the export reproduce
+            // the preview at a different resolution. Rotation and tilt are disabled on the preview
+            // map, so bounds describe the framing completely.
+            val framing = previewMapInstance?.visibleBounds()
+            val (exportWidth, exportHeight) = settings.exportSize
+            val markerSize = ExportRenderScale.markerSize(exportWidth)
+            val exportMarkers = settings.showMarkers
+            val pausedForExport = pausedLocations.filter { location ->
+                routePoints.any { point ->
+                    val distance = FloatArray(1)
+                    android.location.Location.distanceBetween(
+                        point.latitude, point.longitude, location.latitude, location.longitude, distance
+                    )
+                    distance[0] <= 10f
+                }
+            }
+            val exportLatLngs = routePoints.map { LatLng(it.latitude, it.longitude) }
+
+            captureOffscreenMap(
+                context = context,
+                widthPx = exportWidth,
+                heightPx = exportHeight,
+                mapType = settings.mapType,
+                configure = { map ->
+                    if (settings.hidePlaces && settings.mapType == MapType.NORMAL) {
+                        map.setMapStyle(MapStyleOptions(HIDE_PLACES_MAP_STYLE))
+                    }
+                    map.addPolyline(
+                        com.google.android.gms.maps.model.PolylineOptions()
+                            .addAll(exportLatLngs)
+                            .color(TrackMeBlueDark.toArgb())
+                            .width(ExportRenderScale.routeStroke(exportWidth))
+                    )
+                    if (exportMarkers) {
+                        markerPauseIcon(markerSize)?.let { icon ->
+                            pausedForExport.forEach { location ->
+                                map.addMarker(
+                                    com.google.android.gms.maps.model.MarkerOptions()
+                                        .position(location).icon(icon).anchor(0.5f, 0.5f)
+                                )
+                            }
+                        }
+                        markerCircleIcon(GreenGo.toArgb(), markerSize)?.let { icon ->
+                            map.addMarker(
+                                com.google.android.gms.maps.model.MarkerOptions()
+                                    .position(exportLatLngs.first()).icon(icon)
+                            )
+                        }
+                        markerCircleIcon(CyanBright.toArgb(), markerSize)?.let { icon ->
+                            map.addMarker(
+                                com.google.android.gms.maps.model.MarkerOptions()
+                                    .position(exportLatLngs.last()).icon(icon)
+                            )
+                        }
+                    }
+                    val target = framing ?: LatLngBounds.Builder()
+                        .also { builder -> exportLatLngs.forEach(builder::include) }
+                        .build()
+                    map.moveCamera(CameraUpdateFactory.newLatLngBounds(target, 0))
+                }
+            ) { bitmap, _ ->
                 if (bitmap == null) {
                     exportInProgress = false
                     exportFailure = ExportPreviewFailure.Render
-                    return@snapshot
+                    return@captureOffscreenMap
                 }
                 coroutineScope.launch(Dispatchers.IO) {
                     runCatching {
@@ -914,10 +986,6 @@ fun RideDetailScreen(
                 val cameraPositionState = rememberCameraPositionState {
                     position = initialRouteCamera(latLngs, bounds)
                 }
-                LaunchedEffect(bounds) {
-                    kotlinx.coroutines.delay(200)
-                    cameraPositionState.moveSafely { CameraUpdateFactory.newLatLngBounds(bounds, 80) }
-                }
                 val pausedForRoute = remember(pausedLocations, routePoints) {
                     pausedLocations.filter { location ->
                         routePoints.any { point ->
@@ -927,25 +995,68 @@ fun RideDetailScreen(
                         }
                     }
                 }
-                Box(modifier) {
+                BoxWithConstraints(modifier) {
+                    // The preview's own pixel size. Everything drawn on it is scaled from this so
+                    // the preview and the export render the same picture — see ExportRenderScale.
+                    val density = LocalDensity.current
+                    val previewWidthPx = with(density) { maxWidth.roundToPx() }
+                    val previewHeightPx = with(density) { maxHeight.roundToPx() }
+
+                    // Re-fit on ratio change, not only when the route changes. The viewport changes
+                    // shape when the ratio does, and a fit computed for the previous shape leaves
+                    // the route cropped or stranded in the middle of the new one.
+                    LaunchedEffect(bounds, previewWidthPx, previewHeightPx) {
+                        if (previewWidthPx <= 0 || previewHeightPx <= 0) return@LaunchedEffect
+                        kotlinx.coroutines.delay(200)
+                        cameraPositionState.moveSafely {
+                            CameraUpdateFactory.newLatLngBounds(
+                                bounds,
+                                ExportRenderScale.fitPadding(previewWidthPx, previewHeightPx)
+                            )
+                        }
+                    }
+
+                    val previewMarkerIcons = remember(previewWidthPx) {
+                        val size = ExportRenderScale.markerSize(previewWidthPx)
+                        Triple(
+                            markerCircleIcon(GreenGo.toArgb(), size),
+                            markerCircleIcon(CyanBright.toArgb(), size),
+                            markerPauseIcon(size)
+                        )
+                    }
+
                     GoogleMap(
                         modifier = Modifier.fillMaxSize(),
                         cameraPositionState = cameraPositionState,
                         properties = MapProperties(
                             mapType = settings.mapType,
                             isTrafficEnabled = false,
-                            mapStyleOptions = if (settings.hidePlaces) MapStyleOptions("[{\"featureType\":\"poi\",\"stylers\":[{\"visibility\":\"off\"}]},{\"featureType\":\"transit\",\"elementType\":\"labels.icon\",\"stylers\":[{\"visibility\":\"off\"}]}]") else null
+                            mapStyleOptions = if (settings.hidePlaces) MapStyleOptions(HIDE_PLACES_MAP_STYLE) else null
                         ),
-                        uiSettings = MapUiSettings(zoomControlsEnabled = false, compassEnabled = false)
+                        // Rotation and tilt are off on purpose. A tilted or rotated export frame is
+                        // not something this screen offers, and every extra gesture the map claims
+                        // is one more way a pan can be misread. It also lets the export reproduce
+                        // the framing from the visible bounds alone.
+                        uiSettings = MapUiSettings(
+                            zoomControlsEnabled = false,
+                            compassEnabled = false,
+                            rotationGesturesEnabled = false,
+                            tiltGesturesEnabled = false,
+                            mapToolbarEnabled = false
+                        )
                     ) {
                         MapEffect { map -> previewMapInstance = map }
-                        Polyline(points = latLngs, color = TrackMeBlueDark, width = 10f)
+                        Polyline(
+                            points = latLngs,
+                            color = TrackMeBlueDark,
+                            width = ExportRenderScale.routeStroke(previewWidthPx)
+                        )
                         if (settings.showMarkers) {
                             pausedForRoute.forEach { location ->
-                                Marker(state = MarkerState(position = location), icon = pauseCircleIcon, anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f))
+                                Marker(state = MarkerState(position = location), icon = previewMarkerIcons.third, anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f))
                             }
-                            Marker(state = remember(latLngs.first()) { MarkerState(position = latLngs.first()) }, title = strings.mapStart, icon = startCircleIcon)
-                            Marker(state = remember(latLngs.last()) { MarkerState(position = latLngs.last()) }, title = strings.mapFinish, icon = finishCircleIcon)
+                            Marker(state = remember(latLngs.first()) { MarkerState(position = latLngs.first()) }, title = strings.mapStart, icon = previewMarkerIcons.first)
+                            Marker(state = remember(latLngs.last()) { MarkerState(position = latLngs.last()) }, title = strings.mapFinish, icon = previewMarkerIcons.second)
                         }
                     }
                     if (settings.showStats) {
