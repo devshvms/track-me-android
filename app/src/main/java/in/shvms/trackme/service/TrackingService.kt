@@ -796,6 +796,19 @@ class TrackingService : Service() {
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
             )
 
+        // Android 16 Live Update. A recording ride is the textbook case: user-initiated, ongoing,
+        // and something they want to glance at without unlocking. `setRequestPromotedOngoing`
+        // asks the system to surface it as a status-bar chip; `setShortCriticalText` is what fits
+        // in that chip, so it has to be the single most useful number rather than a sentence.
+        //
+        // Both are NotificationCompat APIs, so the version gating is handled for us — on pre-16
+        // devices these are no-ops and the notification behaves exactly as before.
+        val chipText = when (state) {
+            TrackingState.PAUSED -> strings.statusPaused
+            TrackingState.GPS_LOST, TrackingState.GPS_DISABLED -> strings.notifTrackingGpsSearching
+            else -> formatTrackingNotificationDuration(durationMillis)
+        }
+
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setAutoCancel(false)
             .setOngoing(true)
@@ -803,6 +816,8 @@ class TrackingService : Service() {
             .setColor(NOTIFICATION_ACCENT)
             .setColorized(false)
             .setCategory(NotificationCompat.CATEGORY_WORKOUT)
+            .setRequestPromotedOngoing(true)
+            .setShortCriticalText(chipText)
             .setContentTitle(strings.notifTrackingTitle)
             .setContentText(contentText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))

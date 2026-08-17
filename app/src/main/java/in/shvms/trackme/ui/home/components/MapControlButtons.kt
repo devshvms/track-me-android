@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.google.maps.android.compose.MapType
+import `in`.shvms.trackme.theme.LocalTrackMeElevation
 
 /**
  * Modular 52.dp circular map control button with tactile haptics and spring bounce animation.
@@ -62,7 +63,7 @@ fun MapControlCircleButton(
     Surface(
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 3.dp,
+        shadowElevation = LocalTrackMeElevation.current.mapOverlay,
         modifier = modifier
             .size(52.dp)
             .scale(buttonScale.value)
@@ -154,7 +155,7 @@ fun MapLayerHorizontalDrawerButton(
         Surface(
             shape = CircleShape,
             color = animatedBgColor,
-            shadowElevation = 3.dp,
+            shadowElevation = LocalTrackMeElevation.current.mapOverlay,
             modifier = Modifier
                 .size(52.dp)
                 .semantics(mergeDescendants = true) {

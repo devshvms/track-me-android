@@ -232,6 +232,12 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val offlineModeTitle: String = s("offlineModeTitle", "Offline mode")
     val offlineModeDescription: String = s("offlineModeDescription", "Changes stay on this device and sync when connected.")
 
+    // Ride HUD status pills. These render over the map during a ride and were hardcoded English
+    // until 1.8.0 — the only user-facing strings in the app that were not translatable.
+    val hudGpsLostPill: String = s("hudGpsLostPill", "GPS signal lost (%1\$ss)")
+    val hudLocationDisabledPill: String = s("hudLocationDisabledPill", "Location services disabled (%1\$ss)")
+    val hudStorageLowPill: String = s("hudStorageLowPill", "Storage almost full — free space to resume")
+
     // Start Share Dialog
     val startLiveShareTitle: String = s("startLiveShareTitle", "Start Live Share")
     val shareDurationPrompt: String = s("shareDurationPrompt", "How long would you like to share your location?")
@@ -819,6 +825,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifLongRideText" to "Te acercas al límite. El viaje se dividirá automáticamente en 9.000 puntos.",
             "notifStorageLowTitle" to "Almacenamiento casi lleno",
             "notifStorageLowText" to "El seguimiento está pausado. Libera espacio y toca Reanudar en TrackMe.",
+            "hudGpsLostPill" to "Señal GPS perdida (%1\$ss)",
+            "hudLocationDisabledPill" to "Servicios de ubicación desactivados (%1\$ss)",
+            "hudStorageLowPill" to "Almacenamiento casi lleno: libera espacio para reanudar",
             "offlineModeTitle" to "Modo sin conexión",
             "offlineModeDescription" to "Los cambios permanecen en este dispositivo y se sincronizan al conectarte.",
             "startLiveShareTitle" to "Ubicación en Tiempo Real",
@@ -1312,6 +1321,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifLongRideText" to "Limite bientôt atteinte. Le trajet sera découpé automatiquement à 9 000 points.",
             "notifStorageLowTitle" to "Stockage presque plein",
             "notifStorageLowText" to "Le suivi est en pause. Libérez de l'espace, puis appuyez sur Reprendre dans TrackMe.",
+            "hudGpsLostPill" to "Signal GPS perdu (%1\$ss)",
+            "hudLocationDisabledPill" to "Services de localisation désactivés (%1\$ss)",
+            "hudStorageLowPill" to "Stockage presque plein : libérez de l'espace pour reprendre",
             "offlineModeTitle" to "Mode hors connexion",
             "offlineModeDescription" to "Les modifications restent sur cet appareil et se synchronisent à la reconnexion.",
             "startLiveShareTitle" to "Partage en Temps Réel",
@@ -1805,6 +1817,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifLongRideText" to "Limit fast erreicht. Die Fahrt wird bei 9.000 Punkten automatisch geteilt.",
             "notifStorageLowTitle" to "Speicher fast voll",
             "notifStorageLowText" to "Die Aufzeichnung ist pausiert. Speicher freigeben und in TrackMe auf Fortsetzen tippen.",
+            "hudGpsLostPill" to "GPS-Signal verloren (%1\$ss)",
+            "hudLocationDisabledPill" to "Standortdienste deaktiviert (%1\$ss)",
+            "hudStorageLowPill" to "Speicher fast voll – Speicher freigeben, um fortzufahren",
             "offlineModeTitle" to "Offline-Modus",
             "offlineModeDescription" to "Änderungen bleiben auf diesem Gerät und werden bei Verbindung synchronisiert.",
             "startLiveShareTitle" to "Live-Standort teilen",
@@ -2298,6 +2313,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifLongRideText" to "सीमा करीब है। 9,000 पॉइंट पर राइड अपने-आप विभाजित हो जाएगी।",
             "notifStorageLowTitle" to "स्टोरेज लगभग भर गया",
             "notifStorageLowText" to "ट्रैकिंग रुकी हुई है। जगह खाली करें और TrackMe में फिर से शुरू करें पर टैप करें।",
+            "hudGpsLostPill" to "GPS सिग्नल गुम (%1\$ss)",
+            "hudLocationDisabledPill" to "लोकेशन सेवाएँ बंद हैं (%1\$ss)",
+            "hudStorageLowPill" to "स्टोरेज लगभग भर गया — जारी रखने के लिए जगह खाली करें",
             "offlineModeTitle" to "ऑफ़लाइन मोड",
             "offlineModeDescription" to "परिवर्तन इस डिवाइस पर रहेंगे और कनेक्शन होने पर सिंक होंगे।",
             "startLiveShareTitle" to "लाइव लोकेशन शेयर",
@@ -2791,6 +2809,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifLongRideText" to "上限に近づいています。9,000ポイントでライドが自動分割されます。",
             "notifStorageLowTitle" to "ストレージがほぼ満杯です",
             "notifStorageLowText" to "トラッキングは一時停止中です。空き容量を確保し、TrackMeで再開をタップしてください。",
+            "hudGpsLostPill" to "GPS信号を消失 (%1\$ss)",
+            "hudLocationDisabledPill" to "位置情報サービスが無効です (%1\$ss)",
+            "hudStorageLowPill" to "ストレージがほぼ満杯です — 空き容量を確保して再開してください",
             "offlineModeTitle" to "オフラインモード",
             "offlineModeDescription" to "変更はこの端末に保存され、接続時に同期されます。",
             "startLiveShareTitle" to "リアルタイム位置共有",
@@ -3284,6 +3305,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifLongRideText" to "即将达到上限。骑行将在9,000个点时自动分段。",
             "notifStorageLowTitle" to "存储空间即将不足",
             "notifStorageLowText" to "跟踪已暂停。请释放设备空间，然后在TrackMe中点按继续。",
+            "hudGpsLostPill" to "GPS 信号丢失 (%1\$ss)",
+            "hudLocationDisabledPill" to "定位服务已关闭 (%1\$ss)",
+            "hudStorageLowPill" to "存储空间即将不足 — 请释放空间后继续",
             "offlineModeTitle" to "离线模式",
             "offlineModeDescription" to "更改会保留在此设备上，并在联网后同步。",
             "startLiveShareTitle" to "实时位置共享",

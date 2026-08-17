@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -119,7 +120,7 @@ fun ActiveRideHudPanel(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Persistent Info Pills Row (Yellow/Orange/Cyan pills)
+        // Status pill row. Themed chrome over the map since 1.8.0 — see the notes on each pill.
         FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -127,11 +128,15 @@ fun ActiveRideHudPanel(
             horizontalArrangement = Arrangement.Center,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Persona Pill (Yellow)
+            // Persona pill. Was a fixed amber fill — amber is the warning role, and "you are
+            // riding as Motorbike" is not a warning; the colour made a neutral fact look like a
+            // caution. It is floating chrome over the map, so it now joins the map control
+            // buttons on the surface ramp and follows the themed basemap.
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = TrackMeAmber,
-                shadowElevation = 2.dp,
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                shadowElevation = elevation.mapOverlay,
                 modifier = Modifier.padding(horizontal = 4.dp)
             ) {
                 Row(
@@ -141,13 +146,11 @@ fun ActiveRideHudPanel(
                     Icon(
                         imageVector = selectedPersona.icon(),
                         contentDescription = null,
-                        tint = Color.Black,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = strings.personaLabel(selectedPersona),
-                        color = Color.Black,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold
                     )
@@ -156,10 +159,14 @@ fun ActiveRideHudPanel(
 
             if (trackingState == TrackingState.GPS_LOST || trackingState == TrackingState.GPS_DISABLED || trackingState == TrackingState.STORAGE_LOW) {
                 val context = LocalContext.current
+                // Kept at full `error` emphasis rather than `errorContainer`: this pill is what
+                // tells you the ride is not being recorded, which is the one thing on this screen
+                // that must not be missable.
                 Surface(
                     shape = RoundedCornerShape(14.dp),
-                    color = TrackMeRed,
-                    shadowElevation = 2.dp,
+                    color = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                    shadowElevation = elevation.mapOverlay,
                     modifier = Modifier
                         .padding(horizontal = 4.dp)
                         .clickable {
@@ -174,19 +181,36 @@ fun ActiveRideHudPanel(
                         }
                 ) {
                     val lostSeconds = (timeSinceLastGps / 1000L).coerceAtLeast(1L)
-                    Text(
-                        text = if (trackingState == TrackingState.STORAGE_LOW) {
-                            "⚠ Storage almost full - free space to resume"
-                        } else if (trackingState == TrackingState.GPS_DISABLED) {
-                            "⚠ Location services disabled (${lostSeconds}s)"
-                        } else {
-                            "⚠ GPS signal lost (${lostSeconds}s)"
-                        },
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
+                    ) {
+                        // The warning mark was a literal "⚠" inside the string, which screen
+                        // readers announce inconsistently and translators have to carry.
+                        Icon(
+                            imageVector = Icons.Default.WarningAmber,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = when (trackingState) {
+                                TrackingState.STORAGE_LOW -> strings.hudStorageLowPill
+                                TrackingState.GPS_DISABLED -> String.format(
+                                    java.util.Locale.getDefault(),
+                                    strings.hudLocationDisabledPill,
+                                    lostSeconds.toString()
+                                )
+                                else -> String.format(
+                                    java.util.Locale.getDefault(),
+                                    strings.hudGpsLostPill,
+                                    lostSeconds.toString()
+                                )
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 

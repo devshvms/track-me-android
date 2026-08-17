@@ -215,6 +215,21 @@ This is not stylistic. The app's primary theme is dark (`#0E1418` ground) and a 
 near-black ground is invisible — it costs GPU time for a cue nobody can see. M3 draws elevation
 with tone first and shadow second for exactly this reason.
 
+### 6.1 `mapOverlay` — the one documented exception (phase 4)
+
+| Token | dp | Shadow |
+|---|---|---|
+| `mapOverlay` | 3 | **yes** |
+
+Tonal elevation is a tint applied to a *surface*. A map is not a surface, so over map imagery tone
+conveys nothing whatsoever, and shadow is the only separation available. Every piece of floating
+map chrome — the 52dp control buttons, the ride HUD status pills — uses this.
+
+It is a named token rather than "just use `level2`" on purpose. `level2` is 3dp and drawing a
+shadow at it would silently contradict `castsShadow()`, which is the function that exists to stop
+exactly that. Reaching for `mapOverlay` by name is the caller stating that the ladder does not
+apply here, which is true and is the only case where it is.
+
 ---
 
 ## 7. What actually looks different
@@ -388,29 +403,68 @@ Recording these because they are the argument for compiling before claiming done
 
 ## 11. Phase map
 
+All of 1–4 land on the single branch `feat/1.8.0-design-system-foundations` and ship as one
+release. They are phases of work, not of versioning.
+
 | Phase | Scope | Status |
 |---|---|---|
-| **1** | **Token layer, catalog, token tests** | **this branch** |
-| 2 | ~22 components + lint rules banning raw `Surface`, `Toast`, hardcoded `Color(0x…)` | next |
-| 3 | Screens re-composed, low risk to high — Settings first, Home last | |
-| 4 | Notifications, adaptive layouts, map camera, widgets | |
-| 5 | Regenerate colour with Material Color Utilities; adopt Expressive if 1.5.0 is stable | |
+| 1 | Token layer, catalog, token tests | **done** |
+| 2 | Components + `Toast` → `Snackbar` conversion (40 of 40) | **done** |
+| 3 | Screens re-composed, low risk to high — Settings first, Home last | **done** |
+| 4 | Notifications, map theme + camera, adaptive navigation | **done** |
+| 5 | 39 `tween` → spring; regenerate colour with Material Color Utilities; adopt Expressive if 1.5.0 stabilises | deferred |
 
-Each phase ends somewhere a release could be cut.
+### 11.1 Phase 4, in full
+
+- **Notification identity** — real small icon, brand accent, `CATEGORY_WORKOUT`, and Pause /
+  Resume / Finish actions in the shade.
+- **Android 16 Live Update** — `setRequestPromotedOngoing(true)` plus `setShortCriticalText()`
+  carrying elapsed time, or `Paused` / `Searching…` when those are the truer thing to show. Both
+  are `NotificationCompat` calls, so pre-16 devices are unaffected without a version check.
+- **Themed basemap** — `rememberMapStyle()` reading the app's own three-value `themeMode`, and a
+  night style drawn from the app's own neutral ramp.
+- **Ride camera** — 45° while recording, 30° paused, bearing from travel direction, flat and
+  north-up when idle. Any pan, zoom or rotate suspends follow; the locate button is the way back.
+- **Adaptive navigation** — `NavigationRail` at ≥600dp, bottom bar below.
+- **HUD pill retune** — the two pills the phase-3 notes recorded as deliberately off-token, now
+  that the themed basemap they were waiting on exists (§6.1).
+
+### 11.2 `ProgressStyle`: considered, deliberately skipped
+
+`NotificationCompat.ProgressStyle` **is** available — it ships in `androidx.core` 1.18.0, which
+this app already depends on. The blocker is product scope, not the library.
+
+A determinate progress bar needs a destination, and the only destination TrackMe knows about is
+the group-ride one behind `GroupFeatureFlags.SHOW_ETA`. That estimate is deliberately computed and
+never displayed: 1.7 shipped it dark specifically to gather predicted-vs-actual calibration before
+anyone is shown a number. Rendering it in a notification would ship that feature by the back door,
+and 1.8.0 is explicitly a redesign with no feature change.
+
+For the ordinary case — a ride with no destination at all — `ProgressStyle` can only be
+indeterminate, which is an animated bar that conveys nothing. Neither branch earns it.
+
+Revisit when the ETA calibration data says the estimator is good enough to show.
 
 ---
 
 ## 12. Known limitations of this branch
 
-- **Compiled, unit-tested and linted — but never run on a device or emulator.** The catalog
-  screen has not been looked at by a human, and no screenshot tests exist yet (phase 2). The
-  build gates in §10.2 prove it assembles and that the token layer is internally consistent;
-  they prove nothing about how it looks.
-- **`google-services.json` used locally is a placeholder.** The real Firebase config is not in
-  the repo. It is structurally valid so the plugin and compiler are satisfied; Firebase will not
+*Updated at the end of phase 4. The phase-1 wording — "never run on a device" — no longer holds:
+every phase since has been installed from the internal track and checked by hand on a phone.*
+
+- **No screenshot tests.** Verification is a person looking at a build. Every visual claim in this
+  document rests on that, and nothing in CI would catch a regression in any of it.
+- **Verified in portrait, on a phone, in one locale.** The `NavigationRail` above 600dp is
+  compile-checked and its breakpoints are unit-tested, but nobody has run it on a tablet. The
+  seven translations are complete and coverage-tested, and have not been read by a speaker.
+- **Motion tokens are still unconsumed.** `TrackMeMotionScheme` is defined and provided; the 39
+  `tween` call sites are untouched. That conversion is phase 5, and until it happens the motion
+  section of this document describes an intent rather than the shipped behaviour.
+- **Ramp values are CIELCh approximations of HCT** (see §4.3). Regeneration with the official
+  Material Color Utilities is phase 5.
+- `Color.kt` legacy aliases are retained and still used by roughly 40 files.
+- **`google-services.json` used locally is a placeholder.** The real Firebase config is not in the
+  repo. It is structurally valid so the plugin and compiler are satisfied; Firebase will not
   function at runtime with it. Anyone building locally needs the real file.
-- Ramp values are CIELCh approximations of HCT (see §4.3).
-- `Color.kt` legacy aliases are retained and still used by ~40 files. That migration is phase 2.
-- No component library yet — the catalog renders raw Material components against the new tokens.
-- Motion tokens are defined and provided but not yet consumed by existing screens; the 39 `tween`
-  call sites are untouched.
+- **The same amber contrast defect is still live in the iOS app.** `AmberWarn` at 2.15:1 on white
+  was fixed here; iOS carries the identical value and is tracked separately.

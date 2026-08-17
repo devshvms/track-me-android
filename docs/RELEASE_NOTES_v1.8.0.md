@@ -122,8 +122,83 @@ Pause and Resume are shown mutually exclusively, since they are one control in t
 **Brand accent** via `setColor`, and `CATEGORY_WORKOUT` so the system ranks the ongoing
 notification correctly.
 
-Still outstanding in phase 4: the Android 16 promoted-ongoing status-bar chip, `ProgressStyle` for
-group rides with a destination, adaptive layouts, and map camera work.
+**A status-bar chip on Android 16.** `setRequestPromotedOngoing(true)` asks the system to promote
+the ongoing notification into the status bar, and `setShortCriticalText()` supplies what fits
+there — elapsed time normally, `Paused` or `Searching…` when one of those is the truer thing to
+say. A recording ride is the textbook case for this: user-initiated, ongoing, and something you
+want to glance at without unlocking. Both are `NotificationCompat` calls, so pre-16 devices get
+exactly the notification they got before, with no version check to get wrong.
+
+**`ProgressStyle` was considered and skipped.** It is available — it ships in `androidx.core`
+1.18.0, which this app already depends on; an earlier note in this branch claiming otherwise was
+wrong. What stops it is scope, not the library. A determinate bar needs a destination, and the
+only destination TrackMe knows is the group one behind `GroupFeatureFlags.SHOW_ETA` — an estimate
+1.7 deliberately shipped dark to collect calibration data before showing anyone a number. Putting
+it in a notification would ship that feature sideways, and 1.8.0 is a redesign with no feature
+change. For an ordinary ride with no destination, `ProgressStyle` can only be indeterminate: an
+animated bar that says nothing. Neither branch earns it.
+
+## The ride camera
+
+The map followed the rider by recentring, flat and north-up, which is an overview of where you
+are rather than a view of where you are going.
+
+It now pitches to **45° while recording** — what is ahead occupies more screen than what is
+behind, which is the correct priority when moving — and rotates to the direction of travel. Paused
+eases back to 30° rather than snapping flat, because a hard reset mid-ride reads as a glitch. When
+a ride ends the camera returns to flat and north-up, so the app does not appear to have
+permanently changed its map.
+
+Heading comes from `RideCameraPolicy.headingOf()`, which walks back from the newest fix until it
+finds one at least 12m away. Taking the last two points instead would steer the camera by GPS
+noise and make the map wobble while the rider goes perfectly straight. It is a pure function in
+its own file for the same reason `MemberMarkerPolicy` is: the decision is arithmetic on positions
+and can be tested without a device. Seven tests cover it, including the case that motivated the
+threshold — a long eastward run whose final two fixes happen to jitter north.
+
+**Any pan, zoom or rotate suspends follow**, and the locate button is the way back — an auto-follow
+camera animating while the user is panning is the worst feeling in any map app (G8 in the motion
+audit). That is observed through `snapshotFlow` rather than keyed on `isMoving`, because a gesture
+that begins *during* a programmatic animation only changes the reason, not the flag, and an effect
+keyed on the flag would never see it. The compass button suspends follow too — otherwise north-up
+would be undone by the next GPS fix and the button would appear not to work.
+
+## Navigation adapts above 600dp
+
+A bottom bar spends vertical space, which is exactly what is scarce on a wide short window, and on
+a tablet it strands the destinations at the far edge of the screen. Both are the `NavigationRail`'s
+case, and 600dp is where M3 puts the switch.
+
+Below that nothing changes — a phone in portrait renders the same bar it always has. The
+breakpoints live in `TrackMeWindowClass` rather than being read inline, for the same reason the
+colour and motion layers have their own types: screens depend on the app's abstraction, never on a
+windowing library. Six tests pin the boundaries, since an off-by-one there moves the whole layout
+by one device class.
+
+## The HUD pills, now that the map is themed
+
+The phase-3 notes recorded two pills as deliberately off-token, pending the themed basemap. It
+exists now, so:
+
+- **The persona pill** was a fixed amber fill with black text. Amber is the warning role, and
+  "you are riding as Motorbike" is not a warning — the colour made a neutral fact look like a
+  caution. It is floating chrome over the map, so it joins the map control buttons on the surface
+  ramp and follows the theme.
+- **The GPS-lost pill** stays at full `error` emphasis rather than dropping to `errorContainer`.
+  It is the thing that tells you the ride is not being recorded, which is the one message on that
+  screen that must not be missable. It is now on the token, so it adapts.
+
+Both use a new `mapOverlay` elevation token. Tonal elevation is a tint applied to a surface, and a
+map is not a surface — over imagery, tone conveys nothing and shadow is the only separation
+available. It is named rather than reusing `level2`, which is the same 3dp but is documented as
+tone-only; drawing a shadow at `level2` would quietly contradict `castsShadow()`, the function that
+exists to prevent precisely that.
+
+**Three strings were never translatable.** The GPS-lost, location-disabled and storage-full pills
+were hardcoded English in an app that ships seven languages — the last untranslated user-facing
+strings in the app. They are now in `AppStrings` across all seven, and the literal `⚠` that was
+baked into each one is an `Icon`, which screen readers handle predictably and translators no
+longer have to carry.
 
 ## The map follows the theme
 

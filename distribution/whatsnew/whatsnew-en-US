@@ -1,11 +1,11 @@
 TrackMe 1.8.0
 
-• The map now matches your theme. Dark mode no longer means a blazing white map at night.
+• The map matches your theme, and now tilts to follow your direction as you ride.
 
-• Pause or finish your ride straight from the notification — no need to unlock and open the app.
+• Pause or finish a ride from the notification. On Android 16 it appears in the status bar too.
 
 • Ending a ride tells you one clear thing instead of two contradictory ones.
 
-• Settings rebuilt, and ride cards in History now stand out from the background properly.
+• Settings rebuilt. History cards, warnings and ride details are clearer throughout.
 
 Tracking, group rides, sync and export are unchanged.

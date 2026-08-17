@@ -59,6 +59,7 @@ import `in`.shvms.trackme.ui.home.components.GroupPresenceHost
 import `in`.shvms.trackme.ui.home.components.pauseDurationBucket
 import `in`.shvms.trackme.ui.home.components.SeverityBadgeMarker
 import `in`.shvms.trackme.ui.home.components.MarkerFreshness
+import `in`.shvms.trackme.ui.home.components.RideCameraPolicy
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
 import `in`.shvms.trackme.ui.home.components.GroupMapButton
@@ -314,6 +315,7 @@ fun HomeScreen(
     }
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
+    var followCamera by rememberSaveable { mutableStateOf(true) }
     var hasCenteredOnLocation by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(hasLocationPermission) {
         if (hasLocationPermission && !hasCenteredOnLocation && uiState.pathPoints.isEmpty()) {
@@ -332,10 +334,75 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(uiState.pathPoints) {
-        if (uiState.trackingState == TrackingState.TRACKING && uiState.pathPoints.isNotEmpty()) {
-            val lastPoint = uiState.pathPoints.last()
-            cameraPositionState.animateSafely { CameraUpdateFactory.newLatLngZoom(lastPoint, 17f) }
+    // G8 in the motion audit: an auto-follow camera animating while the user is panning is the
+    // worst feeling in any map app. Any pan, zoom or rotate suspends follow until the user asks
+    // for it back with the locate button.
+    //
+    // Observed through snapshotFlow rather than keyed on isMoving, because a gesture that begins
+    // during a programmatic animation only flips the *reason* — isMoving is already true, so a
+    // LaunchedEffect keyed on it would never re-run and the grab would be missed.
+    LaunchedEffect(cameraPositionState) {
+        snapshotFlow { cameraPositionState.isMoving to cameraPositionState.cameraMoveStartedReason }
+            .collect { (moving, reason) ->
+                if (moving && reason == CameraMoveStartedReason.GESTURE) followCamera = false
+            }
+    }
+
+    // Re-arm follow, and put the map back the way it was found when a ride ends.
+    //
+    // Declared before the follow effect on purpose: both key on trackingState, and this one has to
+    // arm the flag before the other reads it or the first fix of a new ride is skipped.
+    //
+    // Arming on TRACKING matters because a pan is remembered indefinitely — without it, panning
+    // the map while idle would silently stop the *next* ride from following. Ending a ride
+    // flattens the camera because otherwise it keeps the 45° pitch and the last leg's bearing, and
+    // the only way back is the compass button, so the app appears to have permanently changed its
+    // map. GPS_LOST, GPS_DISABLED and STORAGE_LOW are deliberately excluded: those are interrupted
+    // rides, not finished ones, and flattening on a dropped fix would read as the ride ending.
+    LaunchedEffect(uiState.trackingState) {
+        when (uiState.trackingState) {
+            TrackingState.TRACKING -> followCamera = true
+            TrackingState.IDLE -> {
+                followCamera = true
+                if (cameraPositionState.position.tilt > 0.5f) {
+                    cameraPositionState.animateSafely {
+                        CameraUpdateFactory.newCameraPosition(
+                            CameraPosition.Builder(cameraPositionState.position)
+                                .tilt(0f)
+                                .bearing(0f)
+                                .build()
+                        )
+                    }
+                }
+            }
+            else -> Unit
+        }
+    }
+
+    LaunchedEffect(uiState.pathPoints, uiState.trackingState) {
+        if (!followCamera) return@LaunchedEffect
+        if (uiState.pathPoints.isEmpty()) return@LaunchedEffect
+
+        // Tilt and bearing by ride state, per the motion spec. Ahead gets more screen than
+        // behind while moving, which is the correct priority at speed; paused eases back toward
+        // an overview without a jarring reset; idle stays flat and north-up because orientation
+        // matters more than immersion when you are not going anywhere.
+        val (tilt, bearing) = when (uiState.trackingState) {
+            TrackingState.TRACKING -> RideCameraPolicy.RIDING_TILT to RideCameraPolicy.headingOf(uiState.pathPoints)
+            TrackingState.PAUSED -> RideCameraPolicy.PAUSED_TILT to cameraPositionState.position.bearing
+            else -> return@LaunchedEffect
+        }
+
+        val lastPoint = uiState.pathPoints.last()
+        cameraPositionState.animateSafely {
+            CameraUpdateFactory.newCameraPosition(
+                CameraPosition.Builder()
+                    .target(lastPoint)
+                    .zoom(17f)
+                    .tilt(tilt)
+                    .bearing(bearing)
+                    .build()
+            )
         }
     }
 
@@ -696,10 +763,35 @@ fun HomeScreen(
                     icon = Icons.Default.MyLocation,
                     contentDescription = strings.recenterMap,
                     onClick = {
+                        // Locate is the explicit "follow me again" gesture — it is the only way
+                        // back after a pan suspends follow.
+                        followCamera = true
                         val target = uiState.pathPoints.lastOrNull()
                         if (target != null) {
                             coroutineScope.launch {
-                                cameraPositionState.animateSafely { CameraUpdateFactory.newLatLngZoom(target, 17f) }
+                                // Recenter straight into the ride-state camera. Recentring flat
+                                // and letting the follow effect tilt a frame later reads as two
+                                // separate moves.
+                                val tilt = when (uiState.trackingState) {
+                                    TrackingState.TRACKING -> RideCameraPolicy.RIDING_TILT
+                                    TrackingState.PAUSED -> RideCameraPolicy.PAUSED_TILT
+                                    else -> cameraPositionState.position.tilt
+                                }
+                                val bearing = if (uiState.trackingState == TrackingState.TRACKING) {
+                                    RideCameraPolicy.headingOf(uiState.pathPoints)
+                                } else {
+                                    cameraPositionState.position.bearing
+                                }
+                                cameraPositionState.animateSafely {
+                                    CameraUpdateFactory.newCameraPosition(
+                                        CameraPosition.Builder()
+                                            .target(target)
+                                            .zoom(17f)
+                                            .tilt(tilt)
+                                            .bearing(bearing)
+                                            .build()
+                                    )
+                                }
                             }
                         } else if (hasLocationPermission) {
                             try {
@@ -738,6 +830,10 @@ fun HomeScreen(
                     icon = Icons.Default.Explore,
                     contentDescription = strings.compassNorth,
                     onClick = {
+                        // North-up is a deliberate override of the ride camera. Leaving follow
+                        // armed would re-tilt and re-bear on the next GPS fix, so the button
+                        // would appear not to work.
+                        followCamera = false
                         coroutineScope.launch {
                             cameraPositionState.animateSafely {
                                 CameraUpdateFactory.newCameraPosition(

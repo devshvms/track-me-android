@@ -94,11 +94,24 @@ data class TrackMeElevation(
   val level4: Dp = 8.dp,
   /** Dragged sheet, open menu, pressed FAB. Casts. */
   val level5: Dp = 12.dp,
+
+  /**
+   * Floating chrome over map imagery: control buttons, HUD status pills.
+   *
+   * Off the tone-first ladder deliberately. Tonal elevation is a tint applied to a *surface*, and
+   * a map is not a surface — over imagery, tone conveys nothing at all, so a shadow is the only
+   * separation available. This is the one place a low elevation legitimately casts, which is why
+   * it is a named token rather than a `level2` that quietly breaks the rule above.
+   */
+  val mapOverlay: Dp = 3.dp,
 ) {
   /**
    * Whether a level draws a shadow, encoding the rule above so it cannot be got wrong at a call
    * site. Anything at or above [level3] floats and is dismissible; anything below is separated by
    * tone alone.
+   *
+   * [mapOverlay] is exempt by construction: it is not a rung on this ladder, and callers reach
+   * for it by name precisely because the ladder does not apply over a map.
    */
   fun castsShadow(elevation: Dp): Boolean = elevation >= level3
 }
