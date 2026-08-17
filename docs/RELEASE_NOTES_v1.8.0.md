@@ -504,11 +504,50 @@ not `alpha = 0` and not `GONE`, both of which stop the surface rendering on some
 the screenshot export inherited whichever the device produced. As fractions, the preview and the
 export draw the same picture at different resolutions, which is what a preview is for.
 
+### Three defects the review of this change found
+
+Worth recording, because two of them looked entirely correct in the diff.
+
+**A crash on short screens.** Moving the preview out of the scrolling column and onto `weight(1f)`
+introduced a case the old layout could not reach: the chrome above and below is fixed-height, so on
+a short window at a large font scale the weighted child resolves to **zero**. `boundedPreviewSize`
+requires positive bounds — correctly, a zero-sized preview is meaningless — and a `require` that
+fires during composition is a crash, not a blank space. The call site now guards. The regression
+test was checked by reverting the guard and confirming it fails, because a test that cannot fail
+is not coverage.
+
+**A silently blank export.** `captureOffscreenMap` attached the `MapView` to the host activity when
+it could find one, and carried on without a window when it could not. That path does not throw:
+`snapshot()` succeeds and returns blank tiles, so the user gets a white PNG and no error. It now
+fails fast so the caller's retry path shows.
+
+**The same O(pauses × points) scan twice, once on the main thread.** Filtering pause markers to
+those on the trimmed route ran in the preview's `remember` and again inside `handleExport`, the
+second time synchronously on the tap. Hoisted to one memoised function both use.
+
 **Known, not fixed here:** the stats and legend banners sit flush to the bottom of the map and
 partially cover the Google attribution logo, in both the preview and the exported file. Maps
 Platform terms require it to stay visible. Tracked separately — the fix is to inset the banner, and
 it changes the look of every exported image, so it is a deliberate design decision rather than a
 side effect of this work.
+
+**Also noticed, deliberately left:** `GoogleStaticApiImageExporterImpl` is dead code. It is the one
+exporter that always honoured the requested ratio, and nothing has ever called it. Its unused
+import is gone; whether to delete the class is a separate decision from this change.
+
+### Design-system conformance
+
+Audited after the fact rather than assumed, and it had gaps. Colour, typography, components and
+motion were on the system — the tier crossfade uses effects tokens, correctly, since an alpha that
+overshoots past 1 clips into a flash. Spacing was raw `dp` and the category rail had no explicit
+minimum touch target, which the system states as 48dp with no exceptions; a short label in one
+locale would have shrunk it below that with nothing failing.
+
+Both are fixed. The remaining raw values (2, 6, 10, 12, 22dp) are component-internal metrics with
+no token, and the spacing scale is deliberately four values — inventing tokens for them would
+launder numbers rather than encode a rule. There is still **no lint rule banning hardcoded
+spacing**; one was scoped in phase 2 and never written, which is exactly why this gap survived
+until someone asked.
 
 ---
 

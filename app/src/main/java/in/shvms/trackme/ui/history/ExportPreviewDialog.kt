@@ -275,17 +275,26 @@ fun ExportPreviewDialog(
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    val previewSize = boundedPreviewSize(
-                        maxWidth = maxWidth.value,
-                        maxHeight = maxHeight.value,
-                        ratio = settings.ratioFloat
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(previewSize.width.dp)
-                            .height(previewSize.height.dp)
-                    ) {
-                        preview(Modifier.fillMaxSize(), settings)
+                    // `weight(1f)` can resolve to zero height: the chrome above and below is
+                    // fixed-height, and on a short screen at a large font scale — with the error
+                    // row showing and the video action present — it can consume the column. The
+                    // old layout could not hit this because the preview lived inside a scroller.
+                    // `boundedPreviewSize` requires positive bounds and throws otherwise, which
+                    // during composition is a crash, so the empty case is handled here rather than
+                    // by loosening a precondition that is correct.
+                    if (maxWidth > 0.dp && maxHeight > 0.dp) {
+                        val previewSize = boundedPreviewSize(
+                            maxWidth = maxWidth.value,
+                            maxHeight = maxHeight.value,
+                            ratio = settings.ratioFloat
+                        )
+                        Box(
+                            modifier = Modifier
+                                .width(previewSize.width.dp)
+                                .height(previewSize.height.dp)
+                        ) {
+                            preview(Modifier.fillMaxSize(), settings)
+                        }
                     }
                 }
 

@@ -50,7 +50,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.domain.export.GPXExporterImpl
-import `in`.shvms.trackme.domain.export.GoogleStaticApiImageExporterImpl
 import `in`.shvms.trackme.domain.export.NativeSnapshotImageExporterImpl
 import `in`.shvms.trackme.domain.export.trimGpsPointsForExport
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
@@ -68,7 +67,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.material3.Switch
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Button
 import androidx.compose.material3.Button
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.*
@@ -126,6 +124,9 @@ fun vectorToBitmap(context: android.content.Context, id: Int, color: Int): Bitma
     vectorDrawable.draw(canvas)
     return BitmapDescriptorFactory.fromBitmap(bitmap)
 }
+
+/** How close a recorded pause must be to the (possibly trimmed) route to be drawn on it. */
+private const val PAUSE_MARKER_ON_ROUTE_METERS = 10f
 
 /** Turning off POI and transit labels; the only style the export preview applies. */
 private const val HIDE_PLACES_MAP_STYLE =
@@ -276,6 +277,31 @@ fun RideDetailScreen(
     val pausedLocations = remember(rideWithPoints?.points) {
         pausedMarkerLocations(rideWithPoints?.points.orEmpty()).map { marker ->
             LatLng(marker.latitude, marker.longitude)
+        }
+    }
+
+    /**
+     * Pause markers that actually sit on the exported route.
+     *
+     * Privacy trim removes the ends of the route, so a pause inside a trimmed section would
+     * otherwise be drawn floating away from the line. The scan is O(pauses × points) — cheap per
+     * call but not free on a long ride — and both the preview and the export need the same answer,
+     * so it is computed once here rather than twice, once of them on the main thread at the moment
+     * the user taps Share.
+     */
+    val pausedOnRoute: (List<GPSPointEntity>) -> List<LatLng> = remember(pausedLocations) {
+        { routePoints ->
+            pausedLocations.filter { location ->
+                routePoints.any { point ->
+                    val distance = FloatArray(1)
+                    android.location.Location.distanceBetween(
+                        point.latitude, point.longitude,
+                        location.latitude, location.longitude,
+                        distance
+                    )
+                    distance[0] <= PAUSE_MARKER_ON_ROUTE_METERS
+                }
+            }
         }
     }
 
@@ -805,15 +831,7 @@ fun RideDetailScreen(
             val (exportWidth, exportHeight) = settings.exportSize
             val markerSize = ExportRenderScale.markerSize(exportWidth)
             val exportMarkers = settings.showMarkers
-            val pausedForExport = pausedLocations.filter { location ->
-                routePoints.any { point ->
-                    val distance = FloatArray(1)
-                    android.location.Location.distanceBetween(
-                        point.latitude, point.longitude, location.latitude, location.longitude, distance
-                    )
-                    distance[0] <= 10f
-                }
-            }
+            val pausedForExport = pausedOnRoute(routePoints)
             val exportLatLngs = routePoints.map { LatLng(it.latitude, it.longitude) }
 
             captureOffscreenMap(
@@ -986,15 +1004,7 @@ fun RideDetailScreen(
                 val cameraPositionState = rememberCameraPositionState {
                     position = initialRouteCamera(latLngs, bounds)
                 }
-                val pausedForRoute = remember(pausedLocations, routePoints) {
-                    pausedLocations.filter { location ->
-                        routePoints.any { point ->
-                            val distance = FloatArray(1)
-                            android.location.Location.distanceBetween(point.latitude, point.longitude, location.latitude, location.longitude, distance)
-                            distance[0] <= 10f
-                        }
-                    }
-                }
+                val pausedForRoute = remember(pausedOnRoute, routePoints) { pausedOnRoute(routePoints) }
                 BoxWithConstraints(modifier) {
                     // The preview's own pixel size. Everything drawn on it is scaled from this so
                     // the preview and the export render the same picture — see ExportRenderScale.

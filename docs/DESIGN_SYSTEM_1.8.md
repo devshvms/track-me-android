@@ -546,6 +546,11 @@ every phase since has been installed from the internal track and checked by hand
   animations are now slightly quicker. That was the intent; it is not a measured equivalence.
 - **Chroma above T70 still diverges from CAM16** (see §4.3). Tone and contrast are verified; the
   saturation of a handful of high-tone values is not byte-identical to Material Theme Builder.
+- **No lint rule bans hardcoded spacing.** One was scoped in phase 2 and never written. The export
+  preview was built entirely on raw `dp` and nothing failed; it was caught by someone asking
+  whether the screen used the design system, not by the build. Motion has such a rule
+  (`MotionTokenAdoptionTest`); spacing does not, and until it does, conformance there is a review
+  habit rather than a guarantee.
 - `Color.kt` legacy aliases are retained and still used by roughly 40 files.
 - **`google-services.json` used locally is a placeholder.** The real Firebase config is not in the
   repo. It is structurally valid so the plugin and compiler are satisfied; Firebase will not

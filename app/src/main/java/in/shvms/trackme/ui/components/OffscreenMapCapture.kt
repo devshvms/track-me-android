@@ -58,13 +58,20 @@ internal fun captureOffscreenMap(
         return
     }
 
+    // No window means no GL surface, which means `snapshot()` succeeds and returns blank tiles —
+    // a silently wrong export rather than a visible failure. Fail instead, so the caller shows its
+    // retry path.
     val rootView = context.findHostActivity()?.window?.decorView as? ViewGroup
+    if (rootView == null) {
+        Log.w(TAG, "No host activity; refusing to snapshot a detached map")
+        onResult(null, null)
+        return
+    }
+
     val mapView = MapView(context, GoogleMapOptions().mapType(googleMapType(mapType)))
     mapView.layoutParams = ViewGroup.LayoutParams(widthPx, heightPx)
-    if (rootView != null) {
-        mapView.translationX = -(widthPx * 2).toFloat()
-        rootView.addView(mapView)
-    }
+    mapView.translationX = -(widthPx * 2).toFloat()
+    rootView.addView(mapView)
     mapView.measure(
         View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
         View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY),
@@ -82,7 +89,7 @@ internal fun captureOffscreenMap(
             mapView.onPause()
             mapView.onStop()
             mapView.onDestroy()
-            rootView?.removeView(mapView)
+            rootView.removeView(mapView)
         }.onFailure { Log.w(TAG, "Offscreen map teardown failed", it) }
     }
 
