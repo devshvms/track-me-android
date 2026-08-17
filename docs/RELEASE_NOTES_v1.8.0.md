@@ -185,6 +185,33 @@ gets a bright white map at night and every overlay is correctly tuned for a ligh
 Fixing the map style changes what the correct overlay colours are, so the two must be done
 together, in phase 4.
 
+## Phase 3 complete — the remaining screens
+
+Community, Onboarding, Compare, Account and Help audited and corrected. The audit mattered more
+than the volume: most apparent violations turned out to be correct, and three were real.
+
+- **Account** exported three literal hex values for export status, duplicating what the semantic
+  tokens already mean — and being literals, they did not adapt to theme at all.
+- **Compare's live map** was never given the themed basemap, so it stayed light while Home and
+  Ride detail went dark. Its export-preview map is deliberately untouched: that one carries a
+  user-configured style, and `darkTheme` there is an export option, not the app theme.
+- **Map control buttons** animated to `colorScheme.surface` when closed but a hardcoded light grey
+  when open, so on the night basemap they flashed pale. Only visible once the map was themed.
+
+### What was deliberately left alone
+
+Compare's route-label chips, its aggregate legend, and Community's member avatars all paint white
+on **fixed fills** — a route palette, a navy panel, a per-member tint. They are their own surfaces
+with foregrounds chosen for them.
+
+The remaining off-scale radii are **pills** (14dp), **circular buttons** (32dp) and **indicator
+bars** (2–6dp). The shape scale governs *containers*; a 32dp radius on a circular button and a 2dp
+radius on a 4dp-tall bar are geometry, not violations. Forcing them onto the container scale would
+be the same error as tokenizing the map overlays.
+
+**App-wide after this: 0 Toasts, 0 `surfaceVariant` containers, 0 literal colours outside
+deliberate fixed-fill surfaces.**
+
 ## Under the hood
 
 - **Two-tier design tokens.** Primitive tones (`Tone.Primary40`) carry no meaning and are never
