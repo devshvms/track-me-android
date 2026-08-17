@@ -16,6 +16,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import `in`.shvms.trackme.R
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.dao.RideDao
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
@@ -783,15 +784,54 @@ class TrackingService : Service() {
             else -> strings.notifTrackingText
         }
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        // 1.8.0 phase 4: the ride can now be controlled from the shade. The service already had
+        // ACTION_PAUSE_SERVICE and ACTION_STOP_SERVICE — they were simply never surfaced, so
+        // pausing mid-ride meant unlocking and opening the app, which is the worst possible
+        // moment to ask that of someone.
+        fun serviceAction(action: String, requestCode: Int): android.app.PendingIntent =
+            android.app.PendingIntent.getService(
+                this,
+                requestCode,
+                android.content.Intent(this, TrackingService::class.java).apply { this.action = action },
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setAutoCancel(false)
             .setOngoing(true)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(R.drawable.ic_notification_trackme)
+            .setColor(NOTIFICATION_ACCENT)
+            .setColorized(false)
+            .setCategory(NotificationCompat.CATEGORY_WORKOUT)
             .setContentTitle(strings.notifTrackingTitle)
             .setContentText(contentText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
             .setContentIntent(pendingIntent)
-            .build()
+
+        // Pause and resume are the same control in two states; showing both at once would be a
+        // lie about which one applies.
+        when (state) {
+            TrackingState.PAUSED ->
+                builder.addAction(
+                    R.drawable.ic_notification_trackme,
+                    strings.resumeTracking,
+                    serviceAction(ACTION_START_OR_RESUME_SERVICE, 1),
+                )
+            TrackingState.TRACKING, TrackingState.GPS_LOST, TrackingState.GPS_DISABLED ->
+                builder.addAction(
+                    R.drawable.ic_notification_trackme,
+                    strings.pauseTracking,
+                    serviceAction(ACTION_PAUSE_SERVICE, 2),
+                )
+            else -> Unit
+        }
+        builder.addAction(
+            R.drawable.ic_notification_trackme,
+            strings.stopTracking,
+            serviceAction(ACTION_STOP_SERVICE, 3),
+        )
+
+        return builder.build()
     }
 
     /**
@@ -830,7 +870,7 @@ class TrackingService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setAutoCancel(false)
             .setOngoing(true)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(R.drawable.ic_notification_trackme)
             .setContentTitle(strings.notifGroupPresenceTitle)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -1104,7 +1144,7 @@ class TrackingService : Service() {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             val strings = appStrings()
             val splitNotification = NotificationCompat.Builder(this@TrackingService, SYNC_CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                .setSmallIcon(R.drawable.ic_notification_trackme)
                 .setContentTitle(strings.notifAutoSplitTitle)
                 .setContentText(strings.notifAutoSplitText)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -1117,7 +1157,7 @@ class TrackingService : Service() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val strings = appStrings()
         val warningNotification = NotificationCompat.Builder(this, SYNC_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_notification_trackme)
             .setContentTitle(strings.notifLongRideTitle)
             .setContentText(strings.notifLongRideText)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -1129,7 +1169,7 @@ class TrackingService : Service() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val strings = appStrings()
         val warningNotification = NotificationCompat.Builder(this, SYNC_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_notification_trackme)
             .setContentTitle(strings.notifStorageLowTitle)
             .setContentText(strings.notifStorageLowText)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -1153,6 +1193,9 @@ class TrackingService : Service() {
         const val JUNK_RIDE_DISTANCE_METERS = 10.0
         const val JUNK_RIDE_DURATION_MILLIS = 2 * 60 * 1000L
         const val NOTIFICATION_ID = 1
+        /** Notification accent. Primary40 — the brand cyan at the tone that reads on both shades. */
+        const val NOTIFICATION_ACCENT = 0xFF00658D.toInt()
+
         const val CHANNEL_ID = "tracking_channel"
         const val SYNC_CHANNEL_ID = "sync_channel"
         const val STORAGE_WARNING_NOTIFICATION_ID = 4
