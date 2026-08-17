@@ -11,6 +11,7 @@ import android.graphics.Typeface
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -56,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
@@ -582,18 +584,55 @@ private fun UnifiedAggregateRidePreviewDialog(
                         }
                     }
                 }
-                if (settings.statsOverlay.isVisible || settings.showLegend) {
+                val panelRect = settings.statsOverlay.rect()
+                if (panelRect != null && (settings.statsOverlay.isVisible || settings.showLegend)) {
                     val legendRows = remember(previewRoutes, strings.rideHistoryTitle) {
                         aggregatePreviewLegend(previewRoutes, strings.rideHistoryTitle, showLegend = true)
                     }
+                    val panelColor = if (settings.darkTheme) {
+                        BrandThemeConfig.navy800.copy(alpha = 0.87f)
+                    } else {
+                        Color.White.copy(alpha = 0.85f)
+                    }
+                    val onPanel = if (settings.darkTheme) Color.White else Color.Black
+                    // Same placement vocabulary as the single-ride preview, so the two screens
+                    // behave identically. Height wraps rather than following the rect: the legend
+                    // is a list whose length depends on how many rides were selected, and a fixed
+                    // fraction would clip the last row on a four-ride comparison.
+                    val topPlacement = settings.statsOverlay == StatsOverlayStyle.TopLeft ||
+                        settings.statsOverlay == StatsOverlayStyle.TopRight
+                    val alignEnd = settings.statsOverlay.alignsTextEnd
+                    val corner = with(LocalDensity.current) {
+                        panelRect.cornerRadiusPx(previewWidthPx, previewHeightPx).toDp()
+                    }
                     Box(
-                        modifier = Modifier.fillMaxWidth().wrapContentHeight().align(Alignment.BottomCenter)
+                        modifier = Modifier
+                            .fillMaxWidth(panelRect.widthFraction)
+                            .wrapContentHeight()
+                            .align(
+                                when {
+                                    topPlacement && alignEnd -> Alignment.TopEnd
+                                    topPlacement -> Alignment.TopStart
+                                    alignEnd -> Alignment.BottomEnd
+                                    else -> Alignment.BottomStart
+                                }
+                            )
+                            .padding(
+                                with(LocalDensity.current) {
+                                    (panelRect.inset * minOf(previewWidthPx, previewHeightPx)).toDp()
+                                }
+                            )
+                            .clip(RoundedCornerShape(corner))
+                            // The panel background belongs here, wrapping everything. The route
+                            // label line used to sit outside it with only a colour swap, so in
+                            // light mode it was black text straight onto the map.
+                            .background(panelColor)
                     ) {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             if (settings.statsOverlay.isVisible) {
                                 Text(
                                     previewRoutes.joinToString(" • ") { it.label },
-                                    color = if (settings.darkTheme) Color.White else Color.Black,
+                                    color = onPanel,
                                     style = MaterialTheme.typography.labelMedium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -618,18 +657,12 @@ private fun AggregateLegendPanel(
     modifier: Modifier = Modifier
 ) {
     if (legendRows.isEmpty()) return
-    // Was a hardcoded navy panel with white text, so the Dark theme control did nothing at all
-    // here -- the only thing it moved on this screen was the one-line route label above.
-    val panelColor = if (darkTheme) {
-        BrandThemeConfig.navy800.copy(alpha = 0.87f)
-    } else {
-        Color.White.copy(alpha = 0.85f)
-    }
+    // Rows only. This used to paint its own hardcoded navy background — which is both why the
+    // Dark theme control did nothing here, and why it cannot paint one now: the caller wraps it
+    // in the themed panel, and a second background inside would double the tint.
     val onPanel = if (darkTheme) Color.White else Color.Black
     Column(
-        modifier = modifier
-            .background(panelColor)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         legendRows.take(MAX_COMPARISON_RIDES).forEach { (label, title) ->
             Text(
