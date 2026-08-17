@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.ui.history
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -55,6 +57,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.google.maps.android.compose.MapType
 import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.theme.LocalTrackMeMotion
+import `in`.shvms.trackme.theme.LocalTrackMeSpacing
 import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
@@ -410,6 +413,7 @@ private fun ValuesTier(
     onShowSequence: (Boolean) -> Unit,
 ) {
     val motion = LocalTrackMeMotion.current
+    val spacing = LocalTrackMeSpacing.current
     AnimatedContent(
         targetState = category,
         transitionSpec = {
@@ -423,8 +427,8 @@ private fun ValuesTier(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = spacing.screenMargin, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(spacing.betweenCards),
             verticalAlignment = Alignment.CenterVertically
         ) {
             when (active) {
@@ -558,26 +562,41 @@ private fun CategoryRail(
     strings: AppStrings,
     onSelect: (ExportControlCategory) -> Unit
 ) {
+    val spacing = LocalTrackMeSpacing.current
+    val motion = LocalTrackMeMotion.current
     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(horizontal = spacing.betweenCards, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             categories.forEach { entry ->
                 val isSelected = entry == selected
-                val tint = if (isSelected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
+                // Colour change only — effects token, since a tint that overshoots past its
+                // endpoint is a visible flash on a control the eye is already resting on.
+                val tint by animateColorAsState(
+                    targetValue = if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    animationSpec = motion.effectsDefault.spec(),
+                    label = "railTint"
+                )
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                     modifier = Modifier
                         .semanticsSelectable(isSelected) { onSelect(entry) }
+                        // The design system's minimum touch target is stated as having no
+                        // exceptions. A short label in one locale would otherwise shrink the
+                        // target below it without anything failing.
+                        .sizeIn(
+                            minWidth = spacing.minTouchTarget,
+                            minHeight = spacing.minTouchTarget
+                        )
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Icon(
