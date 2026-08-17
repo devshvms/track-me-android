@@ -67,6 +67,23 @@ import com.google.maps.android.compose.rememberMarkerState
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.analytics.RideStartAbortMethod
+import `in`.shvms.trackme.domain.map.CameraFollowPolicy
+import `in`.shvms.trackme.domain.map.CameraMoveCause
+import com.google.maps.android.compose.CameraMoveStartedReason
+
+/**
+ * Bridges the Maps SDK's reason enum onto the platform-neutral cause [CameraFollowPolicy] reasons
+ * about (§7: iOS reads a different MapKit signal, but the observable rule is identical).
+ *
+ * `DEVELOPER_ANIMATION` is our own `animateSafely` — including the follow move itself — so it must
+ * never read as a gesture, or follow would switch itself off on its first move.
+ */
+private fun CameraMoveStartedReason.toMoveCause(): CameraMoveCause = when (this) {
+    CameraMoveStartedReason.GESTURE -> CameraMoveCause.USER_GESTURE
+    CameraMoveStartedReason.DEVELOPER_ANIMATION, CameraMoveStartedReason.API_ANIMATION ->
+        CameraMoveCause.APP_ANIMATION
+    else -> CameraMoveCause.OTHER
+}
 
 private const val LAST_CAMERA_LAT_KEY = "last_camera_lat"
 private const val LAST_CAMERA_LNG_KEY = "last_camera_lng"
@@ -314,10 +331,50 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(uiState.pathPoints) {
-        if (uiState.trackingState == TrackingState.TRACKING && uiState.pathPoints.isNotEmpty()) {
+    // --- Camera follow (§1, §0 contract 1) ----------------------------------------------------
+    //
+    // Follow is a MODE, not a behaviour. Before this, a LaunchedEffect re-fired on every GPS fix
+    // and animated to the newest point at zoom 17 unconditionally, so it overrode both a pan and a
+    // zoom within a second or two — worst precisely in a group, where zooming out to see everyone
+    // got yanked back before the screen could be read.
+    //
+    // rememberSaveable, not remember: Q1.2 decides follow SURVIVES backgrounding, because the
+    // rider's last explicit intent is the best guess at their next one.
+    var isFollowingRider by rememberSaveable { mutableStateOf(true) }
+    val isRecording = uiState.trackingState != TrackingState.IDLE
+
+    // Arm on the way INTO a ride, edge-triggered. A level-triggered "recording implies following"
+    // would re-arm on the next recomposition and reproduce the original defect with extra steps.
+    var wasRecording by rememberSaveable { mutableStateOf(isRecording) }
+    LaunchedEffect(isRecording) {
+        if (CameraFollowPolicy.armsOnRecordingStart(wasRecording, isRecording)) {
+            isFollowingRider = true
+        }
+        wasRecording = isRecording
+    }
+
+    // Any user gesture drops into free-look. Maps Compose already reports why the camera moved, so
+    // this needs no touch interception — and our own animateSafely calls report
+    // DEVELOPER_ANIMATION, so follow cannot switch itself off on its first move.
+    LaunchedEffect(cameraPositionState.isMoving, cameraPositionState.cameraMoveStartedReason) {
+        if (cameraPositionState.isMoving &&
+            CameraFollowPolicy.releasesFollow(cameraPositionState.cameraMoveStartedReason.toMoveCause())
+        ) {
+            isFollowingRider = false
+        }
+    }
+
+    LaunchedEffect(uiState.pathPoints, isFollowingRider, isRecording) {
+        val move = CameraFollowPolicy.moveFor(
+            following = isFollowingRider,
+            isRecording = uiState.trackingState == TrackingState.TRACKING,
+            hasTarget = uiState.pathPoints.isNotEmpty(),
+        )
+        if (move == CameraFollowPolicy.FollowMove.KeepZoom) {
             val lastPoint = uiState.pathPoints.last()
-            cameraPositionState.animateSafely { CameraUpdateFactory.newLatLngZoom(lastPoint, 17f) }
+            // newLatLng, NOT newLatLngZoom: §1 is explicit that a rider who zoomed out to 14 to see
+            // the group and is still following should stay at 14. Zoom is forced only on re-arm.
+            cameraPositionState.animateSafely { CameraUpdateFactory.newLatLng(lastPoint) }
         }
     }
 
@@ -672,10 +729,16 @@ fun HomeScreen(
                     icon = Icons.Default.MyLocation,
                     contentDescription = strings.recenterMap,
                     onClick = {
+                        // §1: this is the ONLY thing that re-arms follow (Q1.1 — button only,
+                        // never a timer). It also gives the control a real job rather than a
+                        // redundant one, since the camera no longer chases the rider by itself.
+                        isFollowingRider = CameraFollowPolicy.onRecentrePressed()
                         val target = uiState.pathPoints.lastOrNull()
                         if (target != null) {
                             coroutineScope.launch {
-                                cameraPositionState.animateSafely { CameraUpdateFactory.newLatLngZoom(target, 17f) }
+                                cameraPositionState.animateSafely {
+                                    CameraUpdateFactory.newLatLngZoom(target, CameraFollowPolicy.RECENTRE_ZOOM)
+                                }
                             }
                         } else if (hasLocationPermission) {
                             try {
