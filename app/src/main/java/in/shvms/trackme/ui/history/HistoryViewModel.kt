@@ -30,6 +30,16 @@ internal data class BatchDeleteSummary(
     val failedCount: Int
 )
 
+internal fun cloudDocumentIdForDelete(
+    rideId: Long,
+    firestoreId: String?,
+    isSynced: Boolean
+): String? {
+    val storedId = firestoreId?.trim()
+    if (!storedId.isNullOrEmpty()) return storedId
+    return if (isSynced) rideId.toString() else null
+}
+
 internal fun summarizeBatchDelete(attempts: List<RideDeleteAttempt>): BatchDeleteSummary {
     val deleted = attempts.count { it.localDeleted && it.cloudDeleted }
     return BatchDeleteSummary(deletedCount = deleted, failedCount = attempts.size - deleted)
@@ -142,8 +152,6 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         if (rideIds.isEmpty()) return
         viewModelScope.launch {
             actionMutex.withLock {
-                var deletedCount = 0
-                var failedCount = 0
                 val attempts = mutableListOf<RideDeleteAttempt>()
                 rideIds.forEach { rideId ->
                     try {
@@ -155,16 +163,24 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                             return@forEach
                         }
 
-                        val cloudDeleteSucceeded = if (ride.firestoreId != null) {
-                            app.firestoreSyncManager.deleteRide(ride.firestoreId)
-                        } else {
-                            true
+                        val cloudDocumentId = cloudDocumentIdForDelete(
+                            rideId = ride.id,
+                            firestoreId = ride.firestoreId,
+                            isSynced = ride.isSynced
+                        )
+                        val cloudDeleteSucceeded = cloudDocumentId == null ||
+                            app.firestoreSyncManager.deleteRide(cloudDocumentId)
+                        if (!cloudDeleteSucceeded) {
+                            // Keep the local copy when Firestore deletion fails. Removing it here
+                            // lets the next sign-in download resurrect the ride from the cloud.
+                            attempts += RideDeleteAttempt(localDeleted = false, cloudDeleted = false)
+                            return@forEach
                         }
                         // GPS points are not declared with a Room foreign key, so remove them
                         // explicitly before deleting the parent ride to avoid orphaned data.
                         rideDao.deletePointsForRide(rideId)
                         rideDao.deleteRide(rideId)
-                        attempts += RideDeleteAttempt(localDeleted = true, cloudDeleted = cloudDeleteSucceeded)
+                        attempts += RideDeleteAttempt(localDeleted = true, cloudDeleted = true)
                     } catch (e: Exception) {
                         attempts += RideDeleteAttempt(localDeleted = false, cloudDeleted = false)
                         errorLogger.log("Failed to delete ride $rideId")
@@ -172,10 +188,8 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                     }
                 }
                 val summary = summarizeBatchDelete(attempts)
-                deletedCount = summary.deletedCount
-                failedCount = summary.failedCount
                 _selectedRideIds.value = emptySet()
-                _uiEvent.emit(UiEvent.BatchDeleteCompleted(deletedCount, failedCount))
+                _uiEvent.emit(UiEvent.BatchDeleteCompleted(summary.deletedCount, summary.failedCount))
             }
         }
     }

@@ -122,6 +122,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupNotSet: String = s("groupNotSet", "--")
     val groupOpenInMaps: String = s("groupOpenInMaps", "Open in Maps")
     val groupShowOnMap: String = s("groupShowOnMap", "Show on my map")
+    val groupShowMemberOnMap: String = s("groupShowMemberOnMap", "Show on map")
+    val groupMemberNoPositionYet: String = s("groupMemberNoPositionYet", "They haven't shared a position yet")
     val groupStartTimeLabel: String = s("groupStartTimeLabel", "Starts at")
 
     // --- SCOPE_1.7.2: rider status, ages, directions, presence -------------------------------
@@ -630,6 +632,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupNotSet" to "--",
             "groupOpenInMaps" to "Abrir en Mapas",
             "groupShowOnMap" to "Ver en mi mapa",
+            "groupShowMemberOnMap" to "Mostrar en el mapa",
+            "groupMemberNoPositionYet" to "Todavía no ha compartido su ubicación",
             "groupStartTimeLabel" to "Empieza a las",
             "groupStatus3GBR" to "Descanso breve",
             "groupStatus3GTI" to "Cansado",
@@ -1121,6 +1125,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupNotSet" to "--",
             "groupOpenInMaps" to "Ouvrir dans Plans",
             "groupShowOnMap" to "Voir sur ma carte",
+            "groupShowMemberOnMap" to "Afficher sur la carte",
+            "groupMemberNoPositionYet" to "Cette personne n'a pas encore partagé sa position",
             "groupStartTimeLabel" to "Départ à",
             "groupStatus3GBR" to "Petite pause",
             "groupStatus3GTI" to "Fatigué",
@@ -1612,6 +1618,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupNotSet" to "--",
             "groupOpenInMaps" to "In Karten öffnen",
             "groupShowOnMap" to "Auf meiner Karte zeigen",
+            "groupShowMemberOnMap" to "Auf der Karte zeigen",
+            "groupMemberNoPositionYet" to "Diese Person hat noch keine Position geteilt",
             "groupStartTimeLabel" to "Beginnt um",
             "groupStatus3GBR" to "Kurze Pause",
             "groupStatus3GTI" to "Müde",
@@ -2103,6 +2111,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupNotSet" to "--",
             "groupOpenInMaps" to "मैप्स में खोलें",
             "groupShowOnMap" to "मेरे मैप पर दिखाएँ",
+            "groupShowMemberOnMap" to "मैप पर दिखाएँ",
+            "groupMemberNoPositionYet" to "इन्होंने अभी तक अपनी लोकेशन साझा नहीं की है",
             "groupStartTimeLabel" to "शुरू होगा",
             "groupStatus3GBR" to "छोटा ब्रेक",
             "groupStatus3GTI" to "थका हुआ",
@@ -2594,6 +2604,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupNotSet" to "--",
             "groupOpenInMaps" to "マップで開く",
             "groupShowOnMap" to "自分の地図で表示",
+            "groupShowMemberOnMap" to "地図で表示",
+            "groupMemberNoPositionYet" to "まだ位置情報が共有されていません",
             "groupStartTimeLabel" to "開始",
             "groupStatus3GBR" to "小休止",
             "groupStatus3GTI" to "疲れた",
@@ -3085,6 +3097,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupNotSet" to "--",
             "groupOpenInMaps" to "在地图中打开",
             "groupShowOnMap" to "在我的地图上显示",
+            "groupShowMemberOnMap" to "在地图上显示",
+            "groupMemberNoPositionYet" to "对方尚未共享位置",
             "groupStartTimeLabel" to "开始于",
             "groupStatus3GBR" to "短暂休息",
             "groupStatus3GTI" to "疲劳",

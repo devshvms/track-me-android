@@ -76,13 +76,27 @@ class RideDetailViewModel(application: Application) : AndroidViewModel(applicati
                         return@withLock
                     }
 
-                    // Always try to delete from Firestore if user is logged in, 
-                    // to avoid orphaned data if delete happens right after an edit
-                    if (app.authManager.currentUser.value != null) {
-                        val firestoreId = ride?.firestoreId ?: rideId.toString()
-                        app.firestoreSyncManager.deleteRide(firestoreId)
+                    val cloudDocumentId = ride?.let {
+                        cloudDocumentIdForDelete(
+                            rideId = it.id,
+                            firestoreId = it.firestoreId,
+                            isSynced = it.isSynced
+                        )
                     }
-                    
+                    if (cloudDocumentId != null &&
+                        !app.firestoreSyncManager.deleteRide(cloudDocumentId)
+                    ) {
+                        // Cloud-first deletion prevents this ride from being downloaded again at
+                        // the next sign-in. Leave the local copy visible so the user can retry.
+                        _uiEvent.emit(
+                            UiEvent.ShowError(
+                                "Couldn't delete this ride from the cloud. Check your connection and try again."
+                            )
+                        )
+                        return@withLock
+                    }
+
+                    rideDao.deletePointsForRide(rideId)
                     rideDao.deleteRide(rideId)
                     _uiEvent.emit(UiEvent.NavigateBack)
                 } catch (e: Exception) {

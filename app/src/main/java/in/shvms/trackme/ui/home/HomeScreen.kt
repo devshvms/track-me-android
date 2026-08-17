@@ -364,6 +364,32 @@ fun HomeScreen(
         }
     }
 
+    // --- Roster tap → focus that member (§4) ---------------------------------------------------
+    //
+    // A one-shot, consumed as it is applied: §4 is explicit that it must clear, or coming back to
+    // Home later would re-focus a member the rider has moved on from.
+    //
+    // focusedMemberUid outlives the consumption on purpose — it is what tells the marker below to
+    // open its info window, and that has to survive the recomposition the camera move causes.
+    val pendingMemberFocus by app.pendingMemberFocus.collectAsState()
+    var focusedMemberUid by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pendingMemberFocus) {
+        val focus = pendingMemberFocus ?: return@LaunchedEffect
+        if (!`in`.shvms.trackme.domain.group.MemberFocusPolicy.shouldApply(focus)) return@LaunchedEffect
+        // §4: "focusing a member is a camera move that must NOT be immediately undone by follow-me.
+        // It should put the camera into free-look, exactly as a manual pan would." Without this the
+        // next GPS fix drags the camera straight back to the rider — §1's defect, wearing a hat.
+        isFollowingRider = CameraFollowPolicy.onFocusedElsewhere()
+        focusedMemberUid = focus.uid
+        cameraPositionState.animateSafely {
+            CameraUpdateFactory.newLatLngZoom(
+                com.google.android.gms.maps.model.LatLng(focus.lat, focus.lng),
+                CameraFollowPolicy.RECENTRE_ZOOM,
+            )
+        }
+        app.consumePendingMemberFocus()
+    }
+
     LaunchedEffect(uiState.pathPoints, isFollowingRider, isRecording) {
         val move = CameraFollowPolicy.moveFor(
             following = isFollowingRider,
@@ -579,8 +605,18 @@ fun HomeScreen(
                             )
                         }
 
+                        val markerState = rememberMarkerState(key = member.uid, position = point)
+
+                        // §4/Q4.1: "focus the map and open that same sheet, so there is one detail
+                        // surface rather than two." On Android that surface is this marker's info
+                        // window — name and age, the same thing a marker tap already gives — so a
+                        // roster tap lands on it rather than inventing a second one.
+                        if (focusedMemberUid == member.uid) {
+                            LaunchedEffect(member.uid, point) { markerState.showInfoWindow() }
+                        }
+
                         Marker(
-                            state = rememberMarkerState(key = member.uid, position = point),
+                            state = markerState,
                             // §3.3: tap gives name, distance from you, last-update age. Nothing
                             // else — no history, no profile, no follow.
                             title = name,

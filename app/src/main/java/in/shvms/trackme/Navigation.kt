@@ -148,6 +148,15 @@ fun MainNavigation() {
                 CommunityScreen(
                     onNavigateToSignIn = { navigateToTab("settings") },
                     onOpenHome = { navigateToTab("home") },
+                    // §4: the focus travels on the application object rather than as a route
+                    // argument, for the same reason the pending invite does — a parameterised
+                    // `home?uid=…` route would miss the tab-highlight lookup above and would have
+                    // to be pushed with a bare navigate(), which is precisely the back-stack
+                    // corruption navigateToTab's comment documents.
+                    onShowMemberOnMap = { focus ->
+                        app.setPendingMemberFocus(focus)
+                        navigateToTab("home")
+                    },
                 )
             }
             composable("settings") { SettingsScreen(navController = navController) }

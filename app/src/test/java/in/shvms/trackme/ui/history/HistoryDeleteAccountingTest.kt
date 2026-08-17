@@ -5,6 +5,21 @@ import org.junit.Test
 
 class HistoryDeleteAccountingTest {
     @Test
+    fun cloudDocumentIdUsesDownloadedDocumentId() {
+        assertEquals("ios-cloud-document", cloudDocumentIdForDelete(42L, "ios-cloud-document", true))
+    }
+
+    @Test
+    fun cloudDocumentIdFallsBackForLegacySyncedRide() {
+        assertEquals("42", cloudDocumentIdForDelete(42L, null, true))
+    }
+
+    @Test
+    fun cloudDocumentIdIsAbsentForLocalOnlyRide() {
+        assertEquals(null, cloudDocumentIdForDelete(42L, null, false))
+    }
+
+    @Test
     fun summarizeBatchDeleteReportsCloudAndLocalFailures() {
         val summary = summarizeBatchDelete(
             listOf(
