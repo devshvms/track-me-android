@@ -1,0 +1,31 @@
+[
+  { "elementType": "geometry", "stylers": [{ "color": "#1b2025" }] },
+  { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] },
+  { "elementType": "labels.text.fill", "stylers": [{ "color": "#bac8d4" }] },
+  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#0e1418" }] },
+
+  { "featureType": "administrative", "elementType": "geometry", "stylers": [{ "color": "#3b4852" }] },
+  { "featureType": "administrative.country", "elementType": "labels.text.fill", "stylers": [{ "color": "#9fadb9" }] },
+  { "featureType": "administrative.land_parcel", "stylers": [{ "visibility": "off" }] },
+  { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [{ "color": "#c0c7cd" }] },
+
+  { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#8b9297" }] },
+  { "featureType": "poi.business", "stylers": [{ "visibility": "off" }] },
+  { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#252b2f" }] },
+  { "featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{ "color": "#6b7984" }] },
+
+  { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#30353a" }] },
+  { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "color": "#1b2025" }] },
+  { "featureType": "road", "elementType": "labels.text.fill", "stylers": [{ "color": "#9fadb9" }] },
+  { "featureType": "road.arterial", "elementType": "geometry", "stylers": [{ "color": "#3b4852" }] },
+  { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#53606a" }] },
+  { "featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{ "color": "#1b2025" }] },
+  { "featureType": "road.highway", "elementType": "labels.text.fill", "stylers": [{ "color": "#c0c7cd" }] },
+  { "featureType": "road.local", "elementType": "labels.text.fill", "stylers": [{ "color": "#71787d" }] },
+
+  { "featureType": "transit", "stylers": [{ "visibility": "off" }] },
+
+  { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#101d26" }] },
+  { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#53606a" }] },
+  { "featureType": "water", "elementType": "labels.text.stroke", "stylers": [{ "color": "#0e1418" }] }
+]

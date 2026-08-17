@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.ui.history
 
 import `in`.shvms.trackme.ui.components.rememberMessenger
+import `in`.shvms.trackme.ui.components.rememberMapStyle
 import `in`.shvms.trackme.ui.components.Stat
 import `in`.shvms.trackme.ui.components.StatGrid
 import android.content.ContentValues
@@ -153,6 +154,7 @@ fun RideDetailScreen(
     val loadState by viewModel.loadState.collectAsState()
     val context = LocalContext.current
     val messenger = rememberMessenger()
+    val mapStyle = rememberMapStyle()
     val app = context.applicationContext as `in`.shvms.trackme.TrackMeApp
     val unitSystem by app.preferencesManager.unitSystem.collectAsState()
     val imperial = unitSystem == "imperial"
@@ -433,7 +435,7 @@ fun RideDetailScreen(
                                 .fillMaxSize()
                                 .alpha(if (isMapLoaded) 1f else 0f),
                             cameraPositionState = cameraPositionState,
-                            properties = MapProperties(mapType = mapType, isTrafficEnabled = isTrafficEnabled),
+                            properties = MapProperties(mapType = mapType, isTrafficEnabled = isTrafficEnabled, mapStyleOptions = mapStyle),
                             uiSettings = MapUiSettings(zoomControlsEnabled = false),
                             onMapLoaded = {
                                 if (latLngs.size > 1) {

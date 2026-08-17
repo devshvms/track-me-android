@@ -2,6 +2,7 @@ package `in`.shvms.trackme.ui.home
 
 import androidx.compose.material3.SnackbarDuration
 import `in`.shvms.trackme.ui.components.rememberMessenger
+import `in`.shvms.trackme.ui.components.rememberMapStyle
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -127,6 +128,7 @@ fun HomeScreen(
     val strings = LocalAppStrings.current
     val context = LocalContext.current
     val messenger = rememberMessenger()
+    val mapStyle = rememberMapStyle()
     val app = context.applicationContext as TrackMeApp
     val imperialUnits by app.preferencesManager.unitSystem.collectAsState()
     val uiPreferences = remember {
@@ -446,7 +448,9 @@ fun HomeScreen(
                     properties = MapProperties(
                         isMyLocationEnabled = true,
                         mapType = mapType,
-                        isTrafficEnabled = isTrafficEnabled
+                        isTrafficEnabled = isTrafficEnabled,
+                        // Null in light theme — Google's default basemap is already the light one.
+                        mapStyleOptions = mapStyle,
                     ),
                     uiSettings = MapUiSettings(
                         zoomControlsEnabled = false,
@@ -464,7 +468,11 @@ fun HomeScreen(
                     if (uiState.pathPoints.isNotEmpty()) {
                         Polyline(
                             points = uiState.pathPoints,
-                            color = TrackMeBlue,
+                            // Now that the basemap follows the theme, the route can too: the
+                            // lighter dark-theme primary reads on the night map, the darker
+                            // light-theme one reads on the day map. Pinned to TrackMeBlue this
+                            // was only ever correct on the light basemap.
+                            color = MaterialTheme.colorScheme.primary,
                             width = 10f
                         )
                     }
