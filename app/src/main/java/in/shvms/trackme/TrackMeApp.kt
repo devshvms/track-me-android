@@ -196,7 +196,7 @@ class TrackMeApp : Application() {
             AppDatabase::class.java,
             "trackme_db"
         )
-        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10)
+        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11)
         .fallbackToDestructiveMigration()
         .build()
         
@@ -502,6 +502,33 @@ class TrackMeApp : Application() {
 
     fun consumePendingGroupInvite() {
         _pendingGroupInvite.value = null
+    }
+
+    private val _pendingMemberFocus =
+        MutableStateFlow<`in`.shvms.trackme.domain.group.MemberFocusPolicy.Focus?>(null)
+
+    /**
+     * SCOPE_1.7.3 §4 — a roster row the rider tapped, waiting for Home to point at it.
+     *
+     * Held here rather than passed as a nav argument, for the reason `Navigation.kt` already gives
+     * about the pending invite: the tabs navigate through one `navigateToTab` helper that relies on
+     * `popUpTo(start) { saveState = true }` / `restoreState`, and a parameterised `home?uid=…` route
+     * would both miss the `routes.indexOf(currentRoute)` tab highlight and reintroduce exactly the
+     * back-stack corruption that helper's comment documents. Same observable outcome — Home opens
+     * focused on that member — with none of the blast radius.
+     *
+     * A **one-shot**: Home consumes it as it applies it. §4 is explicit that it must clear, or
+     * returning to Home later would re-focus a member the rider has moved on from.
+     */
+    val pendingMemberFocus: StateFlow<`in`.shvms.trackme.domain.group.MemberFocusPolicy.Focus?> =
+        _pendingMemberFocus.asStateFlow()
+
+    fun setPendingMemberFocus(focus: `in`.shvms.trackme.domain.group.MemberFocusPolicy.Focus) {
+        _pendingMemberFocus.value = focus
+    }
+
+    fun consumePendingMemberFocus() {
+        _pendingMemberFocus.value = null
     }
 
 }

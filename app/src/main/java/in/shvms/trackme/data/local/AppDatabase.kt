@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RideEntity::class, 
         GPSPointEntity::class
     ], 
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -120,6 +120,23 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("DROP TABLE IF EXISTS emergency_contacts")
                 database.execSQL("DROP TABLE IF EXISTS emergency_settings")
+            }
+        }
+
+        /**
+         * SCOPE_1.7.3 §2(a), §0 contract 5: the local half of cascade deletion.
+         *
+         * `pendingDelete` marks a ride as on its way out before the cloud batch is committed, so a
+         * crash between the two cannot resurrect it — the uploader refuses anything carrying the
+         * flag, and only a genuine cloud rejection clears it again.
+         *
+         * Defaults to 0: every existing row is a ride the user still has.
+         */
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE `rides` ADD COLUMN `pendingDelete` INTEGER NOT NULL DEFAULT 0"
+                )
             }
         }
     }

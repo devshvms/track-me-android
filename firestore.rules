@@ -9,7 +9,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Users: Only the authenticated user can read and write their own data & subcollections
+    // Users: Only the authenticated user can read and write their own data & subcollections.
+    //
+    // The recursive {document=**} wildcard is LOAD-BEARING as of SCOPE_1.7.3 §2(a): a ride is now a
+    // parent document plus a points/{chunk} subcollection, and this match is what authorises the
+    // chunk writes. Narrowing it to a fixed depth — which looks like tightening — would deny every
+    // chunk write and every cascade delete, and the failure would present as rides that silently
+    // stop syncing rather than as a permissions error anyone would look for.
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }

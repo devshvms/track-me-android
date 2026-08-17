@@ -233,6 +233,18 @@ fun RideDetailScreen(
                 is RideDetailViewModel.UiEvent.ShowError -> {
                     android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
                 }
+                // SCOPE_1.7.3 §0 contract 6: three outcomes, not two. Only a genuine rejection is
+                // an error; a queued delete is told plainly rather than dressed up as either.
+                is RideDetailViewModel.UiEvent.DeleteRejected -> {
+                    android.widget.Toast.makeText(
+                        context, strings.rideDeleteFailed, android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+                is RideDetailViewModel.UiEvent.DeleteQueuedOffline -> {
+                    android.widget.Toast.makeText(
+                        context, strings.rideDeleteQueuedOffline, android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         }
     }

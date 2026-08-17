@@ -119,6 +119,8 @@ class GPSProcessorTest {
         override suspend fun getPointsForRideSync(rideId: Long): List<GPSPointEntity> = rideWithPoints?.points.orEmpty()
         override suspend fun deleteRide(rideId: Long): Int = 1
         override suspend fun deletePointsForRide(rideId: Long): Int = 1
+        override suspend fun setPendingDelete(rideId: Long, pending: Boolean): Int = 1
+        override suspend fun getPendingDeleteRides(): List<RideEntity> = emptyList()
         override suspend fun deleteSyncedPoints(): Int = 0
         override suspend fun deleteSyncedRides(): Int = 0
         override suspend fun markAllAsUnsynced(): Int = 0
