@@ -1,6 +1,8 @@
 package `in`.shvms.trackme.ui.history
 
 import `in`.shvms.trackme.ui.components.rememberMessenger
+import `in`.shvms.trackme.ui.components.Stat
+import `in`.shvms.trackme.ui.components.StatGrid
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -643,22 +645,26 @@ fun RideDetailScreen(
                             }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            StatItem(strings.distance, `in`.shvms.trackme.domain.UnitFormatter.rideDistance(ride.postRideCalculation?.distance ?: 0.0, imperial), modifier = Modifier.weight(1f))
-                            StatItem(strings.duration, formatDuration((ride.endTime ?: ride.startTime) - ride.startTime), modifier = Modifier.weight(1f))
-                            StatItem(strings.gpsPoints, points.size.toString(), modifier = Modifier.weight(1f))
+                        val dateFormat = remember {
+                            java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
                         }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            val dateFormat = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
-                            val startTimeStr = dateFormat.format(java.util.Date(ride.startTime))
-                            StatItem("Start Time", startTimeStr, modifier = Modifier.weight(1f))
-                            
-                            StatItem("Max G-Force", String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f), modifier = Modifier.weight(1f))
-
-                            StatItem(strings.avgSpeed, `in`.shvms.trackme.domain.UnitFormatter.speed((ride.postRideCalculation?.avgSpeed ?: 0f).toDouble(), imperial), modifier = Modifier.weight(1f))
-                        }
+                        // Same six metrics, same order, now on the shared grid — hairline-separated
+                        // cells with tabular figures so the columns stop jittering as values change.
+                        StatGrid(
+                            listOf(
+                                Stat(strings.distance, `in`.shvms.trackme.domain.UnitFormatter.rideDistance(ride.postRideCalculation?.distance ?: 0.0, imperial)),
+                                Stat(strings.duration, formatDuration((ride.endTime ?: ride.startTime) - ride.startTime)),
+                                Stat(strings.gpsPoints, points.size.toString()),
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        StatGrid(
+                            listOf(
+                                Stat("Start Time", dateFormat.format(java.util.Date(ride.startTime))),
+                                Stat("Max G-Force", String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f)),
+                                Stat(strings.avgSpeed, `in`.shvms.trackme.domain.UnitFormatter.speed((ride.postRideCalculation?.avgSpeed ?: 0f).toDouble(), imperial)),
+                            )
+                        )
                     }
                 }
                 
