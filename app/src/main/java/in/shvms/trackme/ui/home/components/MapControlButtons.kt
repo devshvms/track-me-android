@@ -38,6 +38,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.google.maps.android.compose.MapType
 import `in`.shvms.trackme.theme.LocalTrackMeElevation
+import `in`.shvms.trackme.theme.LocalTrackMeMotion
 
 /**
  * Modular 52.dp circular map control button with tactile haptics and spring bounce animation.
@@ -110,30 +111,34 @@ fun MapLayerHorizontalDrawerButton(
     val context = LocalContext.current
     val density = LocalDensity.current
     val strings = LocalAppStrings.current
+    val motion = LocalTrackMeMotion.current
 
+    // Alphas take effects tokens and scales take spatial ones. That split is the whole reason the
+    // scheme separates them: a spring that overshoots is what makes motion feel physical, and an
+    // alpha that overshoots past 1 clips flat and reads as a flash.
     val layersAlpha by animateFloatAsState(
         targetValue = if (isDrawerOpen) 0f else 1f,
-        animationSpec = tween(180, easing = FastOutSlowInEasing),
+        animationSpec = motion.effectsDefault.spec(),
         label = "layersAlpha"
     )
     val layersScale by animateFloatAsState(
         targetValue = if (isDrawerOpen) 0.65f else 1f,
-        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        animationSpec = motion.spatialFast.spec(),
         label = "layersScale"
     )
     val crossAlpha by animateFloatAsState(
         targetValue = if (isDrawerOpen) 1f else 0f,
-        animationSpec = tween(200, easing = FastOutSlowInEasing),
+        animationSpec = motion.effectsDefault.spec(),
         label = "crossAlpha"
     )
     val crossScale by animateFloatAsState(
         targetValue = if (isDrawerOpen) 1f else 0.65f,
-        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        animationSpec = motion.spatialFast.spec(),
         label = "crossScale"
     )
     val crossRotation by animateFloatAsState(
         targetValue = if (isDrawerOpen) 90f else -45f,
-        animationSpec = tween(240, easing = FastOutSlowInEasing),
+        animationSpec = motion.spatialFast.spec(),
         label = "crossRotation"
     )
 
@@ -146,7 +151,7 @@ fun MapLayerHorizontalDrawerButton(
         } else {
             MaterialTheme.colorScheme.surface
         },
-        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        animationSpec = motion.effectsDefault.spec(),
         label = "mapLayerBgColor"
     )
 

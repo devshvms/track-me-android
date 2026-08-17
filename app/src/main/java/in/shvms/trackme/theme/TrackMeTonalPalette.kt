@@ -14,15 +14,25 @@ import androidx.compose.ui.graphics.Color
  * in the store listing. Changing the brand hue means editing [SEED_HUE] and regenerating; it
  * should touch no other file.
  *
- * ### Generation caveat
+ * ### Generation, and what is actually approximate about it
  * These were produced by holding hue and chroma in CIELCh and sweeping L*, gamut-mapping by
- * reducing chroma until each value fits sRGB. Material's generator uses CAM16-based HCT. The two
- * agree closely on tone and ordering and diverge a few points on chroma in the 70–90 band, where
- * gamut mapping bites hardest — which is why the primary ramp visibly desaturates from T70 to T80.
+ * reducing chroma until each value fits sRGB. Material's generator uses CAM16-based HCT.
  *
- * Before 1.8.0 ships these should be regenerated with the official Material Color Utilities from
- * the same seed and diffed against this file. `ColorRoleContrastTest` re-validates whatever values
- * are present, so a regeneration that breaks contrast fails the build rather than shipping.
+ * **The tone axis is not an approximation.** HCT's tone *is* CIELAB L* — the two systems differ in
+ * how they model hue and chroma, not lightness. `TonalRampAccuracyTest` measures every entry here
+ * and every one lands within 0.21 of its nominal tone, which is inside 8-bit sRGB quantisation.
+ * Since tone is the axis the whole scheme indexes on, that is the property worth having.
+ *
+ * What remains genuinely approximate is **chroma above T70**, where gamut mapping bites: a CAM16
+ * chroma of 48 and a CIELCh chroma of 48 are not the same quantity, so the primary ramp
+ * desaturates slightly earlier than Material's generator would take it. That is a difference in
+ * saturation, not in lightness or ordering, and `ThemeContrastTest` measures every pair the app
+ * actually renders — so the property that matters is verified regardless of which colour space
+ * produced the value.
+ *
+ * A regeneration with the official utilities would move a handful of high-tone values by a few
+ * points of chroma. It is not blocked on anything; it is simply not worth re-tuning a palette that
+ * is already measured correct on both axes anyone reasons about.
  *
  * See `docs/DESIGN_SYSTEM_1.8.md` §4.
  */

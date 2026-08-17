@@ -116,6 +116,7 @@ fun ActiveRideHudPanel(
 ) {
     val strings = LocalAppStrings.current
     val elevation = LocalTrackMeElevation.current
+    val motion = LocalTrackMeMotion.current
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -421,9 +422,14 @@ internal fun UnifiedPauseStopPill(
 ) {
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
-    val dragOffset = remember { Animatable(0f) }
+    // Visibility threshold in pixels, not the 0.01 default. That default assumes a normalised
+    // 0..1 value; on a pixel offset it means the spring must land within a hundredth of a pixel,
+    // and the invisible tail of that decay is several hundred milliseconds of an animation that
+    // finished looking finished long ago. One pixel is below what anyone can see.
+    val dragOffset = remember { Animatable(0f, visibilityThreshold = 1f) }
     val pauseIconScale = remember { Animatable(1f) }
     val haptic = LocalHapticFeedback.current
+    val motion = LocalTrackMeMotion.current
     val context = LocalContext.current
     var isStoppingAcknowledged by remember { mutableStateOf(false) }
 
@@ -441,6 +447,12 @@ internal fun UnifiedPauseStopPill(
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             triggerPhysicalVibrate(context, 80L)
             coroutineScope.launch {
+                // Deliberately still a tween. This is a timed choreography, not free motion: the
+                // slide, the 350ms the acknowledgement is readable for, and the commit are one
+                // sequence, and the total is what the caller experiences as "how long stopping
+                // takes". A spring's settle time depends on how far the thumb has to travel, which
+                // is the screen width — so the same gesture would commit at a different moment on
+                // a tablet than on a phone.
                 dragOffset.animateTo(-maxSlidePx, animationSpec = tween(150))
                 delay(350)
                 onStopRide()
@@ -463,8 +475,8 @@ internal fun UnifiedPauseStopPill(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         triggerPhysicalVibrate(context, 45L)
                         coroutineScope.launch {
-                            pauseIconScale.animateTo(0.75f, tween(80))
-                            pauseIconScale.animateTo(1f, tween(120))
+                            pauseIconScale.animateTo(0.75f, motion.spatialFast.spec())
+                            pauseIconScale.animateTo(1f, motion.spatialFast.spec())
                         }
                         onPauseToggle()
                     }
@@ -504,8 +516,8 @@ internal fun UnifiedPauseStopPill(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         triggerPhysicalVibrate(context, 35L)
                         coroutineScope.launch {
-                            dragOffset.animateTo(-maxSlidePx * 0.45f, animationSpec = tween(180))
-                            dragOffset.animateTo(0f, animationSpec = tween(220))
+                            dragOffset.animateTo(-maxSlidePx * 0.45f, animationSpec = motion.spatialBounded.spec())
+                            dragOffset.animateTo(0f, animationSpec = motion.spatialBounded.spec())
                         }
                     }
                 }
@@ -525,7 +537,7 @@ internal fun UnifiedPauseStopPill(
                     onDragStopped = {
                         coroutineScope.launch {
                             if (!isStoppingAcknowledged) {
-                                dragOffset.animateTo(0f, animationSpec = tween(250))
+                                dragOffset.animateTo(0f, animationSpec = motion.spatialBounded.spec())
                             }
                         }
                     }

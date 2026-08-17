@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.components
 
+import `in`.shvms.trackme.theme.LocalTrackMeMotion
 import android.provider.Settings
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloat
@@ -55,6 +56,7 @@ fun AchievementBadge(
     size: Dp = 128.dp
 ) {
     val context = LocalContext.current
+    val motion = LocalTrackMeMotion.current
     val animationsEnabled = remember {
         Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
     }
@@ -64,7 +66,7 @@ fun AchievementBadge(
     val entranceAlpha = remember { Animatable(if (animationsEnabled) 0f else 1f) }
     LaunchedEffect(Unit) {
         if (!animationsEnabled) return@LaunchedEffect
-        entranceAlpha.animateTo(1f, tween(260, easing = FastOutSlowInEasing))
+        entranceAlpha.animateTo(1f, motion.effectsSlow.spec())
     }
     LaunchedEffect(Unit) {
         if (!animationsEnabled) return@LaunchedEffect

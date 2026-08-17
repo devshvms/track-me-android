@@ -73,6 +73,7 @@ fun InteractiveShareLocationButton(
     val strings = LocalAppStrings.current
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    val motion = LocalTrackMeMotion.current
     val buttonScale = remember { Animatable(1f) }
 
     // Trigger haptics and clean scale bounce when status transitions (e.g. IDLE -> STARTING or STARTING -> ACTIVE)
@@ -81,13 +82,13 @@ fun InteractiveShareLocationButton(
             isDrawerOpen = false
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             triggerPhysicalVibrate(context, 45L)
-            buttonScale.animateTo(1.15f, tween(120))
-            buttonScale.animateTo(1.0f, tween(150))
+            buttonScale.animateTo(1.15f, motion.spatialFast.spec())
+            buttonScale.animateTo(1.0f, motion.spatialFast.spec())
         } else if (liveShareState.status == LiveShareStatus.ACTIVE) {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             triggerPhysicalVibrate(context, 55L)
-            buttonScale.animateTo(1.22f, tween(150))
-            buttonScale.animateTo(1.0f, tween(180))
+            buttonScale.animateTo(1.22f, motion.spatialFast.spec())
+            buttonScale.animateTo(1.0f, motion.spatialFast.spec())
         } else if (liveShareState.status == LiveShareStatus.IDLE) {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             triggerPhysicalVibrate(context, 40L)
@@ -128,34 +129,40 @@ fun InteractiveShareLocationButton(
             isStarting -> activeBgColor.copy(alpha = blinkingAlpha)
             else -> inactiveBgColor
         },
-        animationSpec = tween(durationMillis = if (isStarting) 0 else 220, easing = FastOutSlowInEasing),
+        // While STARTING the target is `blinkingAlpha`, which is itself an infinite animation, so
+        // there is nothing to smooth toward — a spec here would chase a moving target and mush the
+        // blink into a dim constant. `snap()` says that outright; the old `tween(0)` was the same
+        // decision written as a special case of a duration.
+        animationSpec = if (isStarting) snap() else motion.effectsDefault.spec(),
         label = "animatedBgColor"
     )
 
-    // Smooth icon transitions (no layout jumps or dual-mounting glitches)
+    // Smooth icon transitions (no layout jumps or dual-mounting glitches). Alphas take effects
+    // tokens, scale and rotation take spatial ones — see MapControlButtons for why that split is
+    // load-bearing rather than cosmetic.
     val antennaAlpha by animateFloatAsState(
         targetValue = if (isDrawerOpen) 0f else 1f,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        animationSpec = motion.effectsDefault.spec(),
         label = "antennaAlpha"
     )
     val antennaScale by animateFloatAsState(
         targetValue = if (isDrawerOpen) 0.65f else 1f,
-        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        animationSpec = motion.spatialFast.spec(),
         label = "antennaScale"
     )
     val crossAlpha by animateFloatAsState(
         targetValue = if (isDrawerOpen) 1f else 0f,
-        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+        animationSpec = motion.effectsDefault.spec(),
         label = "crossAlpha"
     )
     val crossScale by animateFloatAsState(
         targetValue = if (isDrawerOpen) 1f else 0.65f,
-        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        animationSpec = motion.spatialFast.spec(),
         label = "crossScale"
     )
     val crossRotation by animateFloatAsState(
         targetValue = if (isDrawerOpen) 90f else -45f,
-        animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
+        animationSpec = motion.spatialFast.spec(),
         label = "crossRotation"
     )
 

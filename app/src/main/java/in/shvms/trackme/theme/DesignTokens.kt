@@ -127,7 +127,10 @@ val LocalTrackMeElevation = staticCompositionLocalOf { TrackMeElevation() }
  *
  * Durations are the problem being solved: a tween commits to one, so interrupting it mid-flight
  * restarts or snaps it. A spring carries velocity through the interruption, which is most of what
- * "unglitchy" means in the hand. Master runs 39 `tween` calls to 4 `spring` calls.
+ * "unglitchy" means in the hand.
+ *
+ * Master ran 30 `tween` calls against 4 `spring` calls. (An earlier note in this branch said 39;
+ * that count matched `between(` too — `computeDistanceBetween` and friends — and was wrong.)
  */
 @Immutable
 data class MotionToken(val dampingRatio: Float, val stiffness: Float) {
@@ -146,14 +149,16 @@ data class MotionToken(val dampingRatio: Float, val stiffness: Float) {
  * So screens depend on *this* type instead, and it is backed today by hand-written springs that
  * match the values Expressive publishes. When 1.5.0 stabilises, [Standard] is re-backed by the
  * real `MotionScheme` — roughly forty lines — and no screen changes. Liskov holds: any scheme is
- * substitutable for any other because all of them expose these same six tokens with these same
+ * substitutable for any other because all of them expose these same seven tokens with these same
  * meanings.
  *
  * ### The rule that prevents most motion bugs
  * **Spatial** tokens move things and may overshoot — damping below 1.
  * **Effects** tokens change colour and opacity and must never overshoot — damping exactly 1.0.
+ * **[spatialBounded]** is the seam between them: real movement, but clamped, so it must not
+ * overshoot either.
  *
- * An alpha or colour that overshoots past its bound clips, producing a visible flash. Binding
+ * A value that overshoots past a bound clips, producing a visible flash or a cut-off edge. Binding
  * that distinction into the token set means it cannot be got wrong at a call site.
  */
 @Immutable
@@ -164,6 +169,17 @@ data class TrackMeMotionScheme(
   val spatialDefault: MotionToken,
   /** Screen transitions, map camera settle. */
   val spatialSlow: MotionToken,
+  /**
+   * Movement that is clamped at its destination: a drag released back to its rest position, a
+   * slider that must stop exactly at its travel limit, a bounded progress fill.
+   *
+   * Critically damped like the effects tokens, but at spatial speed. The distinction the scheme
+   * really draws is *may this overshoot*, and the answer is no whenever the value is bounded and
+   * the parent clips — a rubber-band that crosses its bound is drawn outside the container and
+   * cut off, which reads as a rendering bug rather than as physics. Without this token those call
+   * sites would have to borrow an effects token and lie about what they are animating.
+   */
+  val spatialBounded: MotionToken,
   /** Ripple, pressed state, scrim. */
   val effectsFast: MotionToken,
   /** Fades, colour and elevation changes. */
@@ -180,6 +196,7 @@ data class TrackMeMotionScheme(
       spatialFast = MotionToken(dampingRatio = 0.9f, stiffness = 1400f),
       spatialDefault = MotionToken(dampingRatio = 0.9f, stiffness = 700f),
       spatialSlow = MotionToken(dampingRatio = 0.9f, stiffness = 300f),
+      spatialBounded = MotionToken(dampingRatio = 1.0f, stiffness = 700f),
       effectsFast = MotionToken(dampingRatio = 1.0f, stiffness = 3800f),
       effectsDefault = MotionToken(dampingRatio = 1.0f, stiffness = 1600f),
       effectsSlow = MotionToken(dampingRatio = 1.0f, stiffness = 800f),
@@ -196,6 +213,7 @@ data class TrackMeMotionScheme(
       spatialFast = MotionToken(dampingRatio = 0.7f, stiffness = 1400f),
       spatialDefault = MotionToken(dampingRatio = 0.6f, stiffness = 700f),
       spatialSlow = MotionToken(dampingRatio = 0.6f, stiffness = 300f),
+      spatialBounded = MotionToken(dampingRatio = 1.0f, stiffness = 700f),
       effectsFast = MotionToken(dampingRatio = 1.0f, stiffness = 3800f),
       effectsDefault = MotionToken(dampingRatio = 1.0f, stiffness = 1600f),
       effectsSlow = MotionToken(dampingRatio = 1.0f, stiffness = 800f),

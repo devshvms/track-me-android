@@ -2,10 +2,10 @@ package `in`.shvms.trackme.ui.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.DirectionsBike
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.DirectionsWalk
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.ui.graphics.vector.ImageVector
 import `in`.shvms.trackme.domain.model.RidePersona
@@ -22,9 +22,11 @@ import `in`.shvms.trackme.domain.model.RidePersona
  */
 fun RidePersona.icon(): ImageVector = when (this) {
     RidePersona.AUTO -> Icons.Filled.AutoAwesome
-    RidePersona.WALK -> Icons.Filled.DirectionsWalk
-    RidePersona.RUN -> Icons.Filled.DirectionsRun
-    RidePersona.CYCLING -> Icons.Filled.DirectionsBike
+    // AutoMirrored, not Filled. These glyphs face a direction of travel, so in an RTL layout the
+    // non-mirrored ones point backwards — the same defect that was fixed for the back arrow.
+    RidePersona.WALK -> Icons.AutoMirrored.Filled.DirectionsWalk
+    RidePersona.RUN -> Icons.AutoMirrored.Filled.DirectionsRun
+    RidePersona.CYCLING -> Icons.AutoMirrored.Filled.DirectionsBike
     RidePersona.BIKE_DRIVE -> Icons.Filled.TwoWheeler
     RidePersona.CAR_DRIVE -> Icons.Filled.DirectionsCar
 }

@@ -63,6 +63,7 @@ import `in`.shvms.trackme.domain.replay.MediaCodecReplayExporter
 import `in`.shvms.trackme.domain.replay.ReplayExportConfig
 import `in`.shvms.trackme.domain.replay.ReplayOverlay
 import `in`.shvms.trackme.theme.BrandThemeConfig
+import `in`.shvms.trackme.theme.LocalTrackMeMotion
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.utils.RideUtils
 import kotlinx.coroutines.CancellationException
@@ -218,7 +219,8 @@ fun ReplayExportAction(
     // Smooths the 2%-quantised progress callbacks into a continuous fill instead of visible steps.
     val animatedFill by animateFloatAsState(
         targetValue = state.fillFraction,
-        animationSpec = tween(durationMillis = 220),
+        // Bounded 0..1: an overshoot would push the fill past the end of its track and clip.
+        animationSpec = LocalTrackMeMotion.current.spatialBounded.spec(),
         label = "replayExportFill"
     )
     val trackColor = if (state.enabled) {

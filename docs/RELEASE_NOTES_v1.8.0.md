@@ -334,12 +334,118 @@ locally — it needs a device or emulator. CI runs it on every Play workflow exe
 
 ---
 
+## Phase 5 — the motion the design system had been describing
+
+For four phases this document described a spring-based motion scheme that no screen actually used.
+`TrackMeMotionScheme` was defined, provided through a `CompositionLocal`, and read by nothing. That
+is now closed.
+
+**23 of 30 `tween` call sites read the scheme.** *(The count was previously reported as 39 — that
+grep matched `between(` too, including `computeDistanceBetween`. It was wrong; the real figure was
+always 30.)*
+
+Springs replace durations because a duration is a commitment: interrupt a tween mid-flight and it
+restarts or snaps, where a spring carries its velocity through. Most of what "unglitchy" means in
+the hand is that one property.
+
+**The conversion found a gap in the token set.** The scheme split motion into *spatial* (may
+overshoot) and *effects* (never overshoots, because an alpha past 1 clips into a flash). The ride
+HUD's stop slider fits neither: it genuinely moves, so it is spatial, but its offset is clamped to
+its track and the parent clips — a rubber-band that crosses the bound is drawn outside the
+container and cut off, which reads as a rendering bug rather than as physics. Rather than borrow an
+effects token and lie about what was being animated, the scheme gained a seventh: **`spatialBounded`**,
+critically damped at spatial speed. A test asserts the damping ratios in both schemes, so the split
+cannot decay into decoration.
+
+**Seven call sites are deliberately still tweens**, and the reasons are type-level or physical:
+
+- Four are `infiniteRepeatable`, which requires a spec with a duration. A spring has none.
+- Two are the launch pulse on the start button, a duration-**coupled** pair: the ring must reach
+  full size at the instant it reaches zero opacity. Spring settle time depends on distance
+  travelled, and these travel 0.65 of scale against 0.45 of alpha, so no stiffness holds them
+  together. A shared duration is what expresses the constraint.
+- One is the slide-to-stop on the ride HUD, which is timed **choreography**: the slide, the 350ms
+  the acknowledgement stays readable, and the commit are one sequence, and the total is what a
+  rider experiences as how long stopping takes.
+
+That last one is the interesting failure. Converting it looked entirely correct and pushed
+`onStopRide()` from 500ms after the gesture to roughly **880ms** — because a spring settles as a
+function of how far it travels, and that distance is half the screen width, so the ride would stop
+at a different moment on a tablet than on a phone. Nothing in the code read as wrong.
+`RideControlAccessibilityComposeTest`, which drives the clock by hand and asserts the ride has
+stopped by 600ms, is what caught it.
+
+**A second-order bug came out of the same conversion.** `Animatable`'s default visibility threshold
+is 0.01 — a sensible default for a normalised 0..1 value, and the wrong one for a pixel offset,
+where it asks the spring to land within a hundredth of a pixel. That tail is a few hundred
+milliseconds of animation that finished *looking* finished long before it finished. Pixel-valued
+`Animatable`s now declare `visibilityThreshold = 1f`.
+
+`MotionTokenAdoptionTest` fails the build if any other file calls `tween`. The exemption list is
+data in the test, not a comment, and a second test fails when an entry on it no longer has a
+`tween` behind it — so stale permissions cannot quietly accumulate.
+
+## The colour question was the wrong question
+
+Every version of this document since phase 1 carried an open item: *regenerate the ramps with the
+official Material Color Utilities, because ours are CIELCh approximations of HCT.*
+
+Measuring first turned out to answer it. **HCT's tone *is* CIELAB L*** — the two systems differ in
+how they model hue and chroma, not lightness. So the tone axis, which is the axis the entire scheme
+indexes on, was never an approximation. `TonalRampAccuracyTest` measures all 80 ramp entries: the
+worst deviation from nominal tone is **0.21 points**, against roughly 0.2 for 8-bit sRGB
+quantisation itself. The ramps are as accurate as sRGB can represent.
+
+The same test also asserts each ramp is monotonic in lightness — the one failure a contrast test
+cannot see. A single inverted pair would silently break every "one step lighter" decision in the
+scheme while changing no measured ratio.
+
+What does remain approximate is chroma above T70, where gamut mapping bites hardest: a CAM16
+chroma of 48 and a CIELCh chroma of 48 are not the same quantity, so the primary ramp desaturates
+slightly earlier than Material's generator would. That is saturation, not lightness or ordering,
+and every pair the app renders is measured empirically. Regenerating would move a handful of
+high-tone values by a few points of chroma and is not worth re-tuning a palette already proven
+correct on both axes anyone reasons about.
+
+**Material 3 Expressive stays deferred, and the check is recorded rather than assumed.** The plan
+was always "adopt if `material3:1.5.0` is stable". Against the Google Maven index in August 2026 the
+newest published version is `1.5.0-alpha26` — no beta, no rc. That is the dependency inversion
+paying off rather than failing: every animated component now depends on `TrackMeMotionScheme`, and
+not one line references Material Expressive, so re-backing `Standard` when 1.5.0 lands changes no
+screen.
+
+## Deprecation debt, actually cleared
+
+The build emitted eight deprecation warnings through most of this branch — including one I twice
+reported as fixed when it was not. All are gone:
+
+- **Three direction icons** (`DirectionsWalk`, `DirectionsRun`, `DirectionsBike`) moved to
+  `AutoMirrored`. These glyphs face a direction of travel, so the non-mirrored forms point
+  backwards in an RTL layout — the same defect already fixed for the back arrow.
+- **A hand-rolled vibrator call** in `RadialStartRideButton` used `Context.VIBRATOR_SERVICE`,
+  deprecated since API 31. `HapticFeedbackUtils` had already been written with the `VibratorManager`
+  path, so the duplicate was both deprecated and worse. Deleted in favour of the shared helper.
+- **`MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED`** in the video export drain. Deprecated, and never
+  returned above API 21 — the buffer array it announced was replaced by `getOutputBuffer(index)`,
+  which the drain already used. `minSdk` is 24, so the branch was unreachable.
+
+The remaining warnings in CI logs come from GitHub's own Node runtime (`punycode`, `url.parse`) and
+are not ours to fix.
+
+---
+
 ## Phase map
+
+All five phases ship in 1.8.0 on one branch. They are phases of work, not of versioning.
 
 | Phase | Scope | Status |
 |---|---|---|
-| **1** | **Token layer, catalog, integrity tests** | **this release** |
-| 2 | ~22 components, lint rules banning raw `Surface`, `Toast`, hardcoded colours | next |
-| 3 | Screens re-composed, low risk to high — Settings first, Home last | |
-| 4 | Notifications, adaptive layouts, map camera, widgets | |
-| 5 | Regenerate colour with Material Color Utilities; adopt Expressive if stable | |
+| 1 | Token layer, catalog, integrity tests | **done** |
+| 2 | Components, `Toast` → `Snackbar` (40 of 40) | **done** |
+| 3 | Screens re-composed, low risk to high — Settings first, Home last | **done** |
+| 4 | Notifications, map theme + camera, adaptive navigation | **done** |
+| 5 | Motion adoption, colour verification, Expressive decision, deprecation debt | **done** |
+
+**What is still not covered:** there are no screenshot tests. Every visual claim in this document
+rests on a person looking at a build — which is exactly why phase 5, changing the feel of two dozen
+animations at once, needed a human to sign it off.

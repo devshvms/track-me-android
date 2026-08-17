@@ -1,8 +1,6 @@
 package `in`.shvms.trackme.ui.home.components
 
-import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
+import `in`.shvms.trackme.ui.components.HapticFeedbackUtils
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -159,18 +157,12 @@ fun RadialStartRideButton(
     var interactionState by remember { mutableStateOf(resetRadialInteractionState()) }
     var nextLaunchToken by remember { mutableStateOf(0L) }
 
-    // Helper to trigger haptic feedback
+    // Haptics go through the shared helper. This used to hand-roll the same thing against
+    // Context.VIBRATOR_SERVICE, which is deprecated since API 31 — and the helper had already been
+    // written with the VibratorManager path, so the duplicate was both deprecated and worse.
     fun triggerHaptic() {
-        try {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? Vibrator
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator?.vibrate(VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(30)
-            }
-        } catch (_: Exception) {}
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        HapticFeedbackUtils.triggerPhysicalVibrate(context, durationMs = 30L)
     }
 
     fun beginLaunch(persona: RidePersona) {
@@ -272,7 +264,17 @@ fun RadialStartRideButton(
             }
         }
 
-        // Outer expanding radar pulse ring during start launch animation
+        // Outer expanding radar pulse ring during start launch animation.
+        //
+        // Deliberately still tweens, and the only pair in the app that is. These two describe one
+        // object: the ring has to reach full size at the moment it reaches zero opacity, or it
+        // either vanishes mid-expansion or lands as a hard-edged circle. A spring's settle time
+        // depends on the distance travelled, and these travel different distances — 0.65 of scale
+        // against 0.45 of alpha — so no pair of springs keeps them in lockstep. A shared duration
+        // is the thing that actually expresses the constraint.
+        //
+        // This is not the same as the icon crossfades elsewhere, which are two separate objects
+        // trading places; there a few milliseconds of offset is invisible, or an improvement.
         val pulseScale by animateFloatAsState(
             targetValue = if (interactionState.pendingLaunch != null) 1.65f else 1f,
             animationSpec = tween(durationMillis = 420),

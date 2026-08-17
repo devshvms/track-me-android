@@ -468,7 +468,12 @@ class MediaCodecReplayExporter(
                             muxer.start()
                             muxerStarted = true
                         }
-                        MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED -> Unit
+                        // INFO_OUTPUT_BUFFERS_CHANGED was handled here explicitly. It is deprecated
+                        // and, since API 21, never returned — the ByteBuffer array it announced was
+                        // replaced by getOutputBuffer(index), which is what this drain already
+                        // uses. minSdk is 24, so the case is unreachable. If some device returned
+                        // it anyway the `else` below ignores any negative index and re-polls, which
+                        // is exactly what the branch did.
                         else -> if (index >= 0) {
                             if (info.size > 0 && muxerStarted) {
                                 codec.getOutputBuffer(index)?.let { buffer ->
