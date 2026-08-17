@@ -420,6 +420,12 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val discardRideTitle: String = s("discardRideTitle", "Discard this ride?")
     val discardRideMessage: String = s("discardRideMessage", "This ride did not record meaningful distance. You can discard it or save it anyway.")
     val discardRide: String = s("discardRide", "Discard")
+    // Ride-end outcomes. These replaced a hardcoded English Toast inside TrackingService, so they
+    // are localizable for the first time — translations for the other six locales are still to
+    // come and fall back to English until then.
+    val rideDiscardedNoGps: String =
+        s("rideDiscardedNoGps", "Ride discarded — no GPS data was recorded.")
+    val rideDiscarded: String = s("rideDiscarded", "Ride discarded.")
     val saveAnyway: String = s("saveAnyway", "Save anyway")
     val selectExpirationMode: String = s("selectExpirationMode", "Select expiration mode:")
     val autoStopWhenRideEnds: String = s("autoStopWhenRideEnds", "Stops when tracking finishes")
@@ -787,6 +793,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "discardRideTitle" to "¿Descartar este viaje?",
             "discardRideMessage" to "Este viaje no registró una distancia significativa. Puedes descartarlo o guardarlo de todos modos.",
             "discardRide" to "Descartar",
+            "rideDiscardedNoGps" to "Recorrido descartado: no se registraron datos de GPS.",
+            "rideDiscarded" to "Recorrido descartado.",
             "saveAnyway" to "Guardar de todos modos",
             "liveShareAuthExpired" to "Tu sesión ha caducado. Vuelve a iniciar sesión para compartir tu ubicación.",
             "rideInProgress" to "Viaje en curso",
@@ -1278,6 +1286,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "discardRideTitle" to "Supprimer ce trajet ?",
             "discardRideMessage" to "Ce trajet n'a pas enregistré de distance significative. Vous pouvez le supprimer ou l'enregistrer quand même.",
             "discardRide" to "Supprimer",
+            "rideDiscardedNoGps" to "Trajet supprimé : aucune donnée GPS enregistrée.",
+            "rideDiscarded" to "Trajet supprimé.",
             "saveAnyway" to "Enregistrer quand même",
             "liveShareAuthExpired" to "Votre session a expiré. Reconnectez-vous pour partager votre position.",
             "rideInProgress" to "Trajet en cours",
@@ -1769,6 +1779,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "discardRideTitle" to "Diese Fahrt verwerfen?",
             "discardRideMessage" to "Diese Fahrt hat keine aussagekräftige Distanz aufgezeichnet. Sie können sie verwerfen oder trotzdem speichern.",
             "discardRide" to "Verwerfen",
+            "rideDiscardedNoGps" to "Fahrt verworfen – keine GPS-Daten aufgezeichnet.",
+            "rideDiscarded" to "Fahrt verworfen.",
             "saveAnyway" to "Trotzdem speichern",
             "liveShareAuthExpired" to "Ihre Anmeldung ist abgelaufen. Melden Sie sich erneut an, um Ihren Standort zu teilen.",
             "rideInProgress" to "Fahrt läuft",
@@ -2260,6 +2272,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "discardRideTitle" to "इस यात्रा को हटाएं?",
             "discardRideMessage" to "इस यात्रा में कोई महत्वपूर्ण दूरी रिकॉर्ड नहीं हुई। आप इसे हटा सकते हैं या फिर भी सहेज सकते हैं।",
             "discardRide" to "हटाएं",
+            "rideDiscardedNoGps" to "राइड हटाई गई — कोई GPS डेटा रिकॉर्ड नहीं हुआ।",
+            "rideDiscarded" to "राइड हटाई गई।",
             "saveAnyway" to "फिर भी सहेजें",
             "liveShareAuthExpired" to "आपका साइन-इन समाप्त हो गया है। अपना स्थान साझा करने के लिए फिर से साइन इन करें।",
             "rideInProgress" to "यात्रा चल रही है",
@@ -2751,6 +2765,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "discardRideTitle" to "この記録を破棄しますか？",
             "discardRideMessage" to "この記録には十分な距離がありません。破棄するか、そのまま保存できます。",
             "discardRide" to "破棄",
+            "rideDiscardedNoGps" to "GPSデータが記録されなかったため、ライドを破棄しました。",
+            "rideDiscarded" to "ライドを破棄しました。",
             "saveAnyway" to "そのまま保存",
             "liveShareAuthExpired" to "サインインの有効期限が切れました。位置情報を共有するには、もう一度サインインしてください。",
             "rideInProgress" to "記録中",
@@ -3242,6 +3258,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "discardRideTitle" to "丢弃此次行程？",
             "discardRideMessage" to "此次行程没有记录到有效距离。您可以丢弃它，或仍然保存。",
             "discardRide" to "丢弃",
+            "rideDiscardedNoGps" to "未记录到 GPS 数据，已放弃本次骑行。",
+            "rideDiscarded" to "已放弃本次骑行。",
             "saveAnyway" to "仍然保存",
             "liveShareAuthExpired" to "您的登录已过期。请重新登录以共享位置。",
             "rideInProgress" to "行程进行中",

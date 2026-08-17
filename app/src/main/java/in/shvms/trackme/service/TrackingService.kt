@@ -813,20 +813,20 @@ class TrackingService : Service() {
         when (state) {
             TrackingState.PAUSED ->
                 builder.addAction(
-                    R.drawable.ic_notification_trackme,
+                    R.drawable.ic_notif_resume,
                     strings.resumeTracking,
                     serviceAction(ACTION_START_OR_RESUME_SERVICE, 1),
                 )
             TrackingState.TRACKING, TrackingState.GPS_LOST, TrackingState.GPS_DISABLED ->
                 builder.addAction(
-                    R.drawable.ic_notification_trackme,
+                    R.drawable.ic_notif_pause,
                     strings.pauseTracking,
                     serviceAction(ACTION_PAUSE_SERVICE, 2),
                 )
             else -> Unit
         }
         builder.addAction(
-            R.drawable.ic_notification_trackme,
+            R.drawable.ic_notif_stop,
             strings.stopTracking,
             serviceAction(ACTION_STOP_SERVICE, 3),
         )
@@ -992,15 +992,18 @@ class TrackingService : Service() {
             if (points.isEmpty()) {
                 rideDao.deletePointsForRide(rideId)
                 rideDao.deleteRide(rideId)
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    android.widget.Toast.makeText(applicationContext, "Ride was too short to save (no GPS data).", android.widget.Toast.LENGTH_LONG).show()
-                }
+                // Report the outcome rather than rendering it. This was the app's last Toast, and
+                // it was the one that mattered: a Service has no composition, so it could not
+                // coordinate with the Snackbar the UI had already shown, and the two stacked
+                // saying opposite things.
+                trackingManager.emitRideEndOutcome(RideEndOutcome.DISCARDED_NO_GPS)
                 return
             }
 
             if (discardNearEmptyRide && finalDistance < JUNK_RIDE_DISTANCE_METERS && finalDuration < JUNK_RIDE_DURATION_MILLIS) {
                 rideDao.deletePointsForRide(rideId)
                 rideDao.deleteRide(rideId)
+                trackingManager.emitRideEndOutcome(RideEndOutcome.DISCARDED_BY_USER)
                 return
             }
             

@@ -1,11 +1,49 @@
 package `in`.shvms.trackme.service
 
 import com.google.android.gms.maps.model.LatLng
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+/**
+ * How a ride actually ended.
+ *
+ * The UI used to announce "Saving ride…" the moment stop was tapped, and the service separately
+ * Toasted "too short to save" when the ride turned out to have no fixes. Two systems describing
+ * one event, from opposite ends, with no way to replace each other — so the user got both,
+ * contradicting each other.
+ *
+ * The service is the only thing that knows the outcome, so it reports the outcome and the UI says
+ * one true thing once.
+ */
+enum class RideEndOutcome {
+  /** Saved to history. */
+  SAVED,
+
+  /** Discarded: the ride recorded no GPS fixes at all, so there was nothing to save. */
+  DISCARDED_NO_GPS,
+
+  /** Discarded at the user's request from the near-empty-ride prompt. */
+  DISCARDED_BY_USER,
+}
+
 class TrackingManager {
+
+    /**
+     * One-shot ride-end outcomes. `replay = 0` because a ride ending is an event, not a state —
+     * replaying it would re-announce the last ride every time Home recomposes. The buffer lets the
+     * service emit without suspending if the UI is not currently collecting (app backgrounded).
+     */
+    private val _rideEndOutcome = MutableSharedFlow<RideEndOutcome>(extraBufferCapacity = 1)
+    val rideEndOutcome: SharedFlow<RideEndOutcome> = _rideEndOutcome.asSharedFlow()
+
+    fun emitRideEndOutcome(outcome: RideEndOutcome) {
+        _rideEndOutcome.tryEmit(outcome)
+    }
+
     private val _trackingState = MutableStateFlow(TrackingState.IDLE)
     val trackingState: StateFlow<TrackingState> = _trackingState.asStateFlow()
 

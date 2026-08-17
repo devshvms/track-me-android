@@ -253,6 +253,20 @@ fun HomeScreen(
         }
     }
 
+    // The single, truthful ride-end announcement. The service reports what actually happened;
+    // this says it once, through the same messenger, so it replaces rather than stacks.
+    LaunchedEffect(Unit) {
+        app.trackingManager.rideEndOutcome.collect { outcome ->
+            when (outcome) {
+                `in`.shvms.trackme.service.RideEndOutcome.SAVED -> Unit // already covered above
+                `in`.shvms.trackme.service.RideEndOutcome.DISCARDED_NO_GPS ->
+                    messenger.show(strings.rideDiscardedNoGps, duration = SnackbarDuration.Long)
+                `in`.shvms.trackme.service.RideEndOutcome.DISCARDED_BY_USER ->
+                    messenger.show(strings.rideDiscarded)
+            }
+        }
+    }
+
     DisposableEffect(context) {
         val filter = android.content.IntentFilter("in.shvms.trackme.RIDE_SAVED")
         ContextCompat.registerReceiver(
@@ -914,8 +928,10 @@ fun HomeScreen(
                         ) {
                             showDiscardRideDialog = true
                         } else {
+                            // No optimistic "Saving ride…" here. Only the service knows whether the
+                            // ride survives, and announcing an intent that the outcome then
+                            // contradicts is what produced two stacked, opposing messages.
                             viewModel.stopTracking()
-                            messenger.show(strings.savingRide)
                         }
                     },
                     onStartShare = {
@@ -984,8 +1000,10 @@ fun HomeScreen(
                     dismissButton = {
                         TextButton(onClick = {
                             showDiscardRideDialog = false
+                            // No optimistic "Saving ride…" here. Only the service knows whether the
+                            // ride survives, and announcing an intent that the outcome then
+                            // contradicts is what produced two stacked, opposing messages.
                             viewModel.stopTracking()
-                            messenger.show(strings.savingRide)
                         }) {
                             Text(strings.saveAnyway)
                         }
