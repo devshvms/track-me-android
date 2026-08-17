@@ -798,7 +798,7 @@ fun RideDetailScreen(
                 heightPx = exportHeight,
                 mapType = settings.mapType,
                 configure = { map ->
-                    settings.mapStyle?.let { map.setMapStyle(it) }
+                    settings.mapStyle(context)?.let { map.setMapStyle(it) }
                     map.addPolyline(
                         com.google.android.gms.maps.model.PolylineOptions()
                             .addAll(exportLatLngs)
@@ -981,9 +981,33 @@ fun RideDetailScreen(
                     // Re-fit on ratio change, not only when the route changes. The viewport changes
                     // shape when the ratio does, and a fit computed for the previous shape leaves
                     // the route cropped or stranded in the middle of the new one.
-                    LaunchedEffect(bounds, previewWidthPx, previewHeightPx) {
+                    var isPreviewMapLoaded by remember { mutableStateOf(false) }
+
+                    // Gated on the map actually being loaded, not on a 200ms guess.
+
+                    //
+
+                    // `newLatLngBounds` throws if the map has no size yet, and `moveSafely` swallows that by
+
+                    // design, so a fit that lost the race left the camera on `initialRouteCamera` -- an estimate
+
+                    // from the bounds span that caps at zoom 17. On a short urban route that is street level, and
+
+                    // the result was a preview showing the middle of the route with both ends running off the
+
+                    // frame, looking as though the polyline had been drawn incompletely.
+
+                    //
+
+                    // The remaining delay is for the resize on a ratio change to settle, not for the map to exist.
+
+                    LaunchedEffect(bounds, previewWidthPx, previewHeightPx, isPreviewMapLoaded) {
+
+                        if (!isPreviewMapLoaded) return@LaunchedEffect
+
                         if (previewWidthPx <= 0 || previewHeightPx <= 0) return@LaunchedEffect
-                        kotlinx.coroutines.delay(200)
+
+                        kotlinx.coroutines.delay(120)
                         cameraPositionState.moveSafely {
                             CameraUpdateFactory.newLatLngBounds(
                                 bounds,
@@ -1007,7 +1031,7 @@ fun RideDetailScreen(
                         properties = MapProperties(
                             mapType = settings.mapType,
                             isTrafficEnabled = false,
-                            mapStyleOptions = settings.mapStyle
+                            mapStyleOptions = settings.mapStyle(context)
                         ),
                         // Rotation and tilt are off on purpose. A tilted or rotated export frame is
                         // not something this screen offers, and every extra gesture the map claims
@@ -1020,6 +1044,8 @@ fun RideDetailScreen(
                             tiltGesturesEnabled = false,
                             mapToolbarEnabled = false
                         )
+                        ,
+                        onMapLoaded = { isPreviewMapLoaded = true }
                     ) {
                         MapEffect { map -> previewMapInstance = map }
                         Polyline(

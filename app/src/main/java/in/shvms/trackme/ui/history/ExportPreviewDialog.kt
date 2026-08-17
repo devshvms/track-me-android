@@ -152,9 +152,12 @@ data class ExportPreviewSettings(
     val exportSize: Pair<Int, Int>
         get() = exportPixelSize(ratioFloat)
 
-    /** The basemap style to apply, honouring the SDK's normal-map-type-only restriction. */
-    val mapStyle: com.google.android.gms.maps.model.MapStyleOptions?
-        get() = mapLabels.styleFor(mapType)
+    /**
+     * The basemap style: night rules and label rules composed, honouring the SDK's
+     * normal-map-type-only restriction. Needs a Context to read the shared night style.
+     */
+    fun mapStyle(context: android.content.Context): com.google.android.gms.maps.model.MapStyleOptions? =
+        MapLabelStyle.exportStyle(context, mapType, mapLabels, darkTheme)
 }
 
 /**

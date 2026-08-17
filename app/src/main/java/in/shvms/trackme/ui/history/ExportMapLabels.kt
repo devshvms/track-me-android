@@ -35,6 +35,13 @@ enum class MapLabelStyle {
         NoLabels -> strings.mapLabelsNone
     }
 
+    /** The label-suppression rules alone, without the outer brackets, or null for none. */
+    internal fun ruleset(): String? = when (this) {
+        All -> null
+        NoPlaces -> NO_PLACES_RULES
+        NoLabels -> NO_LABELS_RULES
+    }
+
     /**
      * The style to apply, or null for the unstyled basemap.
      *
@@ -45,11 +52,7 @@ enum class MapLabelStyle {
      */
     fun styleFor(mapType: MapType): MapStyleOptions? {
         if (mapType != MapType.NORMAL) return null
-        return when (this) {
-            All -> null
-            NoPlaces -> MapStyleOptions(NO_PLACES_JSON)
-            NoLabels -> MapStyleOptions(NO_LABELS_JSON)
-        }
+        return ruleset()?.let { MapStyleOptions("[$it]") }
     }
 
     companion object {
@@ -57,17 +60,57 @@ enum class MapLabelStyle {
         fun isStyleable(mapType: MapType): Boolean = mapType == MapType.NORMAL
 
         /**
+         * The style for an export: the night basemap and the label rules, composed.
+         *
+         * They have to compose because both are expressed as a single `MapStyleOptions`, and
+         * setting one replaces the other. Dark theme used to change only the stats panel — the map
+         * under it stayed the daylight basemap, which is why a "dark" export came out as white map
+         * with a dark bar across it.
+         *
+         * The night rules are the same `map_style_night.json` the app's own maps use, so a dark
+         * export looks like the app rather than like a second, unrelated dark theme.
+         */
+        fun exportStyle(
+            context: android.content.Context,
+            mapType: MapType,
+            labels: MapLabelStyle,
+            darkTheme: Boolean,
+        ): MapStyleOptions? {
+            if (!isStyleable(mapType)) return null
+            val parts = listOfNotNull(
+                if (darkTheme) nightRules(context) else null,
+                labels.ruleset(),
+            ).filter { it.isNotBlank() }
+            if (parts.isEmpty()) return null
+            return runCatching { MapStyleOptions("[${parts.joinToString(",")}]") }.getOrNull()
+        }
+
+        /**
+         * The night style's rules with its outer brackets removed, so they can be concatenated.
+         *
+         * Read from the raw resource rather than duplicated here: two copies of a 60-rule style
+         * would drift, and the one that drifted would be the one nobody looked at.
+         */
+        private fun nightRules(context: android.content.Context): String? = runCatching {
+            context.resources.openRawResource(`in`.shvms.trackme.R.raw.map_style_night)
+                .bufferedReader()
+                .use { it.readText() }
+                .trim()
+                .removePrefix("[")
+                .removeSuffix("]")
+                .trim()
+        }.getOrNull()
+
+        /**
          * POI covers businesses and landmarks; `administrative` covers country, state, locality
          * and neighbourhood names — the ones the previous style missed entirely. Roads keep their
          * labels here on purpose: a route picture with no road names is usually harder to place,
          * and [NoLabels] is one tap away for anyone who wants that.
          */
-        private const val NO_PLACES_JSON = """
-            [
+        private const val NO_PLACES_RULES = """
               {"featureType":"poi","stylers":[{"visibility":"off"}]},
               {"featureType":"administrative","elementType":"labels","stylers":[{"visibility":"off"}]},
               {"featureType":"transit","elementType":"labels","stylers":[{"visibility":"off"}]}
-            ]
         """
 
         /**
@@ -75,8 +118,8 @@ enum class MapLabelStyle {
          * `featureType` matches every label the basemap draws, including road shields, which an
          * enumeration of feature types keeps missing one of.
          */
-        private const val NO_LABELS_JSON = """
-            [{"elementType":"labels","stylers":[{"visibility":"off"}]}]
+        private const val NO_LABELS_RULES = """
+            {"elementType":"labels","stylers":[{"visibility":"off"}]}
         """
     }
 }

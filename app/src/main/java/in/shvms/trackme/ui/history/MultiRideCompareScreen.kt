@@ -169,12 +169,11 @@ fun MultiRideCompareScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.back)
                     }
-                },
-                actions = {
-                    IconButton(onClick = openPreview, enabled = visibleRoutes.isNotEmpty()) {
-                        Icon(Icons.Default.Share, contentDescription = strings.compareRidesShare)
-                    }
                 }
+                // No share action in the bar. It opened the same preview as the full-width
+                // "Customize & share" button a few hundred pixels below it, so the screen offered
+                // one destination through two controls — and the icon gave no hint that tapping it
+                // leads to a customisation step rather than straight to the share sheet.
             )
         }
     ) { padding ->
@@ -359,7 +358,7 @@ private fun UnifiedAggregateRidePreviewDialog(
             heightPx = exportHeight,
             mapType = settings.mapType,
             configure = { exportMap ->
-                settings.mapStyle?.let { exportMap.setMapStyle(it) }
+                settings.mapStyle(context)?.let { exportMap.setMapStyle(it) }
                 val allPoints = mutableListOf<LatLng>()
                 exportRoutes.forEachIndexed { index, route ->
                     val routeColor = comparisonRouteColors[index % comparisonRouteColors.size]
@@ -403,7 +402,8 @@ private fun UnifiedAggregateRidePreviewDialog(
             scope.launch(Dispatchers.IO) {
                 runCatching {
                     ComparisonImageExporter(
-                        legend = aggregatePreviewLegend(visibleRoutes, strings.rideHistoryTitle, settings.showLegend)
+                        legend = aggregatePreviewLegend(visibleRoutes, strings.rideHistoryTitle, settings.showLegend),
+                        darkTheme = settings.darkTheme,
                     ).export(snapshot, context)
                 }.onSuccess { file ->
                     if (share) {
@@ -460,7 +460,6 @@ private fun UnifiedAggregateRidePreviewDialog(
             ExportPreviewFailure.Save -> strings.exportFailed
             null -> null
         },
-        shareLabel = strings.aggregatePreviewShare,
         onDismiss = onDismiss,
         onShare = { settings -> exportPreview(settings, share = true) },
         onSave = { settings -> exportPreview(settings, share = false) },
@@ -493,9 +492,33 @@ private fun UnifiedAggregateRidePreviewDialog(
 
                 // Keyed on the viewport, not only the routes: changing ratio reshapes the viewport,
                 // and a fit computed for the previous shape leaves the routes cropped.
-                LaunchedEffect(bounds, previewWidthPx, previewHeightPx) {
+                var isPreviewMapLoaded by remember { mutableStateOf(false) }
+
+                // Gated on the map actually being loaded, not on a 200ms guess.
+
+                //
+
+                // `newLatLngBounds` throws if the map has no size yet, and `moveSafely` swallows that by
+
+                // design, so a fit that lost the race left the camera on `initialRouteCamera` -- an estimate
+
+                // from the bounds span that caps at zoom 17. On a short urban route that is street level, and
+
+                // the result was a preview showing the middle of the route with both ends running off the
+
+                // frame, looking as though the polyline had been drawn incompletely.
+
+                //
+
+                // The remaining delay is for the resize on a ratio change to settle, not for the map to exist.
+
+                LaunchedEffect(bounds, previewWidthPx, previewHeightPx, isPreviewMapLoaded) {
+
+                    if (!isPreviewMapLoaded) return@LaunchedEffect
+
                     if (previewWidthPx <= 0 || previewHeightPx <= 0) return@LaunchedEffect
-                    kotlinx.coroutines.delay(200)
+
+                    kotlinx.coroutines.delay(120)
                     cameraPositionState.moveSafely {
                         CameraUpdateFactory.newLatLngBounds(
                             bounds,
@@ -513,7 +536,7 @@ private fun UnifiedAggregateRidePreviewDialog(
                     properties = MapProperties(
                         mapType = settings.mapType,
                         isTrafficEnabled = false,
-                        mapStyleOptions = settings.mapStyle
+                        mapStyleOptions = settings.mapStyle(context)
                     ),
                     // Rotation and tilt off: the export has no notion of a rotated frame, and every
                     // extra gesture the map claims is one more way a pan can be misread.
@@ -524,6 +547,8 @@ private fun UnifiedAggregateRidePreviewDialog(
                         tiltGesturesEnabled = false,
                         mapToolbarEnabled = false
                     )
+                    ,
+                    onMapLoaded = { isPreviewMapLoaded = true }
                 ) {
                     MapEffect { map -> previewMapInstance = map }
                     previewRoutes.forEachIndexed { index, route ->
@@ -576,7 +601,7 @@ private fun UnifiedAggregateRidePreviewDialog(
                                 )
                             }
                             if (settings.showLegend) {
-                                AggregateLegendPanel(legendRows)
+                                AggregateLegendPanel(legendRows, settings.darkTheme)
                             }
                         }
                     }
@@ -589,18 +614,27 @@ private fun UnifiedAggregateRidePreviewDialog(
 @Composable
 private fun AggregateLegendPanel(
     legendRows: List<Pair<String, String>>,
+    darkTheme: Boolean,
     modifier: Modifier = Modifier
 ) {
     if (legendRows.isEmpty()) return
+    // Was a hardcoded navy panel with white text, so the Dark theme control did nothing at all
+    // here -- the only thing it moved on this screen was the one-line route label above.
+    val panelColor = if (darkTheme) {
+        BrandThemeConfig.navy800.copy(alpha = 0.87f)
+    } else {
+        Color.White.copy(alpha = 0.85f)
+    }
+    val onPanel = if (darkTheme) Color.White else Color.Black
     Column(
         modifier = modifier
-            .background(BrandThemeConfig.navy800.copy(alpha = 0.87f))
+            .background(panelColor)
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         legendRows.take(MAX_COMPARISON_RIDES).forEach { (label, title) ->
             Text(
                 text = "$label  $title",
-                color = Color.White,
+                color = onPanel,
                 style = MaterialTheme.typography.labelMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
