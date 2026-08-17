@@ -72,6 +72,7 @@ import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.*
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.log2
 import kotlinx.coroutines.Dispatchers
@@ -127,49 +128,6 @@ fun vectorToBitmap(context: android.content.Context, id: Int, color: Int): Bitma
 
 /** How close a recorded pause must be to the (possibly trimmed) route to be drawn on it. */
 private const val PAUSE_MARKER_ON_ROUTE_METERS = 10f
-
-/** Turning off POI and transit labels; the only style the export preview applies. */
-private const val HIDE_PLACES_MAP_STYLE =
-    "[{\"featureType\":\"poi\",\"stylers\":[{\"visibility\":\"off\"}]}," +
-        "{\"featureType\":\"transit\",\"elementType\":\"labels.icon\",\"stylers\":[{\"visibility\":\"off\"}]}]"
-
-/** The translucent amber ring marking an auto-pause. */
-private fun markerPauseIcon(size: Int = 64): BitmapDescriptor? = runCatching {
-    val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
-    val canvas = android.graphics.Canvas(bitmap)
-    val stroke = (size * 0.04f).coerceAtLeast(1.5f)
-    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        style = android.graphics.Paint.Style.FILL
-        color = AmberWarn.copy(alpha = 0.2f).toArgb()
-    }
-    canvas.drawCircle(size / 2f, size / 2f, size / 2f - stroke, paint)
-    paint.style = android.graphics.Paint.Style.STROKE
-    paint.color = android.graphics.Color.argb(180, 255, 255, 255)
-    paint.strokeWidth = stroke
-    canvas.drawCircle(size / 2f, size / 2f, size / 2f - stroke, paint)
-    BitmapDescriptorFactory.fromBitmap(bitmap)
-}.getOrNull()
-
-/**
- * @param size edge length in pixels. Was a hardcoded 64, which is a different visual size on every
- *   render surface — see [ExportRenderScale].
- */
-private fun markerCircleIcon(fillColor: Int, size: Int = 64): BitmapDescriptor? = runCatching {
-    val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
-    val canvas = android.graphics.Canvas(bitmap)
-    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = fillColor
-        style = android.graphics.Paint.Style.FILL
-    }
-    canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2f, paint)
-    paint.apply {
-        color = android.graphics.Color.WHITE
-        style = android.graphics.Paint.Style.STROKE
-        strokeWidth = 2.5f
-    }
-    canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2f, paint)
-    BitmapDescriptorFactory.fromBitmap(bitmap)
-}.getOrNull()
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
@@ -270,9 +228,9 @@ fun RideDetailScreen(
         }
     }
 
-    val pauseCircleIcon = remember { markerPauseIcon() }
-    val startCircleIcon = remember { markerCircleIcon(GreenGo.toArgb()) }
-    val finishCircleIcon = remember { markerCircleIcon(CyanBright.toArgb()) }
+    val pauseCircleIcon = remember { ExportMarkers.pause(ExportMarkerStyle.StartFinish, 64) }
+    val startCircleIcon = remember { ExportMarkers.start(ExportMarkerStyle.StartFinish, 64) }
+    val finishCircleIcon = remember { ExportMarkers.finish(ExportMarkerStyle.StartFinish, 64) }
 
     val pausedLocations = remember(rideWithPoints?.points) {
         pausedMarkerLocations(rideWithPoints?.points.orEmpty()).map { marker ->
@@ -830,7 +788,7 @@ fun RideDetailScreen(
             val framing = previewMapInstance?.visibleBounds()
             val (exportWidth, exportHeight) = settings.exportSize
             val markerSize = ExportRenderScale.markerSize(exportWidth)
-            val exportMarkers = settings.showMarkers
+            val markerStyle = settings.markerStyle
             val pausedForExport = pausedOnRoute(routePoints)
             val exportLatLngs = routePoints.map { LatLng(it.latitude, it.longitude) }
 
@@ -840,36 +798,34 @@ fun RideDetailScreen(
                 heightPx = exportHeight,
                 mapType = settings.mapType,
                 configure = { map ->
-                    if (settings.hidePlaces && settings.mapType == MapType.NORMAL) {
-                        map.setMapStyle(MapStyleOptions(HIDE_PLACES_MAP_STYLE))
-                    }
+                    settings.mapStyle?.let { map.setMapStyle(it) }
                     map.addPolyline(
                         com.google.android.gms.maps.model.PolylineOptions()
                             .addAll(exportLatLngs)
                             .color(TrackMeBlueDark.toArgb())
                             .width(ExportRenderScale.routeStroke(exportWidth))
                     )
-                    if (exportMarkers) {
-                        markerPauseIcon(markerSize)?.let { icon ->
-                            pausedForExport.forEach { location ->
-                                map.addMarker(
-                                    com.google.android.gms.maps.model.MarkerOptions()
-                                        .position(location).icon(icon).anchor(0.5f, 0.5f)
-                                )
-                            }
-                        }
-                        markerCircleIcon(GreenGo.toArgb(), markerSize)?.let { icon ->
+                    ExportMarkers.pause(markerStyle, markerSize)?.let { icon ->
+                        pausedForExport.forEach { location ->
                             map.addMarker(
                                 com.google.android.gms.maps.model.MarkerOptions()
-                                    .position(exportLatLngs.first()).icon(icon)
+                                    .position(location).icon(icon).anchor(0.5f, 0.5f)
                             )
                         }
-                        markerCircleIcon(CyanBright.toArgb(), markerSize)?.let { icon ->
-                            map.addMarker(
-                                com.google.android.gms.maps.model.MarkerOptions()
-                                    .position(exportLatLngs.last()).icon(icon)
-                            )
-                        }
+                    }
+                    if (markerStyle.marksStart) {
+                        map.addMarker(
+                            com.google.android.gms.maps.model.MarkerOptions()
+                                .position(exportLatLngs.first())
+                                .icon(ExportMarkers.start(markerStyle, markerSize))
+                        )
+                    }
+                    if (markerStyle.marksFinish) {
+                        map.addMarker(
+                            com.google.android.gms.maps.model.MarkerOptions()
+                                .position(exportLatLngs.last())
+                                .icon(ExportMarkers.finish(markerStyle, markerSize))
+                        )
                     }
                     val target = framing ?: LatLngBounds.Builder()
                         .also { builder -> exportLatLngs.forEach(builder::include) }
@@ -891,7 +847,17 @@ fun RideDetailScreen(
                             context,
                             bitmap,
                             ExportOptions(
-                                showStats = settings.showStats,
+                                showStats = settings.statsOverlay.isVisible,
+                                statsPanel = settings.statsOverlay.rect()?.let { panel ->
+                                    `in`.shvms.trackme.domain.export.StatsPanelRect(
+                                        left = panel.left,
+                                        top = panel.top,
+                                        right = panel.right,
+                                        bottom = panel.bottom,
+                                        cornerFraction = panel.inset,
+                                        alignEnd = settings.statsOverlay.alignsTextEnd,
+                                    )
+                                },
                                 isDarkTheme = settings.darkTheme,
                                 showDistance = settings.showDistance,
                                 showDuration = settings.showDuration,
@@ -1026,12 +992,12 @@ fun RideDetailScreen(
                         }
                     }
 
-                    val previewMarkerIcons = remember(previewWidthPx) {
+                    val previewMarkerIcons = remember(previewWidthPx, settings.markerStyle) {
                         val size = ExportRenderScale.markerSize(previewWidthPx)
                         Triple(
-                            markerCircleIcon(GreenGo.toArgb(), size),
-                            markerCircleIcon(CyanBright.toArgb(), size),
-                            markerPauseIcon(size)
+                            ExportMarkers.start(settings.markerStyle, size),
+                            ExportMarkers.finish(settings.markerStyle, size),
+                            ExportMarkers.pause(settings.markerStyle, size)
                         )
                     }
 
@@ -1041,7 +1007,7 @@ fun RideDetailScreen(
                         properties = MapProperties(
                             mapType = settings.mapType,
                             isTrafficEnabled = false,
-                            mapStyleOptions = if (settings.hidePlaces) MapStyleOptions(HIDE_PLACES_MAP_STYLE) else null
+                            mapStyleOptions = settings.mapStyle
                         ),
                         // Rotation and tilt are off on purpose. A tilted or rotated export frame is
                         // not something this screen offers, and every extra gesture the map claims
@@ -1061,15 +1027,19 @@ fun RideDetailScreen(
                             color = TrackMeBlueDark,
                             width = ExportRenderScale.routeStroke(previewWidthPx)
                         )
-                        if (settings.showMarkers) {
+                        previewMarkerIcons.third?.let { pauseIcon ->
                             pausedForRoute.forEach { location ->
-                                Marker(state = MarkerState(position = location), icon = previewMarkerIcons.third, anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f))
+                                Marker(state = MarkerState(position = location), icon = pauseIcon, anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f))
                             }
+                        }
+                        if (settings.markerStyle.marksStart) {
                             Marker(state = remember(latLngs.first()) { MarkerState(position = latLngs.first()) }, title = strings.mapStart, icon = previewMarkerIcons.first)
+                        }
+                        if (settings.markerStyle.marksFinish) {
                             Marker(state = remember(latLngs.last()) { MarkerState(position = latLngs.last()) }, title = strings.mapFinish, icon = previewMarkerIcons.second)
                         }
                     }
-                    if (settings.showStats) {
+                    settings.statsOverlay.rect()?.let { panel ->
                         val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(rideWithPoints?.ride?.postRideCalculation?.distance ?: 0.0, imperial)
                         val durationMillis = (rideWithPoints?.ride?.endTime ?: rideWithPoints?.ride?.startTime ?: 0L) - (rideWithPoints?.ride?.startTime ?: 0L)
                         val seconds = durationMillis / 1000
@@ -1080,15 +1050,64 @@ fun RideDetailScreen(
                             if (settings.showDuration) add(durationStr)
                             if (settings.showDistance) add(distanceStr)
                         }
+                        val panelColor = if (settings.darkTheme) {
+                            Color(AppConfig.OVERLAY_BANNER_COLOR).copy(alpha = AppConfig.OVERLAY_BANNER_ALPHA / 255f)
+                        } else {
+                            Color.White.copy(alpha = 0.85f)
+                        }
+                        val onPanel = if (settings.darkTheme) Color.White else Color.Black
+                        val cornerPx = panel.cornerRadiusPx(previewWidthPx, previewHeightPx)
+                        val cornerDp = with(density) { cornerPx.toDp() }
+
+                        // Positioned from the shared normalised rect, the same one the exporter
+                        // uses, so the panel lands in the same place in the file as on screen.
                         Box(
-                            modifier = Modifier.fillMaxWidth().fillMaxHeight(AppConfig.OVERLAY_BANNER_HEIGHT_RATIO).align(Alignment.BottomCenter).background(
-                                if (settings.darkTheme) Color(AppConfig.OVERLAY_BANNER_COLOR).copy(alpha = AppConfig.OVERLAY_BANNER_ALPHA / 255f) else Color.White.copy(alpha = 0.85f)
-                            ).padding(horizontal = 16.dp),
-                            contentAlignment = Alignment.CenterStart
+                            modifier = Modifier
+                                .offset(
+                                    x = with(density) { panel.leftPx(previewWidthPx).toDp() },
+                                    y = with(density) { panel.topPx(previewHeightPx).toDp() }
+                                )
+                                .width(with(density) { (panel.widthFraction * previewWidthPx).toDp() })
+                                .height(with(density) { (panel.heightFraction * previewHeightPx).toDp() })
+                                .clip(RoundedCornerShape(cornerDp))
+                                .background(panelColor)
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            contentAlignment = if (settings.statsOverlay.alignsTextEnd) {
+                                Alignment.CenterEnd
+                            } else {
+                                Alignment.CenterStart
+                            }
                         ) {
-                            Column {
-                                Text(rideWithPoints?.ride?.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride", color = if (settings.darkTheme) Color.White else Color.Black, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                Text(stats.joinToString(" • "), color = if (settings.darkTheme) Color.White else Color.Black, style = MaterialTheme.typography.bodyMedium)
+                            Column(
+                                horizontalAlignment = if (settings.statsOverlay.alignsTextEnd) {
+                                    Alignment.End
+                                } else {
+                                    Alignment.Start
+                                }
+                            ) {
+                                Text(
+                                    rideWithPoints?.ride?.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride",
+                                    color = onPanel,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = if (settings.statsOverlay.isCard) {
+                                        MaterialTheme.typography.titleSmall
+                                    } else {
+                                        MaterialTheme.typography.titleMedium
+                                    }
+                                )
+                                Text(
+                                    stats.joinToString(" • "),
+                                    color = onPanel,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = if (settings.statsOverlay.isCard) {
+                                        MaterialTheme.typography.bodySmall
+                                    } else {
+                                        MaterialTheme.typography.bodyMedium
+                                    }
+                                )
                             }
                         }
                     }

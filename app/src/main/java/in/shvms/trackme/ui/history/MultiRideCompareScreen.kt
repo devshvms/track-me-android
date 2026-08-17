@@ -94,10 +94,6 @@ import kotlinx.coroutines.withContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
-/** POI-only style; the aggregate preview has never hidden transit icons. */
-private const val AGGREGATE_HIDE_PLACES_STYLE =
-    "[{\"featureType\":\"poi\",\"stylers\":[{\"visibility\":\"off\"}]}]"
-
 private val comparisonRouteColors = listOf(
     0xFF00A6C7.toInt(), // TrackMe cyan
     0xFF7557B5.toInt(),
@@ -140,6 +136,7 @@ fun MultiRideCompareScreen(
     val context = LocalContext.current
     val mapStyle = rememberMapStyle()
     val messenger = rememberMessenger()
+    val density = LocalDensity.current.density
     val routes = remember(rides) { prepareComparisonRoutes(rides) }
     val visibleRoutes = remember(routes) { routes.filter { it.points.isNotEmpty() } }
     val connectors = remember(routes) { comparisonConnectors(routes) }
@@ -208,8 +205,11 @@ fun MultiRideCompareScreen(
                             Polyline(points = latLngs, color = Color(routeColor), width = 8f)
                             Marker(
                                 state = remember(route.ride.ride.id) { MarkerState(position = latLngs.first()) },
-                                icon = remember(route.label, routeColor) {
-                                    letterMarkerIcon(context, route.label, routeColor)
+                                icon = remember(route.label, routeColor, density) {
+                                    ExportMarkers.aggregate(
+                                        ExportMarkerStyle.StartFinish, context, route.label, routeColor,
+                                        (24f * density).toInt()
+                                    )
                                 },
                                 title = route.label
                             )
@@ -359,9 +359,7 @@ private fun UnifiedAggregateRidePreviewDialog(
             heightPx = exportHeight,
             mapType = settings.mapType,
             configure = { exportMap ->
-                if (settings.hidePlaces && settings.mapType == MapType.NORMAL) {
-                    exportMap.setMapStyle(MapStyleOptions(AGGREGATE_HIDE_PLACES_STYLE))
-                }
+                settings.mapStyle?.let { exportMap.setMapStyle(it) }
                 val allPoints = mutableListOf<LatLng>()
                 exportRoutes.forEachIndexed { index, route ->
                     val routeColor = comparisonRouteColors[index % comparisonRouteColors.size]
@@ -370,14 +368,12 @@ private fun UnifiedAggregateRidePreviewDialog(
                     exportMap.addPolyline(
                         PolylineOptions().addAll(latLngs).color(routeColor).width(exportStroke)
                     )
-                    if (settings.showMarkers) {
-                        exportMap.addMarker(
-                            MarkerOptions()
-                                .position(latLngs.first())
-                                .icon(letterMarkerIcon(context, route.label, routeColor, exportMarkerSize))
-                                .title(route.label)
-                        )
-                    }
+                    ExportMarkers.aggregate(settings.markerStyle, context, route.label, routeColor, exportMarkerSize)
+                        ?.let { icon ->
+                            exportMap.addMarker(
+                                MarkerOptions().position(latLngs.first()).icon(icon).title(route.label)
+                            )
+                        }
                 }
                 if (settings.showSequence) {
                     exportConnectors.forEach { connector ->
@@ -453,7 +449,7 @@ private fun UnifiedAggregateRidePreviewDialog(
     ExportPreviewDialog(
         title = strings.aggregatePreviewTitle,
         initialRatio = Pair(1, 1),
-        initialShowMarkers = true,
+        initialMarkerStyle = ExportMarkerStyle.StartFinish,
         initialShowLegend = true,
         initialShowSequence = true,
         showAggregateControls = true,
@@ -517,7 +513,7 @@ private fun UnifiedAggregateRidePreviewDialog(
                     properties = MapProperties(
                         mapType = settings.mapType,
                         isTrafficEnabled = false,
-                        mapStyleOptions = if (settings.hidePlaces) MapStyleOptions(AGGREGATE_HIDE_PLACES_STYLE) else null
+                        mapStyleOptions = settings.mapStyle
                     ),
                     // Rotation and tilt off: the export has no notion of a rotated frame, and every
                     // extra gesture the map claims is one more way a pan can be misread.
@@ -534,12 +530,15 @@ private fun UnifiedAggregateRidePreviewDialog(
                         val routeColor = comparisonRouteColors[index % comparisonRouteColors.size]
                         val latLngs = route.points.map { LatLng(it.latitude, it.longitude) }
                         Polyline(points = latLngs, color = Color(routeColor), width = previewStroke)
-                        if (settings.showMarkers) {
+                        val markerIcon = remember(route.label, routeColor, previewMarkerSize, settings.markerStyle) {
+                            ExportMarkers.aggregate(
+                                settings.markerStyle, context, route.label, routeColor, previewMarkerSize
+                            )
+                        }
+                        if (markerIcon != null) {
                             Marker(
                                 state = remember(route.ride.ride.id) { MarkerState(position = latLngs.first()) },
-                                icon = remember(route.label, routeColor, previewMarkerSize) {
-                                    letterMarkerIcon(context, route.label, routeColor, previewMarkerSize)
-                                },
+                                icon = markerIcon,
                                 title = route.label
                             )
                         }
@@ -558,7 +557,7 @@ private fun UnifiedAggregateRidePreviewDialog(
                         }
                     }
                 }
-                if (settings.showStats || settings.showLegend) {
+                if (settings.statsOverlay.isVisible || settings.showLegend) {
                     val legendRows = remember(previewRoutes, strings.rideHistoryTitle) {
                         aggregatePreviewLegend(previewRoutes, strings.rideHistoryTitle, showLegend = true)
                     }
@@ -566,7 +565,7 @@ private fun UnifiedAggregateRidePreviewDialog(
                         modifier = Modifier.fillMaxWidth().wrapContentHeight().align(Alignment.BottomCenter)
                     ) {
                         Column(modifier = Modifier.fillMaxWidth()) {
-                            if (settings.showStats) {
+                            if (settings.statsOverlay.isVisible) {
                                 Text(
                                     previewRoutes.joinToString(" • ") { it.label },
                                     color = if (settings.darkTheme) Color.White else Color.Black,
@@ -611,26 +610,6 @@ private fun AggregateLegendPanel(
     }
 }
 
-
-private fun letterMarkerIcon(context: Context, label: String, color: Int, sizePx: Int? = null): BitmapDescriptor {
-    val density = context.resources.displayMetrics.density
-    // Keep comparison markers close to the native location-dot visual scale. These markers are
-    // informational (there is no marker click action), so the map remains readable when several
-    // rides start near one another while the letter stays legible inside the filled circle.
-    val size = sizePx ?: (24f * density).toInt().coerceAtLeast(24)
-    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color; style = Paint.Style.FILL }
-    canvas.drawCircle(size / 2f, size / 2f, size * 0.42f, paint)
-    paint.apply {
-        this.color = android.graphics.Color.WHITE
-        textAlign = Paint.Align.CENTER
-        textSize = size * 0.42f
-        typeface = Typeface.DEFAULT_BOLD
-    }
-    canvas.drawText(label, size / 2f, size / 2f - (paint.ascent() + paint.descent()) / 2f, paint)
-    return BitmapDescriptorFactory.fromBitmap(bitmap)
-}
 
 private fun shareComparisonFile(context: Context, file: java.io.File) {
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)

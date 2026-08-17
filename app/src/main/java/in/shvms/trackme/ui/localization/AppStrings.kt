@@ -419,6 +419,25 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val exportCategoryMarkers: String = s("exportCategoryMarkers", "Markers")
     val exportCategoryStats: String = s("exportCategoryStats", "Stats")
     val exportCategoryLegend: String = s("exportCategoryLegend", "Legend")
+
+    // Marker styles on an exported image.
+    val markerStyleNone: String = s("markerStyleNone", "None")
+    val markerStyleStartFinish: String = s("markerStyleStartFinish", "Start & finish")
+    val markerStyleFinishOnly: String = s("markerStyleFinishOnly", "Finish only")
+    val markerStyleMono: String = s("markerStyleMono", "Black & white")
+    val markerStylePin: String = s("markerStylePin", "Pins")
+
+    // How much of the basemap's text an exported image keeps.
+    val mapLabelsAll: String = s("mapLabelsAll", "All labels")
+    val mapLabelsNoPlaces: String = s("mapLabelsNoPlaces", "No place names")
+    val mapLabelsNone: String = s("mapLabelsNone", "No text at all")
+
+    // Where the stats panel sits on an exported image.
+    val statsOverlayNone: String = s("statsOverlayNone", "No panel")
+    val statsOverlayBar: String = s("statsOverlayBar", "Bottom bar")
+    val statsOverlayHalf: String = s("statsOverlayHalf", "Bottom half")
+    val statsOverlayTopLeft: String = s("statsOverlayTopLeft", "Top left")
+    val statsOverlayTopRight: String = s("statsOverlayTopRight", "Top right")
     val privacyTrim: String = s("privacyTrim", "Privacy trim (200 m)")
     val retry: String = s("retry", "Retry")
     val exportRetryMessage: String = s("exportRetryMessage", "Map capture failed. Check that the preview is ready, then retry.")
@@ -917,6 +936,19 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportCategoryMarkers" to "Marcas",
             "exportCategoryStats" to "Datos",
             "exportCategoryLegend" to "Leyenda",
+            "markerStyleNone" to "Ninguno",
+            "markerStyleStartFinish" to "Inicio y final",
+            "markerStyleFinishOnly" to "Solo final",
+            "markerStyleMono" to "Blanco y negro",
+            "markerStylePin" to "Chinchetas",
+            "mapLabelsAll" to "Todas las etiquetas",
+            "mapLabelsNoPlaces" to "Sin nombres de lugares",
+            "mapLabelsNone" to "Sin texto",
+            "statsOverlayNone" to "Sin panel",
+            "statsOverlayBar" to "Barra inferior",
+            "statsOverlayHalf" to "Media inferior",
+            "statsOverlayTopLeft" to "Arriba a la izquierda",
+            "statsOverlayTopRight" to "Arriba a la derecha",
             "privacyTrim" to "Recorte de privacidad (200 m)",
             "retry" to "Reintentar",
             "exportRetryMessage" to "No se pudo capturar el mapa. Comprueba la vista previa y reintenta.",
@@ -1419,6 +1451,19 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportCategoryMarkers" to "Repères",
             "exportCategoryStats" to "Données",
             "exportCategoryLegend" to "Légende",
+            "markerStyleNone" to "Aucun",
+            "markerStyleStartFinish" to "Départ et arrivée",
+            "markerStyleFinishOnly" to "Arrivée seule",
+            "markerStyleMono" to "Noir et blanc",
+            "markerStylePin" to "Épingles",
+            "mapLabelsAll" to "Tous les libellés",
+            "mapLabelsNoPlaces" to "Sans noms de lieux",
+            "mapLabelsNone" to "Aucun texte",
+            "statsOverlayNone" to "Aucun panneau",
+            "statsOverlayBar" to "Bandeau bas",
+            "statsOverlayHalf" to "Demi-bandeau",
+            "statsOverlayTopLeft" to "En haut à gauche",
+            "statsOverlayTopRight" to "En haut à droite",
             "privacyTrim" to "Découpe de confidentialité (200 m)",
             "retry" to "Réessayer",
             "exportRetryMessage" to "La capture de la carte a échoué. Vérifiez l’aperçu, puis réessayez.",
@@ -1921,6 +1966,19 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportCategoryMarkers" to "Marker",
             "exportCategoryStats" to "Werte",
             "exportCategoryLegend" to "Legende",
+            "markerStyleNone" to "Keine",
+            "markerStyleStartFinish" to "Start und Ziel",
+            "markerStyleFinishOnly" to "Nur Ziel",
+            "markerStyleMono" to "Schwarz-Weiß",
+            "markerStylePin" to "Nadeln",
+            "mapLabelsAll" to "Alle Beschriftungen",
+            "mapLabelsNoPlaces" to "Ohne Ortsnamen",
+            "mapLabelsNone" to "Ohne Text",
+            "statsOverlayNone" to "Kein Feld",
+            "statsOverlayBar" to "Leiste unten",
+            "statsOverlayHalf" to "Halbe Leiste",
+            "statsOverlayTopLeft" to "Oben links",
+            "statsOverlayTopRight" to "Oben rechts",
             "privacyTrim" to "Privatsphären-Zuschnitt (200 m)",
             "retry" to "Erneut versuchen",
             "exportRetryMessage" to "Die Kartenaufnahme ist fehlgeschlagen. Prüfen Sie die Vorschau und versuchen Sie es erneut.",
@@ -2423,6 +2481,19 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportCategoryMarkers" to "मार्कर",
             "exportCategoryStats" to "आंकड़े",
             "exportCategoryLegend" to "लेजेंड",
+            "markerStyleNone" to "कोई नहीं",
+            "markerStyleStartFinish" to "शुरू और अंत",
+            "markerStyleFinishOnly" to "केवल अंत",
+            "markerStyleMono" to "श्वेत-श्याम",
+            "markerStylePin" to "पिन",
+            "mapLabelsAll" to "सभी लेबल",
+            "mapLabelsNoPlaces" to "स्थानों के नाम बिना",
+            "mapLabelsNone" to "कोई टेक्स्ट नहीं",
+            "statsOverlayNone" to "कोई पैनल नहीं",
+            "statsOverlayBar" to "नीचे पट्टी",
+            "statsOverlayHalf" to "आधी पट्टी",
+            "statsOverlayTopLeft" to "ऊपर बाएँ",
+            "statsOverlayTopRight" to "ऊपर दाएँ",
             "privacyTrim" to "प्राइवेसी ट्रिम (200 मीटर)",
             "retry" to "फिर कोशिश करें",
             "exportRetryMessage" to "मैप कैप्चर विफल हुआ। प्रीव्यू तैयार है या नहीं जांचकर फिर कोशिश करें।",
@@ -2925,6 +2996,19 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportCategoryMarkers" to "マーカー",
             "exportCategoryStats" to "データ",
             "exportCategoryLegend" to "凡例",
+            "markerStyleNone" to "なし",
+            "markerStyleStartFinish" to "開始と終了",
+            "markerStyleFinishOnly" to "終了のみ",
+            "markerStyleMono" to "白黒",
+            "markerStylePin" to "ピン",
+            "mapLabelsAll" to "すべてのラベル",
+            "mapLabelsNoPlaces" to "地名なし",
+            "mapLabelsNone" to "文字なし",
+            "statsOverlayNone" to "パネルなし",
+            "statsOverlayBar" to "下部バー",
+            "statsOverlayHalf" to "下部ハーフ",
+            "statsOverlayTopLeft" to "左上",
+            "statsOverlayTopRight" to "右上",
             "privacyTrim" to "プライバシートリム（200 m）",
             "retry" to "再試行",
             "exportRetryMessage" to "地図のキャプチャに失敗しました。プレビューを確認して再試行してください。",
@@ -3427,6 +3511,19 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportCategoryMarkers" to "标记",
             "exportCategoryStats" to "数据",
             "exportCategoryLegend" to "图例",
+            "markerStyleNone" to "无",
+            "markerStyleStartFinish" to "起点和终点",
+            "markerStyleFinishOnly" to "仅终点",
+            "markerStyleMono" to "黑白",
+            "markerStylePin" to "图钉",
+            "mapLabelsAll" to "全部标签",
+            "mapLabelsNoPlaces" to "隐藏地名",
+            "mapLabelsNone" to "无文字",
+            "statsOverlayNone" to "无面板",
+            "statsOverlayBar" to "底部横栏",
+            "statsOverlayHalf" to "底部半栏",
+            "statsOverlayTopLeft" to "左上角",
+            "statsOverlayTopRight" to "右上角",
             "privacyTrim" to "隐私裁剪（200 米）",
             "retry" to "重试",
             "exportRetryMessage" to "地图捕获失败。请确认预览已准备好后重试。",

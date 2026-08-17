@@ -135,9 +135,9 @@ data class ExportPreviewSettings(
     val ratio: Pair<Int, Int>,
     val mapType: MapType,
     val privacyTrim: Boolean,
-    val hidePlaces: Boolean,
-    val showMarkers: Boolean,
-    val showStats: Boolean,
+    val mapLabels: MapLabelStyle,
+    val markerStyle: ExportMarkerStyle,
+    val statsOverlay: StatsOverlayStyle,
     val darkTheme: Boolean,
     val showDate: Boolean,
     val showDuration: Boolean,
@@ -151,6 +151,10 @@ data class ExportPreviewSettings(
     /** Pixel size the export renders at. See [exportPixelSize]. */
     val exportSize: Pair<Int, Int>
         get() = exportPixelSize(ratioFloat)
+
+    /** The basemap style to apply, honouring the SDK's normal-map-type-only restriction. */
+    val mapStyle: com.google.android.gms.maps.model.MapStyleOptions?
+        get() = mapLabels.styleFor(mapType)
 }
 
 /**
@@ -206,7 +210,7 @@ fun ExportPreviewDialog(
     initialRatio: Pair<Int, Int>,
     initialMapType: MapType = MapType.NORMAL,
     initialPrivacyTrim: Boolean = true,
-    initialShowMarkers: Boolean = true,
+    initialMarkerStyle: ExportMarkerStyle = ExportMarkerStyle.StartFinish,
     initialShowLegend: Boolean = false,
     initialShowSequence: Boolean = false,
     showAggregateControls: Boolean = false,
@@ -225,9 +229,9 @@ fun ExportPreviewDialog(
     var ratio by remember(initialRatio) { mutableStateOf(initialRatio) }
     var mapType by remember(initialMapType) { mutableStateOf(initialMapType) }
     var privacyTrim by remember(initialPrivacyTrim) { mutableStateOf(initialPrivacyTrim) }
-    var hidePlaces by remember { mutableStateOf(false) }
-    var showMarkers by remember(initialShowMarkers) { mutableStateOf(initialShowMarkers) }
-    var showStats by remember { mutableStateOf(true) }
+    var mapLabels by remember { mutableStateOf(MapLabelStyle.All) }
+    var markerStyle by remember(initialMarkerStyle) { mutableStateOf(initialMarkerStyle) }
+    var statsOverlay by remember { mutableStateOf(StatsOverlayStyle.BottomBar) }
     var darkTheme by remember { mutableStateOf(true) }
     var showDate by remember { mutableStateOf(true) }
     var showDuration by remember { mutableStateOf(true) }
@@ -240,9 +244,9 @@ fun ExportPreviewDialog(
         ratio = ratio,
         mapType = mapType,
         privacyTrim = privacyTrim,
-        hidePlaces = hidePlaces,
-        showMarkers = showMarkers,
-        showStats = showStats,
+        mapLabels = mapLabels,
+        markerStyle = markerStyle,
+        statsOverlay = statsOverlay,
         darkTheme = darkTheme,
         showDate = showDate,
         showDuration = showDuration,
@@ -328,9 +332,9 @@ fun ExportPreviewDialog(
                     onRatio = { ratio = it },
                     onMapType = { mapType = it },
                     onPrivacyTrim = { privacyTrim = it },
-                    onHidePlaces = { hidePlaces = it },
-                    onShowMarkers = { showMarkers = it },
-                    onShowStats = { showStats = it },
+                    onMapLabels = { mapLabels = it },
+                    onMarkerStyle = { markerStyle = it },
+                    onStatsOverlay = { statsOverlay = it },
                     onDarkTheme = { darkTheme = it },
                     onShowDistance = { showDistance = it },
                     onShowDuration = { showDuration = it },
@@ -411,9 +415,9 @@ private fun ValuesTier(
     onRatio: (Pair<Int, Int>) -> Unit,
     onMapType: (MapType) -> Unit,
     onPrivacyTrim: (Boolean) -> Unit,
-    onHidePlaces: (Boolean) -> Unit,
-    onShowMarkers: (Boolean) -> Unit,
-    onShowStats: (Boolean) -> Unit,
+    onMapLabels: (MapLabelStyle) -> Unit,
+    onMarkerStyle: (ExportMarkerStyle) -> Unit,
+    onStatsOverlay: (StatsOverlayStyle) -> Unit,
     onDarkTheme: (Boolean) -> Unit,
     onShowDistance: (Boolean) -> Unit,
     onShowDuration: (Boolean) -> Unit,
@@ -476,51 +480,61 @@ private fun ValuesTier(
                         selected = settings.privacyTrim,
                         onClick = { onPrivacyTrim(!settings.privacyTrim) }
                     )
-                    // Places can only be hidden on the styleable base map; satellite and terrain
-                    // imagery carries its own labels that no style JSON can turn off.
+                    // Disabled rather than absent on satellite and terrain: the Maps SDK only
+                    // applies styling to the normal basemap, so these would be silently inert.
+                    val styleable = MapLabelStyle.isStyleable(settings.mapType)
+                    MapLabelStyle.entries.forEach { style ->
+                        ValueChip(
+                            label = style.label(strings),
+                            selected = settings.mapLabels == style,
+                            enabled = styleable,
+                            onClick = { onMapLabels(style) }
+                        )
+                    }
+                }
+
+                ExportControlCategory.Markers -> ExportMarkerStyle.entries.forEach { style ->
                     ValueChip(
-                        label = strings.hidePlaces,
-                        selected = settings.hidePlaces,
-                        enabled = settings.mapType == MapType.NORMAL,
-                        onClick = { onHidePlaces(!settings.hidePlaces) }
+                        label = style.label(strings),
+                        selected = settings.markerStyle == style,
+                        onClick = { onMarkerStyle(style) }
                     )
                 }
 
-                ExportControlCategory.Markers -> ValueChip(
-                    label = strings.showMarkers,
-                    selected = settings.showMarkers,
-                    onClick = { onShowMarkers(!settings.showMarkers) }
-                )
-
                 ExportControlCategory.Stats -> {
-                    ValueChip(
-                        label = strings.statsOverlay,
-                        selected = settings.showStats,
-                        onClick = { onShowStats(!settings.showStats) }
-                    )
+                    // Placement first, because "off" is one of the placements — a separate on/off
+                    // chip plus a placement chip would have made two controls out of one decision.
+                    StatsOverlayStyle.entries.forEach { style ->
+                        ValueChip(
+                            label = style.label(strings),
+                            selected = settings.statsOverlay == style,
+                            onClick = { onStatsOverlay(style) }
+                        )
+                    }
+                    val panelShown = settings.statsOverlay.isVisible
                     ValueChip(
                         label = strings.darkTheme,
                         selected = settings.darkTheme,
-                        enabled = settings.showStats,
+                        enabled = panelShown,
                         onClick = { onDarkTheme(!settings.darkTheme) }
                     )
                     if (!showAggregateControls) {
                         ValueChip(
                             label = strings.distanceShortLabel,
                             selected = settings.showDistance,
-                            enabled = settings.showStats,
+                            enabled = panelShown,
                             onClick = { onShowDistance(!settings.showDistance) }
                         )
                         ValueChip(
                             label = strings.durationShortLabel,
                             selected = settings.showDuration,
-                            enabled = settings.showStats,
+                            enabled = panelShown,
                             onClick = { onShowDuration(!settings.showDuration) }
                         )
                         ValueChip(
                             label = strings.dateShortLabel,
                             selected = settings.showDate,
-                            enabled = settings.showStats,
+                            enabled = panelShown,
                             onClick = { onShowDate(!settings.showDate) }
                         )
                     }

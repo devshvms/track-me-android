@@ -24,12 +24,35 @@ import kotlin.math.roundToInt
 
 data class ExportOptions(
     val showStats: Boolean = true,
+    /**
+     * The panel rectangle in frame fractions, or null for the historical flush bottom band.
+     *
+     * The geometry is decided in the UI layer and carried here rather than recomputed, because the
+     * preview and the exporter drawing the same panel from two independent formulas is exactly how
+     * they came to disagree: one used 20% of the frame height and the other 20% of its width.
+     */
+    val statsPanel: StatsPanelRect? = null,
     val isDarkTheme: Boolean = true,
     val showDistance: Boolean = true,
     val showDuration: Boolean = true,
     val showDate: Boolean = true,
     val routePoints: List<`in`.shvms.trackme.data.local.entity.GPSPointEntity>? = null,
     val includeTrackMeLockup: Boolean = true
+)
+
+/**
+ * A stats-panel rectangle in frame fractions, plus how its text is aligned and rounded.
+ *
+ * A plain data carrier so the domain layer does not depend on the UI enum that produced it.
+ */
+data class StatsPanelRect(
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float,
+    /** Corner radius as a fraction of the frame's shorter edge. Zero for a flush band. */
+    val cornerFraction: Float = 0f,
+    val alignEnd: Boolean = false,
 )
 
 interface ImageExporter {
@@ -189,28 +212,40 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
         }
         
         if (options.showStats) {
-            // Height, not width. The constant is documented as "bottom 20% of the image" and the
-            // on-screen preview implements it as `fillMaxHeight(0.2f)` — but this took 20% of the
-            // *width*, so preview and export disagreed at every ratio except square, and the
-            // disagreement ran opposite ways: 11% of height on a 9:16 story, 36% on a 16:9.
-            val bannerHeight = (finalH * AppConfig.OVERLAY_BANNER_HEIGHT_RATIO).toInt()
-            val bannerTop = (finalH - bannerHeight).toFloat()
-            
+            // Geometry comes from the caller as frame fractions. Recomputing it here is what let
+            // the preview and the export disagree: this used to take 20% of the frame *width*
+            // while the preview took 20% of its height, which is 11% of a 9:16 story and 36% of a
+            // 16:9. The fallback is the historical flush bottom band, for any caller that has not
+            // been given a placement.
+            val panel = options.statsPanel
+                ?: StatsPanelRect(0f, 1f - AppConfig.OVERLAY_BANNER_HEIGHT_RATIO, 1f, 1f)
+            val bannerLeft = panel.left * finalW
+            val bannerRight = panel.right * finalW
+            val bannerTop = panel.top * finalH
+            val bannerBottom = panel.bottom * finalH
+            val bannerHeight = (bannerBottom - bannerTop).toInt().coerceAtLeast(1)
+            val bannerWidth = bannerRight - bannerLeft
+            val corner = panel.cornerFraction * minOf(finalW, finalH)
+
             // Draw the banner
-            val paint = Paint().apply {
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = if (options.isDarkTheme) AppConfig.OVERLAY_BANNER_COLOR else android.graphics.Color.WHITE
                 alpha = if (options.isDarkTheme) AppConfig.OVERLAY_BANNER_ALPHA else 220
                 style = Paint.Style.FILL
             }
-            canvas.drawRect(0f, bannerTop, finalW.toFloat(), finalH.toFloat(), paint)
-            
+            if (corner > 0f) {
+                canvas.drawRoundRect(bannerLeft, bannerTop, bannerRight, bannerBottom, corner, corner, paint)
+            } else {
+                canvas.drawRect(bannerLeft, bannerTop, bannerRight, bannerBottom, paint)
+            }
+
             // Draw Text
             val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = if (options.isDarkTheme) AppConfig.OVERLAY_TEXT_COLOR else android.graphics.Color.BLACK
                 textSize = bannerHeight * 0.25f
-                textAlign = Paint.Align.LEFT
+                textAlign = if (panel.alignEnd) Paint.Align.RIGHT else Paint.Align.LEFT
             }
-            
+
             val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(
                 rideWithPoints.ride.postRideCalculation?.distance ?: 0.0,
                 usesImperialUnits(context)
@@ -222,18 +257,21 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
             
             val dateStr = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(rideWithPoints.ride.startTime))
             
-            val padding = finalW * 0.05f
-            
+            // Padding is a fraction of the panel, not of the frame: a corner card is half the
+            // width of a full band, and 5% of the frame would eat most of it.
+            val padding = bannerWidth * 0.06f
+            val textX = if (panel.alignEnd) bannerRight - padding else bannerLeft + padding
+
             val rideTitle = rideWithPoints.ride.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride"
-            canvas.drawText(rideTitle, padding, bannerTop + bannerHeight * 0.4f, textPaint)
-            
+            canvas.drawText(rideTitle, textX, bannerTop + bannerHeight * 0.4f, textPaint)
+
             textPaint.textSize = bannerHeight * 0.15f
             val statsList = mutableListOf<String>()
             if (options.showDate) statsList.add(dateStr)
             if (options.showDuration) statsList.add(durationStr)
             if (options.showDistance) statsList.add(distanceStr)
-            
-            canvas.drawText(statsList.joinToString(" • "), padding, bannerTop + bannerHeight * 0.7f, textPaint)
+
+            canvas.drawText(statsList.joinToString(" • "), textX, bannerTop + bannerHeight * 0.7f, textPaint)
         }
         
         val exportsDir = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME)

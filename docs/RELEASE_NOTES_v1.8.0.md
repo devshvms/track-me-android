@@ -535,6 +535,53 @@ side effect of this work.
 exporter that always honoured the requested ratio, and nothing has ever called it. Its unused
 import is gone; whether to delete the class is a separate decision from this change.
 
+### Three switches that should have been option sets
+
+Each of these was a control whose only answer was yes or no, where the interesting question was
+*which*.
+
+**Markers.** One "Show markers" switch became five styles: **None**, **Start & finish** (the
+existing green/cyan dots plus amber pause rings, still the default), **Finish only** for a shot
+that is about where you ended up, **Black & white** which reads on satellite imagery and in print,
+and **Pins** — Google's standard teardrop, the shape every map app has trained people to read.
+
+The reductions are real reductions: pause rings draw only on Start & finish, because a monochrome
+or finish-only picture that still sprinkled amber down the route would be neither. On the aggregate
+preview the styles reduce differently — markers there carry a letter identifying *which* ride
+starts at that point, so Finish only falls back to the lettered marker rather than vanishing and
+leaving the legend referring to letters that appear nowhere on the map.
+
+Collapsing this also removed a duplicate: `markerCircleIcon`, `markerPauseIcon` and
+`letterMarkerIcon` were three separate builders across two files drawing the same shapes. There is
+now one definition, used by the in-app maps as well as the exports, so the symbols really are the
+same everywhere.
+
+**"Hide places" did not hide places.** The style it applied turned off `poi` and transit label
+icons and nothing else. In the Maps SDK's vocabulary a *POI* is a business or landmark — a mall, a
+hospital, a park. Town and neighbourhood names are `administrative` labels and road numbers are
+`road` labels, and neither is a POI. So the switch did exactly what it said in the SDK's terms
+while leaving "Varanasi", "Harhua", "Rajatalab" and every highway shield on the picture.
+
+Now three levels: **All labels**, **No place names** (which covers administrative names as well,
+and is what the old switch was always trying to be), and **No text at all** — one global
+`elementType: labels` rule rather than an enumeration of feature types, because an enumeration
+keeps missing one. They are disabled rather than absent on satellite and terrain: the SDK only
+applies styling to the normal basemap, so a style handed to those is silently ignored.
+
+**The stats overlay** became a placement rather than a switch: **No panel**, **Bottom bar** (the
+existing full-width band), **Bottom half**, **Top left** and **Top right**. "Off" is one of the
+placements, so one decision is one control instead of a switch plus a position.
+
+The geometry is defined once, as fractions of the frame, and both the Compose preview and the
+`Canvas` exporter read the same rectangle — which is the direct fix for those two having drifted
+into 20%-of-height versus 20%-of-width. `Bottom bar` keeps its exact historical geometry, since
+changing it would silently alter the look of every export anyone has already made.
+
+**Bottom half is anchored right, and the corner cards are inset**, which means four of the five
+placements leave the Google attribution in the bottom-left corner clear. That does not close the
+attribution issue — Bottom bar is still the default and still covers it — but it does give a way
+out today.
+
 ### Design-system conformance
 
 Audited after the fact rather than assumed, and it had gaps. Colour, typography, components and
