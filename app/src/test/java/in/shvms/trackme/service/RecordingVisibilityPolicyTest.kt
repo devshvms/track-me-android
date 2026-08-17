@@ -107,69 +107,58 @@ class RecordingVisibilityPolicyTest {
     // --- The wiring ----------------------------------------------------------------------------
 
     @Test
-    fun `the split does not reset the tracking state`() {
-        // THE §2(b) DEFECT ITSELF. `trackingManager.reset()` sets trackingState to IDLE, and
-        // splitRide called it while the recorder carried straight on into Part 2. The distinction
-        // between reset() and resetForContinuation() is the entire fix, so it is asserted rather
-        // than trusted.
-        val body = bodyOf(serviceSource(), "private fun splitRide()")
-        assertFalse(
-            "splitRide calls trackingManager.reset(), which publishes IDLE while Part 2 records " +
-                "— this is SCOPE_1.7.3 §2(b)",
-            body.contains("trackingManager.reset()"),
-        )
-        assertTrue(
-            "splitRide must clear metrics via resetForContinuation() so the ride stays visible",
-            body.contains("trackingManager.resetForContinuation()"),
-        )
+    fun `nothing resets the tracking state while a ride is open`() {
+        // THE §2(b) DEFECT, generalised past the thing that caused it. `trackingManager.reset()`
+        // publishes IDLE; splitRide called it while the recorder carried straight on into Part 2.
+        // The split has since been deleted with the ceiling it defended (§2(a)), but the hazard is
+        // the *call*, not the caller — the next function to reset mid-ride reproduces it exactly.
+        //
+        // The rule, checkable at every call site: no ride may be held when reset() runs. Both
+        // legitimate callers satisfy it differently — stopTracking releases the id first,
+        // restorePersistedRide resets before it claims one — so the assertion is about the state
+        // at the call, not about a fixed number of callers.
+        val source = serviceSource()
+        val callSites = Regex("""trackingManager\.reset\(\)""").findAll(source).toList()
+        assertTrue("no trackingManager.reset() call sites found at all", callSites.isNotEmpty())
+
+        for (call in callSites) {
+            val enclosing = enclosingFunctionBody(source, call.range.first)
+            val resetAt = enclosing.indexOf("trackingManager.reset()")
+            val heldBefore = Regex("""currentRideId\s*=\s*(\w+)""")
+                .findAll(enclosing.substring(0, resetAt))
+                .lastOrNull()
+                ?.groupValues?.get(1)
+            assertTrue(
+                "a reset() runs while currentRideId is still \"$heldBefore\" — that publishes IDLE " +
+                    "for a ride that is still recording (SCOPE_1.7.3 §2(b))",
+                heldBefore == null || heldBefore == "null",
+            )
+        }
+    }
+
+    /** The brace-matched body of the innermost `fun` declaration containing [offset]. */
+    private fun enclosingFunctionBody(source: String, offset: Int): String {
+        val start = Regex("""fun\s+\w+\s*\(""")
+            .findAll(source.substring(0, offset))
+            .lastOrNull()
+            ?.range?.first
+            ?: throw AssertionError("no enclosing fun found for offset $offset")
+        val open = source.indexOf('{', start)
+        var depth = 0
+        for (i in open until source.length) {
+            when (source[i]) {
+                '{' -> depth++
+                '}' -> {
+                    depth--
+                    if (depth == 0) return source.substring(open + 1, i)
+                }
+            }
+        }
+        throw AssertionError("unbalanced braces around offset $offset")
     }
 
     @Test
-    fun `the split leaves the rider's persona alone`() {
-        // A quieter half of the same bug: reset() returned selectedPersona to AUTO, and splitRide
-        // reads it back immediately to title and profile Part 2. A rider who chose CYCLING got a
-        // Part 2 recorded as AUTO.
-        val manager = TrackingManager()
-        manager.setSelectedPersona(`in`.shvms.trackme.domain.model.RidePersona.CYCLING)
-        manager.updateState(TrackingState.TRACKING)
-
-        manager.resetForContinuation()
-
-        assertEquals(
-            "the rider's persona did not survive the split",
-            `in`.shvms.trackme.domain.model.RidePersona.CYCLING,
-            manager.selectedPersona.value,
-        )
-        assertEquals(
-            "the recorder stopped being visible across the split",
-            TrackingState.TRACKING,
-            manager.trackingState.value,
-        )
-    }
-
-    @Test
-    fun `a continuation reset still clears the metrics Part 2 must start from zero`() {
-        val manager = TrackingManager()
-        manager.updateState(TrackingState.TRACKING)
-        manager.addPathPoint(com.google.android.gms.maps.model.LatLng(12.97, 77.59))
-        manager.addDistance(4200f)
-        manager.updateDuration(900_000L)
-        manager.updateElapsedDuration(960_000L)
-        manager.updateSpeed(7.5f)
-        manager.setAutoPaused(true)
-
-        manager.resetForContinuation()
-
-        assertTrue(manager.pathPoints.value.isEmpty())
-        assertEquals(0f, manager.totalDistance.value, 0f)
-        assertEquals(0L, manager.rideDurationInMillis.value)
-        assertEquals(0L, manager.elapsedDurationInMillis.value)
-        assertEquals(0f, manager.currentSpeed.value, 0f)
-        assertFalse(manager.isAutoPaused.value)
-    }
-
-    @Test
-    fun `a full reset still returns the screen to idle`() {
+    fun `a full reset returns the screen to idle`() {
         // The other caller (stopTracking) must keep working exactly as before.
         val manager = TrackingManager()
         manager.updateState(TrackingState.TRACKING)

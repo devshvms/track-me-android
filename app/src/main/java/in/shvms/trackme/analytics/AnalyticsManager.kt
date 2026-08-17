@@ -390,6 +390,26 @@ object AnalyticsManager {
     }
 
     /**
+     * SCOPE_1.7.3 §2(a) — a cascade delete the cloud genuinely refused.
+     *
+     * **Two properties, and deliberately no more.** Not which ride, not when it was ridden, not
+     * where, and not the point count — that would fingerprint a specific ride. A delete is the one
+     * action where the user has said "stop holding this", and instrumenting it in detail would be
+     * the wrong lesson to draw from having good telemetry.
+     *
+     * Only a rejection is reported. Offline-queued is a normal outcome (§0 contract 6) and firing
+     * this for it would make the dashboard read as a permanent outage every time someone deletes a
+     * ride in a tunnel.
+     */
+    fun trackRideDeleteFailed(cause: String, bulk: Boolean) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "ride_delete_failed",
+            properties = mapOf("cause" to cause, "bulk" to bulk),
+        )
+    }
+
+    /**
      * §7 — finally distinguishes our outages from riders' dead zones, which we cannot tell apart
      * today. No uid, no group, no coordinates.
      */

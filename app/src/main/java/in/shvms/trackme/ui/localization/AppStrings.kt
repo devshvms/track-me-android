@@ -122,6 +122,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupNotSet: String = s("groupNotSet", "--")
     val groupOpenInMaps: String = s("groupOpenInMaps", "Open in Maps")
     val groupShowOnMap: String = s("groupShowOnMap", "Show on my map")
+    val rideDeleteFailed: String = s("rideDeleteFailed", "Couldn't delete this ride — try again")
+    val rideDeleteQueuedOffline: String = s("rideDeleteQueuedOffline", "Will be removed from the cloud when you're back online")
     val groupShowMemberOnMap: String = s("groupShowMemberOnMap", "Show on map")
     val groupMemberNoPositionYet: String = s("groupMemberNoPositionYet", "They haven't shared a position yet")
     val groupStartTimeLabel: String = s("groupStartTimeLabel", "Starts at")
@@ -225,10 +227,6 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val notifGroupPresenceTitle: String = s("notifGroupPresenceTitle", "Riding together")
     val notifGroupPresenceText: String = s("notifGroupPresenceText", "Sharing your location with your group • %1\$s left")
     val notifGroupPresenceNoLimit: String = s("notifGroupPresenceNoLimit", "Sharing your location with your group")
-    val notifAutoSplitTitle: String = s("notifAutoSplitTitle", "Ride Auto-Split")
-    val notifAutoSplitText: String = s("notifAutoSplitText", "Your ride reached 9,000 points and was split to keep recording.")
-    val notifLongRideTitle: String = s("notifLongRideTitle", "Long Ride Warning")
-    val notifLongRideText: String = s("notifLongRideText", "Approaching limit. Ride will auto-split at 9,000 points.")
     val notifStorageLowTitle: String = s("notifStorageLowTitle", "Storage almost full")
     val notifStorageLowText: String = s("notifStorageLowText", "Tracking is paused. Free device storage, then tap Resume in TrackMe.")
     val offlineModeTitle: String = s("offlineModeTitle", "Offline mode")
@@ -632,6 +630,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupNotSet" to "--",
             "groupOpenInMaps" to "Abrir en Mapas",
             "groupShowOnMap" to "Ver en mi mapa",
+            "rideDeleteFailed" to "No se pudo eliminar esta ruta: inténtalo de nuevo",
+            "rideDeleteQueuedOffline" to "Se eliminará de la nube cuando vuelvas a estar en línea",
             "groupShowMemberOnMap" to "Mostrar en el mapa",
             "groupMemberNoPositionYet" to "Todavía no ha compartido su ubicación",
             "groupStartTimeLabel" to "Empieza a las",
@@ -809,10 +809,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "En pausa • %1\$s",
             "notifTrackingGpsSearching" to "Buscando GPS…",
-            "notifAutoSplitTitle" to "División automática del viaje",
-            "notifAutoSplitText" to "Tu viaje alcanzó 9.000 puntos y se dividió para seguir grabando.",
-            "notifLongRideTitle" to "Aviso de viaje largo",
-            "notifLongRideText" to "Te acercas al límite. El viaje se dividirá automáticamente en 9.000 puntos.",
             "notifStorageLowTitle" to "Almacenamiento casi lleno",
             "notifStorageLowText" to "El seguimiento está pausado. Libera espacio y toca Reanudar en TrackMe.",
             "offlineModeTitle" to "Modo sin conexión",
@@ -1125,6 +1121,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupNotSet" to "--",
             "groupOpenInMaps" to "Ouvrir dans Plans",
             "groupShowOnMap" to "Voir sur ma carte",
+            "rideDeleteFailed" to "Impossible de supprimer ce trajet — réessayez",
+            "rideDeleteQueuedOffline" to "Sera supprimé du cloud dès que vous serez de nouveau en ligne",
             "groupShowMemberOnMap" to "Afficher sur la carte",
             "groupMemberNoPositionYet" to "Cette personne n'a pas encore partagé sa position",
             "groupStartTimeLabel" to "Départ à",
@@ -1302,10 +1300,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "En pause • %1\$s",
             "notifTrackingGpsSearching" to "Recherche du GPS…",
-            "notifAutoSplitTitle" to "Découpage automatique du trajet",
-            "notifAutoSplitText" to "Votre trajet a atteint 9 000 points et a été découpé pour poursuivre l'enregistrement.",
-            "notifLongRideTitle" to "Alerte de trajet long",
-            "notifLongRideText" to "Limite bientôt atteinte. Le trajet sera découpé automatiquement à 9 000 points.",
             "notifStorageLowTitle" to "Stockage presque plein",
             "notifStorageLowText" to "Le suivi est en pause. Libérez de l'espace, puis appuyez sur Reprendre dans TrackMe.",
             "offlineModeTitle" to "Mode hors connexion",
@@ -1618,6 +1612,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupNotSet" to "--",
             "groupOpenInMaps" to "In Karten öffnen",
             "groupShowOnMap" to "Auf meiner Karte zeigen",
+            "rideDeleteFailed" to "Diese Fahrt konnte nicht gelöscht werden – bitte erneut versuchen",
+            "rideDeleteQueuedOffline" to "Wird aus der Cloud entfernt, sobald du wieder online bist",
             "groupShowMemberOnMap" to "Auf der Karte zeigen",
             "groupMemberNoPositionYet" to "Diese Person hat noch keine Position geteilt",
             "groupStartTimeLabel" to "Beginnt um",
@@ -1795,10 +1791,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "Pausiert • %1\$s",
             "notifTrackingGpsSearching" to "GPS wird gesucht…",
-            "notifAutoSplitTitle" to "Fahrt automatisch geteilt",
-            "notifAutoSplitText" to "Deine Fahrt hat 9.000 Punkte erreicht und wurde geteilt, um die Aufzeichnung fortzusetzen.",
-            "notifLongRideTitle" to "Warnung: lange Fahrt",
-            "notifLongRideText" to "Limit fast erreicht. Die Fahrt wird bei 9.000 Punkten automatisch geteilt.",
             "notifStorageLowTitle" to "Speicher fast voll",
             "notifStorageLowText" to "Die Aufzeichnung ist pausiert. Speicher freigeben und in TrackMe auf Fortsetzen tippen.",
             "offlineModeTitle" to "Offline-Modus",
@@ -2111,6 +2103,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupNotSet" to "--",
             "groupOpenInMaps" to "मैप्स में खोलें",
             "groupShowOnMap" to "मेरे मैप पर दिखाएँ",
+            "rideDeleteFailed" to "यह राइड नहीं हटाई जा सकी — फिर से कोशिश करें",
+            "rideDeleteQueuedOffline" to "ऑनलाइन होने पर क्लाउड से हटा दिया जाएगा",
             "groupShowMemberOnMap" to "मैप पर दिखाएँ",
             "groupMemberNoPositionYet" to "इन्होंने अभी तक अपनी लोकेशन साझा नहीं की है",
             "groupStartTimeLabel" to "शुरू होगा",
@@ -2288,10 +2282,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "रुकी हुई • %1\$s",
             "notifTrackingGpsSearching" to "GPS खोजा जा रहा है…",
-            "notifAutoSplitTitle" to "राइड अपने-आप विभाजित",
-            "notifAutoSplitText" to "आपकी राइड 9,000 पॉइंट तक पहुंच गई और रिकॉर्डिंग जारी रखने के लिए विभाजित हो गई।",
-            "notifLongRideTitle" to "लंबी राइड की चेतावनी",
-            "notifLongRideText" to "सीमा करीब है। 9,000 पॉइंट पर राइड अपने-आप विभाजित हो जाएगी।",
             "notifStorageLowTitle" to "स्टोरेज लगभग भर गया",
             "notifStorageLowText" to "ट्रैकिंग रुकी हुई है। जगह खाली करें और TrackMe में फिर से शुरू करें पर टैप करें।",
             "offlineModeTitle" to "ऑफ़लाइन मोड",
@@ -2604,6 +2594,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupNotSet" to "--",
             "groupOpenInMaps" to "マップで開く",
             "groupShowOnMap" to "自分の地図で表示",
+            "rideDeleteFailed" to "このライドを削除できませんでした。もう一度お試しください",
+            "rideDeleteQueuedOffline" to "オンラインに戻ったときにクラウドから削除されます",
             "groupShowMemberOnMap" to "地図で表示",
             "groupMemberNoPositionYet" to "まだ位置情報が共有されていません",
             "groupStartTimeLabel" to "開始",
@@ -2781,10 +2773,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "一時停止中 • %1\$s",
             "notifTrackingGpsSearching" to "GPSを検索中…",
-            "notifAutoSplitTitle" to "ライドを自動分割",
-            "notifAutoSplitText" to "ライドが9,000ポイントに達したため、記録を続けるために分割されました。",
-            "notifLongRideTitle" to "長時間ライドの警告",
-            "notifLongRideText" to "上限に近づいています。9,000ポイントでライドが自動分割されます。",
             "notifStorageLowTitle" to "ストレージがほぼ満杯です",
             "notifStorageLowText" to "トラッキングは一時停止中です。空き容量を確保し、TrackMeで再開をタップしてください。",
             "offlineModeTitle" to "オフラインモード",
@@ -3097,6 +3085,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupNotSet" to "--",
             "groupOpenInMaps" to "在地图中打开",
             "groupShowOnMap" to "在我的地图上显示",
+            "rideDeleteFailed" to "无法删除此行程，请重试",
+            "rideDeleteQueuedOffline" to "重新联网后将从云端移除",
             "groupShowMemberOnMap" to "在地图上显示",
             "groupMemberNoPositionYet" to "对方尚未共享位置",
             "groupStartTimeLabel" to "开始于",
@@ -3274,10 +3264,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "已暂停 • %1\$s",
             "notifTrackingGpsSearching" to "正在搜索 GPS…",
-            "notifAutoSplitTitle" to "骑行自动分段",
-            "notifAutoSplitText" to "你的骑行已达到9,000个点，已分段以继续记录。",
-            "notifLongRideTitle" to "长途骑行警告",
-            "notifLongRideText" to "即将达到上限。骑行将在9,000个点时自动分段。",
             "notifStorageLowTitle" to "存储空间即将不足",
             "notifStorageLowText" to "跟踪已暂停。请释放设备空间，然后在TrackMe中点按继续。",
             "offlineModeTitle" to "离线模式",

@@ -71,7 +71,6 @@ class TrackingService : Service() {
     private var timeStarted = 0L
     private var rideDuration = 0L
     private var elapsedWallClockDuration = 0L
-    private var currentPointCount = 0
     private var storageWarningShown = false
     private var lastGpsTimeMs = 0L
     private var lastLiveShareTimeMs = 0L
@@ -184,12 +183,13 @@ class TrackingService : Service() {
                                     isPaused = isPointPaused
                                 )
                             )
-                            currentPointCount++
-                            if (currentPointCount == 8000) {
-                                showPointLimitWarning()
-                            } else if (currentPointCount >= 9000) {
-                                splitRide()
-                            }
+                            // SCOPE_1.7.3 §2(a): the 8,000-point warning and the 9,000-point
+                            // auto-split are GONE. They defended Firestore's 1 MiB per-document
+                            // limit from during the ride, which was the wrong place by a wide
+                            // margin — nothing about 9,000 points is expensive while riding, and
+                            // SQLite is untroubled by it. Chunked upload removes that ceiling
+                            // entirely and permanently, so the split had nothing left to defend
+                            // and was deleted rather than retuned.
                         } catch (_: SQLiteException) {
                             withContext(Dispatchers.Main.immediate) {
                                 enterStorageLowState()
@@ -298,7 +298,6 @@ class TrackingService : Service() {
         }
 
         updateState(TrackingState.TRACKING)
-        currentPointCount = 0
         lastGpsTimeMs = System.currentTimeMillis()
         motionSensorManager.startListening()
         // The ride is about to open its own high-accuracy stream; drop the presence one so the two
@@ -519,11 +518,6 @@ class TrackingService : Service() {
         updateState(TrackingState.TRACKING)
         motionSensorManager.startListening()
         setPersistedPausedSession(false)
-        currentRideId?.let { rideId ->
-            serviceScope.launch {
-                currentPointCount = rideDao.getPointsForRide(rideId).firstOrNull()?.size ?: 0
-            }
-        }
         lastGpsTimeMs = System.currentTimeMillis()
         if (!locationHelper.startLocationTracking(locationCallback)) {
             handleLocationStartFailure()
@@ -686,7 +680,6 @@ class TrackingService : Service() {
         updateState(TrackingState.TRACKING)
         currentRideId = ride.id
         activeRideId = ride.id
-        currentPointCount = points.size
 
         val persona = runCatching {
             `in`.shvms.trackme.domain.model.RidePersona.valueOf(ride.persona)
@@ -1104,78 +1097,7 @@ class TrackingService : Service() {
         }
     }
 
-    /**
-     * Ends the current ride and immediately opens its continuation.
-     *
-     * **§2(b): the recorder never stops here, so the UI must never say it did.** This used to call
-     * [TrackingManager.reset], which published [TrackingState.IDLE] while the location callback
-     * carried on writing points — the app recording a ride the user could not see, pause, or stop.
-     * [TrackingManager.resetForContinuation] clears the metrics for Part 2 and leaves the tracking
-     * state (and the rider's persona) alone, which is the honest description of what is happening.
-     *
-     * Part 2's row is inserted asynchronously, so `currentRideId` briefly still points at Part 1 —
-     * deliberately. A gap where it were null is a gap where [updateState] would be entitled to
-     * publish IDLE, and points arriving in that window would land in Part 1 rather than vanish.
-     */
-    private fun splitRide() {
-        val oldRideId = currentRideId
-        val finalDistance = trackingManager.totalDistance.value.toDouble()
-        val finalDuration = rideDuration
-
-        currentPointCount = 0
-        rideDuration = 0L
-        elapsedWallClockDuration = 0L
-        adaptiveAutoPauseEngine.reset()
-        timeStarted = android.os.SystemClock.elapsedRealtime()
-        trackingManager.resetForContinuation()
-
-        serviceScope.launch {
-            oldRideId?.let { rideId ->
-                finalizeRide(rideId, finalDistance, finalDuration)
-            }
-
-            (application as TrackMeApp).emergencyManager.beginRideSession()
-
-            val startTime = System.currentTimeMillis()
-            val rideId = rideDao.insertRide(
-                RideEntity(
-                    startTime = startTime,
-                    title = RideUtils.getDefaultTitle(startTime, trackingManager.selectedPersona.value) + " (Part 2)",
-                    persona = trackingManager.selectedPersona.value.name
-                )
-            )
-            currentRideId = rideId
-            activeRideId = rideId
-            // Republish so the HUD is unambiguously live for Part 2 and the notification reflects
-            // the new ride. Cheap, and it closes the window where a caller could have observed a
-            // stale value between the two rides.
-            updateState(TrackingState.TRACKING)
-
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            val strings = appStrings()
-            val splitNotification = NotificationCompat.Builder(this@TrackingService, SYNC_CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-                .setContentTitle(strings.notifAutoSplitTitle)
-                .setContentText(strings.notifAutoSplitText)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .build()
-            notificationManager.notify(3, splitNotification)
-        }
-    }
-    
-    private fun showPointLimitWarning() {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val strings = appStrings()
-        val warningNotification = NotificationCompat.Builder(this, SYNC_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle(strings.notifLongRideTitle)
-            .setContentText(strings.notifLongRideText)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .build()
-        notificationManager.notify(2, warningNotification)
-    }
-
-    private fun showStorageLowNotification() {
+private fun showStorageLowNotification() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val strings = appStrings()
         val warningNotification = NotificationCompat.Builder(this, SYNC_CHANNEL_ID)

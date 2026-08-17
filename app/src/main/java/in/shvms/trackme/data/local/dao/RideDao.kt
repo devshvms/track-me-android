@@ -58,6 +58,19 @@ interface RideDao {
     @Query("DELETE FROM rides WHERE id = :rideId")
     suspend fun deleteRide(rideId: Long): Int
 
+    /**
+     * SCOPE_1.7.3 §0 contract 5 — mark a ride as on its way out, before the cloud batch runs.
+     *
+     * Written as a targeted UPDATE rather than through [updateRide] so it cannot race with any
+     * other in-flight edit of the same row and accidentally write back a stale copy of the ride.
+     */
+    @Query("UPDATE rides SET pendingDelete = :pending WHERE id = :rideId")
+    suspend fun setPendingDelete(rideId: Long, pending: Boolean): Int
+
+    /** Rides flagged for deletion that never completed one — swept at startup. */
+    @Query("SELECT * FROM rides WHERE pendingDelete = 1")
+    suspend fun getPendingDeleteRides(): List<RideEntity>
+
     @Query("DELETE FROM gps_points WHERE rideId = :rideId")
     suspend fun deletePointsForRide(rideId: Long): Int
 

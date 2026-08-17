@@ -3,7 +3,9 @@ package `in`.shvms.trackme.ui.history
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.data.local.AppDatabase
+import `in`.shvms.trackme.domain.sync.RideDeletion
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -153,6 +155,8 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             actionMutex.withLock {
                 val attempts = mutableListOf<RideDeleteAttempt>()
+                var anyQueuedOffline = false
+                var rejectedCause: RideDeletion.Cause? = null
                 rideIds.forEach { rideId ->
                     try {
                         val ride = rideDao.getRideWithPointsById(rideId)?.ride
@@ -168,18 +172,13 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                             firestoreId = ride.firestoreId,
                             isSynced = ride.isSynced
                         )
-                        val cloudDeleteSucceeded = cloudDocumentId == null ||
-                            app.firestoreSyncManager.deleteRide(cloudDocumentId)
-                        if (!cloudDeleteSucceeded) {
-                            // Keep the local copy when Firestore deletion fails. Removing it here
-                            // lets the next sign-in download resurrect the ride from the cloud.
+                        val outcome = deleteRideEverywhere(rideId, cloudDocumentId)
+                        if (!RideDeletion.mayDeleteLocally(outcome)) {
                             attempts += RideDeleteAttempt(localDeleted = false, cloudDeleted = false)
+                            rejectedCause = (outcome as RideDeletion.Outcome.Rejected).cause
                             return@forEach
                         }
-                        // GPS points are not declared with a Room foreign key, so remove them
-                        // explicitly before deleting the parent ride to avoid orphaned data.
-                        rideDao.deletePointsForRide(rideId)
-                        rideDao.deleteRide(rideId)
+                        if (outcome is RideDeletion.Outcome.Queued) anyQueuedOffline = true
                         attempts += RideDeleteAttempt(localDeleted = true, cloudDeleted = true)
                     } catch (e: Exception) {
                         attempts += RideDeleteAttempt(localDeleted = false, cloudDeleted = false)
@@ -189,9 +188,54 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                 }
                 val summary = summarizeBatchDelete(attempts)
                 _selectedRideIds.value = emptySet()
-                _uiEvent.emit(UiEvent.BatchDeleteCompleted(summary.deletedCount, summary.failedCount))
+                rejectedCause?.let {
+                    AnalyticsManager.trackRideDeleteFailed(cause = it.bucket, bulk = rideIds.size > 1)
+                }
+                _uiEvent.emit(
+                    UiEvent.BatchDeleteCompleted(
+                        summary.deletedCount,
+                        summary.failedCount,
+                        queuedOffline = anyQueuedOffline,
+                    )
+                )
             }
         }
+    }
+
+    /**
+     * Removes one ride from the cloud and then from the device, in the order SCOPE_1.7.3 §0
+     * contract 5 requires: **`pendingDelete` locally → cloud batch → local delete.**
+     *
+     * Room's `@Transaction` is SQLite-only and a Firestore batch is server-only, so no primitive
+     * spans both and the ordering has to carry the correctness. The flag closes the window in both
+     * directions: delete locally first and a cloud failure leaves the ride live in the cloud to be
+     * re-downloaded later; delete cloud-first and a local failure leaves an unsynced ride that
+     * re-uploads itself. Either way the ride comes back from the dead.
+     */
+    private suspend fun deleteRideEverywhere(
+        rideId: Long,
+        cloudDocumentId: String?,
+    ): RideDeletion.Outcome {
+        // Local-only ride: nothing in the cloud to race with, so the flag would be ceremony.
+        if (cloudDocumentId == null) {
+            rideDao.deletePointsForRide(rideId)
+            rideDao.deleteRide(rideId)
+            return RideDeletion.Outcome.Acknowledged
+        }
+
+        rideDao.setPendingDelete(rideId, true)
+        val outcome = app.firestoreSyncManager.deleteRide(cloudDocumentId)
+        if (RideDeletion.mustRestoreLocally(outcome)) {
+            // Only a genuine rejection restores the row. Leaving it flagged would make it
+            // invisible to the uploader and still present in History — and it would never resolve.
+            rideDao.setPendingDelete(rideId, false)
+            return outcome
+        }
+        // GPS points are not declared with a Room foreign key, so remove them explicitly before
+        // the parent row to avoid orphaned data — the local mirror of children-before-parent.
+        rideDao.deletePointsForRide(rideId)
+        rideDao.deleteRide(rideId)
+        return outcome
     }
 
     fun importGPX(inputStream: InputStream) {
@@ -406,7 +450,17 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     sealed class UiEvent {
         data class ShowError(val message: String) : UiEvent()
         data class Success(val message: String) : UiEvent()
-        data class BatchDeleteCompleted(val deletedCount: Int, val failedCount: Int) : UiEvent()
+
+        /**
+         * [queuedOffline] is SCOPE_1.7.3 §0 contract 6's middle state — the deletion is durably
+         * queued and will apply on reconnect. Not an error, and not silent either: reporting it as
+         * a plain success would claim the cloud copy is already gone when it is not.
+         */
+        data class BatchDeleteCompleted(
+            val deletedCount: Int,
+            val failedCount: Int,
+            val queuedOffline: Boolean = false,
+        ) : UiEvent()
     }
 }
 
