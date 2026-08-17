@@ -177,13 +177,11 @@ fun RideDetailScreen(
                         sourceFile.inputStream().use { input -> input.copyTo(output) }
                     } ?: error("Unable to open destination")
                 }.onSuccess {
-                    withContext(Dispatchers.Main) {
-                        messenger.show("Saved successfully")
-                    }
+                    // No withContext needed: show() is non-suspending and dispatches onto the
+                    // app-level composition scope itself.
+                    messenger.show("Saved successfully")
                 }.onFailure { error ->
-                    withContext(Dispatchers.Main) {
-                        messenger.show("Error saving GPX: ${error.message}")
-                    }
+                    messenger.show("Error saving GPX: ${error.message}")
                 }
             }
         }
@@ -704,9 +702,7 @@ fun RideDetailScreen(
                                                 context.contentResolver.openOutputStream(uri)?.use { out ->
                                                     gpxFile.inputStream().use { input -> input.copyTo(out) }
                                                 } ?: error("Unable to open Downloads")
-                                                withContext(Dispatchers.Main) {
-                                                    messenger.show("Saved to Downloads")
-                                                }
+                                                messenger.show("Saved to Downloads")
                                             } else {
                                                 error("Unable to create Downloads entry")
                                             }
@@ -717,9 +713,7 @@ fun RideDetailScreen(
                                             }
                                         }
                                     } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            messenger.show(strings.exportFailed)
-                                        }
+                                        messenger.show(strings.exportFailed)
                                     }
                                 }
                                 },

@@ -248,8 +248,28 @@ Start button in 1.5.11 while the logo was cyan. Amber-as-`tertiary` is the same 
 
 This branch separates them. `tertiary` takes the generated violet (source hue + 60°, which is what
 M3 derives). `warning` becomes a named semantic token in `TrackMeSemantics`, exactly parallel to
-the existing `SuccessGreen`. Nothing in the UI changes yet — no screen reads `tertiary` today —
-but the roles are now honest and phase 2 can bind warnings correctly.
+the existing `SuccessGreen`.
+
+**Correction.** An earlier version of this section claimed *"no screen reads `tertiary` today"*.
+That was wrong, and acting on it caused a regression that code review caught. Three places read
+tertiary roles:
+
+| File | Role | Surface |
+|---|---|---|
+| `Connectivity.kt:94` | `tertiaryContainer` | `OfflineShieldBanner` |
+| `OnboardingScreen.kt:548` | `tertiaryContainer` | onboarding accent |
+| `OnboardingIllustrations.kt:283` | `tertiary` | illustration accent |
+
+Two consequences, both now handled:
+
+1. **The offline banner shifts from amber to violet.** A real visual change, not a re-tone. It is
+   a legitimate accent use, so the role binding stays — but it is called out in the release notes
+   rather than left to be discovered.
+2. **The dynamic-colour pin had to come back.** `master` pinned `tertiary` inside the
+   dynamic-colour branch precisely so a wallpaper could not dilute that status surface. Removing
+   it left the offline banner taking an arbitrary wallpaper hue. `Theme.kt` now pins tertiary
+   again — to *our generated tertiary*, not to the old amber, so the same surface does not change
+   meaning depending on whether dynamic colour happens to be on.
 
 ---
 

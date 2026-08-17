@@ -319,6 +319,11 @@ fun HistoryScreen(
                         if (!isCollapsed) {
                             items(rideList, key = { it.ride.id }) { rideWithPoints ->
                                 RideHistoryCard(
+                                    // G4 in the motion audit: the list had stable keys but no
+                                    // placement animation, so deleting a ride made the ones below
+                                    // jump. Keys make this correct; without them it would animate
+                                    // the wrong rows.
+                                    modifier = Modifier.animateItem(),
                                     rideWithPoints = rideWithPoints,
                                     imperial = imperial,
                                     selectionMode = selectionMode,
@@ -443,6 +448,7 @@ fun SectionHeader(
 fun RideHistoryCard(
     rideWithPoints: RideWithPoints,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     onLongClick: () -> Unit = {},
     selectionMode: Boolean = false,
     selected: Boolean = false,
@@ -474,7 +480,7 @@ fun RideHistoryCard(
     val selectionDescription = if (selected) strings.selectionSelected else strings.selectionNotSelected
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(68.dp)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)

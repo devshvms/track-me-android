@@ -53,16 +53,27 @@ fun TrackMeTheme(
         val wallpaperScheme =
           if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
 
-        // A wallpaper palette must never dilute the error affordance. Only the error family is
-        // pinned now — warning no longer lives in ColorScheme at all (it moved to
-        // TrackMeSemantics, because `tertiary` is a brand accent slot, not a state slot), which
-        // makes it wallpaper-proof by construction rather than by patching.
+        // A wallpaper palette must never dilute an affordance the user relies on.
+        //
+        // Two families stay pinned. **Error**, obviously. And **tertiary**, because
+        // `OfflineShieldBanner` paints itself from `tertiaryContainer` — it is a status surface,
+        // and master pinned it for exactly that reason. An earlier draft of this file dropped the
+        // tertiary pin on the incorrect belief that nothing read the role; three places do
+        // (`Connectivity.kt`, `OnboardingScreen.kt`, `OnboardingIllustrations.kt`).
+        //
+        // Note the pin is to *our* generated tertiary, not to the old amber. Pinning to amber
+        // would make the banner amber under dynamic colour and violet without it — the same
+        // surface changing meaning based on an unrelated setting.
         if (isDark) {
           wallpaperScheme.copy(
             error = Tone.Error80,
             onError = Tone.Error20,
             errorContainer = Tone.Error30,
             onErrorContainer = Tone.Error90,
+            tertiary = Tone.Tertiary80,
+            onTertiary = Tone.Tertiary20,
+            tertiaryContainer = Tone.Tertiary30,
+            onTertiaryContainer = Tone.Tertiary90,
           )
         } else {
           wallpaperScheme.copy(
@@ -70,6 +81,10 @@ fun TrackMeTheme(
             onError = Tone.Error100,
             errorContainer = Tone.Error90,
             onErrorContainer = Tone.Error10,
+            tertiary = Tone.Tertiary40,
+            onTertiary = Tone.Tertiary100,
+            tertiaryContainer = Tone.Tertiary90,
+            onTertiaryContainer = Tone.Tertiary10,
           )
         }
       }

@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import `in`.shvms.trackme.LocalSnackbarHostState
+import androidx.compose.runtime.staticCompositionLocalOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -78,14 +78,42 @@ class TrackMeMessenger(
 }
 
 /**
- * The messenger for the current screen, bound to the app-level host in `Navigation.kt`.
+ * The app-level messenger, provided by `MainNavigation`.
  *
- * Scoped to the composition that calls it, so a screen leaving the back stack takes its pending
- * message with it rather than firing into whatever replaced it.
+ * ### Why app-scoped and not screen-scoped
+ * The first version of this used `rememberCoroutineScope()` at the call site, which tied each
+ * message to the composition that sent it. That reads like a feature — a screen leaving the back
+ * stack takes its pending message with it — and it is exactly wrong for the messages that matter
+ * most, because those are *about* the navigation:
+ *
+ * ```
+ * messenger.show("Ride deleted")
+ * navController.popBackStack()   // destroys the composition, cancels the message
+ * ```
+ *
+ * Deleting a ride, or deleting an account (which auto-pops via `LaunchedEffect(user)`), showed
+ * nothing at all. The `Toast` this replaced was process-level and survived the screen dying.
+ *
+ * The `SnackbarHost` itself lives in the app-level `Scaffold`, so the message is app-level by
+ * construction; scoping the *launcher* below it was the mistake. The scope now comes from
+ * `MainNavigation`, which outlives every screen it hosts.
+ */
+val LocalTrackMeMessenger = staticCompositionLocalOf<TrackMeMessenger> {
+  error("No TrackMeMessenger provided — MainNavigation must provide LocalTrackMeMessenger")
+}
+
+/** The app-level messenger. Safe to call from any screen; survives that screen being popped. */
+@Composable
+fun rememberMessenger(): TrackMeMessenger = LocalTrackMeMessenger.current
+
+/**
+ * Builds the single app-level messenger. Called once, by `MainNavigation`.
+ *
+ * Deliberately not public-by-accident: screens call [rememberMessenger]; only the navigation host
+ * constructs one, because a second instance would reintroduce the scoping bug above.
  */
 @Composable
-fun rememberMessenger(): TrackMeMessenger {
-  val hostState = LocalSnackbarHostState.current
+fun rememberAppMessenger(hostState: SnackbarHostState): TrackMeMessenger {
   val scope = rememberCoroutineScope()
   return remember(hostState, scope) { TrackMeMessenger(hostState, scope) }
 }

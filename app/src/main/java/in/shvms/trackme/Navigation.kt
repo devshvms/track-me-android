@@ -100,7 +100,14 @@ fun MainNavigation() {
         if (pendingInvite != null) navigateToTab("community")
     }
 
-    CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
+    // App-scoped so a message survives the screen that sent it being popped — "Ride deleted"
+    // is shown immediately before popBackStack(). See Messenger.kt.
+    val messenger = `in`.shvms.trackme.ui.components.rememberAppMessenger(snackbarHostState)
+
+    CompositionLocalProvider(
+        LocalSnackbarHostState provides snackbarHostState,
+        `in`.shvms.trackme.ui.components.LocalTrackMeMessenger provides messenger,
+    ) {
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
