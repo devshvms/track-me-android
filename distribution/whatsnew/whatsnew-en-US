@@ -1,11 +1,11 @@
 TrackMe 1.8.0
 
+• The map now matches your theme. Dark mode no longer means a blazing white map at night.
+
 • Pause or finish your ride straight from the notification — no need to unlock and open the app.
 
-• Messages are part of the app now. Confirmations and errors no longer float over it as system popups.
+• Ending a ride tells you one clear thing instead of two contradictory ones.
 
-• Settings rebuilt: grouped rows, consistent spacing, and the whole row toggles rather than just the switch.
-
-• Warning text is readable again after failing the accessibility contrast minimum.
+• Settings rebuilt, and ride cards in History now stand out from the background properly.
 
 Tracking, group rides, sync and export are unchanged.

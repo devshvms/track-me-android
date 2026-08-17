@@ -20,15 +20,16 @@ import kotlinx.coroutines.flow.asStateFlow
  * one true thing once.
  */
 enum class RideEndOutcome {
-  /** Saved to history. */
-  SAVED,
-
   /** Discarded: the ride recorded no GPS fixes at all, so there was nothing to save. */
   DISCARDED_NO_GPS,
 
   /** Discarded at the user's request from the near-empty-ride prompt. */
   DISCARDED_BY_USER,
 }
+// Deliberately no SAVED case. A saved ride is already announced through the existing
+// RIDE_SAVED broadcast, and adding a second mechanism for the same event is how the
+// contradictory double-message happened in the first place. An enum case nothing emits
+// also reads as a promise the service does not keep.
 
 class TrackingManager {
 

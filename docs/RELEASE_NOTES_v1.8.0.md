@@ -125,6 +125,49 @@ notification correctly.
 Still outstanding in phase 4: the Android 16 promoted-ongoing status-bar chip, `ProgressStyle` for
 group rides with a destination, adaptive layouts, and map camera work.
 
+## The map follows the theme
+
+The app had **no map styling at all** — no `MapStyleOptions`, no night style, no raw style
+resource. It rendered Google's default light basemap regardless of theme, so a dark-theme user
+opening the app at night got a full-screen sheet of white.
+
+This was also what blocked Home. Route polylines, HUD pills and markers were tuned for a light
+background — correctly, given the map they sat on — which is why they used fixed colours rather
+than theme roles. Theming the basemap is what makes theming the overlays possible.
+
+`rememberMapStyle()` reads the app's own `themeMode` preference, not just `isSystemInDarkTheme()`.
+That setting has three values, and honouring only the system one would leave the map light for
+someone who has forced dark inside the app. The night basemap is drawn from the same neutral ramp
+as the app, so the map and the panel above it are one family rather than two unrelated darks;
+business POIs and transit are off, being noise on a tracking map.
+
+The route polyline now follows `colorScheme.primary` — the first Home overlay to become
+theme-aware, and only correct once the basemap was.
+
+## One truthful ride-end message
+
+Ending a ride showed two contradictory messages at once: a Snackbar saying *"Saving ride…"* and a
+Toast saying *"too short to save"*. Two systems describing one event from opposite ends — the UI
+announcing an **intent** it had no standing to predict, the service announcing the **outcome** —
+and neither could replace the other, because one was a Snackbar and one a Toast.
+
+The service now reports a `RideEndOutcome` event and the UI says one true thing once.
+
+**This removed the app's last Toast**, completing the conversion at 40 of 40. It lived in a
+Service, which has no composition to host a Snackbar — turning it into an event rather than a
+rendered message was the right answer. It also made that string localizable for the first time.
+
+## Surfaces and elevation
+
+- **History ride cards were invisible.** They painted themselves `colorScheme.surface` — the
+  *screen background* role — so an unselected card was the same colour as the page behind it and
+  depended entirely on a 1dp shadow, which does not render in dark theme.
+- **Seven cards moved off `surfaceVariant`** onto `surfaceContainerLow`. `surfaceVariant` is M3's
+  role for text-field backgrounds; containers belong on the `surfaceContainer*` ramp.
+- **The ride HUD panel** is on the shape scale and elevation ladder. It was `RoundedCornerShape(20.dp)`
+  — between `large` and `extraLarge`, on neither — with `shadowElevation = 8.dp`, which is level 4,
+  reserved for hover and drag states where nothing rests.
+
 ## What was deliberately left alone on Home
 
 Two things on Home look like token violations and are not. Recorded so a later pass does not

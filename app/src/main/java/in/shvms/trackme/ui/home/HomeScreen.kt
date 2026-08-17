@@ -260,7 +260,6 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         app.trackingManager.rideEndOutcome.collect { outcome ->
             when (outcome) {
-                `in`.shvms.trackme.service.RideEndOutcome.SAVED -> Unit // already covered above
                 `in`.shvms.trackme.service.RideEndOutcome.DISCARDED_NO_GPS ->
                     messenger.show(strings.rideDiscardedNoGps, duration = SnackbarDuration.Long)
                 `in`.shvms.trackme.service.RideEndOutcome.DISCARDED_BY_USER ->
