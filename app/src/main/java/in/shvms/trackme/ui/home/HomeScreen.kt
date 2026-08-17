@@ -62,6 +62,8 @@ import `in`.shvms.trackme.ui.home.components.GroupMapButton
 import androidx.compose.ui.platform.LocalDensity
 import `in`.shvms.trackme.ui.home.components.MemberMarkerPolicy
 import `in`.shvms.trackme.ui.home.components.rememberMemberAvatarCache
+import `in`.shvms.trackme.ui.home.components.rememberHeadingTailBuffer
+import `in`.shvms.trackme.domain.group.HeadingTail
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberMarkerState
 import `in`.shvms.trackme.domain.model.RidePersona
@@ -488,6 +490,10 @@ fun HomeScreen(
             // the group button, and both need the same session.
             val groupSession by app.groupSessionManager.state.collectAsState()
             val avatarCache = rememberMemberAvatarCache()
+            // Keyed by groupId for the same reason the avatar cache is: a uid from a previous group
+            // is never valid in the next one, and a tail that outlived its group would be exactly
+            // the retained position history §5.1.4 forbids.
+            val headingTailBuffer = rememberHeadingTailBuffer(groupSession.groupId)
 
             if (hasLocationPermission) {
                 val groupSyncIntervalSec = groupSession.syncIntervalSec
@@ -573,6 +579,56 @@ fun HomeScreen(
                     // is explicit that we never draw ourselves twice.
                     val bounds = cameraPositionState.projection?.visibleRegion?.latLngBounds
                     val nowMs = groupClockTick
+
+                    // --- Heading tails (§3, §0 contract 7) ---------------------------------
+                    //
+                    // In a group you have NO route line for anyone else, only their current dot.
+                    // This answers the question the map cannot: which way are they coming from?
+                    //
+                    // In-memory and per-session by construction — see HeadingTailBuffer for why
+                    // rememberSaveable would quietly breach §5.1.4 by writing other people's
+                    // positions to disk.
+                    val tails = headingTailBuffer.update(groupSession.positions, nowMs)
+                    groupSession.positions.forEach { member ->
+                        val samples = tails[member.uid].orEmpty()
+                        val freshness = MemberMarkerPolicy.freshnessFor(
+                            serverTsMillis = member.serverTsMillis,
+                            nowMillis = nowMs,
+                            syncIntervalSec = groupSyncIntervalSec,
+                        )
+                        if (!HeadingTail.shouldDraw(
+                                // GroupWire already routes your own position to `ownPosition` and
+                                // never into `positions`, so self is structurally absent here.
+                                // Q3.2 is still satisfied, just one layer further up.
+                                isSelf = false,
+                                moving = member.moving,
+                                // Auto-pause is not on the wire, and deliberately: the relay learns
+                                // `riding`, not how the ride is going. `moving` is the transmitted
+                                // signal, and it already reads false for a stationary rider — which
+                                // is the observable case §3 asks to hide.
+                                autoPaused = false,
+                                isStale = freshness != MarkerFreshness.FRESH,
+                                sampleCount = samples.size,
+                            )
+                        ) return@forEach
+
+                        // Q3.1: a tapering POLYLINE, not 10 markers each. 10 dots x 12 members is
+                        // 120 extra map objects on top of avatars and badges, and 1.7.0 §7.5 already
+                        // names ~12 members as where the map degrades. One polyline per segment
+                        // costs a fraction of that and reads as a trail rather than as samples.
+                        val tint = `in`.shvms.trackme.ui.components.GroupMemberTint.colorFor(member.uid)
+                        for (i in 0 until samples.size - 1) {
+                            Polyline(
+                                points = listOf(
+                                    com.google.android.gms.maps.model.LatLng(samples[i].lat, samples[i].lng),
+                                    com.google.android.gms.maps.model.LatLng(samples[i + 1].lat, samples[i + 1].lng),
+                                ),
+                                color = tint.copy(alpha = HeadingTail.alphaAt(i, samples.size)),
+                                width = HeadingTail.widthAt(i, samples.size),
+                            )
+                        }
+                    }
+
                     groupSession.positions.forEach { member ->
                         val point = com.google.android.gms.maps.model.LatLng(member.lat, member.lng)
                         val freshness = MemberMarkerPolicy.renderFor(
