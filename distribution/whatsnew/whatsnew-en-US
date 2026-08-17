@@ -1,11 +1,11 @@
 TrackMe 1.8.0
 
+• Pause or finish your ride straight from the notification — no need to unlock and open the app.
+
 • Messages are part of the app now. Confirmations and errors no longer float over it as system popups.
 
 • Settings rebuilt: grouped rows, consistent spacing, and the whole row toggles rather than just the switch.
 
-• Warning text is readable again. The amber used for warnings failed the accessibility contrast minimum on light backgrounds.
-
-• Deleting a ride animates instead of making the list jump.
+• Warning text is readable again after failing the accessibility contrast minimum.
 
 Tracking, group rides, sync and export are unchanged.

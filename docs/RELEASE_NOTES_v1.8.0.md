@@ -10,6 +10,7 @@ Full specification: [`DESIGN_SYSTEM_1.8.md`](DESIGN_SYSTEM_1.8.md).
 
 ## For the store listing
 
+- **Pause or finish your ride from the notification.** No unlocking, no opening the app.
 - **Messages are part of the app now.** Every confirmation and error was a system Toast floating
   over the app; they are Snackbars — themed, dismissable, and readable against the app's own
   surfaces.
@@ -104,6 +105,42 @@ and is now a navigating row with a chevron. Same destination, same single tap.
 
 **History** gained `animateItem()` on its ride list. It already had stable keys, so placement
 animation was one line — without the keys it would have animated the wrong rows.
+
+## Phase 4 — notifications
+
+The weakest surface in the audit, and previously untouched.
+
+**A real icon.** All six `setSmallIcon` calls used `android.R.drawable` stock platform drawables.
+Replaced with a flat white-on-transparent silhouette — that format is not a preference, since
+Android tints the small icon and discards everything but the alpha channel.
+
+**Ride controls in the shade.** `TrackingService` already had `ACTION_PAUSE_SERVICE`,
+`ACTION_START_OR_RESUME_SERVICE` and `ACTION_STOP_SERVICE`; they were never surfaced, so pausing
+mid-ride meant unlocking the phone and opening the app — the worst possible moment to ask that.
+Pause and Resume are shown mutually exclusively, since they are one control in two states.
+
+**Brand accent** via `setColor`, and `CATEGORY_WORKOUT` so the system ranks the ongoing
+notification correctly.
+
+Still outstanding in phase 4: the Android 16 promoted-ongoing status-bar chip, `ProgressStyle` for
+group rides with a destination, adaptive layouts, and map camera work.
+
+## What was deliberately left alone on Home
+
+Two things on Home look like token violations and are not. Recorded so a later pass does not
+"fix" them:
+
+- **The HUD pills** use fixed `TrackMeAmber` / `TrackMeRed` fills with hardcoded black or white
+  text. They sit over map imagery rather than a themed surface, so they are their own surfaces and
+  their foregrounds are chosen for those fills. Black on amber clears AA comfortably.
+- **The route polyline** uses a dark blue. Pointing it at `colorScheme.primary` would make it pale
+  `#84CFFF` in dark theme.
+
+Both are correct because of a genuine gap: **the map has no theme-aware styling at all** — no
+`MapStyleOptions`, no night style. It is always Google's default light map, so a dark-theme user
+gets a bright white map at night and every overlay is correctly tuned for a light background.
+Fixing the map style changes what the correct overlay colours are, so the two must be done
+together, in phase 4.
 
 ## Under the hood
 
