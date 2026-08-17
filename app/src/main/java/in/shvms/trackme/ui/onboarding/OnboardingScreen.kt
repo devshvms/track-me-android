@@ -226,7 +226,7 @@ private fun OnboardingChrome(
                     Modifier
                         .height(6.dp)
                         .width(width)
-                        .clip(RoundedCornerShape(3.dp))
+                        .clip(RoundedCornerShape(4.dp))
                         .background(
                             if (active) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.outlineVariant,
@@ -271,7 +271,7 @@ private fun OnboardingActions(
             PAGE_PERMISSIONS -> OutlinedButton(
                 onClick = onNext,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(12.dp),
             ) {
                 Text(strings.obContinue, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             }
@@ -286,7 +286,7 @@ private fun PrimaryButton(label: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().height(52.dp),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(12.dp),
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
     }
@@ -452,9 +452,9 @@ private fun PermissionCard(
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -462,7 +462,7 @@ private fun PermissionCard(
             Box(
                 Modifier
                     .size(32.dp)
-                    .clip(RoundedCornerShape(9.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(
                         if (badgeIsPrimary) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
                         else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
@@ -517,7 +517,7 @@ private fun PermissionCard(
             Button(
                 onClick = onAction,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(vertical = 10.dp),
             ) {
                 Text(actionLabel, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
@@ -544,9 +544,9 @@ private fun ReadyPage(
         Column(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.35f))
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -564,7 +564,7 @@ private fun ReadyPage(
             OutlinedButton(
                 onClick = onOpenBatterySettings,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(vertical = 10.dp),
             ) {
                 Text(strings.obBatteryCta, style = MaterialTheme.typography.labelMedium)
@@ -574,9 +574,9 @@ private fun ReadyPage(
         Row(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
                 .padding(14.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {

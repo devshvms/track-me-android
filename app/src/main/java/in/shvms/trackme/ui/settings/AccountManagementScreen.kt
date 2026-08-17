@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.settings
 
+import `in`.shvms.trackme.theme.LocalTrackMeSemantics
 import androidx.compose.material3.SnackbarDuration
 import `in`.shvms.trackme.ui.components.rememberMessenger
 import androidx.compose.animation.AnimatedVisibility
@@ -54,6 +55,7 @@ fun AccountManagementScreen(
     val strings = LocalAppStrings.current
     val context = LocalContext.current
     val messenger = rememberMessenger()
+    val semantics = LocalTrackMeSemantics.current
     val isOffline = rememberIsOffline()
     val user by viewModel.currentUser.collectAsState()
     var isPrivacyExpanded by remember { mutableStateOf(false) }
@@ -384,10 +386,14 @@ fun AccountManagementScreen(
                                 else -> "Status: Queued"
                             },
                             style = MaterialTheme.typography.labelSmall,
+                            // These were three literal hex values duplicating what the semantic
+                            // tokens already mean — and being literals, they did not adapt to
+                            // theme at all. Queued is not a state, so it takes the neutral
+                            // low-emphasis role rather than a colour of its own.
                             color = when (exportStatus) {
-                                "COMPLETED" -> Color(0xFF4ADE80)
-                                "PROCESSING" -> Color(0xFFFBBF24)
-                                else -> Color(0xFF94A3B8)
+                                "COMPLETED" -> semantics.success
+                                "PROCESSING" -> semantics.warning
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
                             }
                         )
                     }

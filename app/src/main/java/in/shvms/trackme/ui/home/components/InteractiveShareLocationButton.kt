@@ -120,7 +120,10 @@ fun InteractiveShareLocationButton(
     val animatedBgColor by animateColorAsState(
         targetValue = when {
             isDisabled -> TrackMeGrey.copy(alpha = 0.55f)
-            isDrawerOpen -> Color(0xFFE0E0E0)
+            // Was a hardcoded light grey, which flashed pale against the night basemap. The
+            // active/inactive states below stay on their fixed accent fills — those are their
+            // own surfaces with foregrounds chosen for them.
+            isDrawerOpen -> MaterialTheme.colorScheme.surfaceContainerHighest
             isActive -> activeBgColor
             isStarting -> activeBgColor.copy(alpha = blinkingAlpha)
             else -> inactiveBgColor

@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.history
 
+import `in`.shvms.trackme.ui.components.rememberMapStyle
 import `in`.shvms.trackme.ui.components.rememberMessenger
 import android.content.Context
 import android.content.Intent
@@ -127,6 +128,7 @@ fun MultiRideCompareScreen(
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    val mapStyle = rememberMapStyle()
     val messenger = rememberMessenger()
     val routes = remember(rides) { prepareComparisonRoutes(rides) }
     val visibleRoutes = remember(routes) { routes.filter { it.points.isNotEmpty() } }
@@ -187,7 +189,7 @@ fun MultiRideCompareScreen(
                     GoogleMap(
                         modifier = Modifier.fillMaxSize(),
                         cameraPositionState = cameraPositionState,
-                        properties = MapProperties(isTrafficEnabled = false),
+                        properties = MapProperties(isTrafficEnabled = false, mapStyleOptions = mapStyle),
                         uiSettings = MapUiSettings(zoomControlsEnabled = false, compassEnabled = false)
                     ) {
                         visibleRoutes.forEachIndexed { index, route ->
@@ -208,7 +210,7 @@ fun MultiRideCompareScreen(
                                     LatLng(connector.from.latitude, connector.from.longitude),
                                     LatLng(connector.to.latitude, connector.to.longitude)
                                 ),
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.outline,
                                 width = 5f,
                                 pattern = listOf(Dot(), Gap(12f))
                             )

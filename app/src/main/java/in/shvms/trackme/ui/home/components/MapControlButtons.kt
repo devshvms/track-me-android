@@ -137,7 +137,14 @@ fun MapLayerHorizontalDrawerButton(
     )
 
     val animatedBgColor by animateColorAsState(
-        targetValue = if (isDrawerOpen) Color(0xFFE0E0E0) else MaterialTheme.colorScheme.surface,
+        // The closed state was already themed; the open state was a hardcoded light grey, so on
+        // the night basemap the button flashed pale when opened. surfaceContainerHighest is the
+        // raised tone and works in both themes.
+        targetValue = if (isDrawerOpen) {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        } else {
+            MaterialTheme.colorScheme.surface
+        },
         animationSpec = tween(220, easing = FastOutSlowInEasing),
         label = "mapLayerBgColor"
     )
