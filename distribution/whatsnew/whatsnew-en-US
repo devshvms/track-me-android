@@ -1,9 +1,11 @@
 TrackMe 1.8.0
 
+• Messages are part of the app now. Confirmations and errors no longer float over it as system popups.
+
+• Settings rebuilt: grouped rows, consistent spacing, and the whole row toggles rather than just the switch.
+
 • Warning text is readable again. The amber used for warnings failed the accessibility contrast minimum on light backgrounds.
 
-• Cleaner surfaces. Cards, sheets and the navigation bar now sit at genuinely different levels instead of blending into the background.
-
-• Dividers and borders no longer look identical, so lists and settings are easier to scan.
+• Deleting a ride animates instead of making the list jump.
 
 Tracking, group rides, sync and export are unchanged.

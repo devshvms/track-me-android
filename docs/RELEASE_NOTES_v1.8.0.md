@@ -10,14 +10,18 @@ Full specification: [`DESIGN_SYSTEM_1.8.md`](DESIGN_SYSTEM_1.8.md).
 
 ## For the store listing
 
-Groundwork, plus one fix people will actually notice.
-
+- **Messages are part of the app now.** Every confirmation and error was a system Toast floating
+  over the app; they are Snackbars — themed, dismissable, and readable against the app's own
+  surfaces.
+- **Settings is rebuilt.** Grouped rows with consistent spacing and touch targets, section labels
+  you can skim, and the whole row toggles rather than just the switch.
 - **Warning text is readable again.** The amber used for warnings failed the accessibility
   contrast minimum on light backgrounds. It now clears it comfortably in both themes.
 - **Cleaner surfaces.** Cards, sheets and the navigation bar now sit at genuinely different
   levels instead of blending into the background.
 - **Dividers and borders no longer look identical**, so lists and grouped settings are easier to
   scan.
+- **Deleting a ride animates** instead of making the list jump.
 
 > Nothing about tracking, group rides, sync or export changes in this release.
 
@@ -69,6 +73,37 @@ The brand colour itself is **unchanged**: `#29B6F6`, the same seed that is on th
 store listing. Every colour in the app is now generated from it rather than picked by hand.
 
 ---
+
+## Phase 2 — components
+
+**39 of 40 Toasts became Snackbars.** A `Toast` renders outside the app's theme, cannot be
+dismissed, cannot carry an action, and on Android 12+ is rate-limited and stamped with the app
+icon and name. The one remaining lives in `TrackingService`, which is a Service with no
+composition to host a Snackbar — that wants a notification, and is phase 4.
+
+The reason `Toast` kept winning was ergonomic, not architectural: `showSnackbar` is a `suspend`
+function, so the correct surface cost four lines against Toast's one. `TrackMeMessenger` makes it
+one line, replaces rather than queues, and is app-scoped so a message survives the screen that
+sent it being popped.
+
+**New components:** `SettingsGroup`, `SettingsSwitchRow`, `SettingsRow`, `SettingsDivider`.
+
+## Phase 3 — Settings
+
+**682 lines → 569.** Five hand-rolled `Card`s became five `SettingsGroup`s; fifteen hand-built
+`Row`s became seven `ListItem`-backed rows. The app used `ListItem` exactly zero times, and each
+of the fifteen hand-built copies had drifted — different padding, some toggleable across the whole
+row and some only on the switch. That drift is what "the screens don't quite line up" was.
+
+Settings went first because it is the lowest-risk screen and, per PostHog, the second most used:
+**979 minutes across 36 of 41 Android users** in 90 days. The original ordering was a risk guess;
+the usage data agreed with it.
+
+One deliberate presentation change: **Help & Feedback** was a card wrapping a full-width button
+and is now a navigating row with a chevron. Same destination, same single tap.
+
+**History** gained `animateItem()` on its ride list. It already had stable keys, so placement
+animation was one line — without the keys it would have animated the wrong rows.
 
 ## Under the hood
 

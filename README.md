@@ -9,7 +9,7 @@
 
 ## 🌟 Key Features (v1.8.0)
 
-*   **Material 3 Design System (1.8.0):** Every colour in the app is now generated from a single brand seed (`#29B6F6`) as tonal ramps, rather than hand-picked hex values — with shape, spacing, elevation and motion tokens alongside it. Fixes a live accessibility defect where warning amber measured 2.15:1 on light surfaces, below the WCAG AA minimum of 4.5:1. Phase 1 of 5; see [`docs/DESIGN_SYSTEM_1.8.md`](docs/DESIGN_SYSTEM_1.8.md).
+*   **Material 3 Design System (1.8.0):** Every colour in the app is now generated from a single brand seed (`#29B6F6`) as tonal ramps, rather than hand-picked hex values — with shape, spacing, elevation and motion tokens alongside it. Fixes a live accessibility defect where warning amber measured 2.15:1 on light surfaces, below the WCAG AA minimum of 4.5:1. Phases 1–3 in progress; see [`docs/DESIGN_SYSTEM_1.8.md`](docs/DESIGN_SYSTEM_1.8.md).
 
 *   **End-to-End Encrypted (E2EE) Group Rides:** Create or join group ride sessions with client-side AES-GCM-256 location & presence encryption. Group decryption keys (`#k=...`) remain in the URI fragment and are never shared with servers.
 *   **Rider Status (1.7.2):** Say what is happening — a fuel stop, a vehicle issue, a break — as a structured code whose severity is readable without knowing the message, so an older client renders a newer status at the right urgency instead of dropping it. Statuses travel in their own encrypted slot, so a rider whose location permission is revoked can still be heard.
