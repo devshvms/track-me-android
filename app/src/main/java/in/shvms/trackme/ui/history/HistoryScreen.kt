@@ -501,7 +501,11 @@ fun RideHistoryCard(
                 // light and dark themes instead of blending into a grey wash.
                 MaterialTheme.colorScheme.primaryContainer
             } else {
-                MaterialTheme.colorScheme.surface
+                // surface is the SCREEN BACKGROUND role, so an unselected card was painting
+                // itself the same colour as the page behind it and relying entirely on a 1dp
+                // shadow to be visible — which in dark theme is invisible. containerLow is the
+                // level-1 role and separates by tone, which works in both themes.
+                MaterialTheme.colorScheme.surfaceContainerLow
             }
         )
     ) {

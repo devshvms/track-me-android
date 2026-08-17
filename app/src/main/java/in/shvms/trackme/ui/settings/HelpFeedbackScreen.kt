@@ -118,7 +118,7 @@ fun HelpFeedbackScreen(navController: NavController? = null) {
                         role = Role.Button
                         stateDescription = if (index in expanded) strings.mapLayersExpanded else strings.mapLayersCollapsed
                     },
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(modifier = Modifier.fillMaxWidth()) {

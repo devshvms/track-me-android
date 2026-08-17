@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.home.components
 
+import `in`.shvms.trackme.theme.LocalTrackMeElevation
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -113,6 +114,7 @@ fun ActiveRideHudPanel(
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
+    val elevation = LocalTrackMeElevation.current
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -267,10 +269,16 @@ fun ActiveRideHudPanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 6.dp),
-            shape = RoundedCornerShape(20.dp),
+            // On-scale: 20dp was between `large` (16) and `extraLarge` (28) and on neither.
+            // `large` is the closer of the two and reads as a composed panel rather than a pill.
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-            tonalElevation = 6.dp,
-            shadowElevation = 8.dp
+            // Level 3 — a panel floating over the map, so it casts. 8dp was level 4, which the
+            // elevation ladder reserves for hover and drag states; nothing rests there.
+            // Note tonalElevation is inert while an explicit `color` is set; kept for the day
+            // this panel stops being translucent.
+            tonalElevation = elevation.level3,
+            shadowElevation = elevation.level3
         ) {
             Column(
                 modifier = Modifier

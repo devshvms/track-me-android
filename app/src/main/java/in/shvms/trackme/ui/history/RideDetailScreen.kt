@@ -611,7 +611,7 @@ fun RideDetailScreen(
                 
                 Card(
                     modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         val ridePersona = remember(ride.persona) {
@@ -1062,7 +1062,7 @@ fun CombinedMetricLineChart(
         modifier = modifier.semantics {
             contentDescription = buildChartAccessibilityDescription(points, imperial)
         },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val width = size.width
