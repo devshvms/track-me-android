@@ -233,13 +233,10 @@ fun StatusChip(
     onClick: (() -> Unit)? = null,
 ) {
     val accent = severity.color().let { if (dimmed) it.copy(alpha = 0.45f) else it }
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = accent,
-        modifier = modifier
-            .then(if (onClick != null) Modifier.heightIn(min = 32.dp) else Modifier)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-    ) {
+    // Two calls rather than a conditional modifier: a `.clickable` above the Surface draws its
+    // press indication on the square layout bounds, so a rounded chip flashed as a rectangle.
+    // The onClick overload puts it inside the Surface's own clip.
+    val chipContent: @Composable () -> Unit = {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -267,5 +264,22 @@ fun StatusChip(
                 )
             }
         }
+    }
+
+    if (onClick != null) {
+        Surface(
+            onClick = onClick,
+            shape = RoundedCornerShape(12.dp),
+            color = accent,
+            modifier = modifier.heightIn(min = 32.dp),
+            content = chipContent,
+        )
+    } else {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = accent,
+            modifier = modifier,
+            content = chipContent,
+        )
     }
 }

@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -61,18 +62,23 @@ fun MapControlCircleButton(
     val context = LocalContext.current
     val buttonScale = remember { Animatable(1f) }
 
+    // `Surface(onClick = …)` rather than a `.clickable` in the modifier chain. A clickable passed
+    // in from outside sits above Surface's own `clip(shape)`, so its ripple and press highlight
+    // are drawn against the un-clipped layout bounds — a square flash behind a circular button.
+    // The onClick overload puts the indication inside the clip, where the shape applies to it, and
+    // still outside the shadow, which must not be clipped or it disappears.
     Surface(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            triggerPhysicalVibrate(context, 35L)
+            onClick()
+        },
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = LocalTrackMeElevation.current.mapOverlay,
         modifier = modifier
             .size(52.dp)
             .scale(buttonScale.value)
-            .clickable {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                triggerPhysicalVibrate(context, 35L)
-                onClick()
-            }
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
@@ -158,6 +164,13 @@ fun MapLayerHorizontalDrawerButton(
     Box(contentAlignment = Alignment.Center, modifier = modifier) {
         // Main 52dp circular button
         Surface(
+            onClick = {
+                val now = System.currentTimeMillis()
+                if (now - lastDismissTime > 100L) {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    isDrawerOpen = !isDrawerOpen
+                }
+            },
             shape = CircleShape,
             color = animatedBgColor,
             shadowElevation = LocalTrackMeElevation.current.mapOverlay,
@@ -166,13 +179,7 @@ fun MapLayerHorizontalDrawerButton(
                 .semantics(mergeDescendants = true) {
                     this.contentDescription = if (isDrawerOpen) strings.close else strings.mapLayers
                     this.stateDescription = if (isDrawerOpen) strings.mapLayersExpanded else strings.mapLayersCollapsed
-                }
-                .clickable(role = Role.Button) {
-                    val now = System.currentTimeMillis()
-                    if (now - lastDismissTime > 100L) {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        isDrawerOpen = !isDrawerOpen
-                    }
+                    this.role = Role.Button
                 }
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -311,31 +318,18 @@ private fun MapLayerOptionButton(
 ) {
     val bgColor = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
     val iconColor = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-    val interactionModifier = when (role) {
-        Role.RadioButton -> Modifier.selectable(
-            selected = isActive,
-            role = role,
-            onClick = onClick
-        )
-        Role.Switch -> Modifier.toggleable(
-            value = isActive,
-            role = role,
-            onValueChange = { onClick() }
-        )
-        else -> Modifier.clickable(onClick = onClick)
-    }
 
-    Surface(
-        shape = CircleShape,
-        color = bgColor,
-        shadowElevation = 2.dp,
-        modifier = Modifier
-            .size(42.dp)
-            .semantics(mergeDescendants = true) {
-                this.contentDescription = contentDescription
-            }
-            .then(interactionModifier)
-    ) {
+    // Same square-ripple fix as the buttons above, via the selected/checked Surface overloads.
+    // Those do not take a `role`, so it is set in the semantics block instead — losing the
+    // RadioButton/Switch role would change what a screen reader says about a control whose whole
+    // job is showing which map layer is active.
+    val semantics = Modifier
+        .size(42.dp)
+        .semantics(mergeDescendants = true) {
+            this.contentDescription = contentDescription
+            this.role = role
+        }
+    val content: @Composable () -> Unit = {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 imageVector = icon,
@@ -344,5 +338,34 @@ private fun MapLayerOptionButton(
                 modifier = Modifier.size(24.dp)
             )
         }
+    }
+
+    when (role) {
+        Role.RadioButton -> Surface(
+            selected = isActive,
+            onClick = onClick,
+            shape = CircleShape,
+            color = bgColor,
+            shadowElevation = 2.dp,
+            modifier = semantics,
+            content = content,
+        )
+        Role.Switch -> Surface(
+            checked = isActive,
+            onCheckedChange = { onClick() },
+            shape = CircleShape,
+            color = bgColor,
+            shadowElevation = 2.dp,
+            modifier = semantics,
+            content = content,
+        )
+        else -> Surface(
+            onClick = onClick,
+            shape = CircleShape,
+            color = bgColor,
+            shadowElevation = 2.dp,
+            modifier = semantics,
+            content = content,
+        )
     }
 }

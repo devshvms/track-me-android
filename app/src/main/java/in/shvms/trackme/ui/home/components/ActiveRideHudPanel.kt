@@ -163,23 +163,22 @@ fun ActiveRideHudPanel(
                 // Kept at full `error` emphasis rather than `errorContainer`: this pill is what
                 // tells you the ride is not being recorded, which is the one thing on this screen
                 // that must not be missable.
+                // onClick on the Surface so the press indication is clipped to the pill's corners
+                // rather than flashing as a rectangle behind it.
                 Surface(
+                    onClick = {
+                        val settingsAction = if (trackingState == TrackingState.STORAGE_LOW) {
+                            android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS
+                        } else {
+                            android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS
+                        }
+                        context.startActivity(android.content.Intent(settingsAction))
+                    },
                     shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError,
                     shadowElevation = elevation.mapOverlay,
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .clickable {
-                            val settingsAction = if (trackingState == TrackingState.STORAGE_LOW) {
-                                android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS
-                            } else {
-                                android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS
-                            }
-                            context.startActivity(
-                                android.content.Intent(settingsAction)
-                            )
-                        }
+                    modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
                     val lostSeconds = (timeSinceLastGps / 1000L).coerceAtLeast(1L)
                     Row(

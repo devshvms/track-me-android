@@ -337,13 +337,14 @@ private fun DrawerOptionCircleButton(
     iconTint: Color = Color.Black.copy(alpha = 0.85f),
     onClick: () -> Unit
 ) {
+    // onClick on the Surface, not a .clickable above it — otherwise the press indication is drawn
+    // on the square layout bounds instead of inside the circle. See MapControlCircleButton.
     Surface(
+        onClick = onClick,
         shape = CircleShape,
         color = color,
         shadowElevation = 2.dp,
-        modifier = Modifier
-            .size(52.dp)
-            .clickable(onClick = onClick)
+        modifier = Modifier.size(52.dp)
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
