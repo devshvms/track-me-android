@@ -507,7 +507,48 @@ fun RideDetailScreen(
                 val hasChartData = points.size > 1 &&
                     (ride.postRideCalculation?.distance ?: 0.0) >= `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DISTANCE_METERS
 
-                if (hasChartData) {
+                // Splits are offered only on foot, and are the default there. The line chart
+                // answers "what was I doing at this moment", which is what the scrubber is for;
+                // splits answer "was I consistent, did I fade", which on foot is usually the
+                // question. On wheels a per-kilometre table says little, so the toggle is absent
+                // rather than present and pointless.
+                val offersSplits = chartPersona.usesPace
+                var showSplits by rememberSaveable(offersSplits) { mutableStateOf(offersSplits) }
+                val splits = remember(points, imperial, offersSplits) {
+                    if (offersSplits) {
+                        `in`.shvms.trackme.domain.rideSplits(points, imperial)
+                    } else {
+                        emptyList()
+                    }
+                }
+
+                if (hasChartData && offersSplits && splits.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = showSplits,
+                            onClick = { showSplits = true },
+                            label = { Text(strings.splitsTitle) }
+                        )
+                        FilterChip(
+                            selected = !showSplits,
+                            onClick = { showSplits = false },
+                            label = { Text(strings.chartTitle) }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                if (hasChartData && showSplits && splits.isNotEmpty()) {
+                    RideSplitsSection(
+                        splits = splits,
+                        imperial = imperial,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                } else if (hasChartData) {
                     // The effort series is pace on foot and speed on wheels. Plotting km/h for a
                     // walk gives a flat line between 4 and 6 -- a real change in effort is under
                     // two km/h, which is indistinguishable from GPS noise at chart scale, where

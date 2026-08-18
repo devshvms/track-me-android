@@ -67,6 +67,12 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val bestPace: String = s("bestPace", "Best Pace")
     val pace: String = s("pace", "Pace")
     val maxGForce: String = s("maxGForce", "Max G-Force")
+
+    // Per-kilometre splits, shown instead of the sample chart on foot.
+    val splitsTitle: String = s("splitsTitle", "Splits")
+    val chartTitle: String = s("chartTitle", "Chart")
+    val splitFastest: String = s("splitFastest", "fastest")
+    val splitPartial: String = s("splitPartial", "partial")
     val elevation: String = s("elevation", "Elevation")
     val mapLayerNormal: String = s("mapLayerNormal", "Normal map")
     val mapLayerSatellite: String = s("mapLayerSatellite", "Satellite map")
@@ -849,6 +855,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bestPace" to "Mejor ritmo",
             "pace" to "Ritmo",
             "maxGForce" to "Fuerza G máx.",
+            "splitsTitle" to "Parciales",
+            "chartTitle" to "Gráfico",
+            "splitFastest" to "el más rápido",
+            "splitPartial" to "parcial",
             "elevation" to "Altitud",
             "notifTrackingTitle" to "TrackMe está grabando tu viaje",
             "notifTrackingText" to "Viaje en curso",
@@ -1368,6 +1378,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bestPace" to "Meilleure allure",
             "pace" to "Allure",
             "maxGForce" to "Force G max.",
+            "splitsTitle" to "Fractionnés",
+            "chartTitle" to "Graphique",
+            "splitFastest" to "le plus rapide",
+            "splitPartial" to "partiel",
             "elevation" to "Altitude",
             "notifTrackingTitle" to "TrackMe enregistre votre trajet",
             "notifTrackingText" to "Trajet en cours",
@@ -1887,6 +1901,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bestPace" to "Bestes Tempo",
             "pace" to "Tempo",
             "maxGForce" to "Max. G-Kraft",
+            "splitsTitle" to "Kilometer",
+            "chartTitle" to "Diagramm",
+            "splitFastest" to "schnellster",
+            "splitPartial" to "teilweise",
             "elevation" to "Höhe",
             "notifTrackingTitle" to "TrackMe zeichnet deine Fahrt auf",
             "notifTrackingText" to "Fahrt läuft",
@@ -2406,6 +2424,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bestPace" to "सर्वोत्तम गति-दर",
             "pace" to "गति-दर",
             "maxGForce" to "अधिकतम जी-फ़ोर्स",
+            "splitsTitle" to "प्रति किमी",
+            "chartTitle" to "ग्राफ़",
+            "splitFastest" to "सबसे तेज़",
+            "splitPartial" to "आंशिक",
             "elevation" to "ऊंचाई",
             "notifTrackingTitle" to "TrackMe आपकी राइड रिकॉर्ड कर रहा है",
             "notifTrackingText" to "राइड जारी है",
@@ -2925,6 +2947,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bestPace" to "ベストペース",
             "pace" to "ペース",
             "maxGForce" to "最大G",
+            "splitsTitle" to "ラップ",
+            "chartTitle" to "グラフ",
+            "splitFastest" to "最速",
+            "splitPartial" to "途中",
             "elevation" to "標高",
             "notifTrackingTitle" to "TrackMeがライドを記録しています",
             "notifTrackingText" to "ライド進行中",
@@ -3444,6 +3470,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bestPace" to "最佳配速",
             "pace" to "配速",
             "maxGForce" to "最大G力",
+            "splitsTitle" to "分段",
+            "chartTitle" to "图表",
+            "splitFastest" to "最快",
+            "splitPartial" to "未完整",
             "elevation" to "海拔",
             "notifTrackingTitle" to "TrackMe正在记录你的骑行",
             "notifTrackingText" to "骑行进行中",
