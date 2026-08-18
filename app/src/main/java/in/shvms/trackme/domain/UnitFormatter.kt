@@ -32,4 +32,37 @@ object UnitFormatter {
         String.format(locale, "%.1f %s", mps * if (imperial) 2.236936 else 3.6, if (imperial) "mph" else "km/h")
     fun distanceUnitLabel(imperial: Boolean) = if (imperial) "mi" else "km"
     fun speedUnitLabel(imperial: Boolean) = if (imperial) "mph" else "km/h"
+
+    /**
+     * Minutes and seconds per distance unit — the metric on foot.
+     *
+     * Speed in km/h is close to meaningless at walking and running pace. The difference between a
+     * comfortable jog and a hard effort is roughly two km/h, which reads as noise on a chart; the
+     * same gap expressed as pace is a minute and a half per kilometre.
+     *
+     * Guarded at both ends. Below [PACE_MIN_SPEED_MPS] the arithmetic runs away toward infinity,
+     * and above [PACE_MAX_MINUTES] the number has stopped describing movement — a stopped or
+     * barely shuffling sample would otherwise print a three-digit minute value as though it were
+     * data.
+     */
+    fun pace(mps: Double, imperial: Boolean, locale: Locale = Locale.getDefault()): String {
+        if (!mps.isFinite() || mps < PACE_MIN_SPEED_MPS) return "--:-- ${paceUnitLabel(imperial)}"
+        val secondsPerUnit = paceSecondsPerUnit(mps, imperial)
+        val minutes = (secondsPerUnit / 60).toInt()
+        if (minutes >= PACE_MAX_MINUTES) return "--:-- ${paceUnitLabel(imperial)}"
+        val seconds = (secondsPerUnit % 60).toInt()
+        return String.format(locale, "%d:%02d %s", minutes, seconds, paceUnitLabel(imperial))
+    }
+
+    /** Seconds per kilometre or per mile — the raw value, for plotting. */
+    fun paceSecondsPerUnit(mps: Double, imperial: Boolean): Double =
+        (if (imperial) METERS_PER_MILE else 1000.0) / mps
+
+    fun paceUnitLabel(imperial: Boolean) = if (imperial) "/mi" else "/km"
+
+    /** Below this the sample is a stop, not a slow pace. */
+    const val PACE_MIN_SPEED_MPS = 0.1
+
+    /** Above this the value has stopped describing movement. */
+    const val PACE_MAX_MINUTES = 60
 }

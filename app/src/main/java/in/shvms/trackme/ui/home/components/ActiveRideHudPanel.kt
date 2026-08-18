@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.domain.model.usesPace
 import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
@@ -87,7 +88,7 @@ fun ActiveRideHudPanel(
     /** Total wall-clock time since the ride started, including any paused segments. */
     elapsedDurationText: String,
     speedText: String,
-    /** Only shown for [RidePersona.WALK] (replaces [speedText]) — see the class doc. */
+    /** Shown instead of [speedText] for personas where [usesPace] holds — walk and run. */
     paceText: String,
     selectedPersona: RidePersona,
     isAutoPaused: Boolean,
@@ -319,8 +320,11 @@ fun ActiveRideHudPanel(
                 ) {
                     StatItem(label = strings.distance, value = distanceText)
                     StatItem(label = strings.duration, value = durationText, subValue = elapsedDurationText)
-                    if (selectedPersona == RidePersona.WALK) {
-                        StatItem(label = "PACE", value = paceText)
+                    // Shared rule, not an inline WALK check: running is the persona that cares
+                    // most about pace and was showing speed. "PACE" was also a hardcoded English
+                    // literal on a screen that ships in seven languages.
+                    if (selectedPersona.usesPace) {
+                        StatItem(label = strings.pace, value = paceText)
                     } else {
                         StatItem(label = strings.speed, value = speedText)
                     }

@@ -33,7 +33,7 @@ data class HomeUiState(
     val distanceMeters: Float = 0f,
     val durationMillis: Long = 0L,
     val speedText: String = "0.0 km/h",
-    /** Only meaningful/shown for [in.shvms.trackme.domain.model.RidePersona.WALK] — see [formatPace]. */
+    /** Meaningful only for personas where `usesPace` holds — walk and run. See [formatPace]. */
     val paceText: String = "--:-- /km",
     val isEmergencyActive: Boolean = false,
     val timeSinceLastGps: Long = 0L,

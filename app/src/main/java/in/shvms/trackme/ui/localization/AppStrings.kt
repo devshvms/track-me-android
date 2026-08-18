@@ -63,6 +63,10 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val duration: String = s("duration", "Duration")
     val avgSpeed: String = s("avgSpeed", "Avg Speed")
     val maxSpeed: String = s("maxSpeed", "Max Speed")
+    val avgPace: String = s("avgPace", "Avg Pace")
+    val bestPace: String = s("bestPace", "Best Pace")
+    val pace: String = s("pace", "Pace")
+    val maxGForce: String = s("maxGForce", "Max G-Force")
     val elevation: String = s("elevation", "Elevation")
     val mapLayerNormal: String = s("mapLayerNormal", "Normal map")
     val mapLayerSatellite: String = s("mapLayerSatellite", "Satellite map")
@@ -841,6 +845,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "duration" to "Duración",
             "avgSpeed" to "Vel. Media",
             "maxSpeed" to "Vel. Máx",
+            "avgPace" to "Ritmo medio",
+            "bestPace" to "Mejor ritmo",
+            "pace" to "Ritmo",
+            "maxGForce" to "Fuerza G máx.",
             "elevation" to "Altitud",
             "notifTrackingTitle" to "TrackMe está grabando tu viaje",
             "notifTrackingText" to "Viaje en curso",
@@ -1356,6 +1364,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "duration" to "Durée",
             "avgSpeed" to "Vit. Moy",
             "maxSpeed" to "Vit. Max",
+            "avgPace" to "Allure moy.",
+            "bestPace" to "Meilleure allure",
+            "pace" to "Allure",
+            "maxGForce" to "Force G max.",
             "elevation" to "Altitude",
             "notifTrackingTitle" to "TrackMe enregistre votre trajet",
             "notifTrackingText" to "Trajet en cours",
@@ -1871,6 +1883,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "duration" to "Dauer",
             "avgSpeed" to "Ø Geschw.",
             "maxSpeed" to "Max Geschw.",
+            "avgPace" to "Ø Tempo",
+            "bestPace" to "Bestes Tempo",
+            "pace" to "Tempo",
+            "maxGForce" to "Max. G-Kraft",
             "elevation" to "Höhe",
             "notifTrackingTitle" to "TrackMe zeichnet deine Fahrt auf",
             "notifTrackingText" to "Fahrt läuft",
@@ -2386,6 +2402,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "duration" to "समय",
             "avgSpeed" to "औसत गति",
             "maxSpeed" to "अधिकतम गति",
+            "avgPace" to "औसत गति-दर",
+            "bestPace" to "सर्वोत्तम गति-दर",
+            "pace" to "गति-दर",
+            "maxGForce" to "अधिकतम जी-फ़ोर्स",
             "elevation" to "ऊंचाई",
             "notifTrackingTitle" to "TrackMe आपकी राइड रिकॉर्ड कर रहा है",
             "notifTrackingText" to "राइड जारी है",
@@ -2901,6 +2921,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "duration" to "時間",
             "avgSpeed" to "平均速度",
             "maxSpeed" to "最高速度",
+            "avgPace" to "平均ペース",
+            "bestPace" to "ベストペース",
+            "pace" to "ペース",
+            "maxGForce" to "最大G",
             "elevation" to "標高",
             "notifTrackingTitle" to "TrackMeがライドを記録しています",
             "notifTrackingText" to "ライド進行中",
@@ -3416,6 +3440,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "duration" to "时长",
             "avgSpeed" to "平均速度",
             "maxSpeed" to "最高速度",
+            "avgPace" to "平均配速",
+            "bestPace" to "最佳配速",
+            "pace" to "配速",
+            "maxGForce" to "最大G力",
             "elevation" to "海拔",
             "notifTrackingTitle" to "TrackMe正在记录你的骑行",
             "notifTrackingText" to "骑行进行中",

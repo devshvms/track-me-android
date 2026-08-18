@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.style.TextOverflow
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.domain.model.usesPace
 import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.ui.components.moveSafely
 import `in`.shvms.trackme.ui.components.captureOffscreenMap
@@ -500,11 +501,19 @@ fun RideDetailScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                val chartPersona = remember(ride.persona) {
+                    runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
+                }
                 val hasChartData = points.size > 1 &&
                     (ride.postRideCalculation?.distance ?: 0.0) >= `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DISTANCE_METERS
 
                 if (hasChartData) {
-                    val speeds = points.map { it.speed * 3.6f }
+                    // The effort series is pace on foot and speed on wheels. Plotting km/h for a
+                    // walk gives a flat line between 4 and 6 -- a real change in effort is under
+                    // two km/h, which is indistinguishable from GPS noise at chart scale, where
+                    // the same change is over a minute per kilometre.
+                    val chartUsesPace = chartPersona.usesPace
+                    val speeds = points.map { effortValue(it.speed, chartUsesPace, imperial) }
                     val rawMinSpeed = speeds.minOrNull() ?: 0f
                     val rawMaxSpeed = speeds.maxOrNull() ?: 0f
                     val speedRange = if (rawMaxSpeed > rawMinSpeed) rawMaxSpeed - rawMinSpeed else 1f
@@ -538,6 +547,7 @@ fun RideDetailScreen(
 
                     CombinedMetricLineChart(
                         points = points,
+                        usesPace = chartUsesPace,
                         minSpeed = minSpeed,
                         maxSpeed = maxSpeed,
                         minAlt = minAlt,
@@ -639,25 +649,55 @@ fun RideDetailScreen(
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
                         val dateFormat = remember {
-                            java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
+                            java.text.SimpleDateFormat("MMM dd, yyyy - HH:mm", java.util.Locale.getDefault())
                         }
-                        // Same six metrics, same order, now on the shared grid — hairline-separated
-                        // cells with tabular figures so the columns stop jittering as values change.
+                        // Start time reads as a caption under the heading rather than as a grid
+                        // cell. In a third of a row it was always truncated to "Aug 17, ..." — the one
+                        // part of a timestamp that carries no information.
+                        Text(
+                            text = dateFormat.format(java.util.Date(ride.startTime)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        // Hairline-separated cells with tabular figures so the columns stop
+                        // jittering as values change.
+                        //
+                        // The effort column follows the persona: a walk or a run reports pace,
+                        // everything else reports speed. Freeing the start-time cell left room for
+                        // the best/max figure, which was already computed and only ever used to
+                        // name the ride.
+                        val effortIsPace = ridePersona.usesPace
+                        val avgMps = (ride.postRideCalculation?.avgSpeed ?: 0f).toDouble()
+                        val maxMps = (ride.postRideCalculation?.maxSpeed ?: 0f).toDouble()
                         StatGrid(
                             listOf(
                                 Stat(strings.distance, `in`.shvms.trackme.domain.UnitFormatter.rideDistance(ride.postRideCalculation?.distance ?: 0.0, imperial)),
                                 Stat(strings.duration, formatDuration((ride.endTime ?: ride.startTime) - ride.startTime)),
-                                Stat(strings.gpsPoints, points.size.toString()),
+                                Stat(
+                                    if (effortIsPace) strings.avgPace else strings.avgSpeed,
+                                    if (effortIsPace) {
+                                        `in`.shvms.trackme.domain.UnitFormatter.pace(avgMps, imperial)
+                                    } else {
+                                        `in`.shvms.trackme.domain.UnitFormatter.speed(avgMps, imperial)
+                                    }
+                                ),
                             )
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         StatGrid(
                             listOf(
-                                Stat("Start Time", dateFormat.format(java.util.Date(ride.startTime))),
-                                Stat("Max G-Force", String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f)),
-                                Stat(strings.avgSpeed, `in`.shvms.trackme.domain.UnitFormatter.speed((ride.postRideCalculation?.avgSpeed ?: 0f).toDouble(), imperial)),
+                                Stat(strings.gpsPoints, points.size.toString()),
+                                Stat(strings.maxGForce, String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f)),
+                                Stat(
+                                    if (effortIsPace) strings.bestPace else strings.maxSpeed,
+                                    if (effortIsPace) {
+                                        `in`.shvms.trackme.domain.UnitFormatter.pace(maxMps, imperial)
+                                    } else {
+                                        `in`.shvms.trackme.domain.UnitFormatter.speed(maxMps, imperial)
+                                    }
+                                ),
                             )
                         )
                     }
@@ -1154,6 +1194,8 @@ fun StatItem(label: String, value: String, modifier: Modifier = Modifier) {
 @Composable
 fun CombinedMetricLineChart(
     points: List<GPSPointEntity>,
+    /** Whether the effort series is pace (minutes per unit) rather than speed. */
+    usesPace: Boolean = false,
     minSpeed: Float,
     maxSpeed: Float,
     minAlt: Float,
@@ -1304,7 +1346,7 @@ fun CombinedMetricLineChart(
                 )
                 
                 val p = plotData[scrubIndex].first
-                val sVal = p.speed * 3.6f
+                val sVal = effortValue(p.speed, usesPace, imperial)
                 val aVal = p.altitude.toFloat()
                 
                 val sY = topPadding + usableHeight - (((sVal - minSpeed) / speedRange) * usableHeight)
@@ -1314,7 +1356,11 @@ fun CombinedMetricLineChart(
                 drawCircle(color = speedColor, radius = 8f, center = Offset(scrubX, sY))
                 drawCircle(color = Color.White, radius = 4f, center = Offset(scrubX, sY))
                 
-                val sText = `in`.shvms.trackme.domain.UnitFormatter.speed(p.speed.toDouble(), imperial)
+                val sText = if (usesPace) {
+                    `in`.shvms.trackme.domain.UnitFormatter.pace(p.speed.toDouble(), imperial)
+                } else {
+                    `in`.shvms.trackme.domain.UnitFormatter.speed(p.speed.toDouble(), imperial)
+                }
                 val sTextLayout = textMeasurer.measure(sText, style = labelStyle.copy(color = Color.White))
                 val sLabelW = sTextLayout.size.width + 16f
                 val sLabelH = sTextLayout.size.height + 8f
@@ -1386,4 +1432,24 @@ private fun formatDuration(durationMillis: Long): String {
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
     return String.format(java.util.Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
+}
+
+/**
+ * One sample of the effort series, in whatever unit the chart is plotting.
+ *
+ * Speed goes up with effort and pace goes down, so the two curves are mirror images. That is not a
+ * bug to correct: a pace chart dipping is what "went faster" looks like to anyone who reads one,
+ * and flipping the axis to make it rise would disagree with every other running app.
+ *
+ * Stopped samples are clamped to the guard ceiling rather than allowed to run to infinity, which
+ * would flatten the entire rest of the ride into a single line at the bottom of the plot.
+ */
+internal fun effortValue(speedMps: Float, usesPace: Boolean, imperial: Boolean): Float {
+    if (!usesPace) return speedMps * if (imperial) 2.236936f else 3.6f
+    if (speedMps < `in`.shvms.trackme.domain.UnitFormatter.PACE_MIN_SPEED_MPS) {
+        return `in`.shvms.trackme.domain.UnitFormatter.PACE_MAX_MINUTES.toFloat()
+    }
+    val minutes = `in`.shvms.trackme.domain.UnitFormatter
+        .paceSecondsPerUnit(speedMps.toDouble(), imperial).toFloat() / 60f
+    return minutes.coerceAtMost(`in`.shvms.trackme.domain.UnitFormatter.PACE_MAX_MINUTES.toFloat())
 }
