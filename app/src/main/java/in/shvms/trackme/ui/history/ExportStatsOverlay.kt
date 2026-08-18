@@ -50,10 +50,13 @@ enum class StatsOverlayStyle {
      */
     fun rect(): OverlayRect? = when (this) {
         None -> null
-        BottomBar -> OverlayRect(left = 0f, top = 0.80f, right = 1f, bottom = 1f, inset = 0f)
-        BottomHalf -> OverlayRect(left = 0.50f, top = 0.82f, right = 1f, bottom = 1f, inset = 0f)
-        TopLeft -> OverlayRect(left = 0.03f, top = 0.03f, right = 0.52f, bottom = 0.19f, inset = 0.02f)
-        TopRight -> OverlayRect(left = 0.48f, top = 0.03f, right = 0.97f, bottom = 0.19f, inset = 0.02f)
+        // Heights are for a single line of stats. They were sized for two lines, because the
+        // panel used to repeat the ride title above the figures -- a name the sharer already knows
+        // and the viewer gets from the caption, costing a fifth of the frame to say it.
+        BottomBar -> OverlayRect(left = 0f, top = 0.88f, right = 1f, bottom = 1f, inset = 0f)
+        BottomHalf -> OverlayRect(left = 0.50f, top = 0.88f, right = 1f, bottom = 1f, inset = 0f)
+        TopLeft -> OverlayRect(left = 0.03f, top = 0.03f, right = 0.46f, bottom = 0.13f, inset = 0.02f)
+        TopRight -> OverlayRect(left = 0.54f, top = 0.03f, right = 0.97f, bottom = 0.13f, inset = 0.02f)
     }
 
     /** Corner cards read as cards; the flush bottom band does not. */

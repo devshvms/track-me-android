@@ -230,15 +230,25 @@ class ExportOptionStyleTest {
     }
 
     @Test
-    fun bottomBarKeepsItsHistoricalGeometry() {
-        // Every export anyone has already made looks like this. Changing it would silently alter
-        // the appearance of a picture someone chose deliberately.
+    fun bottomBarIsFlushFullWidthAndSizedForOneLine() {
+        // Restated, not edited. This asserted 0.20 of the frame and said that changing it would
+        // silently alter every export already made -- which was the right guard while the panel
+        // carried two lines. The ride title is gone now, deliberately: it repeated a name the
+        // sharer knows and the viewer gets from the caption, and it cost a fifth of the picture.
+        // One line needs roughly half that. The anchoring is what must not drift.
         val rect = StatsOverlayStyle.BottomBar.rect()!!
-        assertEquals(0f, rect.left, 0.0001f)
-        assertEquals(1f, rect.right, 0.0001f)
-        assertEquals(1f, rect.bottom, 0.0001f)
-        assertEquals(0.20f, rect.heightFraction, 0.0001f)
-        assertEquals(0f, rect.inset, 0.0001f)
+        assertEquals("bottom bar spans the full width", 0f, rect.left, 0.0001f)
+        assertEquals("bottom bar spans the full width", 1f, rect.right, 0.0001f)
+        assertEquals("bottom bar is flush to the bottom edge", 1f, rect.bottom, 0.0001f)
+        assertEquals("a flush band is not rounded", 0f, rect.inset, 0.0001f)
+        assertTrue(
+            "a one-line band should be well under a fifth of the frame, was ",
+            rect.heightFraction < 0.16f,
+        )
+        assertTrue(
+            "but still tall enough to hold a line of text, was ",
+            rect.heightFraction > 0.06f,
+        )
     }
 
     @Test

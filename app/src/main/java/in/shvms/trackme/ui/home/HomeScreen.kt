@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.ui.home
 
 import androidx.compose.material3.SnackbarDuration
+import `in`.shvms.trackme.ui.components.TrackMeMapAttribution
 import `in`.shvms.trackme.ui.components.rememberMessenger
 import `in`.shvms.trackme.ui.components.rememberMapStyle
 import android.Manifest
@@ -626,6 +627,9 @@ fun HomeScreen(
                         )
                     }
                 }
+                // After the map, so it draws on top of it rather than under. Beside Google's own
+                // mark and never over it — see MapAttribution.
+                TrackMeMapAttribution(modifier = Modifier.align(Alignment.BottomStart))
             } else {
                 AlertDialog(
                     onDismissRequest = { /* Blocking dialog, do nothing */ },
@@ -751,6 +755,7 @@ fun HomeScreen(
                     audienceCount = (groupSession.roster.size - 1).coerceAtLeast(0),
                     onClick = onOpenCommunity,
                 )
+
 
                 MapLayerHorizontalDrawerButton(
                     currentMapType = mapType,

@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.history
 
+import `in`.shvms.trackme.ui.components.TrackMeMapAttribution
 import `in`.shvms.trackme.ui.components.rememberMapStyle
 import `in`.shvms.trackme.ui.components.rememberMessenger
 import android.content.Context
@@ -231,6 +232,7 @@ fun MultiRideCompareScreen(
                         kotlinx.coroutines.delay(200)
                         cameraPositionState.moveSafely { CameraUpdateFactory.newLatLngBounds(bounds, 72) }
                     }
+                    TrackMeMapAttribution(modifier = Modifier.align(Alignment.BottomStart))
                 }
             } else {
                 Surface(
@@ -584,6 +586,8 @@ private fun UnifiedAggregateRidePreviewDialog(
                         }
                     }
                 }
+                TrackMeMapAttribution(modifier = Modifier.align(Alignment.BottomStart))
+
                 val panelRect = settings.statsOverlay.rect()
                 if (panelRect != null && (settings.statsOverlay.isVisible || settings.showLegend)) {
                     val legendRows = remember(previewRoutes, strings.rideHistoryTitle) {

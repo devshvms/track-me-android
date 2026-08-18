@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.history
 
+import `in`.shvms.trackme.ui.components.TrackMeMapAttribution
 import `in`.shvms.trackme.ui.components.rememberMessenger
 import `in`.shvms.trackme.ui.components.rememberMapStyle
 import `in`.shvms.trackme.ui.components.Stat
@@ -486,6 +487,8 @@ fun RideDetailScreen(
                             }
                         }
 
+                        TrackMeMapAttribution(modifier = Modifier.align(Alignment.BottomStart))
+
                         Box(modifier = Modifier.align(Alignment.TopEnd).padding(top = 16.dp, end = 12.dp)) {
                             MapLayerHorizontalDrawerButton(
                                 currentMapType = mapType,
@@ -555,8 +558,17 @@ fun RideDetailScreen(
                     // the same change is over a minute per kilometre.
                     val chartUsesPace = chartPersona.usesPace
                     val speeds = points.map { effortValue(it.speed, chartUsesPace, imperial) }
-                    val rawMinSpeed = speeds.minOrNull() ?: 0f
-                    val rawMaxSpeed = speeds.maxOrNull() ?: 0f
+                    // Range from the moving samples only.
+                    //
+                    // A stopped sample clamps to the pace ceiling of 60 min/km. Letting that into
+                    // the range put the axis at 14..60 for a walk whose real spread is 14..17, so
+                    // the whole series compressed into the bottom few percent of the plot and the
+                    // line was invisible. One traffic light was enough to do it.
+                    val ceiling = `in`.shvms.trackme.domain.UnitFormatter.PACE_MAX_MINUTES.toFloat()
+                    val moving = if (chartUsesPace) speeds.filter { it < ceiling } else speeds
+                    val scale = moving.ifEmpty { speeds }
+                    val rawMinSpeed = scale.minOrNull() ?: 0f
+                    val rawMaxSpeed = scale.maxOrNull() ?: 0f
                     val speedRange = if (rawMaxSpeed > rawMinSpeed) rawMaxSpeed - rawMinSpeed else 1f
                     val minSpeed = rawMinSpeed - speedRange * 0.1f
                     val maxSpeed = rawMaxSpeed + speedRange * 0.1f
@@ -1146,6 +1158,9 @@ fun RideDetailScreen(
                             Marker(state = remember(latLngs.last()) { MarkerState(position = latLngs.last()) }, title = strings.mapFinish, icon = previewMarkerIcons.second)
                         }
                     }
+                    // Beside the Google mark the snapshot already carries, never over it.
+                    TrackMeMapAttribution(modifier = Modifier.align(Alignment.BottomStart))
+
                     settings.statsOverlay.rect()?.let { panel ->
                         val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(rideWithPoints?.ride?.postRideCalculation?.distance ?: 0.0, imperial)
                         val durationMillis = (rideWithPoints?.ride?.endTime ?: rideWithPoints?.ride?.startTime ?: 0L) - (rideWithPoints?.ride?.startTime ?: 0L)
@@ -1185,6 +1200,8 @@ fun RideDetailScreen(
                                 Alignment.CenterStart
                             }
                         ) {
+                            // The ride title is gone. It is a name the sharer already knows and the
+                            // viewer gets from the caption, and it cost a fifth of the frame.
                             Column(
                                 horizontalAlignment = if (settings.statsOverlay.alignsTextEnd) {
                                     Alignment.End
@@ -1192,18 +1209,6 @@ fun RideDetailScreen(
                                     Alignment.Start
                                 }
                             ) {
-                                Text(
-                                    rideWithPoints?.ride?.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride",
-                                    color = onPanel,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = if (settings.statsOverlay.isCard) {
-                                        MaterialTheme.typography.titleSmall
-                                    } else {
-                                        MaterialTheme.typography.titleMedium
-                                    }
-                                )
                                 Text(
                                     stats.joinToString(" • "),
                                     color = onPanel,
@@ -1354,7 +1359,9 @@ fun CombinedMetricLineChart(
                 for (i in 0 until plotData.size - 1) {
                     val xVal1 = plotData[i].second
                     val x1 = (xVal1 / maxX) * width
-                    val val1 = values[i]
+                    // Clamped to the axis so a stopped sample pins to the edge rather than
+                    // dragging the line off the plot.
+                    val val1 = if (isSpeed) values[i].coerceIn(minSpeed, maxSpeed) else values[i]
                     val y1 = topPadding + usableHeight - (((val1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * usableHeight)
 
                     if (isFirst) {
@@ -1362,7 +1369,7 @@ fun CombinedMetricLineChart(
                         isFirst = false
                     } else {
                         val prevX = (plotData[i - 1].second / maxX) * width
-                        val prevVal1 = values[i - 1]
+                        val prevVal1 = if (isSpeed) values[i - 1].coerceIn(minSpeed, maxSpeed) else values[i - 1]
                         val prevY = topPadding + usableHeight - (((prevVal1 - (if (isSpeed) minSpeed else minAlt)) / (if (isSpeed) speedRange else altRange)) * usableHeight)
                         val cpX = (prevX + x1) / 2f
                         path.cubicTo(cpX, prevY, cpX, y1, x1, y1)
@@ -1387,7 +1394,7 @@ fun CombinedMetricLineChart(
                 )
                 
                 val p = plotData[scrubIndex].first
-                val sVal = effortValue(p.speed, usesPace, imperial)
+                val sVal = effortValue(p.speed, usesPace, imperial).coerceIn(minSpeed, maxSpeed)
                 val aVal = p.altitude.toFloat()
                 
                 val sY = topPadding + usableHeight - (((sVal - minSpeed) / speedRange) * usableHeight)

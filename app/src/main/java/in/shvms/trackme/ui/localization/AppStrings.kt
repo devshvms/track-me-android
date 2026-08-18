@@ -73,6 +73,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val chartTitle: String = s("chartTitle", "Chart")
     val splitFastest: String = s("splitFastest", "fastest")
     val splitPartial: String = s("splitPartial", "partial")
+    val splitRemainder: String = s("splitRemainder", "remainder")
+    val splitRemainderShort: String = s("splitRemainderShort", "rem")
     val elevation: String = s("elevation", "Elevation")
     val mapLayerNormal: String = s("mapLayerNormal", "Normal map")
     val mapLayerSatellite: String = s("mapLayerSatellite", "Satellite map")
@@ -859,6 +861,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "chartTitle" to "Gráfico",
             "splitFastest" to "el más rápido",
             "splitPartial" to "parcial",
+            "splitRemainder" to "resto",
+            "splitRemainderShort" to "resto",
             "elevation" to "Altitud",
             "notifTrackingTitle" to "TrackMe está grabando tu viaje",
             "notifTrackingText" to "Viaje en curso",
@@ -1382,6 +1386,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "chartTitle" to "Graphique",
             "splitFastest" to "le plus rapide",
             "splitPartial" to "partiel",
+            "splitRemainder" to "reste",
+            "splitRemainderShort" to "reste",
             "elevation" to "Altitude",
             "notifTrackingTitle" to "TrackMe enregistre votre trajet",
             "notifTrackingText" to "Trajet en cours",
@@ -1905,6 +1911,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "chartTitle" to "Diagramm",
             "splitFastest" to "schnellster",
             "splitPartial" to "teilweise",
+            "splitRemainder" to "Rest",
+            "splitRemainderShort" to "Rest",
             "elevation" to "Höhe",
             "notifTrackingTitle" to "TrackMe zeichnet deine Fahrt auf",
             "notifTrackingText" to "Fahrt läuft",
@@ -2428,6 +2436,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "chartTitle" to "ग्राफ़",
             "splitFastest" to "सबसे तेज़",
             "splitPartial" to "आंशिक",
+            "splitRemainder" to "शेष",
+            "splitRemainderShort" to "शेष",
             "elevation" to "ऊंचाई",
             "notifTrackingTitle" to "TrackMe आपकी राइड रिकॉर्ड कर रहा है",
             "notifTrackingText" to "राइड जारी है",
@@ -2951,6 +2961,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "chartTitle" to "グラフ",
             "splitFastest" to "最速",
             "splitPartial" to "途中",
+            "splitRemainder" to "残り",
+            "splitRemainderShort" to "残り",
             "elevation" to "標高",
             "notifTrackingTitle" to "TrackMeがライドを記録しています",
             "notifTrackingText" to "ライド進行中",
@@ -3474,6 +3486,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "chartTitle" to "图表",
             "splitFastest" to "最快",
             "splitPartial" to "未完整",
+            "splitRemainder" to "剩余",
+            "splitRemainderShort" to "剩余",
             "elevation" to "海拔",
             "notifTrackingTitle" to "TrackMe正在记录你的骑行",
             "notifTrackingText" to "骑行进行中",

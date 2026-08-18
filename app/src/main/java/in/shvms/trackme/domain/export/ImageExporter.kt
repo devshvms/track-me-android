@@ -271,7 +271,7 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
             if (options.showDuration) statsList.add(durationStr)
             if (options.showDistance) statsList.add(distanceStr)
 
-            canvas.drawText(statsList.joinToString(" • "), textX, bannerTop + bannerHeight * 0.7f, textPaint)
+            canvas.drawText(statsList.joinToString(" • "), textX, bannerTop + bannerHeight * 0.66f, textPaint)
         }
         
         val exportsDir = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME)
