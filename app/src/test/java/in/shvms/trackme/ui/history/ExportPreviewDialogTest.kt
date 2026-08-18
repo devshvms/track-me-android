@@ -252,12 +252,15 @@ class ExportOptionStyleTest {
     }
 
     @Test
-    fun bottomHalfClearsTheAttributionCorner() {
-        // The Google logo sits bottom-left and must stay visible. A half-width band anchored left
-        // would cover it; anchored right it does not.
-        val rect = StatsOverlayStyle.BottomHalf.rect()!!
-        assertTrue("half panel must not reach the left edge", rect.left >= 0.5f)
-        assertEquals(1f, rect.right, 0.0001f)
+    fun cornerCardsClearTheAttributionCorner() {
+        // The Google mark sits bottom-left and must stay visible. This replaces a test on a
+        // half-width bottom band, which was removed: it read as a bottom bar someone had
+        // truncated, and the corner cards cover the same "leave the frame clear" case while
+        // staying out of the attribution corner entirely.
+        for (style in listOf(StatsOverlayStyle.TopLeft, StatsOverlayStyle.TopRight)) {
+            val rect = style.rect()!!
+            assertTrue(" must stay clear of the bottom edge", rect.bottom < 0.5f)
+        }
     }
 
     @Test
@@ -289,5 +292,46 @@ class ExportOptionStyleTest {
             rect.cornerRadiusPx(1920, 1080),
             0.0001f,
         )
+    }
+}
+
+/**
+ * Duration on a shared image.
+ *
+ * `HH:MM:SS` is right while a ride is running, where the seconds move and you are watching them.
+ * On a finished ride it asks the reader to parse `00:13:06` into "thirteen minutes" — three
+ * fields, two usually irrelevant, in the place the picture has least room.
+ */
+class CompactDurationTest {
+
+    @Test
+    fun hoursAndMinutesReadAsWords() {
+        assertEquals("2hr 4min", compactDuration(2 * 3_600_000L + 4 * 60_000L))
+    }
+
+    @Test
+    fun aWholeHourDropsTheZeroMinutes() {
+        // "2hr 0min" is a stopwatch pretending to be prose.
+        assertEquals("2hr", compactDuration(2 * 3_600_000L))
+    }
+
+    @Test
+    fun minutesAloneForAShortRide() {
+        assertEquals("8min", compactDuration(8 * 60_000L))
+        assertEquals("13min", compactDuration(13 * 60_000L + 6_000L))
+    }
+
+    @Test
+    fun secondsRatherThanBlankForAVeryShortRide() {
+        // A sub-minute ride is usually an accident, but an empty duration reads as a bug rather
+        // than as a very short ride.
+        assertEquals("45s", compactDuration(45_000L))
+        assertEquals("0s", compactDuration(0L))
+    }
+
+    @Test
+    fun negativeDurationsDoNotProduceNegativeText() {
+        // endTime before startTime happens with clock changes mid-ride.
+        assertEquals("0s", compactDuration(-5_000L))
     }
 }

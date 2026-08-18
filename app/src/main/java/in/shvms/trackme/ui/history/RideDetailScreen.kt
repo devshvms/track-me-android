@@ -945,7 +945,8 @@ fun RideDetailScreen(
                             context,
                             bitmap,
                             ExportOptions(
-                                showStats = settings.statsOverlay.isVisible,
+                                showStats = settings.statsOverlay.isVisible &&
+                                    (settings.showDate || settings.showDuration || settings.showDistance),
                                 statsPanel = settings.statsOverlay.rect()?.let { panel ->
                                     `in`.shvms.trackme.domain.export.StatsPanelRect(
                                         left = panel.left,
@@ -954,6 +955,7 @@ fun RideDetailScreen(
                                         bottom = panel.bottom,
                                         cornerFraction = panel.inset,
                                         alignEnd = settings.statsOverlay.alignsTextEnd,
+                                        stackFigures = settings.statsOverlay.stacksFigures,
                                     )
                                 },
                                 isDarkTheme = settings.darkTheme,
@@ -1166,11 +1168,14 @@ fun RideDetailScreen(
                     // Beside the Google mark the snapshot already carries, never over it.
                     TrackMeMapAttribution(modifier = Modifier.align(Alignment.BottomStart))
 
-                    settings.statsOverlay.rect()?.let { panel ->
+                    // Nothing selected means nothing drawn. A panel with an empty line in it is a
+                    // smear across the map that says less than the map it is covering.
+                    val anyFigureSelected = settings.showDate || settings.showDuration || settings.showDistance
+                    settings.statsOverlay.rect()?.takeIf { anyFigureSelected }?.let { panel ->
                         val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(rideWithPoints?.ride?.postRideCalculation?.distance ?: 0.0, imperial)
                         val durationMillis = (rideWithPoints?.ride?.endTime ?: rideWithPoints?.ride?.startTime ?: 0L) - (rideWithPoints?.ride?.startTime ?: 0L)
                         val seconds = durationMillis / 1000
-                        val durationStr = String.format(java.util.Locale.getDefault(), "%02d:%02d:%02d", seconds / 3600, (seconds % 3600) / 60, seconds % 60)
+                        val durationStr = compactDuration(durationMillis)
                         val dateStr = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date(rideWithPoints?.ride?.startTime ?: 0L))
                         val stats = buildList {
                             if (settings.showDate) add(dateStr)
@@ -1214,17 +1219,26 @@ fun RideDetailScreen(
                                     Alignment.Start
                                 }
                             ) {
-                                Text(
-                                    stats.joinToString(" • "),
-                                    color = onPanel,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = if (settings.statsOverlay.isCard) {
-                                        MaterialTheme.typography.bodySmall
-                                    } else {
-                                        MaterialTheme.typography.bodyMedium
+                                // A card stacks its figures; the full-width band runs them inline.
+                                if (settings.statsOverlay.stacksFigures) {
+                                    stats.forEach { figure ->
+                                        Text(
+                                            figure,
+                                            color = onPanel,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
                                     }
-                                )
+                                } else {
+                                    Text(
+                                        stats.joinToString(" • "),
+                                        color = onPanel,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
                             }
                         }
                     }

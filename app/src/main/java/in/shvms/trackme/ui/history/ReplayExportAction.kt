@@ -189,7 +189,11 @@ fun ReplayExportAction(
             context = context,
             points = routePoints,
             size = replaySnapshotSize(frameSize),
-            mapType = settings.mapType
+            mapType = settings.mapType,
+            // The replay video never received the label or theme choices, so "No text at all"
+            // and dark theme applied to the still export and were silently ignored by the video
+            // made from the same preview, with the same settings, one button away.
+            mapStyle = settings.mapStyle(context)
         ) { captured ->
             startExport(
                 rideWithPoints = rideWithPoints,
@@ -383,6 +387,7 @@ private fun captureRouteSnapshot(
     points: List<`in`.shvms.trackme.data.local.entity.GPSPointEntity>,
     size: Pair<Int, Int>,
     mapType: com.google.maps.android.compose.MapType,
+    mapStyle: com.google.android.gms.maps.model.MapStyleOptions? = null,
     onResult: (CapturedMapSnapshot?) -> Unit
 ) {
     val width = size.first
@@ -435,6 +440,7 @@ private fun captureRouteSnapshot(
         map.uiSettings.isMapToolbarEnabled = false
         map.uiSettings.isZoomControlsEnabled = false
         map.uiSettings.isCompassEnabled = false
+        mapStyle?.let { runCatching { map.setMapStyle(it) } }
         map.addPolyline(PolylineOptions().addAll(latLngs).color(BrandThemeConfig.cyanBright.toArgb()).width(8f))
         runCatching {
             map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0))

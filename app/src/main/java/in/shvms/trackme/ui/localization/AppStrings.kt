@@ -447,7 +447,6 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     // Where the stats panel sits on an exported image.
     val statsOverlayNone: String = s("statsOverlayNone", "No panel")
     val statsOverlayBar: String = s("statsOverlayBar", "Bottom bar")
-    val statsOverlayHalf: String = s("statsOverlayHalf", "Bottom half")
     val statsOverlayTopLeft: String = s("statsOverlayTopLeft", "Top left")
     val statsOverlayTopRight: String = s("statsOverlayTopRight", "Top right")
     val privacyTrim: String = s("privacyTrim", "Privacy trim (200 m)")
@@ -968,7 +967,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "mapLabelsNone" to "Sin texto",
             "statsOverlayNone" to "Sin panel",
             "statsOverlayBar" to "Barra inferior",
-            "statsOverlayHalf" to "Media inferior",
             "statsOverlayTopLeft" to "Arriba a la izquierda",
             "statsOverlayTopRight" to "Arriba a la derecha",
             "privacyTrim" to "Recorte de privacidad (200 m)",
@@ -1493,7 +1491,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "mapLabelsNone" to "Aucun texte",
             "statsOverlayNone" to "Aucun panneau",
             "statsOverlayBar" to "Bandeau bas",
-            "statsOverlayHalf" to "Demi-bandeau",
             "statsOverlayTopLeft" to "En haut à gauche",
             "statsOverlayTopRight" to "En haut à droite",
             "privacyTrim" to "Découpe de confidentialité (200 m)",
@@ -2018,7 +2015,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "mapLabelsNone" to "Ohne Text",
             "statsOverlayNone" to "Kein Feld",
             "statsOverlayBar" to "Leiste unten",
-            "statsOverlayHalf" to "Halbe Leiste",
             "statsOverlayTopLeft" to "Oben links",
             "statsOverlayTopRight" to "Oben rechts",
             "privacyTrim" to "Privatsphären-Zuschnitt (200 m)",
@@ -2543,7 +2539,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "mapLabelsNone" to "कोई टेक्स्ट नहीं",
             "statsOverlayNone" to "कोई पैनल नहीं",
             "statsOverlayBar" to "नीचे पट्टी",
-            "statsOverlayHalf" to "आधी पट्टी",
             "statsOverlayTopLeft" to "ऊपर बाएँ",
             "statsOverlayTopRight" to "ऊपर दाएँ",
             "privacyTrim" to "प्राइवेसी ट्रिम (200 मीटर)",
@@ -3068,7 +3063,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "mapLabelsNone" to "文字なし",
             "statsOverlayNone" to "パネルなし",
             "statsOverlayBar" to "下部バー",
-            "statsOverlayHalf" to "下部ハーフ",
             "statsOverlayTopLeft" to "左上",
             "statsOverlayTopRight" to "右上",
             "privacyTrim" to "プライバシートリム（200 m）",
@@ -3593,7 +3587,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "mapLabelsNone" to "无文字",
             "statsOverlayNone" to "无面板",
             "statsOverlayBar" to "底部横栏",
-            "statsOverlayHalf" to "底部半栏",
             "statsOverlayTopLeft" to "左上角",
             "statsOverlayTopRight" to "右上角",
             "privacyTrim" to "隐私裁剪（200 米）",

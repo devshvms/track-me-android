@@ -53,6 +53,8 @@ data class StatsPanelRect(
     /** Corner radius as a fraction of the frame's shorter edge. Zero for a flush band. */
     val cornerFraction: Float = 0f,
     val alignEnd: Boolean = false,
+    /** Corner cards stack their figures; a full-width band runs them on one line. */
+    val stackFigures: Boolean = false,
 )
 
 interface ImageExporter {
@@ -156,7 +158,7 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
             
             val durationMillis = (rideWithPoints.ride.endTime ?: rideWithPoints.ride.startTime) - rideWithPoints.ride.startTime
             val seconds = durationMillis / 1000
-            val durationStr = String.format(Locale.getDefault(), "%02d:%02d:%02d", seconds / 3600, (seconds % 3600) / 60, seconds % 60)
+            val durationStr = `in`.shvms.trackme.ui.history.compactDuration(durationMillis)
             
             val dateStr = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(rideWithPoints.ride.startTime))
             
@@ -253,7 +255,7 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
             
             val durationMillis = (rideWithPoints.ride.endTime ?: rideWithPoints.ride.startTime) - rideWithPoints.ride.startTime
             val seconds = durationMillis / 1000
-            val durationStr = String.format(Locale.getDefault(), "%02d:%02d:%02d", seconds / 3600, (seconds % 3600) / 60, seconds % 60)
+            val durationStr = `in`.shvms.trackme.ui.history.compactDuration(durationMillis)
             
             val dateStr = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(rideWithPoints.ride.startTime))
             
@@ -271,7 +273,16 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
             if (options.showDuration) statsList.add(durationStr)
             if (options.showDistance) statsList.add(distanceStr)
 
-            canvas.drawText(statsList.joinToString(" • "), textX, bannerTop + bannerHeight * 0.66f, textPaint)
+            // A card stacks its figures; the band runs them inline. Same rule the preview uses.
+            if (panel.stackFigures && statsList.size > 1) {
+                val lineHeight = bannerHeight * 0.30f
+                val firstBaseline = bannerTop + bannerHeight * 0.30f
+                statsList.forEachIndexed { index, figure ->
+                    canvas.drawText(figure, textX, firstBaseline + index * lineHeight, textPaint)
+                }
+            } else {
+                canvas.drawText(statsList.joinToString(" • "), textX, bannerTop + bannerHeight * 0.66f, textPaint)
+            }
         }
         
         val exportsDir = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME)

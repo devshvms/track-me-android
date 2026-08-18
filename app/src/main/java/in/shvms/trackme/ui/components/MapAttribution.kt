@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.ui.components
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,7 +25,7 @@ import androidx.compose.ui.unit.sp
  */
 object MapAttribution {
     /** Width of the Google mark, with headroom. Anything drawn after this clears it. */
-    const val GOOGLE_MARK_WIDTH_DP = 66f
+    const val GOOGLE_MARK_WIDTH_DP = 58f
 
     /** Height of the Google mark. The TrackMe mark matches it so the pair reads as one line. */
     const val GOOGLE_MARK_HEIGHT_DP = 20f
@@ -33,7 +34,7 @@ object MapAttribution {
     const val MARK_MARGIN_DP = 8f
 
     /** Gap either side of the separator. */
-    const val SEPARATOR_GAP_DP = 6f
+    const val SEPARATOR_GAP_DP = 4f
 
     /** Cap height of the wordmark, chosen to sit optically level with the Google mark. */
     const val WORDMARK_SIZE_SP = 13f
@@ -58,12 +59,18 @@ fun TrackMeMapAttribution(
     modifier: Modifier = Modifier,
     tint: Color = Color.White,
 ) {
+    // A fixed-height row, bottom-aligned on the same inset the Google mark uses, with its content
+    // centred inside. Padding the text alone lined up its *baseline* with the mark's *bottom edge*,
+    // which reads as a wordmark sitting slightly low -- and drifted between screens, because the
+    // text height varies with the font scale while the mark does not.
     Row(
-        modifier = modifier.padding(
-            start = (MapAttribution.MARK_MARGIN_DP + MapAttribution.GOOGLE_MARK_WIDTH_DP +
-                MapAttribution.SEPARATOR_GAP_DP).dp,
-            bottom = MapAttribution.MARK_MARGIN_DP.dp,
-        ),
+        modifier = modifier
+            .padding(
+                start = (MapAttribution.MARK_MARGIN_DP + MapAttribution.GOOGLE_MARK_WIDTH_DP +
+                    MapAttribution.SEPARATOR_GAP_DP).dp,
+                bottom = MapAttribution.MARK_MARGIN_DP.dp,
+            )
+            .height(MapAttribution.GOOGLE_MARK_HEIGHT_DP.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // A shadow rather than a plate: the mark has to survive both a pale basemap and satellite
@@ -78,10 +85,7 @@ fun TrackMeMapAttribution(
                 blurRadius = 3f,
             ),
         )
-        Text(text = "|", style = style.copy(color = tint.copy(alpha = 0.6f)))
-        Text(
-            text = "  TrackMe",
-            style = style,
-        )
+        Text(text = "|", style = style.copy(color = tint.copy(alpha = 0.75f)))
+        Text(text = " TrackMe", style = style)
     }
 }
