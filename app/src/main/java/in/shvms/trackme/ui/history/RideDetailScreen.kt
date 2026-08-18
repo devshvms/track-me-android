@@ -558,17 +558,22 @@ fun RideDetailScreen(
                     // the same change is over a minute per kilometre.
                     val chartUsesPace = chartPersona.usesPace
                     val speeds = points.map { effortValue(it.speed, chartUsesPace, imperial) }
-                    // Range from the moving samples only.
+                    // Range from the middle 90% of the series, not from its extremes.
                     //
-                    // A stopped sample clamps to the pace ceiling of 60 min/km. Letting that into
-                    // the range put the axis at 14..60 for a walk whose real spread is 14..17, so
-                    // the whole series compressed into the bottom few percent of the plot and the
-                    // line was invisible. One traffic light was enough to do it.
-                    val ceiling = `in`.shvms.trackme.domain.UnitFormatter.PACE_MAX_MINUTES.toFloat()
-                    val moving = if (chartUsesPace) speeds.filter { it < ceiling } else speeds
-                    val scale = moving.ifEmpty { speeds }
-                    val rawMinSpeed = scale.minOrNull() ?: 0f
-                    val rawMaxSpeed = scale.maxOrNull() ?: 0f
+                    // Pace is 1/speed, so it is violently asymmetric at the slow end: a sample at
+                    // walking speed is 15 min/km and one at a crawl is 55, while the fast end can
+                    // only ever reach zero. Ranging on min and max therefore lets a handful of
+                    // near-stationary samples own most of the axis and squashes the ride into a
+                    // band at the bottom. Filtering only the clamped ceiling was not enough --
+                    // the samples just below it do the same damage.
+                    //
+                    // Percentiles are the standard answer and cost nothing here; values outside
+                    // the range are clamped to the edges when drawn, so nothing is hidden.
+                    val sorted = speeds.sorted()
+                    val loIndex = ((sorted.size - 1) * 0.05f).toInt().coerceIn(0, sorted.size - 1)
+                    val hiIndex = ((sorted.size - 1) * 0.95f).toInt().coerceIn(0, sorted.size - 1)
+                    val rawMinSpeed = sorted.getOrElse(loIndex) { 0f }
+                    val rawMaxSpeed = sorted.getOrElse(hiIndex) { rawMinSpeed + 1f }
                     val speedRange = if (rawMaxSpeed > rawMinSpeed) rawMaxSpeed - rawMinSpeed else 1f
                     val minSpeed = rawMinSpeed - speedRange * 0.1f
                     val maxSpeed = rawMaxSpeed + speedRange * 0.1f
@@ -1282,7 +1287,15 @@ fun CombinedMetricLineChart(
 
     // Adaptive visual smoothing window so long rides stay uniform and elegant without spiky noise,
     // while zero underlying data is lost for scrubber inspection.
-    val smoothedSeries = remember(plotData) {
+    // Keyed on the effort unit too. This series is what the line is actually drawn from, and it
+    // used to smooth `speed * 3.6` unconditionally -- so on a pace chart the axis was in minutes
+    // per km while the line was in km/h. Every plotted value fell below the axis minimum and
+    // clamped there, which is why the line was a flat rule along the bottom.
+    //
+    // Smoothing happens in m/s and converts afterwards, which also happens to be the correct
+    // order: averaging pace directly is a harmonic mean in disguise and over-weights the slow
+    // samples. The pace of the window average speed is the honest number.
+    val smoothedSeries = remember(plotData, usesPace, imperial) {
         val n = plotData.size
         val radius = when {
             n < 30 -> 1
@@ -1300,12 +1313,12 @@ fun CombinedMetricLineChart(
                 if (j in 0 until n) {
                     val dist = kotlin.math.abs(j - i)
                     val w = 1f / (1f + dist * 0.8f)
-                    sumSpeed += plotData[j].first.speed * 3.6f * w
+                    sumSpeed += plotData[j].first.speed * w
                     sumAlt += plotData[j].first.altitude.toFloat() * w
                     weightSum += w
                 }
             }
-            sSpeeds[i] = sumSpeed / weightSum
+            sSpeeds[i] = effortValue(sumSpeed / weightSum, usesPace, imperial)
             sAlts[i] = sumAlt / weightSum
         }
         sSpeeds to sAlts

@@ -83,3 +83,47 @@ class RidePaceTest {
         assertTrue("faster must plot lower on a pace chart", fast < slow)
     }
 }
+
+/**
+ * The chart's axis and its line must be in the same unit.
+ *
+ * They were not: the axis was built from `effortValue` (pace) while the plotted series smoothed
+ * `speed * 3.6` (km/h) unconditionally. Every plotted value fell below the axis minimum, clamped
+ * there, and drew a flat rule along the bottom of the plot that looked like a real reading of a
+ * perfectly even walk. Silent wrongness, not a crash — hence a test.
+ */
+class ChartEffortUnitTest {
+
+    @Test
+    fun paceAndSpeedOccupyCompletelyDifferentRanges() {
+        // The reason the mismatch was invisible rather than obviously broken: at walking speed the
+        // two units do not overlap at all, so the line simply left the plot.
+        val walkingMps = 3.3f / 3.6f
+        val asSpeed = effortValue(walkingMps, usesPace = false, imperial = false)
+        val asPace = effortValue(walkingMps, usesPace = true, imperial = false)
+
+        assertEquals(3.3f, asSpeed, 0.05f)
+        assertEquals(18.18f, asPace, 0.05f)
+        assertTrue("a pace value must not be mistakable for a km/h value", asPace > asSpeed * 4)
+    }
+
+    @Test
+    fun smoothingSpeedThenConvertingIsNotTheSameAsAveragingPace() {
+        // Why the smoothing converts last. Averaging pace is a harmonic mean in disguise and
+        // over-weights the slow samples, so a walk with one slow stretch would report a pace it
+        // never actually held.
+        val fast = 2.0
+        val slow = 0.5
+        val meanSpeed = (fast + slow) / 2
+        val paceOfMeanSpeed = UnitFormatter.paceSecondsPerUnit(meanSpeed, imperial = false)
+        val meanOfPaces = (
+            UnitFormatter.paceSecondsPerUnit(fast, imperial = false) +
+                UnitFormatter.paceSecondsPerUnit(slow, imperial = false)
+            ) / 2
+
+        assertTrue(
+            "averaging pace should read slower than the pace of the average speed",
+            meanOfPaces > paceOfMeanSpeed * 1.2,
+        )
+    }
+}
