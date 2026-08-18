@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -58,6 +59,17 @@ object MapAttribution {
 fun TrackMeMapAttribution(
     modifier: Modifier = Modifier,
     tint: Color = Color.White,
+    /**
+     * The map's own `contentPadding` bottom, if it sets one.
+     *
+     * Google's mark is drawn **inside** the map's content padding, so a map that insets for a
+     * navigation bar or for a control panel moves the mark up by exactly that much. Without the
+     * same number here the wordmark stays pinned to the frame and the pair drifts apart -- which
+     * is what happened on Home, whose map is full-bleed and pads for the nav bar.
+     *
+     * Pass the same value the map was given, not an estimate of it.
+     */
+    bottomOffset: Dp = 0.dp,
 ) {
     // A fixed-height row, bottom-aligned on the same inset the Google mark uses, with its content
     // centred inside. Padding the text alone lined up its *baseline* with the mark's *bottom edge*,
@@ -68,7 +80,7 @@ fun TrackMeMapAttribution(
             .padding(
                 start = (MapAttribution.MARK_MARGIN_DP + MapAttribution.GOOGLE_MARK_WIDTH_DP +
                     MapAttribution.SEPARATOR_GAP_DP).dp,
-                bottom = MapAttribution.MARK_MARGIN_DP.dp,
+                bottom = MapAttribution.MARK_MARGIN_DP.dp + bottomOffset,
             )
             .height(MapAttribution.GOOGLE_MARK_HEIGHT_DP.dp),
         verticalAlignment = Alignment.CenterVertically,

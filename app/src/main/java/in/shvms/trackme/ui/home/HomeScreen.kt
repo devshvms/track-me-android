@@ -509,6 +509,17 @@ fun HomeScreen(
                 // the next one, and the cache would otherwise outlive its group.
                 LaunchedEffect(groupSession.groupId) { avatarCache.clear() }
 
+                // Hoisted, because the TrackMe wordmark has to sit on the same baseline as
+                // Google's mark and Google's mark is drawn inside this padding. Two independent
+                // expressions of the same number is how they drifted apart.
+                val mapContentPadding = PaddingValues(
+                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 16.dp,
+                    // The map is full-bleed, so without the navigation-bar inset the attribution
+                    // sits under the nav bar -- it is required to stay visible.
+                    bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                        if (uiState.trackingState != TrackingState.IDLE) 88.dp else 0.dp
+                )
+
                 GoogleMap(
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = cameraPositionState,
@@ -523,14 +534,7 @@ fun HomeScreen(
                         zoomControlsEnabled = false,
                         myLocationButtonEnabled = false
                     ),
-                    contentPadding = PaddingValues(
-                        top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 16.dp,
-                        // Google's attribution and the compass live inside this padding. The map
-                        // is full-bleed, so without the navigation-bar inset the attribution sits
-                        // under the nav bar — it is required to stay visible.
-                        bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
-                            if (uiState.trackingState != TrackingState.IDLE) 88.dp else 0.dp
-                    )
+                    contentPadding = mapContentPadding
                 ) {
                     if (uiState.pathPoints.isNotEmpty()) {
                         Polyline(
@@ -629,7 +633,10 @@ fun HomeScreen(
                 }
                 // After the map, so it draws on top of it rather than under. Beside Google's own
                 // mark and never over it — see MapAttribution.
-                TrackMeMapAttribution(modifier = Modifier.align(Alignment.BottomStart))
+                TrackMeMapAttribution(
+                    modifier = Modifier.align(Alignment.BottomStart),
+                    bottomOffset = mapContentPadding.calculateBottomPadding(),
+                )
             } else {
                 AlertDialog(
                     onDismissRequest = { /* Blocking dialog, do nothing */ },
@@ -741,22 +748,6 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.End
             ) {
-                // Above the layer/recentre/compass stack, and present only while a group is live
-                // (A20). Its presence is the signal that someone can see you; tapping it opens the
-                // roster, where Leave lives.
-                GroupMapButton(
-                    session = groupSession,
-                    // The badge counts EVERYONE in the group, you included. It was showing
-                    // others-only, so a group of two read "1" — which looks like a bug rather than
-                    // a definition. The accessibility sentence still says "visible to N people",
-                    // where N deliberately excludes you, because audience and headcount are
-                    // genuinely different numbers.
-                    memberCount = groupSession.roster.size.coerceAtLeast(0),
-                    audienceCount = (groupSession.roster.size - 1).coerceAtLeast(0),
-                    onClick = onOpenCommunity,
-                )
-
-
                 MapLayerHorizontalDrawerButton(
                     currentMapType = mapType,
                     onMapTypeSelected = { mapType = it },
@@ -831,26 +822,53 @@ fun HomeScreen(
                     }
                 )
 
-                MapControlCircleButton(
-                    icon = Icons.Default.Explore,
-                    contentDescription = strings.compassNorth,
-                    onClick = {
-                        // North-up is a deliberate override of the ride camera. Leaving follow
-                        // armed would re-tilt and re-bear on the next GPS fix, so the button
-                        // would appear not to work.
-                        followCamera = false
-                        coroutineScope.launch {
-                            cameraPositionState.animateSafely {
-                                CameraUpdateFactory.newCameraPosition(
-                                    com.google.android.gms.maps.model.CameraPosition.Builder(cameraPositionState.position)
-                                        .bearing(0f)
-                                        .tilt(0f)
-                                        .build()
-                                )
+                // Third slot, and last in the stack on purpose. It used to sit on top, so the
+                // moment a group went live the other two controls jumped down under the user's
+                // thumb. Placed last, its appearance moves nothing. It renders only while a group
+                // is active — GroupMapButton returns early otherwise.
+                GroupMapButton(
+                    session = groupSession,
+                    // The badge counts EVERYONE in the group, you included. It was showing
+                    // others-only, so a group of two read "1" — which looks like a bug rather than
+                    // a definition. The accessibility sentence still says "visible to N people",
+                    // where N deliberately excludes you, because audience and headcount are
+                    // genuinely different numbers.
+                    memberCount = groupSession.roster.size.coerceAtLeast(0),
+                    audienceCount = (groupSession.roster.size - 1).coerceAtLeast(0),
+                    onClick = onOpenCommunity,
+                )
+
+                // The compass earns its slot rather than holding one.
+                //
+                // It was a permanent third button that did nothing on a north-up map, which is
+                // almost always. But deleting it outright would remove the only way back from a
+                // rotated map — and the ride camera now turns the map to the direction of travel,
+                // so "rotated" is the normal state during a ride rather than an accident. Shown
+                // only when there is something to undo, which is what every map app does.
+                val mapIsTurned = kotlin.math.abs(cameraPositionState.position.bearing) > 1f ||
+                    cameraPositionState.position.tilt > 1f
+                if (mapIsTurned) {
+                    MapControlCircleButton(
+                        icon = Icons.Default.Explore,
+                        contentDescription = strings.compassNorth,
+                        onClick = {
+                            // North-up is a deliberate override of the ride camera. Leaving follow
+                            // armed would re-tilt and re-bear on the next GPS fix, so the button
+                            // would appear not to work.
+                            followCamera = false
+                            coroutineScope.launch {
+                                cameraPositionState.animateSafely {
+                                    CameraUpdateFactory.newCameraPosition(
+                                        com.google.android.gms.maps.model.CameraPosition.Builder(cameraPositionState.position)
+                                            .bearing(0f)
+                                            .tilt(0f)
+                                            .build()
+                                    )
+                                }
                             }
                         }
-                    }
-                )
+                    )
+                }
             }
 
             // Idle State: Radial Persona Start Button
