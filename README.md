@@ -1,4 +1,4 @@
-# TrackMe 🚵‍♂️🗺️ (v1.8.0)
+# TrackMe 🚵‍♂️🗺️ (v1.8.1)
 
 ![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
@@ -7,8 +7,9 @@
 
 > **Product Vision:** TrackMe is designed to be the ultimate companion for cyclists, runners, and explorers. We believe in privacy-first tracking that seamlessly works offline, but elegantly syncs to the cloud when you want it to. Track your journey, analyze your performance, and share your adventures.
 
-## 🌟 Key Features (v1.8.0)
+## 🌟 Key Features (v1.8.1)
 
+*   **Camera follow you can leave (1.7.3):** Pan or zoom while recording and the map stays where you put it; the recentre control is what brings follow back. Tap a rider in your group to see them on the map, with a short trail showing their heading.
 *   **Material 3 Design System (1.8.0):** Every colour in the app is now generated from a single brand seed (`#29B6F6`) as tonal ramps, rather than hand-picked hex values — with shape, spacing, elevation and motion tokens alongside it. Fixes a live accessibility defect where warning amber measured 2.15:1 on light surfaces, below the WCAG AA minimum of 4.5:1. Animation runs on a spring-based motion scheme rather than hand-picked durations, so an interrupted animation carries its velocity through instead of snapping. All five phases complete — tokens, components, every screen, notifications, and motion; see [`docs/DESIGN_SYSTEM_1.8.md`](docs/DESIGN_SYSTEM_1.8.md).
 *   **A map that belongs to the app (1.8.0):** The basemap follows your theme instead of being permanently Google's default light map, drawn from the app's own neutral ramp so map and panels read as one surface. While recording, the camera pitches to 45° and turns to your direction of travel; any pan hands control back to you until you ask for follow again.
 *   **Ride controls in the shade (1.8.0):** Pause, resume and finish without unlocking — and on Android 16, the ride is promoted to a status-bar chip showing elapsed time.

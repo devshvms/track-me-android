@@ -1,4 +1,36 @@
-# TrackMe 1.8.0 — release notes
+# TrackMe 1.8.1 — release notes
+
+**1.8.0 never shipped publicly.** It ran on the internal track through 34 builds while the design
+work was checked on a device, and during that time 1.7.3 released from master. 1.8.1 is the merge
+of the two, and is the version that goes out.
+
+What it carries from **1.7.3**: camera follow as a mode you can leave, tapping a roster row to see
+that rider on the map, heading tails behind other riders, long rides stored as chunks rather than
+split in two, and deletions that clear every part of a ride from the cloud. Those notes are in
+[`RELEASE_NOTES_v1.7.3.md`](RELEASE_NOTES_v1.7.3.md).
+
+## The one merge decision worth recording
+
+Both branches independently solved "the camera should stop yanking the rider back". Master
+extracted `CameraFollowPolicy` — tested, platform-neutral, and covering the roster-focus case too.
+This branch had grown an inline `followCamera` flag with the same intent.
+
+Master's won, and taking it **fixed a regression this branch had introduced**: the 1.8 follow
+effect rebuilt the camera at zoom 17 on every fix, which is precisely the defect 1.7.3 §1 exists to
+fix. A rider who zooms out to see the group was being pulled back within a second.
+
+The follow effect now builds from the current camera position and overrides target, tilt and
+bearing only, so the rider's zoom carries over untouched. The 1.8 ride camera — 45° while
+recording, 30° paused, heading from direction of travel, flat when the ride ends — layers on top
+rather than competing.
+
+`CameraFollowPolicyTest`'s zoom assertion was **restated, not relaxed**. It named `newLatLng`
+because moving the target used to be all the follow effect did; the ride camera also pitches and
+turns, which `newLatLng` cannot express. It now asserts the rule directly — no `.zoom(` anywhere in
+the follow path — which is harder to pass by accident than naming a call was.
+
+---
+
 
 Opens the Material 3 redesign arc. This release is **phase 1 of 5**: the design system
 foundations. No feature is added, removed or altered — what lands is the token layer every later
