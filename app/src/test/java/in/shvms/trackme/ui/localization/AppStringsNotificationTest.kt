@@ -18,10 +18,9 @@ class AppStringsNotificationTest {
                 strings.notifTrackingMetrics,
                 strings.notifTrackingPaused,
                 strings.notifTrackingGpsSearching,
-                strings.notifAutoSplitTitle,
-                strings.notifAutoSplitText,
-                strings.notifLongRideTitle,
-                strings.notifLongRideText,
+                // notifAutoSplit*/notifLongRide* were deleted with the auto-split itself
+                // (SCOPE_1.7.3 §2(a)): chunked upload removed the 1 MiB ceiling the split existed
+                // to defend, so the notifications had nothing left to announce.
                 strings.notifStorageLowTitle,
                 strings.notifStorageLowText
             ).forEach { value ->

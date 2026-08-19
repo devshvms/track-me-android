@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import `in`.shvms.trackme.domain.group.MemberDirections
 import `in`.shvms.trackme.ui.home.components.formatRemaining
@@ -79,6 +82,7 @@ import `in`.shvms.trackme.data.remote.GroupSessionStatus
 import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -98,6 +102,11 @@ import java.util.concurrent.TimeUnit
 fun CommunityScreen(
     onNavigateToSignIn: () -> Unit,
     onOpenHome: () -> Unit = {},
+    /**
+     * SCOPE_1.7.3 §4 — hand Home a member to point at, then switch to it. Distinct from
+     * [onOpenHome], which is the group *destination* control and only switches tabs.
+     */
+    onShowMemberOnMap: (`in`.shvms.trackme.domain.group.MemberFocusPolicy.Focus) -> Unit = {},
     viewModel: CommunityViewModel = viewModel(
         factory = with(LocalContext.current.applicationContext as TrackMeApp) {
             CommunityViewModelFactory(
@@ -114,6 +123,10 @@ fun CommunityScreen(
     val context = LocalContext.current
     val messenger = rememberMessenger()
     val app = context.applicationContext as TrackMeApp
+    val scope = rememberCoroutineScope()
+    // §4/Q4.2 explains an un-focusable row here rather than with a Toast, so it matches the
+    // group-end notice and the recovery notice already surfaced through this host.
+    val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
     var showCreate by remember { mutableStateOf(false) }
     var showJoin by remember { mutableStateOf(false) }
@@ -247,6 +260,24 @@ fun CommunityScreen(
                 onShare = { shareInvite(context, state, strings) },
                 onRemoveMember = { pendingRemoval = it },
                 onShowOnMap = onOpenHome,
+                // §4, Q4.2: every row is tappable. One with no position explains itself rather
+                // than going inert — "nothing happens" reads as a broken roster.
+                onFocusMember = { member ->
+                    when (
+                        val outcome = `in`.shvms.trackme.domain.group.MemberFocusPolicy.onRowTapped(
+                            uid = member.uid,
+                            lastKnownLat = member.lastKnownPosition?.first,
+                            lastKnownLng = member.lastKnownPosition?.second,
+                        )
+                    ) {
+                        is `in`.shvms.trackme.domain.group.MemberFocusPolicy.Outcome.ShowOnMap ->
+                            onShowMemberOnMap(outcome.focus)
+                        `in`.shvms.trackme.domain.group.MemberFocusPolicy.Outcome.ExplainNoPosition ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar(strings.groupMemberNoPositionYet)
+                            }
+                    }
+                },
                 onDirections = { member ->
                     member.lastKnownPosition?.let { (lat, lng) ->
                         AnalyticsManager.trackGroupDirectionsOpened(member.positionAge.telemetryBucket())
@@ -482,6 +513,7 @@ private fun GroupRoster(
     onShare: () -> Unit,
     onRemoveMember: (RosterMember) -> Unit,
     onShowOnMap: () -> Unit,
+    onFocusMember: (RosterMember) -> Unit,
     onDirections: (RosterMember) -> Unit,
     onSetStatus: () -> Unit,
     onToggleMute: () -> Unit,
@@ -605,6 +637,7 @@ private fun GroupRoster(
                 RosterCard(
                     member = member,
                     strings = strings,
+                    onFocusMember = { onFocusMember(member) },
                     onDirections = onDirections,
                     onRemove = if (state.session.isLeader && !member.isSelf) {
                         { onRemoveMember(member) }
@@ -632,6 +665,7 @@ private fun GroupRoster(
             RosterCard(
                 member = member,
                 strings = strings,
+                onFocusMember = { onFocusMember(member) },
                 onDirections = onDirections,
                 // Only the leader, and never against themselves — removing yourself is `leave`,
                 // which ends the group for everyone (§8), and routing it through here would end
@@ -770,6 +804,7 @@ private fun GroupHeader(state: CommunityUiState, strings: AppStrings) {
 private fun RosterCard(
     member: RosterMember,
     strings: AppStrings,
+    onFocusMember: () -> Unit,
     onDirections: (RosterMember) -> Unit,
     onRemove: (() -> Unit)? = null,
     onEditStatus: (() -> Unit)? = null,
@@ -802,10 +837,18 @@ private fun RosterCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            // §4: the whole row is the affordance, not a trailing button. Q4.2 keeps it tappable
+            // even with no position — it explains itself instead of going inert.
+            .clickable(onClick = onFocusMember)
             // §3.6 of 1.7.0, A18: one merged node, so TalkBack reads a sentence rather than walking
             // five children. Directions and edit-status are custom ACTIONS on that node.
+            //
+            // clearAndSetSemantics wipes the clickable's own semantics, so the primary action is
+            // re-declared here explicitly — without it the row would be silently un-actionable to
+            // TalkBack while working fine by touch, which is the worst of both.
             .clearAndSetSemantics {
                 contentDescription = spoken
+                onClick(label = strings.groupShowMemberOnMap) { onFocusMember(); true }
                 customActions = listOfNotNull(
                     onEditStatus?.let {
                         CustomAccessibilityAction(strings.groupStatusSet) { it(); true }

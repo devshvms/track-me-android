@@ -115,8 +115,16 @@ class TrackingManager {
         _timeSinceLastGps.value = time
     }
     
+    /**
+     * Clears the ride back to a not-recording screen.
+     *
+     * **Only [TrackingService.stopTracking] may call this**, and only once it has released
+     * `currentRideId`. Publishing IDLE while a ride id is still held is SCOPE_1.7.3 §2(b) — the app
+     * recording a ride the user cannot see, pause, or stop. [RecordingVisibilityPolicy] is the
+     * guard that makes that unreachable through [TrackingService]; this comment is the reason a
+     * future caller should not route around it.
+     */
     fun reset() {
-        _trackingState.value = TrackingState.IDLE
         _pathPoints.value = emptyList()
         _currentSpeed.value = 0f
         _totalDistance.value = 0f
@@ -125,6 +133,7 @@ class TrackingManager {
         _isAutoPaused.value = false
         _inferredActivityType.value = `in`.shvms.trackme.domain.processor.InferredActivityType.RUN_OR_TREK
         _timeSinceLastGps.value = 0L
+        _trackingState.value = TrackingState.IDLE
         _selectedPersona.value = `in`.shvms.trackme.domain.model.RidePersona.AUTO
     }
 }

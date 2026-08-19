@@ -1,11 +1,11 @@
-TrackMe 1.8.0
+TrackMe 1.8.1
 
-• The map matches your theme, and now tilts to follow your direction as you ride.
+• The map stays where you put it. Pan or zoom while recording and it no longer drags you back.
 
-• Pause or finish a ride from the notification. On Android 16 it appears in the status bar too.
+• Tap any rider in your group to see them on the map, with a short trail showing their heading.
 
-• Ending a ride tells you one clear thing instead of two contradictory ones.
+• Walks and runs now report pace, with a bar per kilometre.
 
-• Settings rebuilt, warnings and ride details clearer, and animations across the app now flow instead of snapping.
+• The map matches your theme, and you can pause or finish a ride from the notification.
 
-Tracking, group rides, sync and export are unchanged.
+• Long rides save in one piece, and deleting one clears every part of it.

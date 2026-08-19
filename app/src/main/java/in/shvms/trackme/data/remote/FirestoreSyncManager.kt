@@ -6,6 +6,8 @@ import `in`.shvms.trackme.data.local.dao.RideDao
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.PostRideCalculation
 import `in`.shvms.trackme.data.local.entity.RideEntity
+import `in`.shvms.trackme.domain.sync.RideChunking
+import `in`.shvms.trackme.domain.sync.RideDeletion
 import `in`.shvms.trackme.utils.RideUtils
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CancellationException
@@ -133,6 +135,49 @@ class FirestoreSyncManager(
             authManager.currentUser.collect { user ->
                 resetCloudPagination()
                 refreshCloudCount()
+                if (user != null) resumePendingDeletes()
+            }
+        }
+    }
+
+    /**
+     * Finishes any deletion that was interrupted between its two halves — SCOPE_1.7.3 §0 contract 5.
+     *
+     * The order is `pendingDelete` locally → cloud batch → local delete, and a process death can
+     * land in either gap. §2(a) is explicit that an offline delete must be *"durable across app
+     * restart — a cloud delete that exists only in memory is an orphan waiting for a process
+     * death."* Firestore's own persistence covers a batch that was already committed; this covers
+     * the ride that never got that far, and the ride whose cloud half succeeded while the local
+     * half did not.
+     *
+     * Re-running the whole delete is safe because a Firestore delete is idempotent: deleting an
+     * already-absent document succeeds. Retrying is therefore always the right move, and doing
+     * nothing is the only wrong one — a stranded flag makes the ride invisible to the uploader and
+     * still present in History, and it would never resolve itself.
+     */
+    private suspend fun resumePendingDeletes() {
+        val stranded = runCatching { rideDao.getPendingDeleteRides() }.getOrNull().orEmpty()
+        for (ride in stranded) {
+            val docId = ride.firestoreId?.takeIf { it.isNotBlank() }
+                ?: ride.id.toString().takeIf { ride.isSynced }
+                ?: run {
+                    // Never reached the cloud. Nothing to cascade; just finish locally.
+                    rideDao.deletePointsForRide(ride.id)
+                    rideDao.deleteRide(ride.id)
+                    continue
+                }
+            when (val outcome = deleteRide(docId)) {
+                is RideDeletion.Outcome.Rejected -> {
+                    // Still refused. Restore the row rather than leaving it stranded again —
+                    // contract 6: only rejected restores, and a flag that survives two attempts is
+                    // a ride the user can see and retry rather than one lost between states.
+                    errorLogger.log("Resumed ride deletion still rejected (${outcome.cause.bucket})")
+                    rideDao.setPendingDelete(ride.id, false)
+                }
+                else -> {
+                    rideDao.deletePointsForRide(ride.id)
+                    rideDao.deleteRide(ride.id)
+                }
             }
         }
     }
@@ -323,6 +368,45 @@ class FirestoreSyncManager(
         }
     }
 
+    /**
+     * Reads a ride's points from whichever shape the cloud copy is in — SCOPE_1.7.3 §2(a).
+     *
+     * **Both shapes are permanent, not a migration that ends.** Every ride uploaded before 1.7.3
+     * keeps its `points` array, and rewriting them all would be a mass re-upload of the user's
+     * entire history for no benefit they can see. The array is checked first because it is the
+     * cheaper answer and needs no extra reads.
+     *
+     * Returns null when the ride must be **skipped rather than partially imported**. The parent is
+     * written last, so a parent that exists should always have all its chunks; if one is missing
+     * anyway, half a ride that reassembles into something plausible is worse than no ride — it
+     * would look like a real ride that simply ended early, and the user would have no way to tell.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private suspend fun readPointMaps(
+        doc: com.google.firebase.firestore.DocumentSnapshot
+    ): List<Map<String, Any>>? {
+        (doc.get("points") as? List<Map<String, Any>>)?.let { return it }
+
+        val chunkCount = doc.getLong(RideChunking.CHUNK_COUNT_FIELD)?.toInt() ?: return emptyList()
+        if (chunkCount <= 0) return emptyList()
+
+        val pointsRef = doc.reference.collection(RideChunking.POINTS_SUBCOLLECTION)
+        val assembled = mutableListOf<Map<String, Any>>()
+        // Exactly chunkCount chunks, by constructed id, in order — never a query. That is what
+        // makes a stale orphan from a re-upload inert, and what keeps reassembly ordered by
+        // construction rather than by however the server happened to sort.
+        for (id in RideChunking.chunkIds(chunkCount)) {
+            val chunk = pointsRef.document(id).get().await()
+            val slice = chunk.get(RideChunking.CHUNK_POINTS_FIELD) as? List<Map<String, Any>>
+            if (!chunk.exists() || slice == null) {
+                errorLogger.log("Ride ${doc.id} is missing chunk $id of $chunkCount; skipping it")
+                return null
+            }
+            assembled += slice
+        }
+        return assembled
+    }
+
     private suspend fun insertRideDocument(doc: com.google.firebase.firestore.DocumentSnapshot): Boolean {
         return try {
             val docId = doc.id
@@ -338,8 +422,7 @@ class FirestoreSyncManager(
 
             val docHasStats = doc.get("distance") != null
 
-            @Suppress("UNCHECKED_CAST")
-            val pointsList = doc.get("points") as? List<Map<String, Any>> ?: emptyList()
+            val pointsList = readPointMaps(doc) ?: return false
             val gpsPoints = pointsList.mapIndexed { index, map ->
                 GPSPointEntity(
                     rideId = 0L,
@@ -399,7 +482,42 @@ class FirestoreSyncManager(
         }
     }
 
-    /** @return true if this call uploaded the ride, false if it was skipped. */
+    /**
+     * Serialises one GPS point exactly as the wire format has always had it.
+     *
+     * Unchanged from the single-document shape on purpose: only the *container* changed, so an
+     * existing array-shaped ride and a new chunk hold byte-identical point maps and the reader
+     * below can take either without a second decoder.
+     */
+    private fun pointToMap(point: GPSPointEntity): Map<String, Any> = mapOf(
+        "lat" to point.latitude,
+        "lng" to point.longitude,
+        "altitude" to point.altitude,
+        "accuracy" to point.accuracy,
+        "speed" to point.speed,
+        "timestamp" to point.timestamp,
+        "isPaused" to point.isPaused
+    )
+
+    /**
+     * Uploads a ride as **N chunk documents plus a parent** — SCOPE_1.7.3 §2(a), contracts 3–4.
+     *
+     * The 1 MiB ceiling was a property of the storage *shape*, not of the data: every point went
+     * into one `points` array, and at the measured 100 bytes per point (§9) that shape dies at
+     * 10,483 points. A subcollection removes the ceiling entirely and permanently, at any ride
+     * length, with post-processing left exactly where it is.
+     *
+     * **Write order is the whole design.** Chunks first, parent last:
+     *
+     * - The parent is the **commit marker**. `isSynced` is set only after it lands, so an upload
+     *   interrupted halfway leaves chunks with no parent — invisible to every query, rather than a
+     *   half-ride that reassembles into something plausible and wrong.
+     * - Surplus chunks from a previous, longer upload are removed afterwards. Readers take exactly
+     *   `chunkCount` chunks, so a stale orphan is inert even before it is cleaned up — which is
+     *   what makes doing this last safe.
+     *
+     * @return true if this call uploaded the ride, false if it was skipped.
+     */
     private suspend fun uploadRideInternal(rideId: Long): Boolean {
         val user = authManager.currentUser.value ?: run {
             // Signed-out is a normal state, not an error: the ride is already saved
@@ -411,11 +529,32 @@ class FirestoreSyncManager(
             val rideWithPoints = rideDao.getRideWithPointsById(rideId)
                 ?: throw IllegalStateException("Ride $rideId was not found")
             if (rideWithPoints.ride.isSynced) return false
+            // §0 contract 5: "the uploader must refuse to upload anything carrying it." Without
+            // this, deleting a ride while an upload is in flight re-creates it in the cloud after
+            // the batch has already removed it — the ride returns from the dead.
+            if (rideWithPoints.ride.pendingDelete) {
+                errorLogger.log("Skipped upload of ride $rideId: it is pending deletion")
+                return false
+            }
 
             val rideDocRef = firestore.collection("users")
                 .document(user.uid)
                 .collection("rides")
                 .document(rideId.toString())
+            val pointsRef = rideDocRef.collection(RideChunking.POINTS_SUBCOLLECTION)
+
+            // How many chunks the cloud copy currently has, so surplus can be cleaned up after.
+            // Read before anything is written; a missing/absent parent simply means none.
+            val previousChunkCount = runCatching {
+                rideDocRef.get().await().getLong(RideChunking.CHUNK_COUNT_FIELD)?.toInt()
+            }.getOrNull() ?: 0
+
+            val chunks = RideChunking.partition(rideWithPoints.points)
+            chunks.forEachIndexed { index, chunk ->
+                pointsRef.document(RideChunking.chunkId(index))
+                    .set(mapOf(RideChunking.CHUNK_POINTS_FIELD to chunk.map(::pointToMap)))
+                    .await()
+            }
 
             val calc = rideWithPoints.ride.postRideCalculation
             val rideData = mapOf(
@@ -428,22 +567,23 @@ class FirestoreSyncManager(
                 "distance" to (calc?.distance ?: 0.0),
                 "avgSpeed" to (calc?.avgSpeed ?: 0f),
                 "pauseDuration" to (calc?.pauseDuration ?: 0L),
-                "points" to rideWithPoints.points.map { point ->
-                    mapOf(
-                        "lat" to point.latitude,
-                        "lng" to point.longitude,
-                        "altitude" to point.altitude,
-                        "accuracy" to point.accuracy,
-                        "speed" to point.speed,
-                        "timestamp" to point.timestamp,
-                        "isPaused" to point.isPaused
-                    )
-                }
+                RideChunking.CHUNK_COUNT_FIELD to chunks.size
             )
 
+            // LAST. Everything above can be retried; this is what makes the ride real.
             rideDocRef.set(rideData).await()
+
             val updatedRide = rideWithPoints.ride.copy(isSynced = true, firestoreId = rideId.toString())
             rideDao.updateRide(updatedRide)
+
+            // Surplus from a longer previous upload (post-processing compressed 10 chunks to 2).
+            // Best-effort: readers already ignore anything past chunkCount, so failing here leaves
+            // inert documents rather than a corrupt ride.
+            if (previousChunkCount > chunks.size) {
+                for (index in chunks.size until previousChunkCount) {
+                    runCatching { pointsRef.document(RideChunking.chunkId(index)).delete().await() }
+                }
+            }
             return true
         } catch (e: Exception) {
             errorLogger.log("Failed to upload ride $rideId")
@@ -452,21 +592,115 @@ class FirestoreSyncManager(
         }
     }
 
-    suspend fun deleteRide(firestoreDocId: String): Boolean {
-        val user = authManager.currentUser.value ?: return false
-        try {
-            firestore.collection("users")
-                .document(user.uid)
-                .collection("rides")
-                .document(firestoreDocId)
-                .delete()
-                .await()
-            return true
+    /**
+     * Deletes a ride and **every one of its chunks**, as one atomic batched write —
+     * SCOPE_1.7.3 §2(a), contracts 5–6.
+     *
+     * ### Why a batch and not a transaction
+     *
+     * A Firestore **transaction cannot enumerate a subcollection** — transactions operate on
+     * document references known up front and cannot run a collection query, so "read all chunks,
+     * then delete them and the parent" is not expressible as one at all. A [WriteBatch] needs no
+     * reads, is genuinely atomic server-side, and gets its references from the parent's
+     * `chunkCount` rather than from a query.
+     *
+     * ### Why this is urgent rather than tidy
+     *
+     * `deleteRide` used to delete only the parent, and **Firestore does not cascade**. The moment
+     * chunks exist, that leaves every chunk behind — and because the parent was the only thing
+     * pointing at them, they become *unreachable*: no screen lists them, no query finds them, and
+     * the app can never delete them again. Location data the user believes they erased would
+     * persist indefinitely. For a product that promises deletability and declares it in Play Data
+     * Safety, that is a privacy and compliance failure, not untidiness.
+     *
+     * The chunk count comes from the **parent document**, not from the local point count. Those can
+     * legitimately disagree — a re-upload whose surplus cleanup failed leaves more chunks in the
+     * cloud than the local ride has points to explain — and deleting the smaller number is exactly
+     * how an unreachable orphan is made. Reading the parent also works offline, since it is already
+     * in Firestore's local cache from the query that listed it.
+     */
+    suspend fun deleteRide(firestoreDocId: String): RideDeletion.Outcome {
+        val user = authManager.currentUser.value
+            ?: return RideDeletion.Outcome.Rejected(RideDeletion.Cause.PERMISSION, null)
+
+        val rideDocRef = firestore.collection("users")
+            .document(user.uid)
+            .collection("rides")
+            .document(firestoreDocId)
+        val pointsRef = rideDocRef.collection(RideChunking.POINTS_SUBCOLLECTION)
+
+        // A legacy array-shaped ride has no chunkCount, and correctly resolves to zero: it is a
+        // parent document and nothing else.
+        val chunkCount = runCatching {
+            rideDocRef.get().await().getLong(RideChunking.CHUNK_COUNT_FIELD)?.toInt()
+        }.getOrNull() ?: 0
+
+        return try {
+            // Children before the parent, always, and the parent in the LAST batch. Violating that
+            // in either direction produces the unreachable-orphan state above. Realistic rides are
+            // one batch (§2(a): ~499,000 points); the paging path exists so a ride beyond that
+            // degrades to non-atomic rather than to wrong.
+            val chunkIds = RideChunking.chunkIds(chunkCount)
+            val perBatch = RideChunking.DELETE_BATCH_LIMIT
+            var index = 0
+            while (index < chunkIds.size) {
+                val slice = chunkIds.subList(index, minOf(index + perBatch, chunkIds.size))
+                val isFinalSlice = index + slice.size >= chunkIds.size
+                val batch = firestore.batch()
+                slice.forEach { batch.delete(pointsRef.document(it)) }
+                // The parent joins the last batch only if it fits; otherwise it gets its own.
+                val parentFitsHere = isFinalSlice && slice.size < perBatch
+                if (parentFitsHere) batch.delete(rideDocRef)
+                commitAwaitingAck(batch)?.let { return it }
+                if (isFinalSlice && !parentFitsHere) {
+                    val parentBatch = firestore.batch()
+                    parentBatch.delete(rideDocRef)
+                    commitAwaitingAck(parentBatch)?.let { return it }
+                }
+                index += slice.size
+            }
+            if (chunkIds.isEmpty()) {
+                val batch = firestore.batch()
+                batch.delete(rideDocRef)
+                commitAwaitingAck(batch)?.let { return it }
+            }
+            RideDeletion.Outcome.Acknowledged
         } catch (e: Exception) {
-            errorLogger.log("Failed to queue ride $firestoreDocId for deletion")
-            errorLogger.recordException(e)
-            return false
+            val status = (e as? com.google.firebase.firestore.FirebaseFirestoreException)?.code?.name
+            val cause = RideDeletion.causeOf(status)
+            errorLogger.log("Ride deletion rejected (${cause.bucket})")
+            // §2(a): only a genuine rejection reaches Crashlytics. The chunk count goes with it —
+            // the one number that makes an orphan diagnosable and is not personal.
+            errorLogger.recordException(
+                IllegalStateException("Cascade delete rejected with $chunkCount chunks", e)
+            )
+            RideDeletion.Outcome.Rejected(cause, e)
         }
+    }
+
+    /**
+     * Commits a batch, distinguishing "the server has it" from "it is queued offline".
+     *
+     * **Offline is not an error, and this is the trap most likely to produce a false message.**
+     * Firestore's offline persistence is on by default; when offline the batch is queued locally,
+     * survives app restart, and applies on reconnect — but the completion callback does not fire
+     * until the *server* acknowledges. Awaiting it and treating the wait as failure would tell the
+     * user "couldn't delete, try again" for a deletion that is queued and will succeed, and the
+     * retry would then try to delete documents already pending deletion.
+     *
+     * The timeout is therefore not a network timeout. The write is already durable when it
+     * expires, and abandoning the wait does not abandon the write.
+     *
+     * @return null when the server acknowledged (carry on), or the outcome to return immediately.
+     */
+    private suspend fun commitAwaitingAck(
+        batch: com.google.firebase.firestore.WriteBatch
+    ): RideDeletion.Outcome? {
+        val acknowledged = kotlinx.coroutines.withTimeoutOrNull(RideDeletion.ACK_TIMEOUT_MS) {
+            batch.commit().await()
+            true
+        }
+        return if (acknowledged == null) RideDeletion.Outcome.Queued else null
     }
 
     suspend fun deleteAllCloudData(): Result<Unit> {
@@ -474,16 +708,27 @@ class FirestoreSyncManager(
             val user = authManager.currentUser.value ?: throw Exception("Not signed in")
             val uid = user.uid
             
-            // Delete rides and their subcollections
+            // Delete rides and their chunk subcollections.
+            //
+            // This path was already shaped correctly — it iterated the `points` subcollection back
+            // when nothing wrote one, as dead defensive code. §2(a) notes that the *single-ride*
+            // path was the wrong one, and that this must stay correct as chunk counts grow. It
+            // queries the subcollection rather than trusting `chunkCount`, deliberately: a wipe is
+            // the one place that must also remove orphans left by an interrupted upload, whose
+            // parent carries no count at all.
             val ridesRef = firestore.collection("users").document(uid).collection("rides")
             val ridesSnapshot = ridesRef.get().await()
             for (rideDoc in ridesSnapshot) {
-                // Delete all points in the subcollection
-                val pointsSnapshot = rideDoc.reference.collection("points").get().await()
-                for (pointDoc in pointsSnapshot) {
-                    pointDoc.reference.delete().await()
-                }
-                // Delete the ride document
+                val pointsSnapshot = rideDoc.reference
+                    .collection(RideChunking.POINTS_SUBCOLLECTION).get().await()
+                // Children before the parent, in batches that respect the 500-operation limit.
+                pointsSnapshot.documents
+                    .chunked(RideChunking.DELETE_BATCH_LIMIT)
+                    .forEach { slice ->
+                        val batch = firestore.batch()
+                        slice.forEach { batch.delete(it.reference) }
+                        batch.commit().await()
+                    }
                 rideDoc.reference.delete().await()
             }
 

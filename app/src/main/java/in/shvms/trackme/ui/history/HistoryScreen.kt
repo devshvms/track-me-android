@@ -129,7 +129,13 @@ fun HistoryScreen(
                 is HistoryViewModel.UiEvent.Success -> messenger.show(event.message)
                 is HistoryViewModel.UiEvent.BatchDeleteCompleted -> {
                     val message = if (event.failedCount == 0) {
-                        String.format(Locale.getDefault(), strings.deleteSelectedRidesSuccess, event.deletedCount)
+                        // §0 contract 6: a queued delete is not a plain success. Reporting it as
+                        // one would claim the cloud copy is already gone when it is not.
+                        if (event.queuedOffline) {
+                            strings.rideDeleteQueuedOffline
+                        } else {
+                            String.format(Locale.getDefault(), strings.deleteSelectedRidesSuccess, event.deletedCount)
+                        }
                     } else {
                         String.format(
                             Locale.getDefault(),

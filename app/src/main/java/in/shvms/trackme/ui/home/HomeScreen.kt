@@ -67,11 +67,30 @@ import `in`.shvms.trackme.ui.home.components.GroupMapButton
 import androidx.compose.ui.platform.LocalDensity
 import `in`.shvms.trackme.ui.home.components.MemberMarkerPolicy
 import `in`.shvms.trackme.ui.home.components.rememberMemberAvatarCache
+import `in`.shvms.trackme.ui.home.components.rememberHeadingTailBuffer
+import `in`.shvms.trackme.domain.group.HeadingTail
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberMarkerState
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.analytics.RideStartAbortMethod
+import `in`.shvms.trackme.domain.map.CameraFollowPolicy
+import `in`.shvms.trackme.domain.map.CameraMoveCause
+import com.google.maps.android.compose.CameraMoveStartedReason
+
+/**
+ * Bridges the Maps SDK's reason enum onto the platform-neutral cause [CameraFollowPolicy] reasons
+ * about (§7: iOS reads a different MapKit signal, but the observable rule is identical).
+ *
+ * `DEVELOPER_ANIMATION` is our own `animateSafely` — including the follow move itself — so it must
+ * never read as a gesture, or follow would switch itself off on its first move.
+ */
+private fun CameraMoveStartedReason.toMoveCause(): CameraMoveCause = when (this) {
+    CameraMoveStartedReason.GESTURE -> CameraMoveCause.USER_GESTURE
+    CameraMoveStartedReason.DEVELOPER_ANIMATION, CameraMoveStartedReason.API_ANIMATION ->
+        CameraMoveCause.APP_ANIMATION
+    else -> CameraMoveCause.OTHER
+}
 
 private const val LAST_CAMERA_LAT_KEY = "last_camera_lat"
 private const val LAST_CAMERA_LNG_KEY = "last_camera_lng"
@@ -335,75 +354,124 @@ fun HomeScreen(
         }
     }
 
-    // G8 in the motion audit: an auto-follow camera animating while the user is panning is the
-    // worst feeling in any map app. Any pan, zoom or rotate suspends follow until the user asks
-    // for it back with the locate button.
+    // --- Camera follow (§1, §0 contract 1) ----------------------------------------------------
     //
-    // Observed through snapshotFlow rather than keyed on isMoving, because a gesture that begins
-    // during a programmatic animation only flips the *reason* — isMoving is already true, so a
-    // LaunchedEffect keyed on it would never re-run and the grab would be missed.
-    LaunchedEffect(cameraPositionState) {
-        snapshotFlow { cameraPositionState.isMoving to cameraPositionState.cameraMoveStartedReason }
-            .collect { (moving, reason) ->
-                if (moving && reason == CameraMoveStartedReason.GESTURE) followCamera = false
-            }
+    // Follow is a MODE, not a behaviour. Before this, a LaunchedEffect re-fired on every GPS fix
+    // and animated to the newest point at zoom 17 unconditionally, so it overrode both a pan and a
+    // zoom within a second or two — worst precisely in a group, where zooming out to see everyone
+    // got yanked back before the screen could be read.
+    //
+    // The 1.8 branch had independently grown its own `followCamera` flag with the same intent. It
+    // is gone: this policy is the better of the two — extracted, unit-tested, and stated in terms
+    // iOS can implement — and it also handles the roster-focus case below, which the inline
+    // version did not. The 1.8 ride camera (tilt and heading) now layers on top of it rather than
+    // competing with it.
+    //
+    // rememberSaveable, not remember: Q1.2 decides follow SURVIVES backgrounding, because the
+    // rider's last explicit intent is the best guess at their next one.
+    var isFollowingRider by rememberSaveable { mutableStateOf(true) }
+    val isRecording = uiState.trackingState != TrackingState.IDLE
+
+    // Arm on the way INTO a ride, edge-triggered. A level-triggered "recording implies following"
+    // would re-arm on the next recomposition and reproduce the original defect with extra steps.
+    var wasRecording by rememberSaveable { mutableStateOf(isRecording) }
+    LaunchedEffect(isRecording) {
+        if (CameraFollowPolicy.armsOnRecordingStart(wasRecording, isRecording)) {
+            isFollowingRider = true
+        }
+        wasRecording = isRecording
     }
 
-    // Re-arm follow, and put the map back the way it was found when a ride ends.
+    // Any user gesture drops into free-look. Maps Compose already reports why the camera moved, so
+    // this needs no touch interception — and our own animateSafely calls report
+    // DEVELOPER_ANIMATION, so follow cannot switch itself off on its first move.
+    LaunchedEffect(cameraPositionState.isMoving, cameraPositionState.cameraMoveStartedReason) {
+        if (cameraPositionState.isMoving &&
+            CameraFollowPolicy.releasesFollow(cameraPositionState.cameraMoveStartedReason.toMoveCause())
+        ) {
+            isFollowingRider = false
+        }
+    }
+
+    // --- Roster tap → focus that member (§4) ---------------------------------------------------
     //
-    // Declared before the follow effect on purpose: both key on trackingState, and this one has to
-    // arm the flag before the other reads it or the first fix of a new ride is skipped.
+    // A one-shot, consumed as it is applied: §4 is explicit that it must clear, or coming back to
+    // Home later would re-focus a member the rider has moved on from.
     //
-    // Arming on TRACKING matters because a pan is remembered indefinitely — without it, panning
-    // the map while idle would silently stop the *next* ride from following. Ending a ride
-    // flattens the camera because otherwise it keeps the 45° pitch and the last leg's bearing, and
-    // the only way back is the compass button, so the app appears to have permanently changed its
-    // map. GPS_LOST, GPS_DISABLED and STORAGE_LOW are deliberately excluded: those are interrupted
-    // rides, not finished ones, and flattening on a dropped fix would read as the ride ending.
+    // focusedMemberUid outlives the consumption on purpose — it is what tells the marker below to
+    // open its info window, and that has to survive the recomposition the camera move causes.
+    val pendingMemberFocus by app.pendingMemberFocus.collectAsState()
+    var focusedMemberUid by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pendingMemberFocus) {
+        val focus = pendingMemberFocus ?: return@LaunchedEffect
+        if (!`in`.shvms.trackme.domain.group.MemberFocusPolicy.shouldApply(focus)) return@LaunchedEffect
+        // §4: "focusing a member is a camera move that must NOT be immediately undone by follow-me.
+        // It should put the camera into free-look, exactly as a manual pan would." Without this the
+        // next GPS fix drags the camera straight back to the rider — §1's defect, wearing a hat.
+        isFollowingRider = CameraFollowPolicy.onFocusedElsewhere()
+        focusedMemberUid = focus.uid
+        cameraPositionState.animateSafely {
+            CameraUpdateFactory.newLatLngZoom(
+                com.google.android.gms.maps.model.LatLng(focus.lat, focus.lng),
+                CameraFollowPolicy.RECENTRE_ZOOM,
+            )
+        }
+        app.consumePendingMemberFocus()
+    }
+
+    // Ride over: put the map back the way it was found.
+    //
+    // The 1.8 ride camera pitches and turns the map while recording, so without this the map keeps
+    // a 45° pitch and the last leg's bearing after the ride ends, and the only way back is the
+    // compass — the app appears to have permanently changed its map. IDLE only: GPS_LOST,
+    // GPS_DISABLED and STORAGE_LOW are interrupted rides, not finished ones.
+    //
+    // Deliberately does NOT re-arm follow. §1 Q1.1 is "button only", and the next ride re-arms
+    // through armsOnRecordingStart anyway, so touching the flag here would only weaken that rule.
     LaunchedEffect(uiState.trackingState) {
-        when (uiState.trackingState) {
-            TrackingState.TRACKING -> followCamera = true
-            TrackingState.IDLE -> {
-                followCamera = true
-                if (cameraPositionState.position.tilt > 0.5f) {
-                    cameraPositionState.animateSafely {
-                        CameraUpdateFactory.newCameraPosition(
-                            CameraPosition.Builder(cameraPositionState.position)
-                                .tilt(0f)
-                                .bearing(0f)
-                                .build()
-                        )
-                    }
-                }
-            }
-            else -> Unit
-        }
-    }
-
-    LaunchedEffect(uiState.pathPoints, uiState.trackingState) {
-        if (!followCamera) return@LaunchedEffect
-        if (uiState.pathPoints.isEmpty()) return@LaunchedEffect
-
-        // Tilt and bearing by ride state, per the motion spec. Ahead gets more screen than
-        // behind while moving, which is the correct priority at speed; paused eases back toward
-        // an overview without a jarring reset; idle stays flat and north-up because orientation
-        // matters more than immersion when you are not going anywhere.
-        val (tilt, bearing) = when (uiState.trackingState) {
-            TrackingState.TRACKING -> RideCameraPolicy.RIDING_TILT to RideCameraPolicy.headingOf(uiState.pathPoints)
-            TrackingState.PAUSED -> RideCameraPolicy.PAUSED_TILT to cameraPositionState.position.bearing
-            else -> return@LaunchedEffect
-        }
-
-        val lastPoint = uiState.pathPoints.last()
+        if (uiState.trackingState != TrackingState.IDLE) return@LaunchedEffect
+        if (cameraPositionState.position.tilt <= 0.5f) return@LaunchedEffect
         cameraPositionState.animateSafely {
             CameraUpdateFactory.newCameraPosition(
-                CameraPosition.Builder()
-                    .target(lastPoint)
-                    .zoom(17f)
-                    .tilt(tilt)
-                    .bearing(bearing)
+                CameraPosition.Builder(cameraPositionState.position)
+                    .tilt(0f)
+                    .bearing(0f)
                     .build()
             )
+        }
+    }
+
+    LaunchedEffect(uiState.pathPoints, isFollowingRider, isRecording) {
+        val move = CameraFollowPolicy.moveFor(
+            following = isFollowingRider,
+            isRecording = uiState.trackingState == TrackingState.TRACKING,
+            hasTarget = uiState.pathPoints.isNotEmpty(),
+        )
+        if (move == CameraFollowPolicy.FollowMove.KeepZoom) {
+            val lastPoint = uiState.pathPoints.last()
+            // Built FROM the current position, so zoom is carried over untouched. §1 is explicit
+            // that a rider who zoomed out to 14 to see the group and is still following stays at
+            // 14; the 1.8 branch's version forced zoom 17 here and reintroduced exactly that
+            // defect. Only tilt and bearing are set, which is the ride camera's whole contribution.
+            val tilt = when (uiState.trackingState) {
+                TrackingState.TRACKING -> RideCameraPolicy.RIDING_TILT
+                TrackingState.PAUSED -> RideCameraPolicy.PAUSED_TILT
+                else -> cameraPositionState.position.tilt
+            }
+            val bearing = if (uiState.trackingState == TrackingState.TRACKING) {
+                RideCameraPolicy.headingOf(uiState.pathPoints)
+            } else {
+                cameraPositionState.position.bearing
+            }
+            cameraPositionState.animateSafely {
+                CameraUpdateFactory.newCameraPosition(
+                    CameraPosition.Builder(cameraPositionState.position)
+                        .target(lastPoint)
+                        .tilt(tilt)
+                        .bearing(bearing)
+                        .build()
+                )
+            }
         }
     }
 
@@ -491,6 +559,10 @@ fun HomeScreen(
             // the group button, and both need the same session.
             val groupSession by app.groupSessionManager.state.collectAsState()
             val avatarCache = rememberMemberAvatarCache()
+            // Keyed by groupId for the same reason the avatar cache is: a uid from a previous group
+            // is never valid in the next one, and a tail that outlived its group would be exactly
+            // the retained position history §5.1.4 forbids.
+            val headingTailBuffer = rememberHeadingTailBuffer(groupSession.groupId)
 
             if (hasLocationPermission) {
                 val groupSyncIntervalSec = groupSession.syncIntervalSec
@@ -586,6 +658,56 @@ fun HomeScreen(
                     // is explicit that we never draw ourselves twice.
                     val bounds = cameraPositionState.projection?.visibleRegion?.latLngBounds
                     val nowMs = groupClockTick
+
+                    // --- Heading tails (§3, §0 contract 7) ---------------------------------
+                    //
+                    // In a group you have NO route line for anyone else, only their current dot.
+                    // This answers the question the map cannot: which way are they coming from?
+                    //
+                    // In-memory and per-session by construction — see HeadingTailBuffer for why
+                    // rememberSaveable would quietly breach §5.1.4 by writing other people's
+                    // positions to disk.
+                    val tails = headingTailBuffer.update(groupSession.positions, nowMs)
+                    groupSession.positions.forEach { member ->
+                        val samples = tails[member.uid].orEmpty()
+                        val freshness = MemberMarkerPolicy.freshnessFor(
+                            serverTsMillis = member.serverTsMillis,
+                            nowMillis = nowMs,
+                            syncIntervalSec = groupSyncIntervalSec,
+                        )
+                        if (!HeadingTail.shouldDraw(
+                                // GroupWire already routes your own position to `ownPosition` and
+                                // never into `positions`, so self is structurally absent here.
+                                // Q3.2 is still satisfied, just one layer further up.
+                                isSelf = false,
+                                moving = member.moving,
+                                // Auto-pause is not on the wire, and deliberately: the relay learns
+                                // `riding`, not how the ride is going. `moving` is the transmitted
+                                // signal, and it already reads false for a stationary rider — which
+                                // is the observable case §3 asks to hide.
+                                autoPaused = false,
+                                isStale = freshness != MarkerFreshness.FRESH,
+                                sampleCount = samples.size,
+                            )
+                        ) return@forEach
+
+                        // Q3.1: a tapering POLYLINE, not 10 markers each. 10 dots x 12 members is
+                        // 120 extra map objects on top of avatars and badges, and 1.7.0 §7.5 already
+                        // names ~12 members as where the map degrades. One polyline per segment
+                        // costs a fraction of that and reads as a trail rather than as samples.
+                        val tint = `in`.shvms.trackme.ui.components.GroupMemberTint.colorFor(member.uid)
+                        for (i in 0 until samples.size - 1) {
+                            Polyline(
+                                points = listOf(
+                                    com.google.android.gms.maps.model.LatLng(samples[i].lat, samples[i].lng),
+                                    com.google.android.gms.maps.model.LatLng(samples[i + 1].lat, samples[i + 1].lng),
+                                ),
+                                color = tint.copy(alpha = HeadingTail.alphaAt(i, samples.size)),
+                                width = HeadingTail.widthAt(i, samples.size),
+                            )
+                        }
+                    }
+
                     groupSession.positions.forEach { member ->
                         val point = com.google.android.gms.maps.model.LatLng(member.lat, member.lng)
                         val freshness = MemberMarkerPolicy.renderFor(
@@ -618,8 +740,18 @@ fun HomeScreen(
                             )
                         }
 
+                        val markerState = rememberMarkerState(key = member.uid, position = point)
+
+                        // §4/Q4.1: "focus the map and open that same sheet, so there is one detail
+                        // surface rather than two." On Android that surface is this marker's info
+                        // window — name and age, the same thing a marker tap already gives — so a
+                        // roster tap lands on it rather than inventing a second one.
+                        if (focusedMemberUid == member.uid) {
+                            LaunchedEffect(member.uid, point) { markerState.showInfoWindow() }
+                        }
+
                         Marker(
-                            state = rememberMarkerState(key = member.uid, position = point),
+                            state = markerState,
                             // §3.3: tap gives name, distance from you, last-update age. Nothing
                             // else — no history, no profile, no follow.
                             title = name,
@@ -759,15 +891,18 @@ fun HomeScreen(
                     icon = Icons.Default.MyLocation,
                     contentDescription = strings.recenterMap,
                     onClick = {
-                        // Locate is the explicit "follow me again" gesture — it is the only way
-                        // back after a pan suspends follow.
-                        followCamera = true
+                        // §1: this is the ONLY thing that re-arms follow (Q1.1 — button only,
+                        // never a timer). It also gives the control a real job rather than a
+                        // redundant one, since the camera no longer chases the rider by itself.
+                        isFollowingRider = CameraFollowPolicy.onRecentrePressed()
                         val target = uiState.pathPoints.lastOrNull()
                         if (target != null) {
                             coroutineScope.launch {
-                                // Recenter straight into the ride-state camera. Recentring flat
-                                // and letting the follow effect tilt a frame later reads as two
-                                // separate moves.
+                                // Recentring is the one move that DOES set zoom — §1 says zoom is
+                                // forced only on re-arm. Tilt and bearing come from the ride state
+                                // so the camera lands in its final pose in one move; recentring
+                                // flat and letting the follow effect pitch it a frame later reads
+                                // as two separate moves.
                                 val tilt = when (uiState.trackingState) {
                                     TrackingState.TRACKING -> RideCameraPolicy.RIDING_TILT
                                     TrackingState.PAUSED -> RideCameraPolicy.PAUSED_TILT
@@ -782,7 +917,7 @@ fun HomeScreen(
                                     CameraUpdateFactory.newCameraPosition(
                                         CameraPosition.Builder()
                                             .target(target)
-                                            .zoom(17f)
+                                            .zoom(CameraFollowPolicy.RECENTRE_ZOOM)
                                             .tilt(tilt)
                                             .bearing(bearing)
                                             .build()

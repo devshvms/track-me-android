@@ -3,7 +3,9 @@ package `in`.shvms.trackme.ui.history
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.data.local.AppDatabase
+import `in`.shvms.trackme.domain.sync.RideDeletion
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -76,14 +78,45 @@ class RideDetailViewModel(application: Application) : AndroidViewModel(applicati
                         return@withLock
                     }
 
-                    // Always try to delete from Firestore if user is logged in, 
-                    // to avoid orphaned data if delete happens right after an edit
-                    if (app.authManager.currentUser.value != null) {
-                        val firestoreId = ride?.firestoreId ?: rideId.toString()
-                        app.firestoreSyncManager.deleteRide(firestoreId)
+                    val cloudDocumentId = ride?.let {
+                        cloudDocumentIdForDelete(
+                            rideId = it.id,
+                            firestoreId = it.firestoreId,
+                            isSynced = it.isSynced
+                        )
                     }
-                    
+
+                    // SCOPE_1.7.3 §0 contract 5: pendingDelete locally → cloud batch → local
+                    // delete. The flag is what stops a crash between the two resurrecting the ride
+                    // from whichever side survived.
+                    if (cloudDocumentId == null) {
+                        rideDao.deletePointsForRide(rideId)
+                        rideDao.deleteRide(rideId)
+                        _uiEvent.emit(UiEvent.NavigateBack)
+                        return@withLock
+                    }
+
+                    rideDao.setPendingDelete(rideId, true)
+                    val outcome = app.firestoreSyncManager.deleteRide(cloudDocumentId)
+                    if (RideDeletion.mustRestoreLocally(outcome)) {
+                        rideDao.setPendingDelete(rideId, false)
+                        AnalyticsManager.trackRideDeleteFailed(
+                            cause = (outcome as RideDeletion.Outcome.Rejected).cause.bucket,
+                            bulk = false,
+                        )
+                        // Cloud-first deletion prevents this ride from being downloaded again at
+                        // the next sign-in. Leave the local copy visible so the user can retry.
+                        _uiEvent.emit(UiEvent.DeleteRejected)
+                        return@withLock
+                    }
+
+                    rideDao.deletePointsForRide(rideId)
                     rideDao.deleteRide(rideId)
+                    // §0 contract 6: queued-offline is not an error, and not silent either. The
+                    // row is gone locally; saying nothing would imply the cloud copy already is.
+                    if (outcome is RideDeletion.Outcome.Queued) {
+                        _uiEvent.emit(UiEvent.DeleteQueuedOffline)
+                    }
                     _uiEvent.emit(UiEvent.NavigateBack)
                 } catch (e: Exception) {
                     errorLogger.log("Failed to delete ride $rideId")
@@ -97,5 +130,13 @@ class RideDetailViewModel(application: Application) : AndroidViewModel(applicati
     sealed class UiEvent {
         object NavigateBack : UiEvent()
         data class ShowError(val message: String) : UiEvent()
+
+        /**
+         * SCOPE_1.7.3 §0 contract 6. Emitted as *facts*, not strings: this ViewModel holds no
+         * Context, so it says what happened and RideDetailScreen — which has LocalAppStrings —
+         * decides how to say it. Same split as HomeViewModel's UiEvent.
+         */
+        object DeleteRejected : UiEvent()
+        object DeleteQueuedOffline : UiEvent()
     }
 }
