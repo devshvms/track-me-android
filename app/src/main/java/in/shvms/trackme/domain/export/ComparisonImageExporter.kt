@@ -38,7 +38,13 @@ internal fun comparisonLegendLayout(bitmapWidth: Int, bitmapHeight: Int, rowCoun
 
 /** Writes a rendered multi-ride map without adding ride titles or coordinates to metadata. */
 class ComparisonImageExporter(
-    private val legend: List<Pair<String, String>> = emptyList()
+    private val legend: List<Pair<String, String>> = emptyList(),
+    /**
+     * Was hardcoded to the navy panel with white text, so the exported image ignored the Dark
+     * theme control exactly as the on-screen legend did — the setting moved nothing on this
+     * screen except a one-line route label above the panel.
+     */
+    private val darkTheme: Boolean = true,
 ) : ImageExporter {
     override suspend fun export(
         rideWithPoints: `in`.shvms.trackme.data.local.entity.RideWithPoints,
@@ -63,12 +69,16 @@ class ComparisonImageExporter(
             val panelTop = (finalBitmap.height - layout.panelHeight).toFloat()
             val canvas = Canvas(finalBitmap)
             val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = BrandThemeConfig.navy800.copy(alpha = 0.87f).toArgb()
+                color = if (darkTheme) {
+                    BrandThemeConfig.navy800.copy(alpha = 0.87f).toArgb()
+                } else {
+                    androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f).toArgb()
+                }
                 style = Paint.Style.FILL
             }
             canvas.drawRect(0f, panelTop, finalBitmap.width.toFloat(), finalBitmap.height.toFloat(), panelPaint)
             val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = android.graphics.Color.WHITE
+                color = if (darkTheme) android.graphics.Color.WHITE else android.graphics.Color.BLACK
                 textSize = layout.textSize
                 typeface = Typeface.DEFAULT_BOLD
             }

@@ -22,10 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -147,7 +147,7 @@ jobs:
             if adb logcat -d -b crash -v brief | grep -Fq "Process: in.shvms.trackme"; then echo "::error::The release app crashed after launch."; exit 1; fi
 
       - name: Upload Release AAB Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: app-release.aab
           path: app/build/outputs/bundle/release/app-release.aab
@@ -172,6 +172,8 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: in.shvms.trackme
           releaseFiles: app/build/outputs/bundle/release/app-release.aab
-          track: ${{ inputs.track || 'alpha' }}
+          # `track` (singular) is deprecated upstream. `tracks` takes the same value for a
+          # single track and accepts a comma-separated list for several.
+          tracks: ${{ inputs.track || 'alpha' }}
           status: completed
           whatsNewDirectory: distribution/whatsnew

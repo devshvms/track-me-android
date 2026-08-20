@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.history
 
+import `in`.shvms.trackme.ui.components.rememberMessenger
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.core.animateFloatAsState
@@ -62,6 +63,7 @@ import `in`.shvms.trackme.domain.replay.MediaCodecReplayExporter
 import `in`.shvms.trackme.domain.replay.ReplayExportConfig
 import `in`.shvms.trackme.domain.replay.ReplayOverlay
 import `in`.shvms.trackme.theme.BrandThemeConfig
+import `in`.shvms.trackme.theme.LocalTrackMeMotion
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.utils.RideUtils
 import kotlinx.coroutines.CancellationException
@@ -147,6 +149,7 @@ fun ReplayExportAction(
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
+    val messenger = rememberMessenger()
     val scope = rememberCoroutineScope()
     var progress by remember { mutableFloatStateOf(0f) }
     var exporting by remember { mutableStateOf(false) }
@@ -178,7 +181,7 @@ fun ReplayExportAction(
         val routePoints = replayRoutePoints(rideWithPoints.points, settings.privacyTrim)
         if (routePoints.size < 2) {
             exporting = false
-            android.widget.Toast.makeText(context, strings.replayExportFailed, android.widget.Toast.LENGTH_SHORT).show()
+            messenger.show(strings.replayExportFailed)
             return@onClick
         }
         val frameSize = replayFrameSize(settings.ratio)
@@ -186,7 +189,11 @@ fun ReplayExportAction(
             context = context,
             points = routePoints,
             size = replaySnapshotSize(frameSize),
-            mapType = settings.mapType
+            mapType = settings.mapType,
+            // The replay video never received the label or theme choices, so "No text at all"
+            // and dark theme applied to the still export and were silently ignored by the video
+            // made from the same preview, with the same settings, one button away.
+            mapStyle = settings.mapStyle(context)
         ) { captured ->
             startExport(
                 rideWithPoints = rideWithPoints,
@@ -204,7 +211,7 @@ fun ReplayExportAction(
                     exportJob = null
                 },
                 onJobCreated = { exportJob = it },
-                onFailure = { android.widget.Toast.makeText(context, strings.replayExportFailed, android.widget.Toast.LENGTH_SHORT).show() }
+                onFailure = { messenger.show(strings.replayExportFailed) }
             )
         }
     }
@@ -216,7 +223,8 @@ fun ReplayExportAction(
     // Smooths the 2%-quantised progress callbacks into a continuous fill instead of visible steps.
     val animatedFill by animateFloatAsState(
         targetValue = state.fillFraction,
-        animationSpec = tween(durationMillis = 220),
+        // Bounded 0..1: an overshoot would push the fill past the end of its track and clip.
+        animationSpec = LocalTrackMeMotion.current.spatialBounded.spec(),
         label = "replayExportFill"
     )
     val trackColor = if (state.enabled) {
@@ -379,6 +387,7 @@ private fun captureRouteSnapshot(
     points: List<`in`.shvms.trackme.data.local.entity.GPSPointEntity>,
     size: Pair<Int, Int>,
     mapType: com.google.maps.android.compose.MapType,
+    mapStyle: com.google.android.gms.maps.model.MapStyleOptions? = null,
     onResult: (CapturedMapSnapshot?) -> Unit
 ) {
     val width = size.first
@@ -431,6 +440,7 @@ private fun captureRouteSnapshot(
         map.uiSettings.isMapToolbarEnabled = false
         map.uiSettings.isZoomControlsEnabled = false
         map.uiSettings.isCompassEnabled = false
+        mapStyle?.let { runCatching { map.setMapStyle(it) } }
         map.addPolyline(PolylineOptions().addAll(latLngs).color(BrandThemeConfig.cyanBright.toArgb()).width(8f))
         runCatching {
             map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0))

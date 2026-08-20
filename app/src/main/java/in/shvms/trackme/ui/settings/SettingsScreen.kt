@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.settings
 
+import `in`.shvms.trackme.ui.components.rememberMessenger
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Sync
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.analytics.AnalyticsManager
@@ -35,7 +37,10 @@ import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.localization.SUPPORTED_LANGUAGE_CODES
 import `in`.shvms.trackme.ui.components.OfflineShieldBanner
 import `in`.shvms.trackme.ui.components.rememberIsOffline
-import android.widget.Toast
+import `in`.shvms.trackme.ui.components.SettingsGroup
+import `in`.shvms.trackme.ui.components.SettingsDivider
+import `in`.shvms.trackme.ui.components.SettingsRow
+import `in`.shvms.trackme.ui.components.SettingsSwitchRow
 
 private val languageDisplayNames = mapOf(
     "en" to "English",
@@ -59,6 +64,7 @@ fun SettingsScreen(
     val syncResult by viewModel.syncResult.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val messenger = rememberMessenger()
     val isOffline = rememberIsOffline()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
@@ -79,7 +85,7 @@ fun SettingsScreen(
         if (user == null) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -127,7 +133,7 @@ fun SettingsScreen(
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp).fillMaxWidth()
@@ -278,13 +284,11 @@ fun SettingsScreen(
 
         val languages = SUPPORTED_LANGUAGE_CODES.map { it to (languageDisplayNames[it] ?: it) }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(strings.appPreferences, style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 1. Theme Selector
-                Text(strings.theme, style = MaterialTheme.typography.bodyMedium)
+        SettingsGroup(title = strings.appPreferences) {
+            // Theme stays a segmented choice rather than a list row: three mutually exclusive
+            // options read faster as chips than as three rows or a hidden dropdown.
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Text(strings.theme, style = MaterialTheme.typography.bodyLarge)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -304,49 +308,23 @@ fun SettingsScreen(
                         )
                     }
                 }
+            }
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .toggleable(
-                                value = dynamicColor,
-                                role = Role.Switch,
-                                onValueChange = preferencesManager::setDynamicColor
-                            )
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                            Text(strings.dynamicColor, style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                text = strings.dynamicColorDescription,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(checked = dynamicColor, onCheckedChange = null)
-                    }
-                }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                SettingsDivider()
+                SettingsSwitchRow(
+                    title = strings.dynamicColor,
+                    supportingText = strings.dynamicColorDescription,
+                    checked = dynamicColor,
+                    onCheckedChange = preferencesManager::setDynamicColor,
+                )
+            }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                // 2. Language Selector Dropdown
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(strings.language, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            text = languages.find { it.first == appLanguage }?.second ?: "English",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+            SettingsDivider()
+            SettingsRow(
+                title = strings.language,
+                supportingText = languages.find { it.first == appLanguage }?.second ?: "English",
+                trailingContent = {
                     Box {
                         OutlinedButton(onClick = { showLangDropdown = true }) {
                             Text(languages.find { it.first == appLanguage }?.second ?: "English")
@@ -368,75 +346,33 @@ fun SettingsScreen(
                             }
                         }
                     }
-                }
+                },
+            )
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                // 3. Units
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .toggleable(
-                            value = unitSystem == "imperial",
-                            role = Role.Switch,
-                            onValueChange = { isImperial ->
-                                preferencesManager.setUnitSystem(if (isImperial) "imperial" else "metric")
-                            }
-                        )
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                        Text(strings.units, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            text = if (unitSystem == "imperial") strings.miles else strings.kilometers,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(checked = unitSystem == "imperial", onCheckedChange = null)
-                }
-            }
+            SettingsDivider()
+            SettingsSwitchRow(
+                title = strings.units,
+                supportingText = if (unitSystem == "imperial") strings.miles else strings.kilometers,
+                checked = unitSystem == "imperial",
+                onCheckedChange = { isImperial ->
+                    preferencesManager.setUnitSystem(if (isImperial) "imperial" else "metric")
+                },
+            )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(strings.privacyAndAnalytics, style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .toggleable(
-                            value = telemetryEnabled,
-                            role = Role.Switch,
-                            onValueChange = { enabled ->
-                                preferencesManager.setTelemetryEnabled(enabled)
-                                AnalyticsManager.updateLocalConsent(enabled)
-                            }
-                        )
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                        Text(strings.shareAnalyticsData, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            text = strings.shareAnalyticsDataDescription,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(checked = telemetryEnabled, onCheckedChange = null)
-                }
-            }
+        SettingsGroup(title = strings.privacyAndAnalytics) {
+            SettingsSwitchRow(
+                title = strings.shareAnalyticsData,
+                supportingText = strings.shareAnalyticsDataDescription,
+                checked = telemetryEnabled,
+                onCheckedChange = { enabled ->
+                    preferencesManager.setTelemetryEnabled(enabled)
+                    AnalyticsManager.updateLocalConsent(enabled)
+                },
+            )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Advanced Settings Card
+        // Advanced Settings
         var disablePostProcessing by remember { 
             mutableStateOf(prefs.getBoolean("disable_gps_post_processing", false)) 
         }
@@ -445,76 +381,28 @@ fun SettingsScreen(
         }
         var showGpsInfo by remember { mutableStateOf(false) }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(strings.advancedSettings, style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .toggleable(
-                            value = intelligentAutoPause,
-                            role = Role.Switch,
-                            onValueChange = { checked ->
-                                intelligentAutoPause = checked
-                                prefs.edit().putBoolean("intelligent_auto_pause", checked).apply()
-                            }
-                        ),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                        Text("Intelligent Auto-Pause", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            "Dynamically pauses moving timer at traffic signals or stops based on vehicle/activity speed profile",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = intelligentAutoPause,
-                        onCheckedChange = null
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .toggleable(
-                            value = disablePostProcessing,
-                            role = Role.Switch,
-                            onValueChange = { checked ->
-                                disablePostProcessing = checked
-                                prefs.edit().putBoolean("disable_gps_post_processing", checked).apply()
-                            }
-                        ),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(strings.disableGpsPostProcessing, style = MaterialTheme.typography.bodyLarge)
-                            IconButton(onClick = { showGpsInfo = true }, modifier = Modifier.size(24.dp).padding(start = 4.dp)) {
-                                Icon(Icons.Default.Info, contentDescription = strings.info, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                        Text(
-                            strings.disableGpsDesc,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = disablePostProcessing,
-                        onCheckedChange = null
-                    )
-                }
-            }
+        SettingsGroup(title = strings.advancedSettings) {
+            SettingsSwitchRow(
+                title = "Intelligent Auto-Pause",
+                supportingText = "Dynamically pauses moving timer at traffic signals or stops based on vehicle/activity speed profile",
+                checked = intelligentAutoPause,
+                onCheckedChange = { checked ->
+                    intelligentAutoPause = checked
+                    prefs.edit().putBoolean("intelligent_auto_pause", checked).apply()
+                },
+            )
+            SettingsDivider()
+            SettingsSwitchRow(
+                title = strings.disableGpsPostProcessing,
+                supportingText = strings.disableGpsDesc,
+                checked = disablePostProcessing,
+                onCheckedChange = { checked ->
+                    disablePostProcessing = checked
+                    prefs.edit().putBoolean("disable_gps_post_processing", checked).apply()
+                },
+                onInfoClick = { showGpsInfo = true },
+                infoDescription = strings.info,
+            )
         }
 
         if (showGpsInfo) {
@@ -540,27 +428,23 @@ fun SettingsScreen(
         }
         var showLiveShareInfo by remember { mutableStateOf(false) }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(strings.liveLocationSharing, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    IconButton(onClick = { showLiveShareInfo = true }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Info, contentDescription = strings.liveShareInfoTitle, modifier = Modifier.size(18.dp))
-                    }
+        SettingsGroup(
+            title = strings.liveLocationSharing,
+            titleAction = {
+                IconButton(onClick = { showLiveShareInfo = true }, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Info, contentDescription = strings.liveShareInfoTitle, modifier = Modifier.size(18.dp))
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                
+            },
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                 val freqLabel = when (liveShareFrequency) {
                     60 -> strings.minute1
                     300 -> strings.minutes5
                     else -> "$liveShareFrequency ${strings.seconds}"
                 }
-                Text("${strings.pushFrequency}: $freqLabel", style = MaterialTheme.typography.bodyMedium)
+                Text("${strings.pushFrequency}: $freqLabel", style = MaterialTheme.typography.bodyLarge)
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 val frequencyOptions = listOf(
                     5 to "5s",
                     10 to "10s",
@@ -605,22 +489,39 @@ fun SettingsScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(strings.helpFeedbackTitle, style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(strings.helpFeedbackDescription, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.height(10.dp))
-                Button(
-                    onClick = { navController?.navigate("help_feedback") },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text(strings.helpFeedbackOpen) }
-            }
+        // A navigating row rather than a card wrapping a full-width button. Same destination,
+        // same one tap — but it reads as part of the list instead of interrupting it.
+        SettingsGroup(title = strings.helpFeedbackTitle) {
+            SettingsRow(
+                title = strings.helpFeedbackOpen,
+                supportingText = strings.helpFeedbackDescription,
+                trailingContent = {
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                onClick = { navController?.navigate("help_feedback") },
+            )
         }
         
+        // 1.8.0 design system: debug-only entry to the token gallery. Stripped from release
+        // builds by the BuildConfig.DEBUG guard. See docs/DESIGN_SYSTEM_1.8.md §9.
+        if (`in`.shvms.trackme.BuildConfig.DEBUG) {
+            OutlinedButton(
+                onClick = { navController?.navigate("design_catalog") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            ) {
+                Text("Design catalog (debug)")
+            }
+        }
+
         Spacer(modifier = Modifier.weight(1f))
-        
-        val packageInfo = remember { 
+
+        val packageInfo = remember {
             try { context.packageManager.getPackageInfo(context.packageName, 0) } catch(e: Exception) { null } 
         }
         packageInfo?.let {
@@ -647,12 +548,12 @@ fun SettingsScreen(
                     onClick = {
                         val app = context.applicationContext as? TrackMeApp
                         app?.let { trackMeApp ->
-                            Toast.makeText(context, "Checking Google Play Store...", Toast.LENGTH_SHORT).show()
+                            messenger.show("Checking Google Play Store...")
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 val hasUpdate = trackMeApp.appUpdateChecker.checkForUpdate(forceCheck = true)
                                 if (!hasUpdate) {
                                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                        Toast.makeText(context, "TrackMe is up to date on Google Play!", Toast.LENGTH_SHORT).show()
+                                        messenger.show("TrackMe is up to date on Google Play!")
                                     }
                                 }
                             }

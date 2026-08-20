@@ -1,7 +1,11 @@
 package `in`.shvms.trackme
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
+import `in`.shvms.trackme.ui.layout.rememberWindowClass
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
@@ -100,73 +104,116 @@ fun MainNavigation() {
         if (pendingInvite != null) navigateToTab("community")
     }
 
-    CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
+    // App-scoped so a message survives the screen that sent it being popped — "Ride deleted"
+    // is shown immediately before popBackStack(). See Messenger.kt.
+    val messenger = `in`.shvms.trackme.ui.components.rememberAppMessenger(snackbarHostState)
+
+    CompositionLocalProvider(
+        LocalSnackbarHostState provides snackbarHostState,
+        `in`.shvms.trackme.ui.components.LocalTrackMeMessenger provides messenger,
+    ) {
+        // A bottom bar on a wide, short window spends the axis that is already scarce, and on a
+        // tablet it strands the destinations at the far edge of the screen. M3 answers both with
+        // the rail above 600dp. Below it nothing changes — a phone in portrait renders exactly
+        // the bar it rendered before.
+        val useRail = rememberWindowClass().usesNavigationRail
+
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
-                NavigationBar {
-                items.forEachIndexed { index, item ->
-                    NavigationBarItem(
-                        icon = { Icon(icons[index], contentDescription = item) },
-                        label = { Text(item) },
-                        alwaysShowLabel = true,
-                        selected = selectedItem == index,
-                        onClick = { navigateToTab(routes[index]) }
-                    )
+                if (!useRail) {
+                    NavigationBar {
+                        items.forEachIndexed { index, item ->
+                            NavigationBarItem(
+                                icon = { Icon(icons[index], contentDescription = item) },
+                                label = { Text(item) },
+                                alwaysShowLabel = true,
+                                selected = selectedItem == index,
+                                onClick = { navigateToTab(routes[index]) }
+                            )
+                        }
+                    }
+                }
+            }
+        ) { innerPadding ->
+            Row(modifier = Modifier.fillMaxSize()) {
+                if (useRail) {
+                    NavigationRail {
+                        items.forEachIndexed { index, item ->
+                            NavigationRailItem(
+                                icon = { Icon(icons[index], contentDescription = item) },
+                                label = { Text(item) },
+                                alwaysShowLabel = true,
+                                selected = selectedItem == index,
+                                onClick = { navigateToTab(routes[index]) }
+                            )
+                        }
+                    }
+                }
+                NavHost(
+                    navController = navController,
+                    startDestination = "home",
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .padding(bottom = innerPadding.calculateBottomPadding())
+                ) {
+                    composable("home") {
+                        HomeScreen(onOpenCommunity = { navigateToTab("community") })
+                    }
+                    composable("history") { 
+                        HistoryScreen(
+                            onNavigateToDetail = { id -> navController.navigate("ride_detail/$id") },
+                            onNavigateToComparison = { ids ->
+                                navController.navigate("ride_compare/${ids.joinToString(",")}")
+                            }
+                        )
+                    }
+                    composable("ride_compare/{rideIds}") { backStackEntry ->
+                        val ids = backStackEntry.arguments?.getString("rideIds")
+                            ?.split(",")
+                            ?.mapNotNull(String::toLongOrNull)
+                            .orEmpty()
+                        MultiRideCompareRoute(rideIds = ids, onBack = { navController.popBackStack() })
+                    }
+                    composable("ride_detail/{rideId}") { backStackEntry ->
+                        val id = backStackEntry.arguments?.getString("rideId")?.toLongOrNull() ?: return@composable
+                        RideDetailScreen(rideId = id, navController = navController)
+                    }
+                    composable("community") {
+                        CommunityScreen(
+                            onNavigateToSignIn = { navigateToTab("settings") },
+                            onOpenHome = { navigateToTab("home") },
+                            // 00a74: the focus travels on the application object rather than as a route
+                            // argument, for the same reason the pending invite does 2014 a parameterised
+                            // `home?uid=2026` route would miss the tab-highlight lookup above and would
+                            // have to be pushed with a bare navigate(), which is precisely the
+                            // back-stack corruption navigateToTab's comment documents.
+                            onShowMemberOnMap = { focus ->
+                                app.setPendingMemberFocus(focus)
+                                navigateToTab("home")
+                            },
+                        )
+                    }
+                    composable("settings") { SettingsScreen(navController = navController) }
+                    composable("account_management") {
+                        `in`.shvms.trackme.ui.settings.AccountManagementScreen(navController = navController)
+                    }
+                    composable("help_feedback") {
+                        `in`.shvms.trackme.ui.settings.HelpFeedbackScreen(navController = navController)
+                    }
+                    // 1.8.0 design system: the token gallery and phase-2 screenshot-test surface.
+                    // Debug-only — the route does not exist in release builds, so the entry point in
+                    // SettingsScreen cannot navigate to a missing destination.
+                    if (BuildConfig.DEBUG) {
+                        composable("design_catalog") {
+                            `in`.shvms.trackme.ui.catalog.DesignCatalogScreen(
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+                    }
                 }
             }
         }
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = "home",
-            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
-        ) {
-            composable("home") {
-                HomeScreen(onOpenCommunity = { navigateToTab("community") })
-            }
-            composable("history") { 
-                HistoryScreen(
-                    onNavigateToDetail = { id -> navController.navigate("ride_detail/$id") },
-                    onNavigateToComparison = { ids ->
-                        navController.navigate("ride_compare/${ids.joinToString(",")}")
-                    }
-                )
-            }
-            composable("ride_compare/{rideIds}") { backStackEntry ->
-                val ids = backStackEntry.arguments?.getString("rideIds")
-                    ?.split(",")
-                    ?.mapNotNull(String::toLongOrNull)
-                    .orEmpty()
-                MultiRideCompareRoute(rideIds = ids, onBack = { navController.popBackStack() })
-            }
-            composable("ride_detail/{rideId}") { backStackEntry ->
-                val id = backStackEntry.arguments?.getString("rideId")?.toLongOrNull() ?: return@composable
-                RideDetailScreen(rideId = id, navController = navController)
-            }
-            composable("community") {
-                CommunityScreen(
-                    onNavigateToSignIn = { navigateToTab("settings") },
-                    onOpenHome = { navigateToTab("home") },
-                    // §4: the focus travels on the application object rather than as a route
-                    // argument, for the same reason the pending invite does — a parameterised
-                    // `home?uid=…` route would miss the tab-highlight lookup above and would have
-                    // to be pushed with a bare navigate(), which is precisely the back-stack
-                    // corruption navigateToTab's comment documents.
-                    onShowMemberOnMap = { focus ->
-                        app.setPendingMemberFocus(focus)
-                        navigateToTab("home")
-                    },
-                )
-            }
-            composable("settings") { SettingsScreen(navController = navController) }
-            composable("account_management") {
-                `in`.shvms.trackme.ui.settings.AccountManagementScreen(navController = navController)
-            }
-            composable("help_feedback") {
-                `in`.shvms.trackme.ui.settings.HelpFeedbackScreen(navController = navController)
-            }
-        }
     }
-}
 }

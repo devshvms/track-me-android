@@ -16,6 +16,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import `in`.shvms.trackme.R
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.dao.RideDao
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
@@ -809,15 +810,69 @@ class TrackingService : Service() {
             else -> strings.notifTrackingText
         }
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        // 1.8.0 phase 4: the ride can now be controlled from the shade. The service already had
+        // ACTION_PAUSE_SERVICE and ACTION_STOP_SERVICE — they were simply never surfaced, so
+        // pausing mid-ride meant unlocking and opening the app, which is the worst possible
+        // moment to ask that of someone.
+        fun serviceAction(action: String, requestCode: Int): android.app.PendingIntent =
+            android.app.PendingIntent.getService(
+                this,
+                requestCode,
+                android.content.Intent(this, TrackingService::class.java).apply { this.action = action },
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        // Android 16 Live Update. A recording ride is the textbook case: user-initiated, ongoing,
+        // and something they want to glance at without unlocking. `setRequestPromotedOngoing`
+        // asks the system to surface it as a status-bar chip; `setShortCriticalText` is what fits
+        // in that chip, so it has to be the single most useful number rather than a sentence.
+        //
+        // Both are NotificationCompat APIs, so the version gating is handled for us — on pre-16
+        // devices these are no-ops and the notification behaves exactly as before.
+        val chipText = when (state) {
+            TrackingState.PAUSED -> strings.statusPaused
+            TrackingState.GPS_LOST, TrackingState.GPS_DISABLED -> strings.notifTrackingGpsSearching
+            else -> formatTrackingNotificationDuration(durationMillis)
+        }
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setAutoCancel(false)
             .setOngoing(true)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(R.drawable.ic_notification_trackme)
+            .setColor(NOTIFICATION_ACCENT)
+            .setColorized(false)
+            .setCategory(NotificationCompat.CATEGORY_WORKOUT)
+            .setRequestPromotedOngoing(true)
+            .setShortCriticalText(chipText)
             .setContentTitle(strings.notifTrackingTitle)
             .setContentText(contentText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
             .setContentIntent(pendingIntent)
-            .build()
+
+        // Pause and resume are the same control in two states; showing both at once would be a
+        // lie about which one applies.
+        when (state) {
+            TrackingState.PAUSED ->
+                builder.addAction(
+                    R.drawable.ic_notif_resume,
+                    strings.resumeTracking,
+                    serviceAction(ACTION_START_OR_RESUME_SERVICE, 1),
+                )
+            TrackingState.TRACKING, TrackingState.GPS_LOST, TrackingState.GPS_DISABLED ->
+                builder.addAction(
+                    R.drawable.ic_notif_pause,
+                    strings.pauseTracking,
+                    serviceAction(ACTION_PAUSE_SERVICE, 2),
+                )
+            else -> Unit
+        }
+        builder.addAction(
+            R.drawable.ic_notif_stop,
+            strings.stopTracking,
+            serviceAction(ACTION_STOP_SERVICE, 3),
+        )
+
+        return builder.build()
     }
 
     /**
@@ -856,7 +911,7 @@ class TrackingService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setAutoCancel(false)
             .setOngoing(true)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(R.drawable.ic_notification_trackme)
             .setContentTitle(strings.notifGroupPresenceTitle)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -978,15 +1033,18 @@ class TrackingService : Service() {
             if (points.isEmpty()) {
                 rideDao.deletePointsForRide(rideId)
                 rideDao.deleteRide(rideId)
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    android.widget.Toast.makeText(applicationContext, "Ride was too short to save (no GPS data).", android.widget.Toast.LENGTH_LONG).show()
-                }
+                // Report the outcome rather than rendering it. This was the app's last Toast, and
+                // it was the one that mattered: a Service has no composition, so it could not
+                // coordinate with the Snackbar the UI had already shown, and the two stacked
+                // saying opposite things.
+                trackingManager.emitRideEndOutcome(RideEndOutcome.DISCARDED_NO_GPS)
                 return
             }
 
             if (discardNearEmptyRide && finalDistance < JUNK_RIDE_DISTANCE_METERS && finalDuration < JUNK_RIDE_DURATION_MILLIS) {
                 rideDao.deletePointsForRide(rideId)
                 rideDao.deleteRide(rideId)
+                trackingManager.emitRideEndOutcome(RideEndOutcome.DISCARDED_BY_USER)
                 return
             }
             
@@ -1097,11 +1155,11 @@ class TrackingService : Service() {
         }
     }
 
-private fun showStorageLowNotification() {
+    private fun showStorageLowNotification() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val strings = appStrings()
         val warningNotification = NotificationCompat.Builder(this, SYNC_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_notification_trackme)
             .setContentTitle(strings.notifStorageLowTitle)
             .setContentText(strings.notifStorageLowText)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -1125,6 +1183,9 @@ private fun showStorageLowNotification() {
         const val JUNK_RIDE_DISTANCE_METERS = 10.0
         const val JUNK_RIDE_DURATION_MILLIS = 2 * 60 * 1000L
         const val NOTIFICATION_ID = 1
+        /** Notification accent. Primary40 — the brand cyan at the tone that reads on both shades. */
+        const val NOTIFICATION_ACCENT = 0xFF00658D.toInt()
+
         const val CHANNEL_ID = "tracking_channel"
         const val SYNC_CHANNEL_ID = "sync_channel"
         const val STORAGE_WARNING_NOTIFICATION_ID = 4

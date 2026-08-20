@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.service
 
+import `in`.shvms.trackme.R
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -86,7 +87,8 @@ class GroupAlertNotifier(private val context: Context) {
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(R.drawable.ic_notification_trackme)
+            .setColor(TrackingService.NOTIFICATION_ACCENT)
             .setContentTitle(groupName ?: strings.appName)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))

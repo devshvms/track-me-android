@@ -119,9 +119,23 @@ class CameraFollowPolicyTest {
             "the follow effect forces a zoom level — see SCOPE_1.7.3 §1, zoom is left alone while following",
             follow.contains("newLatLngZoom"),
         )
+        // Restated in 1.8.1, not relaxed. The original assertion named the mechanism — `newLatLng`
+        // — because at the time moving the target was all the follow effect did. The 1.8 ride
+        // camera also pitches the map and turns it to the direction of travel, which newLatLng
+        // cannot express, so the effect now builds a CameraPosition FROM the current one and
+        // overrides target, tilt and bearing only.
+        //
+        // The rule is unchanged, and is what these assert directly: zoom is never chosen in the
+        // follow path, so whatever the rider set carries over. Naming a call was a proxy for that.
+        assertFalse(
+            "the follow effect sets a zoom level — it must inherit the rider's zoom, not choose one",
+            follow.contains(".zoom("),
+        )
         assertTrue(
-            "the follow effect must move the target with newLatLng",
-            follow.contains("newLatLng("),
+            "the follow effect must carry zoom over, either by moving the target alone or by " +
+                "building from the current camera position",
+            follow.contains("newLatLng(") ||
+                follow.contains("CameraPosition.Builder(cameraPositionState.position)"),
         )
     }
 

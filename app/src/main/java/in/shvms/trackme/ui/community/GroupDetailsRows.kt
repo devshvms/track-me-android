@@ -1,11 +1,11 @@
 package `in`.shvms.trackme.ui.community
 
+import `in`.shvms.trackme.ui.components.rememberMessenger
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.CalendarContract
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,6 +37,7 @@ fun DestinationRow(
     onShowOnMap: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val messenger = rememberMessenger()
     val lat = session.destinationLat
     val lng = session.destinationLng
 
@@ -56,7 +57,7 @@ fun DestinationRow(
         )
         if (lat != null && lng != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = { openInMaps(context, lat, lng, session.groupName, strings) }) {
+                TextButton(onClick = { openInMaps(context, lat, lng, session.groupName, strings, messenger::show) }) {
                     Text(strings.groupOpenInMaps)
                 }
                 TextButton(onClick = onShowOnMap) { Text(strings.groupShowOnMap) }
@@ -68,6 +69,7 @@ fun DestinationRow(
 @Composable
 fun StartTimeRow(session: GroupSessionState, strings: AppStrings) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val messenger = rememberMessenger()
     val startAt = session.startAtMillis
 
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
@@ -81,7 +83,7 @@ fun StartTimeRow(session: GroupSessionState, strings: AppStrings) {
             style = MaterialTheme.typography.bodyMedium,
         )
         if (startAt != null) {
-            TextButton(onClick = { addToCalendar(context, session, startAt, strings) }) {
+            TextButton(onClick = { addToCalendar(context, session, startAt, strings, messenger::show) }) {
                 Text(strings.groupAddToCalendar)
             }
         }
@@ -131,7 +133,7 @@ fun lastKnownLocation(context: Context): Pair<Double, Double>? {
  * who deliberately installed something else should not have it overridden. The https link is the
  * fallback for a device with no `geo:` handler at all, which is rare but real on stripped ROMs.
  */
-private fun openInMaps(context: Context, lat: Double, lng: Double, label: String?, strings: AppStrings) {
+private fun openInMaps(context: Context, lat: Double, lng: Double, label: String?, strings: AppStrings, onMessage: (String) -> Unit) {
     val geo = Intent(Intent.ACTION_VIEW, Uri.parse(GroupDestinationLinks.geoUri(lat, lng, label)))
     try {
         context.startActivity(geo)
@@ -142,7 +144,7 @@ private fun openInMaps(context: Context, lat: Double, lng: Double, label: String
     try {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(GroupDestinationLinks.webMapUrl(lat, lng))))
     } catch (_: ActivityNotFoundException) {
-        Toast.makeText(context, strings.groupNoMapsApp, Toast.LENGTH_SHORT).show()
+        onMessage(strings.groupNoMapsApp)
     }
 }
 
@@ -163,6 +165,7 @@ private fun addToCalendar(
     session: GroupSessionState,
     startAt: Long,
     strings: AppStrings,
+    onMessage: (String) -> Unit,
 ) {
     val intent = Intent(Intent.ACTION_INSERT)
         .setData(CalendarContract.Events.CONTENT_URI)
@@ -182,6 +185,6 @@ private fun addToCalendar(
     try {
         context.startActivity(intent)
     } catch (_: ActivityNotFoundException) {
-        Toast.makeText(context, strings.groupNoCalendarApp, Toast.LENGTH_SHORT).show()
+        onMessage(strings.groupNoCalendarApp)
     }
 }

@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.home.components
 
+import `in`.shvms.trackme.theme.LocalTrackMeElevation
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,6 +50,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.domain.model.usesPace
 import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
@@ -85,7 +88,7 @@ fun ActiveRideHudPanel(
     /** Total wall-clock time since the ride started, including any paused segments. */
     elapsedDurationText: String,
     speedText: String,
-    /** Only shown for [RidePersona.WALK] (replaces [speedText]) — see the class doc. */
+    /** Shown instead of [speedText] for personas where [usesPace] holds — walk and run. */
     paceText: String,
     selectedPersona: RidePersona,
     isAutoPaused: Boolean,
@@ -113,11 +116,13 @@ fun ActiveRideHudPanel(
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
+    val elevation = LocalTrackMeElevation.current
+    val motion = LocalTrackMeMotion.current
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Persistent Info Pills Row (Yellow/Orange/Cyan pills)
+        // Status pill row. Themed chrome over the map since 1.8.0 — see the notes on each pill.
         FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -125,11 +130,15 @@ fun ActiveRideHudPanel(
             horizontalArrangement = Arrangement.Center,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Persona Pill (Yellow)
+            // Persona pill. Was a fixed amber fill — amber is the warning role, and "you are
+            // riding as Motorbike" is not a warning; the colour made a neutral fact look like a
+            // caution. It is floating chrome over the map, so it now joins the map control
+            // buttons on the surface ramp and follows the themed basemap.
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = TrackMeAmber,
-                shadowElevation = 2.dp,
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                shadowElevation = elevation.mapOverlay,
                 modifier = Modifier.padding(horizontal = 4.dp)
             ) {
                 Row(
@@ -139,13 +148,11 @@ fun ActiveRideHudPanel(
                     Icon(
                         imageVector = selectedPersona.icon(),
                         contentDescription = null,
-                        tint = Color.Black,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = strings.personaLabel(selectedPersona),
-                        color = Color.Black,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold
                     )
@@ -154,37 +161,57 @@ fun ActiveRideHudPanel(
 
             if (trackingState == TrackingState.GPS_LOST || trackingState == TrackingState.GPS_DISABLED || trackingState == TrackingState.STORAGE_LOW) {
                 val context = LocalContext.current
+                // Kept at full `error` emphasis rather than `errorContainer`: this pill is what
+                // tells you the ride is not being recorded, which is the one thing on this screen
+                // that must not be missable.
+                // onClick on the Surface so the press indication is clipped to the pill's corners
+                // rather than flashing as a rectangle behind it.
                 Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = TrackMeRed,
-                    shadowElevation = 2.dp,
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .clickable {
-                            val settingsAction = if (trackingState == TrackingState.STORAGE_LOW) {
-                                android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS
-                            } else {
-                                android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS
-                            }
-                            context.startActivity(
-                                android.content.Intent(settingsAction)
-                            )
+                    onClick = {
+                        val settingsAction = if (trackingState == TrackingState.STORAGE_LOW) {
+                            android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS
+                        } else {
+                            android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS
                         }
+                        context.startActivity(android.content.Intent(settingsAction))
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                    shadowElevation = elevation.mapOverlay,
+                    modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
                     val lostSeconds = (timeSinceLastGps / 1000L).coerceAtLeast(1L)
-                    Text(
-                        text = if (trackingState == TrackingState.STORAGE_LOW) {
-                            "⚠ Storage almost full - free space to resume"
-                        } else if (trackingState == TrackingState.GPS_DISABLED) {
-                            "⚠ Location services disabled (${lostSeconds}s)"
-                        } else {
-                            "⚠ GPS signal lost (${lostSeconds}s)"
-                        },
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
+                    ) {
+                        // The warning mark was a literal "⚠" inside the string, which screen
+                        // readers announce inconsistently and translators have to carry.
+                        Icon(
+                            imageVector = Icons.Default.WarningAmber,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = when (trackingState) {
+                                TrackingState.STORAGE_LOW -> strings.hudStorageLowPill
+                                TrackingState.GPS_DISABLED -> String.format(
+                                    java.util.Locale.getDefault(),
+                                    strings.hudLocationDisabledPill,
+                                    lostSeconds.toString()
+                                )
+                                else -> String.format(
+                                    java.util.Locale.getDefault(),
+                                    strings.hudGpsLostPill,
+                                    lostSeconds.toString()
+                                )
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
@@ -267,10 +294,16 @@ fun ActiveRideHudPanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 6.dp),
-            shape = RoundedCornerShape(20.dp),
+            // On-scale: 20dp was between `large` (16) and `extraLarge` (28) and on neither.
+            // `large` is the closer of the two and reads as a composed panel rather than a pill.
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-            tonalElevation = 6.dp,
-            shadowElevation = 8.dp
+            // Level 3 — a panel floating over the map, so it casts. 8dp was level 4, which the
+            // elevation ladder reserves for hover and drag states; nothing rests there.
+            // Note tonalElevation is inert while an explicit `color` is set; kept for the day
+            // this panel stops being translucent.
+            tonalElevation = elevation.level3,
+            shadowElevation = elevation.level3
         ) {
             Column(
                 modifier = Modifier
@@ -287,8 +320,11 @@ fun ActiveRideHudPanel(
                 ) {
                     StatItem(label = strings.distance, value = distanceText)
                     StatItem(label = strings.duration, value = durationText, subValue = elapsedDurationText)
-                    if (selectedPersona == RidePersona.WALK) {
-                        StatItem(label = "PACE", value = paceText)
+                    // Shared rule, not an inline WALK check: running is the persona that cares
+                    // most about pace and was showing speed. "PACE" was also a hardcoded English
+                    // literal on a screen that ships in seven languages.
+                    if (selectedPersona.usesPace) {
+                        StatItem(label = strings.pace, value = paceText)
                     } else {
                         StatItem(label = strings.speed, value = speedText)
                     }
@@ -389,9 +425,14 @@ internal fun UnifiedPauseStopPill(
 ) {
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
-    val dragOffset = remember { Animatable(0f) }
+    // Visibility threshold in pixels, not the 0.01 default. That default assumes a normalised
+    // 0..1 value; on a pixel offset it means the spring must land within a hundredth of a pixel,
+    // and the invisible tail of that decay is several hundred milliseconds of an animation that
+    // finished looking finished long ago. One pixel is below what anyone can see.
+    val dragOffset = remember { Animatable(0f, visibilityThreshold = 1f) }
     val pauseIconScale = remember { Animatable(1f) }
     val haptic = LocalHapticFeedback.current
+    val motion = LocalTrackMeMotion.current
     val context = LocalContext.current
     var isStoppingAcknowledged by remember { mutableStateOf(false) }
 
@@ -409,6 +450,12 @@ internal fun UnifiedPauseStopPill(
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             triggerPhysicalVibrate(context, 80L)
             coroutineScope.launch {
+                // Deliberately still a tween. This is a timed choreography, not free motion: the
+                // slide, the 350ms the acknowledgement is readable for, and the commit are one
+                // sequence, and the total is what the caller experiences as "how long stopping
+                // takes". A spring's settle time depends on how far the thumb has to travel, which
+                // is the screen width — so the same gesture would commit at a different moment on
+                // a tablet than on a phone.
                 dragOffset.animateTo(-maxSlidePx, animationSpec = tween(150))
                 delay(350)
                 onStopRide()
@@ -431,8 +478,8 @@ internal fun UnifiedPauseStopPill(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         triggerPhysicalVibrate(context, 45L)
                         coroutineScope.launch {
-                            pauseIconScale.animateTo(0.75f, tween(80))
-                            pauseIconScale.animateTo(1f, tween(120))
+                            pauseIconScale.animateTo(0.75f, motion.spatialFast.spec())
+                            pauseIconScale.animateTo(1f, motion.spatialFast.spec())
                         }
                         onPauseToggle()
                     }
@@ -472,8 +519,8 @@ internal fun UnifiedPauseStopPill(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         triggerPhysicalVibrate(context, 35L)
                         coroutineScope.launch {
-                            dragOffset.animateTo(-maxSlidePx * 0.45f, animationSpec = tween(180))
-                            dragOffset.animateTo(0f, animationSpec = tween(220))
+                            dragOffset.animateTo(-maxSlidePx * 0.45f, animationSpec = motion.spatialBounded.spec())
+                            dragOffset.animateTo(0f, animationSpec = motion.spatialBounded.spec())
                         }
                     }
                 }
@@ -493,7 +540,7 @@ internal fun UnifiedPauseStopPill(
                     onDragStopped = {
                         coroutineScope.launch {
                             if (!isStoppingAcknowledged) {
-                                dragOffset.animateTo(0f, animationSpec = tween(250))
+                                dragOffset.animateTo(0f, animationSpec = motion.spatialBounded.spec())
                             }
                         }
                     }

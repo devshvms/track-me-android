@@ -1,5 +1,9 @@
 package `in`.shvms.trackme.ui.home
 
+import androidx.compose.material3.SnackbarDuration
+import `in`.shvms.trackme.ui.components.TrackMeMapAttribution
+import `in`.shvms.trackme.ui.components.rememberMessenger
+import `in`.shvms.trackme.ui.components.rememberMapStyle
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -56,6 +60,7 @@ import `in`.shvms.trackme.ui.home.components.GroupPresenceHost
 import `in`.shvms.trackme.ui.home.components.pauseDurationBucket
 import `in`.shvms.trackme.ui.home.components.SeverityBadgeMarker
 import `in`.shvms.trackme.ui.home.components.MarkerFreshness
+import `in`.shvms.trackme.ui.home.components.RideCameraPolicy
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
 import `in`.shvms.trackme.ui.home.components.GroupMapButton
@@ -143,6 +148,8 @@ fun HomeScreen(
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    val messenger = rememberMessenger()
+    val mapStyle = rememberMapStyle()
     val app = context.applicationContext as TrackMeApp
     val imperialUnits by app.preferencesManager.unitSystem.collectAsState()
     val uiPreferences = remember {
@@ -241,17 +248,17 @@ fun HomeScreen(
                     context.startService(intent)
                 }
                 HomeViewModel.UiEvent.LiveShareAuthRequired ->
-                    android.widget.Toast.makeText(context, strings.liveShareAuthRequired, android.widget.Toast.LENGTH_LONG).show()
+                    messenger.show(strings.liveShareAuthRequired, duration = SnackbarDuration.Long)
                 is HomeViewModel.UiEvent.LiveShareStarted -> {
                     val msg = if (event.isTrackingActive) strings.liveShareReadyActive else strings.liveShareReadyIdle
-                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                    messenger.show(msg, duration = SnackbarDuration.Long)
                 }
                 HomeViewModel.UiEvent.LiveShareAuthExpired ->
-                    android.widget.Toast.makeText(context, strings.liveShareAuthExpired, android.widget.Toast.LENGTH_LONG).show()
+                    messenger.show(strings.liveShareAuthExpired, duration = SnackbarDuration.Long)
                 is HomeViewModel.UiEvent.LiveShareGracefulError ->
-                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_LONG).show()
+                    messenger.show(event.message, duration = SnackbarDuration.Long)
                 HomeViewModel.UiEvent.LiveShareStopped ->
-                    android.widget.Toast.makeText(context, strings.liveShareStoppedToast, android.widget.Toast.LENGTH_SHORT).show()
+                    messenger.show(strings.liveShareStoppedToast)
             }
         }
     }
@@ -263,8 +270,21 @@ fun HomeScreen(
                 // only as the fallback confirmation for rides that earn no reveal (e.g. a
                 // sub-threshold "junk" ride the user chose to save anyway).
                 if (app.pendingRevealStore.pending.value == null) {
-                    android.widget.Toast.makeText(context, strings.rideSaved, android.widget.Toast.LENGTH_SHORT).show()
+                    messenger.show(strings.rideSaved)
                 }
+            }
+        }
+    }
+
+    // The single, truthful ride-end announcement. The service reports what actually happened;
+    // this says it once, through the same messenger, so it replaces rather than stacks.
+    LaunchedEffect(Unit) {
+        app.trackingManager.rideEndOutcome.collect { outcome ->
+            when (outcome) {
+                `in`.shvms.trackme.service.RideEndOutcome.DISCARDED_NO_GPS ->
+                    messenger.show(strings.rideDiscardedNoGps, duration = SnackbarDuration.Long)
+                `in`.shvms.trackme.service.RideEndOutcome.DISCARDED_BY_USER ->
+                    messenger.show(strings.rideDiscarded)
             }
         }
     }
@@ -315,6 +335,7 @@ fun HomeScreen(
     }
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
+    var followCamera by rememberSaveable { mutableStateOf(true) }
     var hasCenteredOnLocation by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(hasLocationPermission) {
         if (hasLocationPermission && !hasCenteredOnLocation && uiState.pathPoints.isEmpty()) {
@@ -339,6 +360,12 @@ fun HomeScreen(
     // and animated to the newest point at zoom 17 unconditionally, so it overrode both a pan and a
     // zoom within a second or two — worst precisely in a group, where zooming out to see everyone
     // got yanked back before the screen could be read.
+    //
+    // The 1.8 branch had independently grown its own `followCamera` flag with the same intent. It
+    // is gone: this policy is the better of the two — extracted, unit-tested, and stated in terms
+    // iOS can implement — and it also handles the roster-focus case below, which the inline
+    // version did not. The 1.8 ride camera (tilt and heading) now layers on top of it rather than
+    // competing with it.
     //
     // rememberSaveable, not remember: Q1.2 decides follow SURVIVES backgrounding, because the
     // rider's last explicit intent is the best guess at their next one.
@@ -392,6 +419,28 @@ fun HomeScreen(
         app.consumePendingMemberFocus()
     }
 
+    // Ride over: put the map back the way it was found.
+    //
+    // The 1.8 ride camera pitches and turns the map while recording, so without this the map keeps
+    // a 45° pitch and the last leg's bearing after the ride ends, and the only way back is the
+    // compass — the app appears to have permanently changed its map. IDLE only: GPS_LOST,
+    // GPS_DISABLED and STORAGE_LOW are interrupted rides, not finished ones.
+    //
+    // Deliberately does NOT re-arm follow. §1 Q1.1 is "button only", and the next ride re-arms
+    // through armsOnRecordingStart anyway, so touching the flag here would only weaken that rule.
+    LaunchedEffect(uiState.trackingState) {
+        if (uiState.trackingState != TrackingState.IDLE) return@LaunchedEffect
+        if (cameraPositionState.position.tilt <= 0.5f) return@LaunchedEffect
+        cameraPositionState.animateSafely {
+            CameraUpdateFactory.newCameraPosition(
+                CameraPosition.Builder(cameraPositionState.position)
+                    .tilt(0f)
+                    .bearing(0f)
+                    .build()
+            )
+        }
+    }
+
     LaunchedEffect(uiState.pathPoints, isFollowingRider, isRecording) {
         val move = CameraFollowPolicy.moveFor(
             following = isFollowingRider,
@@ -400,9 +449,29 @@ fun HomeScreen(
         )
         if (move == CameraFollowPolicy.FollowMove.KeepZoom) {
             val lastPoint = uiState.pathPoints.last()
-            // newLatLng, NOT newLatLngZoom: §1 is explicit that a rider who zoomed out to 14 to see
-            // the group and is still following should stay at 14. Zoom is forced only on re-arm.
-            cameraPositionState.animateSafely { CameraUpdateFactory.newLatLng(lastPoint) }
+            // Built FROM the current position, so zoom is carried over untouched. §1 is explicit
+            // that a rider who zoomed out to 14 to see the group and is still following stays at
+            // 14; the 1.8 branch's version forced zoom 17 here and reintroduced exactly that
+            // defect. Only tilt and bearing are set, which is the ride camera's whole contribution.
+            val tilt = when (uiState.trackingState) {
+                TrackingState.TRACKING -> RideCameraPolicy.RIDING_TILT
+                TrackingState.PAUSED -> RideCameraPolicy.PAUSED_TILT
+                else -> cameraPositionState.position.tilt
+            }
+            val bearing = if (uiState.trackingState == TrackingState.TRACKING) {
+                RideCameraPolicy.headingOf(uiState.pathPoints)
+            } else {
+                cameraPositionState.position.bearing
+            }
+            cameraPositionState.animateSafely {
+                CameraUpdateFactory.newCameraPosition(
+                    CameraPosition.Builder(cameraPositionState.position)
+                        .target(lastPoint)
+                        .tilt(tilt)
+                        .bearing(bearing)
+                        .build()
+                )
+            }
         }
     }
 
@@ -512,31 +581,41 @@ fun HomeScreen(
                 // the next one, and the cache would otherwise outlive its group.
                 LaunchedEffect(groupSession.groupId) { avatarCache.clear() }
 
+                // Hoisted, because the TrackMe wordmark has to sit on the same baseline as
+                // Google's mark and Google's mark is drawn inside this padding. Two independent
+                // expressions of the same number is how they drifted apart.
+                val mapContentPadding = PaddingValues(
+                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 16.dp,
+                    // The map is full-bleed, so without the navigation-bar inset the attribution
+                    // sits under the nav bar -- it is required to stay visible.
+                    bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                        if (uiState.trackingState != TrackingState.IDLE) 88.dp else 0.dp
+                )
+
                 GoogleMap(
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = cameraPositionState,
                     properties = MapProperties(
                         isMyLocationEnabled = true,
                         mapType = mapType,
-                        isTrafficEnabled = isTrafficEnabled
+                        isTrafficEnabled = isTrafficEnabled,
+                        // Null in light theme — Google's default basemap is already the light one.
+                        mapStyleOptions = mapStyle,
                     ),
                     uiSettings = MapUiSettings(
                         zoomControlsEnabled = false,
                         myLocationButtonEnabled = false
                     ),
-                    contentPadding = PaddingValues(
-                        top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 16.dp,
-                        // Google's attribution and the compass live inside this padding. The map
-                        // is full-bleed, so without the navigation-bar inset the attribution sits
-                        // under the nav bar — it is required to stay visible.
-                        bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
-                            if (uiState.trackingState != TrackingState.IDLE) 88.dp else 0.dp
-                    )
+                    contentPadding = mapContentPadding
                 ) {
                     if (uiState.pathPoints.isNotEmpty()) {
                         Polyline(
                             points = uiState.pathPoints,
-                            color = TrackMeBlue,
+                            // Now that the basemap follows the theme, the route can too: the
+                            // lighter dark-theme primary reads on the night map, the darker
+                            // light-theme one reads on the day map. Pinned to TrackMeBlue this
+                            // was only ever correct on the light basemap.
+                            color = MaterialTheme.colorScheme.primary,
                             width = 10f
                         )
                     }
@@ -684,6 +763,12 @@ fun HomeScreen(
                         )
                     }
                 }
+                // After the map, so it draws on top of it rather than under. Beside Google's own
+                // mark and never over it — see MapAttribution.
+                TrackMeMapAttribution(
+                    modifier = Modifier.align(Alignment.BottomStart),
+                    bottomOffset = mapContentPadding.calculateBottomPadding(),
+                )
             } else {
                 AlertDialog(
                     onDismissRequest = { /* Blocking dialog, do nothing */ },
@@ -795,21 +880,6 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.End
             ) {
-                // Above the layer/recentre/compass stack, and present only while a group is live
-                // (A20). Its presence is the signal that someone can see you; tapping it opens the
-                // roster, where Leave lives.
-                GroupMapButton(
-                    session = groupSession,
-                    // The badge counts EVERYONE in the group, you included. It was showing
-                    // others-only, so a group of two read "1" — which looks like a bug rather than
-                    // a definition. The accessibility sentence still says "visible to N people",
-                    // where N deliberately excludes you, because audience and headcount are
-                    // genuinely different numbers.
-                    memberCount = groupSession.roster.size.coerceAtLeast(0),
-                    audienceCount = (groupSession.roster.size - 1).coerceAtLeast(0),
-                    onClick = onOpenCommunity,
-                )
-
                 MapLayerHorizontalDrawerButton(
                     currentMapType = mapType,
                     onMapTypeSelected = { mapType = it },
@@ -828,8 +898,30 @@ fun HomeScreen(
                         val target = uiState.pathPoints.lastOrNull()
                         if (target != null) {
                             coroutineScope.launch {
+                                // Recentring is the one move that DOES set zoom — §1 says zoom is
+                                // forced only on re-arm. Tilt and bearing come from the ride state
+                                // so the camera lands in its final pose in one move; recentring
+                                // flat and letting the follow effect pitch it a frame later reads
+                                // as two separate moves.
+                                val tilt = when (uiState.trackingState) {
+                                    TrackingState.TRACKING -> RideCameraPolicy.RIDING_TILT
+                                    TrackingState.PAUSED -> RideCameraPolicy.PAUSED_TILT
+                                    else -> cameraPositionState.position.tilt
+                                }
+                                val bearing = if (uiState.trackingState == TrackingState.TRACKING) {
+                                    RideCameraPolicy.headingOf(uiState.pathPoints)
+                                } else {
+                                    cameraPositionState.position.bearing
+                                }
                                 cameraPositionState.animateSafely {
-                                    CameraUpdateFactory.newLatLngZoom(target, CameraFollowPolicy.RECENTRE_ZOOM)
+                                    CameraUpdateFactory.newCameraPosition(
+                                        CameraPosition.Builder()
+                                            .target(target)
+                                            .zoom(CameraFollowPolicy.RECENTRE_ZOOM)
+                                            .tilt(tilt)
+                                            .bearing(bearing)
+                                            .build()
+                                    )
                                 }
                             }
                         } else if (hasLocationPermission) {
@@ -865,22 +957,53 @@ fun HomeScreen(
                     }
                 )
 
-                MapControlCircleButton(
-                    icon = Icons.Default.Explore,
-                    contentDescription = strings.compassNorth,
-                    onClick = {
-                        coroutineScope.launch {
-                            cameraPositionState.animateSafely {
-                                CameraUpdateFactory.newCameraPosition(
-                                    com.google.android.gms.maps.model.CameraPosition.Builder(cameraPositionState.position)
-                                        .bearing(0f)
-                                        .tilt(0f)
-                                        .build()
-                                )
+                // Third slot, and last in the stack on purpose. It used to sit on top, so the
+                // moment a group went live the other two controls jumped down under the user's
+                // thumb. Placed last, its appearance moves nothing. It renders only while a group
+                // is active — GroupMapButton returns early otherwise.
+                GroupMapButton(
+                    session = groupSession,
+                    // The badge counts EVERYONE in the group, you included. It was showing
+                    // others-only, so a group of two read "1" — which looks like a bug rather than
+                    // a definition. The accessibility sentence still says "visible to N people",
+                    // where N deliberately excludes you, because audience and headcount are
+                    // genuinely different numbers.
+                    memberCount = groupSession.roster.size.coerceAtLeast(0),
+                    audienceCount = (groupSession.roster.size - 1).coerceAtLeast(0),
+                    onClick = onOpenCommunity,
+                )
+
+                // The compass earns its slot rather than holding one.
+                //
+                // It was a permanent third button that did nothing on a north-up map, which is
+                // almost always. But deleting it outright would remove the only way back from a
+                // rotated map — and the ride camera now turns the map to the direction of travel,
+                // so "rotated" is the normal state during a ride rather than an accident. Shown
+                // only when there is something to undo, which is what every map app does.
+                val mapIsTurned = kotlin.math.abs(cameraPositionState.position.bearing) > 1f ||
+                    cameraPositionState.position.tilt > 1f
+                if (mapIsTurned) {
+                    MapControlCircleButton(
+                        icon = Icons.Default.Explore,
+                        contentDescription = strings.compassNorth,
+                        onClick = {
+                            // North-up is a deliberate override of the ride camera. Leaving follow
+                            // armed would re-tilt and re-bear on the next GPS fix, so the button
+                            // would appear not to work.
+                            followCamera = false
+                            coroutineScope.launch {
+                                cameraPositionState.animateSafely {
+                                    CameraUpdateFactory.newCameraPosition(
+                                        com.google.android.gms.maps.model.CameraPosition.Builder(cameraPositionState.position)
+                                            .bearing(0f)
+                                            .tilt(0f)
+                                            .build()
+                                    )
+                                }
                             }
                         }
-                    }
-                )
+                    )
+                }
             }
 
             // Idle State: Radial Persona Start Button
@@ -1066,8 +1189,10 @@ fun HomeScreen(
                         ) {
                             showDiscardRideDialog = true
                         } else {
+                            // No optimistic "Saving ride…" here. Only the service knows whether the
+                            // ride survives, and announcing an intent that the outcome then
+                            // contradicts is what produced two stacked, opposing messages.
                             viewModel.stopTracking()
-                            android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
                         }
                     },
                     onStartShare = {
@@ -1079,18 +1204,17 @@ fun HomeScreen(
                         // Two location broadcasts at once would also double the network cost of a
                         // feature whose entire battery budget (§7.4) assumes one.
                         if (groupSession.isActive) {
-                            android.widget.Toast.makeText(
-                                context,
+                            messenger.show(
                                 strings.groupLiveShareBlocked,
-                                android.widget.Toast.LENGTH_LONG,
-                            ).show()
+                                duration = SnackbarDuration.Long,
+                            )
                         } else {
                             viewModel.startLiveShare(durationMinutes = 1440, stopOnRideEnd = true)
                         }
                     },
                     onStopShare = {
                         viewModel.stopLiveShare()
-                        android.widget.Toast.makeText(context, strings.liveShareStoppedToast, android.widget.Toast.LENGTH_SHORT).show()
+                        messenger.show(strings.liveShareStoppedToast)
                     },
                     onSendShare = {
                         val shareLink = uiState.liveShareState.shareLink
@@ -1110,7 +1234,7 @@ fun HomeScreen(
                             val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                             val clip = android.content.ClipData.newPlainText("Live Share Link", shareLink)
                             clipboard.setPrimaryClip(clip)
-                            android.widget.Toast.makeText(context, strings.linkCopied, android.widget.Toast.LENGTH_SHORT).show()
+                            messenger.show(strings.linkCopied)
                         }
                     },
                         modifier = Modifier.padding(bottom = 8.dp)
@@ -1137,8 +1261,10 @@ fun HomeScreen(
                     dismissButton = {
                         TextButton(onClick = {
                             showDiscardRideDialog = false
+                            // No optimistic "Saving ride…" here. Only the service knows whether the
+                            // ride survives, and announcing an intent that the outcome then
+                            // contradicts is what produced two stacked, opposing messages.
                             viewModel.stopTracking()
-                            android.widget.Toast.makeText(context, strings.savingRide, android.widget.Toast.LENGTH_SHORT).show()
                         }) {
                             Text(strings.saveAnyway)
                         }

@@ -63,6 +63,18 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val duration: String = s("duration", "Duration")
     val avgSpeed: String = s("avgSpeed", "Avg Speed")
     val maxSpeed: String = s("maxSpeed", "Max Speed")
+    val avgPace: String = s("avgPace", "Avg Pace")
+    val bestPace: String = s("bestPace", "Best Pace")
+    val pace: String = s("pace", "Pace")
+    val maxGForce: String = s("maxGForce", "Max G-Force")
+
+    // Per-kilometre splits, shown instead of the sample chart on foot.
+    val splitsTitle: String = s("splitsTitle", "Splits")
+    val chartTitle: String = s("chartTitle", "Chart")
+    val splitFastest: String = s("splitFastest", "fastest")
+    val splitPartial: String = s("splitPartial", "partial")
+    val splitRemainder: String = s("splitRemainder", "remainder")
+    val splitRemainderShort: String = s("splitRemainderShort", "rem")
     val elevation: String = s("elevation", "Elevation")
     val mapLayerNormal: String = s("mapLayerNormal", "Normal map")
     val mapLayerSatellite: String = s("mapLayerSatellite", "Satellite map")
@@ -231,6 +243,12 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val notifStorageLowText: String = s("notifStorageLowText", "Tracking is paused. Free device storage, then tap Resume in TrackMe.")
     val offlineModeTitle: String = s("offlineModeTitle", "Offline mode")
     val offlineModeDescription: String = s("offlineModeDescription", "Changes stay on this device and sync when connected.")
+
+    // Ride HUD status pills. These render over the map during a ride and were hardcoded English
+    // until 1.8.0 — the only user-facing strings in the app that were not translatable.
+    val hudGpsLostPill: String = s("hudGpsLostPill", "GPS signal lost (%1\$ss)")
+    val hudLocationDisabledPill: String = s("hudLocationDisabledPill", "Location services disabled (%1\$ss)")
+    val hudStorageLowPill: String = s("hudStorageLowPill", "Storage almost full — free space to resume")
 
     // Start Share Dialog
     val startLiveShareTitle: String = s("startLiveShareTitle", "Start Live Share")
@@ -404,6 +422,33 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val done: String = s("done", "Done")
     val share: String = s("share", "Share")
     val aspectRatio: String = s("aspectRatio", "Aspect Ratio:")
+
+    // Export preview control rail. Short by design — these are labels under a 22dp icon, not
+    // headings, so they must survive a phone width in every locale.
+    val exportCategoryRatio: String = s("exportCategoryRatio", "Ratio")
+    val exportCategoryMap: String = s("exportCategoryMap", "Map")
+    val exportCategoryPrivacy: String = s("exportCategoryPrivacy", "Privacy")
+    val exportCategoryMarkers: String = s("exportCategoryMarkers", "Markers")
+    val exportCategoryStats: String = s("exportCategoryStats", "Stats")
+    val exportCategoryLegend: String = s("exportCategoryLegend", "Legend")
+
+    // Marker styles on an exported image.
+    val markerStyleNone: String = s("markerStyleNone", "None")
+    val markerStyleStartFinish: String = s("markerStyleStartFinish", "Start & finish")
+    val markerStyleFinishOnly: String = s("markerStyleFinishOnly", "Finish only")
+    val markerStyleMono: String = s("markerStyleMono", "Black & white")
+    val markerStylePin: String = s("markerStylePin", "Pins")
+
+    // How much of the basemap's text an exported image keeps.
+    val mapLabelsAll: String = s("mapLabelsAll", "All labels")
+    val mapLabelsNoPlaces: String = s("mapLabelsNoPlaces", "No place names")
+    val mapLabelsNone: String = s("mapLabelsNone", "No text at all")
+
+    // Where the stats panel sits on an exported image.
+    val statsOverlayNone: String = s("statsOverlayNone", "No panel")
+    val statsOverlayBar: String = s("statsOverlayBar", "Bottom bar")
+    val statsOverlayTopLeft: String = s("statsOverlayTopLeft", "Top left")
+    val statsOverlayTopRight: String = s("statsOverlayTopRight", "Top right")
     val privacyTrim: String = s("privacyTrim", "Privacy trim (200 m)")
     val retry: String = s("retry", "Retry")
     val exportRetryMessage: String = s("exportRetryMessage", "Map capture failed. Check that the preview is ready, then retry.")
@@ -420,6 +465,12 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val discardRideTitle: String = s("discardRideTitle", "Discard this ride?")
     val discardRideMessage: String = s("discardRideMessage", "This ride did not record meaningful distance. You can discard it or save it anyway.")
     val discardRide: String = s("discardRide", "Discard")
+    // Ride-end outcomes. These replaced a hardcoded English Toast inside TrackingService, so they
+    // are localizable for the first time — translations for the other six locales are still to
+    // come and fall back to English until then.
+    val rideDiscardedNoGps: String =
+        s("rideDiscardedNoGps", "Ride discarded — no GPS data was recorded.")
+    val rideDiscarded: String = s("rideDiscarded", "Ride discarded.")
     val saveAnyway: String = s("saveAnyway", "Save anyway")
     val selectExpirationMode: String = s("selectExpirationMode", "Select expiration mode:")
     val autoStopWhenRideEnds: String = s("autoStopWhenRideEnds", "Stops when tracking finishes")
@@ -791,6 +842,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "discardRideTitle" to "¿Descartar este viaje?",
             "discardRideMessage" to "Este viaje no registró una distancia significativa. Puedes descartarlo o guardarlo de todos modos.",
             "discardRide" to "Descartar",
+            "rideDiscardedNoGps" to "Recorrido descartado: no se registraron datos de GPS.",
+            "rideDiscarded" to "Recorrido descartado.",
             "saveAnyway" to "Guardar de todos modos",
             "liveShareAuthExpired" to "Tu sesión ha caducado. Vuelve a iniciar sesión para compartir tu ubicación.",
             "rideInProgress" to "Viaje en curso",
@@ -803,6 +856,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "duration" to "Duración",
             "avgSpeed" to "Vel. Media",
             "maxSpeed" to "Vel. Máx",
+            "avgPace" to "Ritmo medio",
+            "bestPace" to "Mejor ritmo",
+            "pace" to "Ritmo",
+            "maxGForce" to "Fuerza G máx.",
+            "splitsTitle" to "Parciales",
+            "chartTitle" to "Gráfico",
+            "splitFastest" to "el más rápido",
+            "splitPartial" to "parcial",
+            "splitRemainder" to "resto",
+            "splitRemainderShort" to "resto",
             "elevation" to "Altitud",
             "notifTrackingTitle" to "TrackMe está grabando tu viaje",
             "notifTrackingText" to "Viaje en curso",
@@ -811,6 +874,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingGpsSearching" to "Buscando GPS…",
             "notifStorageLowTitle" to "Almacenamiento casi lleno",
             "notifStorageLowText" to "El seguimiento está pausado. Libera espacio y toca Reanudar en TrackMe.",
+            "hudGpsLostPill" to "Señal GPS perdida (%1\$ss)",
+            "hudLocationDisabledPill" to "Servicios de ubicación desactivados (%1\$ss)",
+            "hudStorageLowPill" to "Almacenamiento casi lleno: libera espacio para reanudar",
             "offlineModeTitle" to "Modo sin conexión",
             "offlineModeDescription" to "Los cambios permanecen en este dispositivo y se sincronizan al conectarte.",
             "startLiveShareTitle" to "Ubicación en Tiempo Real",
@@ -885,6 +951,24 @@ fun getAppStrings(languageCode: String): AppStrings {
             "selectionSelected" to "Seleccionado",
             "selectionNotSelected" to "No seleccionado",
             "aspectRatio" to "Proporción:",
+            "exportCategoryRatio" to "Formato",
+            "exportCategoryMap" to "Mapa",
+            "exportCategoryPrivacy" to "Privacidad",
+            "exportCategoryMarkers" to "Marcas",
+            "exportCategoryStats" to "Datos",
+            "exportCategoryLegend" to "Leyenda",
+            "markerStyleNone" to "Ninguno",
+            "markerStyleStartFinish" to "Inicio y final",
+            "markerStyleFinishOnly" to "Solo final",
+            "markerStyleMono" to "Blanco y negro",
+            "markerStylePin" to "Chinchetas",
+            "mapLabelsAll" to "Todas las etiquetas",
+            "mapLabelsNoPlaces" to "Sin nombres de lugares",
+            "mapLabelsNone" to "Sin texto",
+            "statsOverlayNone" to "Sin panel",
+            "statsOverlayBar" to "Barra inferior",
+            "statsOverlayTopLeft" to "Arriba a la izquierda",
+            "statsOverlayTopRight" to "Arriba a la derecha",
             "privacyTrim" to "Recorte de privacidad (200 m)",
             "retry" to "Reintentar",
             "exportRetryMessage" to "No se pudo capturar el mapa. Comprueba la vista previa y reintenta.",
@@ -1282,6 +1366,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "discardRideTitle" to "Supprimer ce trajet ?",
             "discardRideMessage" to "Ce trajet n'a pas enregistré de distance significative. Vous pouvez le supprimer ou l'enregistrer quand même.",
             "discardRide" to "Supprimer",
+            "rideDiscardedNoGps" to "Trajet supprimé : aucune donnée GPS enregistrée.",
+            "rideDiscarded" to "Trajet supprimé.",
             "saveAnyway" to "Enregistrer quand même",
             "liveShareAuthExpired" to "Votre session a expiré. Reconnectez-vous pour partager votre position.",
             "rideInProgress" to "Trajet en cours",
@@ -1294,6 +1380,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "duration" to "Durée",
             "avgSpeed" to "Vit. Moy",
             "maxSpeed" to "Vit. Max",
+            "avgPace" to "Allure moy.",
+            "bestPace" to "Meilleure allure",
+            "pace" to "Allure",
+            "maxGForce" to "Force G max.",
+            "splitsTitle" to "Fractionnés",
+            "chartTitle" to "Graphique",
+            "splitFastest" to "le plus rapide",
+            "splitPartial" to "partiel",
+            "splitRemainder" to "reste",
+            "splitRemainderShort" to "reste",
             "elevation" to "Altitude",
             "notifTrackingTitle" to "TrackMe enregistre votre trajet",
             "notifTrackingText" to "Trajet en cours",
@@ -1302,6 +1398,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingGpsSearching" to "Recherche du GPS…",
             "notifStorageLowTitle" to "Stockage presque plein",
             "notifStorageLowText" to "Le suivi est en pause. Libérez de l'espace, puis appuyez sur Reprendre dans TrackMe.",
+            "hudGpsLostPill" to "Signal GPS perdu (%1\$ss)",
+            "hudLocationDisabledPill" to "Services de localisation désactivés (%1\$ss)",
+            "hudStorageLowPill" to "Stockage presque plein : libérez de l'espace pour reprendre",
             "offlineModeTitle" to "Mode hors connexion",
             "offlineModeDescription" to "Les modifications restent sur cet appareil et se synchronisent à la reconnexion.",
             "startLiveShareTitle" to "Partage en Temps Réel",
@@ -1376,6 +1475,24 @@ fun getAppStrings(languageCode: String): AppStrings {
             "selectionSelected" to "Sélectionné",
             "selectionNotSelected" to "Non sélectionné",
             "aspectRatio" to "Format :",
+            "exportCategoryRatio" to "Format",
+            "exportCategoryMap" to "Carte",
+            "exportCategoryPrivacy" to "Confidentialité",
+            "exportCategoryMarkers" to "Repères",
+            "exportCategoryStats" to "Données",
+            "exportCategoryLegend" to "Légende",
+            "markerStyleNone" to "Aucun",
+            "markerStyleStartFinish" to "Départ et arrivée",
+            "markerStyleFinishOnly" to "Arrivée seule",
+            "markerStyleMono" to "Noir et blanc",
+            "markerStylePin" to "Épingles",
+            "mapLabelsAll" to "Tous les libellés",
+            "mapLabelsNoPlaces" to "Sans noms de lieux",
+            "mapLabelsNone" to "Aucun texte",
+            "statsOverlayNone" to "Aucun panneau",
+            "statsOverlayBar" to "Bandeau bas",
+            "statsOverlayTopLeft" to "En haut à gauche",
+            "statsOverlayTopRight" to "En haut à droite",
             "privacyTrim" to "Découpe de confidentialité (200 m)",
             "retry" to "Réessayer",
             "exportRetryMessage" to "La capture de la carte a échoué. Vérifiez l’aperçu, puis réessayez.",
@@ -1773,6 +1890,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "discardRideTitle" to "Diese Fahrt verwerfen?",
             "discardRideMessage" to "Diese Fahrt hat keine aussagekräftige Distanz aufgezeichnet. Sie können sie verwerfen oder trotzdem speichern.",
             "discardRide" to "Verwerfen",
+            "rideDiscardedNoGps" to "Fahrt verworfen – keine GPS-Daten aufgezeichnet.",
+            "rideDiscarded" to "Fahrt verworfen.",
             "saveAnyway" to "Trotzdem speichern",
             "liveShareAuthExpired" to "Ihre Anmeldung ist abgelaufen. Melden Sie sich erneut an, um Ihren Standort zu teilen.",
             "rideInProgress" to "Fahrt läuft",
@@ -1785,6 +1904,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "duration" to "Dauer",
             "avgSpeed" to "Ø Geschw.",
             "maxSpeed" to "Max Geschw.",
+            "avgPace" to "Ø Tempo",
+            "bestPace" to "Bestes Tempo",
+            "pace" to "Tempo",
+            "maxGForce" to "Max. G-Kraft",
+            "splitsTitle" to "Kilometer",
+            "chartTitle" to "Diagramm",
+            "splitFastest" to "schnellster",
+            "splitPartial" to "teilweise",
+            "splitRemainder" to "Rest",
+            "splitRemainderShort" to "Rest",
             "elevation" to "Höhe",
             "notifTrackingTitle" to "TrackMe zeichnet deine Fahrt auf",
             "notifTrackingText" to "Fahrt läuft",
@@ -1793,6 +1922,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingGpsSearching" to "GPS wird gesucht…",
             "notifStorageLowTitle" to "Speicher fast voll",
             "notifStorageLowText" to "Die Aufzeichnung ist pausiert. Speicher freigeben und in TrackMe auf Fortsetzen tippen.",
+            "hudGpsLostPill" to "GPS-Signal verloren (%1\$ss)",
+            "hudLocationDisabledPill" to "Standortdienste deaktiviert (%1\$ss)",
+            "hudStorageLowPill" to "Speicher fast voll – Speicher freigeben, um fortzufahren",
             "offlineModeTitle" to "Offline-Modus",
             "offlineModeDescription" to "Änderungen bleiben auf diesem Gerät und werden bei Verbindung synchronisiert.",
             "startLiveShareTitle" to "Live-Standort teilen",
@@ -1867,6 +1999,24 @@ fun getAppStrings(languageCode: String): AppStrings {
             "selectionSelected" to "Ausgewählt",
             "selectionNotSelected" to "Nicht ausgewählt",
             "aspectRatio" to "Seitenverhältnis:",
+            "exportCategoryRatio" to "Format",
+            "exportCategoryMap" to "Karte",
+            "exportCategoryPrivacy" to "Privatsphäre",
+            "exportCategoryMarkers" to "Marker",
+            "exportCategoryStats" to "Werte",
+            "exportCategoryLegend" to "Legende",
+            "markerStyleNone" to "Keine",
+            "markerStyleStartFinish" to "Start und Ziel",
+            "markerStyleFinishOnly" to "Nur Ziel",
+            "markerStyleMono" to "Schwarz-Weiß",
+            "markerStylePin" to "Nadeln",
+            "mapLabelsAll" to "Alle Beschriftungen",
+            "mapLabelsNoPlaces" to "Ohne Ortsnamen",
+            "mapLabelsNone" to "Ohne Text",
+            "statsOverlayNone" to "Kein Feld",
+            "statsOverlayBar" to "Leiste unten",
+            "statsOverlayTopLeft" to "Oben links",
+            "statsOverlayTopRight" to "Oben rechts",
             "privacyTrim" to "Privatsphären-Zuschnitt (200 m)",
             "retry" to "Erneut versuchen",
             "exportRetryMessage" to "Die Kartenaufnahme ist fehlgeschlagen. Prüfen Sie die Vorschau und versuchen Sie es erneut.",
@@ -2264,6 +2414,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "discardRideTitle" to "इस यात्रा को हटाएं?",
             "discardRideMessage" to "इस यात्रा में कोई महत्वपूर्ण दूरी रिकॉर्ड नहीं हुई। आप इसे हटा सकते हैं या फिर भी सहेज सकते हैं।",
             "discardRide" to "हटाएं",
+            "rideDiscardedNoGps" to "राइड हटाई गई — कोई GPS डेटा रिकॉर्ड नहीं हुआ।",
+            "rideDiscarded" to "राइड हटाई गई।",
             "saveAnyway" to "फिर भी सहेजें",
             "liveShareAuthExpired" to "आपका साइन-इन समाप्त हो गया है। अपना स्थान साझा करने के लिए फिर से साइन इन करें।",
             "rideInProgress" to "यात्रा चल रही है",
@@ -2276,6 +2428,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "duration" to "समय",
             "avgSpeed" to "औसत गति",
             "maxSpeed" to "अधिकतम गति",
+            "avgPace" to "औसत गति-दर",
+            "bestPace" to "सर्वोत्तम गति-दर",
+            "pace" to "गति-दर",
+            "maxGForce" to "अधिकतम जी-फ़ोर्स",
+            "splitsTitle" to "प्रति किमी",
+            "chartTitle" to "ग्राफ़",
+            "splitFastest" to "सबसे तेज़",
+            "splitPartial" to "आंशिक",
+            "splitRemainder" to "शेष",
+            "splitRemainderShort" to "शेष",
             "elevation" to "ऊंचाई",
             "notifTrackingTitle" to "TrackMe आपकी राइड रिकॉर्ड कर रहा है",
             "notifTrackingText" to "राइड जारी है",
@@ -2284,6 +2446,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingGpsSearching" to "GPS खोजा जा रहा है…",
             "notifStorageLowTitle" to "स्टोरेज लगभग भर गया",
             "notifStorageLowText" to "ट्रैकिंग रुकी हुई है। जगह खाली करें और TrackMe में फिर से शुरू करें पर टैप करें।",
+            "hudGpsLostPill" to "GPS सिग्नल गुम (%1\$ss)",
+            "hudLocationDisabledPill" to "लोकेशन सेवाएँ बंद हैं (%1\$ss)",
+            "hudStorageLowPill" to "स्टोरेज लगभग भर गया — जारी रखने के लिए जगह खाली करें",
             "offlineModeTitle" to "ऑफ़लाइन मोड",
             "offlineModeDescription" to "परिवर्तन इस डिवाइस पर रहेंगे और कनेक्शन होने पर सिंक होंगे।",
             "startLiveShareTitle" to "लाइव लोकेशन शेयर",
@@ -2358,6 +2523,24 @@ fun getAppStrings(languageCode: String): AppStrings {
             "selectionSelected" to "चयनित",
             "selectionNotSelected" to "चयनित नहीं",
             "aspectRatio" to "आस्पेक्ट रेशियो:",
+            "exportCategoryRatio" to "अनुपात",
+            "exportCategoryMap" to "मानचित्र",
+            "exportCategoryPrivacy" to "निजता",
+            "exportCategoryMarkers" to "मार्कर",
+            "exportCategoryStats" to "आंकड़े",
+            "exportCategoryLegend" to "लेजेंड",
+            "markerStyleNone" to "कोई नहीं",
+            "markerStyleStartFinish" to "शुरू और अंत",
+            "markerStyleFinishOnly" to "केवल अंत",
+            "markerStyleMono" to "श्वेत-श्याम",
+            "markerStylePin" to "पिन",
+            "mapLabelsAll" to "सभी लेबल",
+            "mapLabelsNoPlaces" to "स्थानों के नाम बिना",
+            "mapLabelsNone" to "कोई टेक्स्ट नहीं",
+            "statsOverlayNone" to "कोई पैनल नहीं",
+            "statsOverlayBar" to "नीचे पट्टी",
+            "statsOverlayTopLeft" to "ऊपर बाएँ",
+            "statsOverlayTopRight" to "ऊपर दाएँ",
             "privacyTrim" to "प्राइवेसी ट्रिम (200 मीटर)",
             "retry" to "फिर कोशिश करें",
             "exportRetryMessage" to "मैप कैप्चर विफल हुआ। प्रीव्यू तैयार है या नहीं जांचकर फिर कोशिश करें।",
@@ -2755,6 +2938,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "discardRideTitle" to "この記録を破棄しますか？",
             "discardRideMessage" to "この記録には十分な距離がありません。破棄するか、そのまま保存できます。",
             "discardRide" to "破棄",
+            "rideDiscardedNoGps" to "GPSデータが記録されなかったため、ライドを破棄しました。",
+            "rideDiscarded" to "ライドを破棄しました。",
             "saveAnyway" to "そのまま保存",
             "liveShareAuthExpired" to "サインインの有効期限が切れました。位置情報を共有するには、もう一度サインインしてください。",
             "rideInProgress" to "記録中",
@@ -2767,6 +2952,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "duration" to "時間",
             "avgSpeed" to "平均速度",
             "maxSpeed" to "最高速度",
+            "avgPace" to "平均ペース",
+            "bestPace" to "ベストペース",
+            "pace" to "ペース",
+            "maxGForce" to "最大G",
+            "splitsTitle" to "ラップ",
+            "chartTitle" to "グラフ",
+            "splitFastest" to "最速",
+            "splitPartial" to "途中",
+            "splitRemainder" to "残り",
+            "splitRemainderShort" to "残り",
             "elevation" to "標高",
             "notifTrackingTitle" to "TrackMeがライドを記録しています",
             "notifTrackingText" to "ライド進行中",
@@ -2775,6 +2970,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingGpsSearching" to "GPSを検索中…",
             "notifStorageLowTitle" to "ストレージがほぼ満杯です",
             "notifStorageLowText" to "トラッキングは一時停止中です。空き容量を確保し、TrackMeで再開をタップしてください。",
+            "hudGpsLostPill" to "GPS信号を消失 (%1\$ss)",
+            "hudLocationDisabledPill" to "位置情報サービスが無効です (%1\$ss)",
+            "hudStorageLowPill" to "ストレージがほぼ満杯です — 空き容量を確保して再開してください",
             "offlineModeTitle" to "オフラインモード",
             "offlineModeDescription" to "変更はこの端末に保存され、接続時に同期されます。",
             "startLiveShareTitle" to "リアルタイム位置共有",
@@ -2849,6 +3047,24 @@ fun getAppStrings(languageCode: String): AppStrings {
             "selectionSelected" to "選択中",
             "selectionNotSelected" to "未選択",
             "aspectRatio" to "アスペクト比:",
+            "exportCategoryRatio" to "比率",
+            "exportCategoryMap" to "地図",
+            "exportCategoryPrivacy" to "プライバシー",
+            "exportCategoryMarkers" to "マーカー",
+            "exportCategoryStats" to "データ",
+            "exportCategoryLegend" to "凡例",
+            "markerStyleNone" to "なし",
+            "markerStyleStartFinish" to "開始と終了",
+            "markerStyleFinishOnly" to "終了のみ",
+            "markerStyleMono" to "白黒",
+            "markerStylePin" to "ピン",
+            "mapLabelsAll" to "すべてのラベル",
+            "mapLabelsNoPlaces" to "地名なし",
+            "mapLabelsNone" to "文字なし",
+            "statsOverlayNone" to "パネルなし",
+            "statsOverlayBar" to "下部バー",
+            "statsOverlayTopLeft" to "左上",
+            "statsOverlayTopRight" to "右上",
             "privacyTrim" to "プライバシートリム（200 m）",
             "retry" to "再試行",
             "exportRetryMessage" to "地図のキャプチャに失敗しました。プレビューを確認して再試行してください。",
@@ -3246,6 +3462,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "discardRideTitle" to "丢弃此次行程？",
             "discardRideMessage" to "此次行程没有记录到有效距离。您可以丢弃它，或仍然保存。",
             "discardRide" to "丢弃",
+            "rideDiscardedNoGps" to "未记录到 GPS 数据，已放弃本次骑行。",
+            "rideDiscarded" to "已放弃本次骑行。",
             "saveAnyway" to "仍然保存",
             "liveShareAuthExpired" to "您的登录已过期。请重新登录以共享位置。",
             "rideInProgress" to "行程进行中",
@@ -3258,6 +3476,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "duration" to "时长",
             "avgSpeed" to "平均速度",
             "maxSpeed" to "最高速度",
+            "avgPace" to "平均配速",
+            "bestPace" to "最佳配速",
+            "pace" to "配速",
+            "maxGForce" to "最大G力",
+            "splitsTitle" to "分段",
+            "chartTitle" to "图表",
+            "splitFastest" to "最快",
+            "splitPartial" to "未完整",
+            "splitRemainder" to "剩余",
+            "splitRemainderShort" to "剩余",
             "elevation" to "海拔",
             "notifTrackingTitle" to "TrackMe正在记录你的骑行",
             "notifTrackingText" to "骑行进行中",
@@ -3266,6 +3494,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingGpsSearching" to "正在搜索 GPS…",
             "notifStorageLowTitle" to "存储空间即将不足",
             "notifStorageLowText" to "跟踪已暂停。请释放设备空间，然后在TrackMe中点按继续。",
+            "hudGpsLostPill" to "GPS 信号丢失 (%1\$ss)",
+            "hudLocationDisabledPill" to "定位服务已关闭 (%1\$ss)",
+            "hudStorageLowPill" to "存储空间即将不足 — 请释放空间后继续",
             "offlineModeTitle" to "离线模式",
             "offlineModeDescription" to "更改会保留在此设备上，并在联网后同步。",
             "startLiveShareTitle" to "实时位置共享",
@@ -3340,6 +3571,24 @@ fun getAppStrings(languageCode: String): AppStrings {
             "selectionSelected" to "已选中",
             "selectionNotSelected" to "未选中",
             "aspectRatio" to "宽高比：",
+            "exportCategoryRatio" to "比例",
+            "exportCategoryMap" to "地图",
+            "exportCategoryPrivacy" to "隐私",
+            "exportCategoryMarkers" to "标记",
+            "exportCategoryStats" to "数据",
+            "exportCategoryLegend" to "图例",
+            "markerStyleNone" to "无",
+            "markerStyleStartFinish" to "起点和终点",
+            "markerStyleFinishOnly" to "仅终点",
+            "markerStyleMono" to "黑白",
+            "markerStylePin" to "图钉",
+            "mapLabelsAll" to "全部标签",
+            "mapLabelsNoPlaces" to "隐藏地名",
+            "mapLabelsNone" to "无文字",
+            "statsOverlayNone" to "无面板",
+            "statsOverlayBar" to "底部横栏",
+            "statsOverlayTopLeft" to "左上角",
+            "statsOverlayTopRight" to "右上角",
             "privacyTrim" to "隐私裁剪（200 米）",
             "retry" to "重试",
             "exportRetryMessage" to "地图捕获失败。请确认预览已准备好后重试。",

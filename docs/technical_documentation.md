@@ -75,13 +75,22 @@ This section breaks down the technical implementation for the core features desc
 ```
 trackme/
 ├── MainActivity.kt         // Entry point
-├── Navigation.kt           // Defines Nav Graph
+├── Navigation.kt           // Nav graph; bottom bar under 600dp, NavigationRail above
+├── theme/                  // Design tokens — colour, shape, spacing, elevation, motion (1.8.0)
 ├── ui/                     // Compose Screens and ViewModels
+│   ├── components/         // Shared components, Messenger, guarded map camera helpers
+│   ├── layout/             // TrackMeWindowClass — the app's own width breakpoints
+│   └── localization/       // AppStrings, 7 locales, coverage-tested
 ├── service/                // TrackingService, EmergencyManager
 ├── data/                   // Repository, local (Room), remote (Firestore)
 ├── domain/                 // Business Logic (GPSProcessor, Exporters)
 └── utils/                  // Loggers, helpers
 ```
+
+**Policy objects.** Decisions that are arithmetic rather than rendering live in their own testable
+objects next to the screen that uses them, never inside a composable: `RideCameraPolicy`
+(tilt/bearing), `MemberMarkerPolicy`, `GroupPresencePolicy`, `MapCameraGuard`. If a rule can be
+stated without a `Context`, it belongs in one of these.
 
 ---
 

@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.history
 
+import `in`.shvms.trackme.ui.components.rememberMessenger
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -74,6 +75,7 @@ fun HistoryScreen(
     var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
+    val messenger = rememberMessenger()
     val app = context.applicationContext as `in`.shvms.trackme.TrackMeApp
     val unitSystem by app.preferencesManager.unitSystem.collectAsState()
     val imperial = unitSystem == "imperial"
@@ -107,7 +109,7 @@ fun HistoryScreen(
                 }
 
                 if (name.isNotEmpty() && !name.lowercase(Locale.ROOT).endsWith(".gpx")) {
-                    android.widget.Toast.makeText(context, "Please select a valid .gpx file.", android.widget.Toast.LENGTH_SHORT).show()
+                    messenger.show("Please select a valid .gpx file.")
                     return@rememberLauncherForActivityResult
                 }
 
@@ -115,7 +117,7 @@ fun HistoryScreen(
                     viewModel.importGPX(inputStream)
                 }
             } catch (e: Exception) {
-                android.widget.Toast.makeText(context, "Error opening file. Please ensure it's a valid GPX format.", android.widget.Toast.LENGTH_SHORT).show()
+                messenger.show("Error opening file. Please ensure it's a valid GPX format.")
             }
         }
     }
@@ -123,8 +125,8 @@ fun HistoryScreen(
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
             when (event) {
-                is HistoryViewModel.UiEvent.ShowError -> android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
-                is HistoryViewModel.UiEvent.Success -> android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                is HistoryViewModel.UiEvent.ShowError -> messenger.show(event.message)
+                is HistoryViewModel.UiEvent.Success -> messenger.show(event.message)
                 is HistoryViewModel.UiEvent.BatchDeleteCompleted -> {
                     val message = if (event.failedCount == 0) {
                         // §0 contract 6: a queued delete is not a plain success. Reporting it as
@@ -142,7 +144,7 @@ fun HistoryScreen(
                             event.failedCount
                         )
                     }
-                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                    messenger.show(message)
                 }
             }
         }
@@ -323,6 +325,11 @@ fun HistoryScreen(
                         if (!isCollapsed) {
                             items(rideList, key = { it.ride.id }) { rideWithPoints ->
                                 RideHistoryCard(
+                                    // G4 in the motion audit: the list had stable keys but no
+                                    // placement animation, so deleting a ride made the ones below
+                                    // jump. Keys make this correct; without them it would animate
+                                    // the wrong rows.
+                                    modifier = Modifier.animateItem(),
                                     rideWithPoints = rideWithPoints,
                                     imperial = imperial,
                                     selectionMode = selectionMode,
@@ -447,6 +454,7 @@ fun SectionHeader(
 fun RideHistoryCard(
     rideWithPoints: RideWithPoints,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     onLongClick: () -> Unit = {},
     selectionMode: Boolean = false,
     selected: Boolean = false,
@@ -478,7 +486,7 @@ fun RideHistoryCard(
     val selectionDescription = if (selected) strings.selectionSelected else strings.selectionNotSelected
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(68.dp)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
@@ -499,7 +507,11 @@ fun RideHistoryCard(
                 // light and dark themes instead of blending into a grey wash.
                 MaterialTheme.colorScheme.primaryContainer
             } else {
-                MaterialTheme.colorScheme.surface
+                // surface is the SCREEN BACKGROUND role, so an unselected card was painting
+                // itself the same colour as the page behind it and relying entirely on a 1dp
+                // shadow to be visible — which in dark theme is invisible. containerLow is the
+                // level-1 role and separates by tone, which works in both themes.
+                MaterialTheme.colorScheme.surfaceContainerLow
             }
         )
     ) {

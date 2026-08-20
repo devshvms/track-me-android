@@ -1,10 +1,10 @@
 package `in`.shvms.trackme.ui.community
 
+import `in`.shvms.trackme.ui.components.rememberMessenger
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -121,6 +121,7 @@ fun CommunityScreen(
     val state by viewModel.uiState.collectAsStateCompat()
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    val messenger = rememberMessenger()
     val app = context.applicationContext as TrackMeApp
     val scope = rememberCoroutineScope()
     // §4/Q4.2 explains an un-focusable row here rather than with a Toast, so it matches the
@@ -280,7 +281,7 @@ fun CommunityScreen(
                 onDirections = { member ->
                     member.lastKnownPosition?.let { (lat, lng) ->
                         AnalyticsManager.trackGroupDirectionsOpened(member.positionAge.telemetryBucket())
-                        openDirections(context, lat, lng, strings)
+                        openDirections(context, lat, lng, strings, messenger::show)
                     }
                 },
                 onSetStatus = { showStatusPicker = true },
@@ -388,13 +389,13 @@ fun CommunityScreen(
  * The https `dir/?api=1` form resolves to whichever app claims maps links, and falls back to a
  * browser on a device with none — rather than to nothing.
  */
-private fun openDirections(context: Context, lat: Double, lng: Double, strings: AppStrings) {
+private fun openDirections(context: Context, lat: Double, lng: Double, strings: AppStrings, onMessage: (String) -> Unit) {
     try {
         context.startActivity(
             Intent(Intent.ACTION_VIEW, Uri.parse(MemberDirections.routePreviewUrl(lat, lng))),
         )
     } catch (_: ActivityNotFoundException) {
-        Toast.makeText(context, strings.groupNoMapsAppDirections, Toast.LENGTH_SHORT).show()
+        onMessage(strings.groupNoMapsAppDirections)
     }
 }
 
@@ -691,7 +692,7 @@ private fun GroupHeader(state: CommunityUiState, strings: AppStrings) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // The group name is NOT repeated here. It is already the top bar title, and showing it
