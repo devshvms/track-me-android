@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.domain.model.RidePersona
 import kotlinx.coroutines.launch
 
 private const val PAGE_WELCOME = 0
@@ -73,6 +74,7 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
     var locationDeclined by remember { mutableStateOf(false) }
     var notificationsGranted by remember { mutableStateOf(hasNotifications(context)) }
     var analyticsEnabled by remember { mutableStateOf(defaultAnalytics(context)) }
+    var selectedDemoPersona by remember { mutableStateOf(RidePersona.CYCLING) }
 
     // Funnel state. All of it stays in memory (and one local counter) until the last screen, where
     // the consent question is answered — nothing about a tour in progress is transmitted.
@@ -131,8 +133,17 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
                 ) {
                     when (page) {
                         PAGE_WELCOME -> WelcomePage(strings)
-                        PAGE_RIDE -> RidePage(strings)
-                        PAGE_HISTORY -> HistoryPage(strings)
+                        PAGE_RIDE -> RidePage(
+                            strings = strings,
+                            selectedPersona = selectedDemoPersona,
+                            onPersonaSelected = { selectedDemoPersona = it },
+                            onFinished = { goTo(PAGE_HISTORY) },
+                        )
+                        PAGE_HISTORY -> HistoryPage(
+                            strings = strings,
+                            selectedPersona = selectedDemoPersona,
+                            onFinished = { goTo(PAGE_TOGETHER) },
+                        )
                         PAGE_TOGETHER -> TogetherPage(strings)
                         PAGE_PERMISSIONS -> PermissionsPage(
                             strings = strings,
@@ -330,32 +341,36 @@ private fun WelcomePage(strings: AppStrings) {
 }
 
 @Composable
-private fun RidePage(strings: AppStrings) {
-    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        RideGestureArt(
-            selectedLabel = strings.personaCycling,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(190.dp)
-                .clearAndSetSemantics { },
-        )
+private fun RidePage(
+    strings: AppStrings,
+    selectedPersona: RidePersona,
+    onPersonaSelected: (RidePersona) -> Unit,
+    onFinished: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         PageText(strings.obRideTitle, strings.obRideBody)
+        RideOnboardingDemo(
+            strings = strings,
+            selectedPersona = selectedPersona,
+            onPersonaSelected = onPersonaSelected,
+            onFinished = onFinished,
+        )
     }
 }
 
 @Composable
-private fun HistoryPage(strings: AppStrings) {
-    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        HistoryArt(
-            primaryStat = strings.obHistorySampleDistance,
-            secondaryStat = strings.obHistorySampleDuration,
-            personaLabel = strings.personaCycling,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp)
-                .clearAndSetSemantics { },
-        )
+private fun HistoryPage(
+    strings: AppStrings,
+    selectedPersona: RidePersona,
+    onFinished: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         PageText(strings.obHistoryTitle, strings.obHistoryBody)
+        HistoryOnboardingDemo(
+            strings = strings,
+            selectedPersona = selectedPersona,
+            onFinished = onFinished,
+        )
     }
 }
 
