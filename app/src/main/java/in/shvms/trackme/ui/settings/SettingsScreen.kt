@@ -279,6 +279,7 @@ fun SettingsScreen(
         val dynamicColor by preferencesManager.dynamicColor.collectAsState()
         val telemetryEnabled by preferencesManager.telemetryEnabled.collectAsState()
         val unitSystem by preferencesManager.unitSystem.collectAsState()
+        val pipDashboardEnabled by preferencesManager.pipDashboardEnabled.collectAsState()
         var appLanguage by remember { mutableStateOf(prefs.getString("app_language", "en") ?: "en") }
         var showLangDropdown by remember { mutableStateOf(false) }
 
@@ -390,6 +391,13 @@ fun SettingsScreen(
                     intelligentAutoPause = checked
                     prefs.edit().putBoolean("intelligent_auto_pause", checked).apply()
                 },
+            )
+            SettingsDivider()
+            SettingsSwitchRow(
+                title = strings.pipDashboardTitle,
+                supportingText = strings.pipDashboardDescription,
+                checked = pipDashboardEnabled,
+                onCheckedChange = preferencesManager::setPiPDashboardEnabled,
             )
             SettingsDivider()
             SettingsSwitchRow(

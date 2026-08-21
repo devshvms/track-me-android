@@ -980,6 +980,11 @@ class TrackingService : Service() {
         notifier.ensureChannel(appStrings())
         groupSessionManager.onAlertSignal = { signal, memberName, code ->
             val s = appStrings()
+            (application as? TrackMeApp)?.pipAlertStore?.accept(
+                signal = signal,
+                memberName = memberName,
+                statusCode = code,
+            )
             notifier.post(
                 signal = signal,
                 memberUid = memberName,

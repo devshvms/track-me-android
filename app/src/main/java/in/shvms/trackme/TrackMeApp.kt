@@ -31,6 +31,8 @@ import kotlinx.coroutines.launch
 class TrackMeApp : Application() {
     lateinit var database: AppDatabase
     lateinit var trackingManager: TrackingManager
+    internal lateinit var pipAlertStore: `in`.shvms.trackme.ui.home.components.PiPAlertStore
+        private set
     lateinit var emergencyManager: EmergencyManager
     lateinit var firestoreSyncManager: FirestoreSyncManager
         private set
@@ -217,6 +219,7 @@ class TrackMeApp : Application() {
         .build()
         
         trackingManager = TrackingManager()
+        pipAlertStore = `in`.shvms.trackme.ui.home.components.PiPAlertStore(applicationScope)
         emergencyManager = EmergencyManager(
             getSharedPreferences(
                 `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
@@ -450,6 +453,7 @@ class TrackMeApp : Application() {
                     )
                 } else if (!session.isActive && presenceRequested) {
                     presenceRequested = false
+                    pipAlertStore.clear()
                     sendTrackingServiceCommand(
                         `in`.shvms.trackme.service.TrackingService.ACTION_STOP_GROUP_PRESENCE,
                     )

@@ -22,6 +22,21 @@ import kotlinx.coroutines.flow.stateIn
 import java.util.concurrent.TimeUnit
 import java.util.Locale
 
+/** Shared live-HUD formatting so the foreground HUD and PiP can never drift. */
+internal object LiveRideMetricFormatter {
+    fun distance(distanceMeters: Float, imperial: Boolean): String =
+        `in`.shvms.trackme.domain.UnitFormatter.distance(distanceMeters.toDouble(), imperial)
+
+    fun speed(speedMps: Float, imperial: Boolean): String =
+        `in`.shvms.trackme.domain.UnitFormatter.speed(speedMps.toDouble(), imperial)
+
+    /** The shipped active HUD is kilometre-pace in both unit modes; PiP deliberately matches it. */
+    fun pace(speedMps: Float): String = `in`.shvms.trackme.domain.UnitFormatter.pace(
+        mps = speedMps.toDouble(),
+        imperial = false,
+    )
+}
+
 data class HomeUiState(
     val trackingState: TrackingState = TrackingState.IDLE,
     val pathPoints: List<LatLng> = emptyList(),
@@ -144,7 +159,7 @@ class HomeViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
 
     private fun formatDistance(distanceMeters: Float, imperial: Boolean): String {
-        return `in`.shvms.trackme.domain.UnitFormatter.distance(distanceMeters.toDouble(), imperial)
+        return LiveRideMetricFormatter.distance(distanceMeters, imperial)
     }
 
     private fun formatDuration(millis: Long): String {
@@ -158,7 +173,7 @@ class HomeViewModel(
     }
 
     private fun formatSpeed(speedMps: Float, imperial: Boolean): String {
-        return `in`.shvms.trackme.domain.UnitFormatter.speed(speedMps.toDouble(), imperial)
+        return LiveRideMetricFormatter.speed(speedMps, imperial)
     }
 
     /**
@@ -178,16 +193,7 @@ class HomeViewModel(
      * where km/h is the natural unit.
      */
     private fun formatPace(speedMps: Float): String {
-        // Below ~0.1 m/s (stopped/near-stopped) pace would blow up toward infinity — show a
-        // placeholder instead of a meaningless huge number.
-        if (speedMps < 0.1f) return "--:-- /km"
-        val paceSecondsPerKm = 1000f / speedMps
-        val minutes = (paceSecondsPerKm / 60).toInt()
-        val seconds = (paceSecondsPerKm % 60).toInt()
-        // Guard the same way at the top end (very slow shuffling) so the stat never shows an
-        // absurd triple-digit minute value.
-        if (minutes >= 60) return "--:-- /km"
-        return String.format(Locale.getDefault(), "%d:%02d /km", minutes, seconds)
+        return LiveRideMetricFormatter.pace(speedMps)
     }
 
     fun startTracking(persona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO) {

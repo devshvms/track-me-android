@@ -426,6 +426,21 @@ object AnalyticsManager {
         PostHog.capture("group_degraded", properties = mapOf("consecutive_failures" to consecutiveFailures))
     }
 
+    /** SCOPE_1.8.4 §5.3 — method only; never ride, route, or group identity. */
+    fun trackPiPEntered(trigger: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("pip_entered", properties = mapOf("trigger" to trigger))
+    }
+
+    /** Bucketed visible-session length; exact timestamps and exact ride duration stay local. */
+    fun trackPiPSession(durationBucket: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "pip_session_seconds",
+            properties = mapOf("duration_bucket" to durationBucket),
+        )
+    }
+
     /**
      * §2.9's calibration event — the reason ETA is built a release before it is shown.
      *
