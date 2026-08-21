@@ -7,98 +7,73 @@ import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import `in`.shvms.trackme.domain.model.RidePersona
 
 /**
- * Canonical ride used by the onboarding demos and, later, the first-run sample ride.
+ * Canonical ride used by the onboarding demos and the first-run sample ride.
  *
- * The route is synthetic and centered on a public park; it is not captured user location data.
- * Everything is constructed as plain values so showing a demo can never read or write Room.
+ * The route is now a **real recording** rather than a synthetic drawing: a Cycling ride captured on
+ * the iOS Simulator against Apple's "City Bicycle Ride" location scenario through Cupertino, read
+ * from `demo_ride.gpx`. The same file ships on iOS, so both platforms show the identical route.
+ *
+ * Two honest limitations of that recording, both visible in the demo:
+ *
+ *  - **There is no elevation.** The scenario supplies no terrain, so every point sits at 0 m and the
+ *    elevation trace renders flat. Both chart implementations already guard a zero altitude range
+ *    (`rawMax > rawMin ? … : 1`), so this degrades rather than divides by zero. Speed is real and
+ *    varied, so the chart still carries information.
+ *  - **The scenario loops every 15.6 minutes**, so the back half of the ride retraces the front
+ *    half. Real enough — cyclists do laps — but the map trail overlaps itself.
+ *
+ * Everything is still constructed as plain values, so showing a demo can never read or write Room.
  */
 object OnboardingDemoFixture {
     const val REFERENCE_START_TIME_MILLIS = 1_767_225_600_000L
-    const val DURATION_MILLIS = 540_000L
-    const val DISTANCE_METERS = 1_931.404579
-    const val AVERAGE_SPEED_METERS_PER_SECOND = DISTANCE_METERS / (DURATION_MILLIS / 1_000.0)
-    const val MAX_SPEED_METERS_PER_SECOND = 4.13f
-    const val POINT_COUNT = 31
 
-    private data class Sample(
-        val latitude: Double,
-        val longitude: Double,
-        val altitudeMeters: Double,
-        val speedMetersPerSecond: Float,
-        val accuracyMeters: Float,
-    ) {
-        fun midpoint(next: Sample) = Sample(
-            latitude = (latitude + next.latitude) / 2,
-            longitude = (longitude + next.longitude) / 2,
-            altitudeMeters = (altitudeMeters + next.altitudeMeters) / 2,
-            speedMetersPerSecond = (speedMetersPerSecond + next.speedMetersPerSecond) / 2,
-            accuracyMeters = (accuracyMeters + next.accuracyMeters) / 2,
-        )
-    }
+    private val track get() = DemoRideGpx.track
 
-    private val anchors = listOf(
-        Sample(12.976698, 77.592085, 918.0, 2.80f, 5.2f),
-        Sample(12.977342, 77.592805, 920.0, 2.94f, 4.8f),
-        Sample(12.977882, 77.593810, 923.0, 3.45f, 4.5f),
-        Sample(12.978108, 77.595055, 927.0, 3.81f, 4.2f),
-        Sample(12.977747, 77.596375, 931.0, 4.13f, 4.0f),
-        Sample(12.976982, 77.597350, 934.0, 3.77f, 4.1f),
-        Sample(12.976008, 77.597755, 936.0, 3.25f, 4.4f),
-        Sample(12.974898, 77.597440, 935.0, 3.56f, 4.7f),
-        Sample(12.973923, 77.596690, 932.0, 3.76f, 5.0f),
-        Sample(12.973247, 77.595655, 928.0, 3.75f, 5.3f),
-        Sample(12.973022, 77.594425, 924.0, 3.77f, 5.1f),
-        Sample(12.973382, 77.593210, 921.0, 3.82f, 4.8f),
-        Sample(12.974208, 77.592265, 919.0, 3.82f, 4.5f),
-        Sample(12.975258, 77.591725, 920.0, 3.63f, 4.3f),
-        Sample(12.976247, 77.591680, 922.0, 3.06f, 4.6f),
-        Sample(12.977148, 77.592160, 921.0, 3.14f, 4.9f),
-    )
-
-    // Keep samples below ChartAccessibility's 25-second signal-gap threshold without inventing a
-    // second route. Midpoints preserve the same path, aggregate distance, and elevation profile.
-    private val samples = buildList {
-        anchors.forEachIndexed { index, sample ->
-            add(sample)
-            if (index < anchors.lastIndex) add(sample.midpoint(anchors[index + 1]))
-        }
-    }
+    /** Recorded wall-clock span of the ride. */
+    val DURATION_MILLIS: Long get() = track.durationMillis
+    val DISTANCE_METERS: Double get() = track.distanceMeters
+    val AVERAGE_SPEED_METERS_PER_SECOND: Double get() = track.averageSpeedMetersPerSecond
+    val MAX_SPEED_METERS_PER_SECOND: Float get() = track.maxSpeedMetersPerSecond
+    val POINT_COUNT: Int get() = track.points.size
 
     /**
      * Builds a detached value graph. [title] is supplied by the caller so user-facing sample copy
      * remains localized; a null title lets the existing ride-title fallback render normally.
+     *
+     * Point timestamps are rebased onto [startTimeMillis] using each fix's recorded offset, so the
+     * real cadence — including the pauses at junctions — survives being replayed at any date.
      */
     fun create(
         startTimeMillis: Long = REFERENCE_START_TIME_MILLIS,
         title: String? = null,
         rideId: Long = 0L,
     ): RideWithPoints {
+        val source = track
         val ride = RideEntity(
             id = rideId,
             startTime = startTimeMillis,
-            endTime = startTimeMillis + DURATION_MILLIS,
+            endTime = startTimeMillis + source.durationMillis,
             sourceInfo = "TrackMe Onboarding Sample",
             title = title,
             persona = RidePersona.CYCLING.name,
             postRideCalculation = PostRideCalculation(
-                maxSpeed = MAX_SPEED_METERS_PER_SECOND,
-                distance = DISTANCE_METERS,
-                avgSpeed = AVERAGE_SPEED_METERS_PER_SECOND.toFloat(),
+                maxSpeed = source.maxSpeedMetersPerSecond,
+                distance = source.distanceMeters,
+                avgSpeed = source.averageSpeedMetersPerSecond.toFloat(),
                 pauseDuration = 0L,
-                rawPointCount = POINT_COUNT,
+                rawPointCount = source.points.size,
             ),
         )
 
-        val intervalMillis = DURATION_MILLIS / (samples.size - 1)
-        val points = samples.mapIndexed { index, sample ->
+        val points = source.points.map { point ->
             GPSPointEntity(
                 rideId = rideId,
-                latitude = sample.latitude,
-                longitude = sample.longitude,
-                altitude = sample.altitudeMeters,
-                accuracy = sample.accuracyMeters,
-                speed = sample.speedMetersPerSecond,
-                timestamp = startTimeMillis + intervalMillis * index,
+                latitude = point.latitude,
+                longitude = point.longitude,
+                altitude = point.altitudeMeters,
+                accuracy = point.accuracyMeters,
+                speed = point.speedMetersPerSecond,
+                timestamp = startTimeMillis + point.offsetMillis,
                 isPaused = false,
             )
         }

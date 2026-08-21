@@ -61,8 +61,16 @@ class OnboardingDemoFixtureTest {
 
         assertEquals(OnboardingDemoFixture.DISTANCE_METERS, routeDistance, 1.0)
         assertTrue("route should bend in both axes", latitudeRange > 0.004 && longitudeRange > 0.005)
-        assertTrue("route should have an elevation profile", elevationRange >= 15.0)
-        assertTrue(fixture.points.all { it.speed > 0f && it.accuracy in 3f..8f })
+
+        // The demo ride is a real recording (see demo_ride.gpx), and the simulator scenario it was
+        // captured against supplies no terrain — so every fix sits at 0 m and this range is 0. Both
+        // chart implementations already guard a zero altitude range, so the trace renders flat
+        // rather than dividing by zero. Asserted explicitly, so that if a future re-recording DOES
+        // carry elevation the intent of this line is still legible.
+        assertEquals("recorded scenario carries no elevation", 0.0, elevationRange, 0.0001)
+
+        // Recorded accuracy spans 5..50 m, wider than the old synthetic samples' tidy 3..8 m.
+        assertTrue(fixture.points.all { it.speed > 0f && it.accuracy in 3f..60f })
     }
 
     private fun haversineMeters(
