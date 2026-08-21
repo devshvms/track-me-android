@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.provider.Settings
 import android.telephony.TelephonyManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -38,6 +39,10 @@ import androidx.compose.ui.window.DialogProperties
 import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.R
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
 
 private const val PAGE_WELCOME = 0
@@ -69,6 +74,14 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
     val context = LocalContext.current
     val pager = rememberPagerState(pageCount = { PAGE_COUNT })
     val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val dwell = remember {
+        OnboardingDwellAccumulator(
+            pageCount = PAGE_COUNT,
+            nowMillis = SystemClock::elapsedRealtime,
+            initiallyRunning = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED),
+        )
+    }
 
     var locationGranted by remember { mutableStateOf(hasLocation(context)) }
     var locationDeclined by remember { mutableStateOf(false) }
@@ -84,8 +97,23 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
     val startedAt = remember { System.currentTimeMillis() }
 
     LaunchedEffect(Unit) { attempts = OnboardingGate.recordAttempt(context) }
-    LaunchedEffect(pager.currentPage) {
-        furthestPage = maxOf(furthestPage, pager.currentPage)
+    LaunchedEffect(pager.settledPage) {
+        furthestPage = maxOf(furthestPage, pager.settledPage)
+        dwell.enter(pager.settledPage)
+    }
+    DisposableEffect(lifecycleOwner, pager) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> dwell.resume(pager.settledPage)
+                Lifecycle.Event.ON_PAUSE -> dwell.pause()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            dwell.pause()
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     val locationLauncher = rememberLauncherForActivityResult(
@@ -125,6 +153,7 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
                 // the permission ask or the analytics choice without them being seen.
                 userScrollEnabled = pager.currentPage < PAGE_PERMISSIONS,
             ) { page ->
+                val clipIsActive = pager.settledPage == page && !pager.isScrollInProgress
                 Column(
                     Modifier
                         .fillMaxSize()
@@ -132,7 +161,7 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
                     verticalArrangement = Arrangement.Center,
                 ) {
                     when (page) {
-                        PAGE_WELCOME -> WelcomePage(strings)
+                        PAGE_WELCOME -> WelcomePage(strings, clipIsActive)
                         PAGE_RIDE -> RidePage(
                             strings = strings,
                             selectedPersona = selectedDemoPersona,
@@ -144,7 +173,7 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
                             selectedPersona = selectedDemoPersona,
                             onFinished = { goTo(PAGE_TOGETHER) },
                         )
-                        PAGE_TOGETHER -> TogetherPage(strings)
+                        PAGE_TOGETHER -> TogetherPage(strings, clipIsActive)
                         PAGE_PERMISSIONS -> PermissionsPage(
                             strings = strings,
                             locationGranted = locationGranted,
@@ -183,15 +212,23 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
                     goTo(PAGE_PERMISSIONS)
                 },
                 onFinish = {
+                    val pageDwell = dwell.snapshotSeconds()
                     onFinish(
                         OnboardingOutcome(
                             attempts = attempts,
                             furthestPage = furthestPage,
                             usedSkip = usedSkip,
                             seconds = ((System.currentTimeMillis() - startedAt) / 1000L).toInt(),
+                            welcomeDwellSeconds = pageDwell[PAGE_WELCOME],
+                            rideDwellSeconds = pageDwell[PAGE_RIDE],
+                            historyDwellSeconds = pageDwell[PAGE_HISTORY],
+                            togetherDwellSeconds = pageDwell[PAGE_TOGETHER],
+                            permissionsDwellSeconds = pageDwell[PAGE_PERMISSIONS],
+                            readyDwellSeconds = pageDwell[PAGE_READY],
                             analyticsEnabled = analyticsEnabled,
                             locationGranted = locationGranted,
                             notificationsGranted = notificationsGranted,
+                            selectedPersona = selectedDemoPersona,
                         )
                     )
                 },
@@ -328,12 +365,16 @@ private fun PageText(title: String, body: String, note: String? = null) {
 }
 
 @Composable
-private fun WelcomePage(strings: AppStrings) {
+private fun WelcomePage(strings: AppStrings, isActive: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
-        WelcomeMark(
-            Modifier
+        OnboardingClip(
+            dark = R.raw.onboarding_welcome_dark,
+            light = R.raw.onboarding_welcome_light,
+            isActive = isActive,
+            fallback = { WelcomeMark(Modifier.fillMaxSize()) },
+            modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
+                .aspectRatio(2f)
                 .clearAndSetSemantics { },
         )
         PageText(strings.obWelcomeTitle, strings.obWelcomeBody)
@@ -375,12 +416,16 @@ private fun HistoryPage(
 }
 
 @Composable
-private fun TogetherPage(strings: AppStrings) {
+private fun TogetherPage(strings: AppStrings, isActive: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        TogetherArt(
-            Modifier
+        OnboardingClip(
+            dark = R.raw.onboarding_together_dark,
+            light = R.raw.onboarding_together_light,
+            isActive = isActive,
+            fallback = { TogetherArt(Modifier.fillMaxSize()) },
+            modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
+                .aspectRatio(2f)
                 .clearAndSetSemantics { },
         )
         PageText(strings.obTogetherTitle, strings.obTogetherBody, strings.obTogetherNote)

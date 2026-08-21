@@ -83,6 +83,12 @@ class TrackMeApp : Application() {
             furthestPage = outcome.furthestPage,
             usedSkip = outcome.usedSkip,
             seconds = outcome.seconds,
+            welcomeDwellSeconds = outcome.welcomeDwellSeconds,
+            rideDwellSeconds = outcome.rideDwellSeconds,
+            historyDwellSeconds = outcome.historyDwellSeconds,
+            togetherDwellSeconds = outcome.togetherDwellSeconds,
+            permissionsDwellSeconds = outcome.permissionsDwellSeconds,
+            readyDwellSeconds = outcome.readyDwellSeconds,
             analyticsOptIn = outcome.analyticsEnabled,
             locationGranted = outcome.locationGranted,
             notificationsGranted = outcome.notificationsGranted,
@@ -90,6 +96,9 @@ class TrackMeApp : Application() {
 
         `in`.shvms.trackme.ui.onboarding.OnboardingGate.markDone(this)
         onboardingState = `in`.shvms.trackme.ui.onboarding.OnboardingState.DONE
+        // The CTA lands on Home rather than starting a permission-gated recording. The chosen
+        // persona becomes the idle Start control's explicit default for that first real gesture.
+        trackingManager.setSelectedPersona(outcome.selectedPersona)
 
         applicationScope.launch(Dispatchers.IO) { seedOnboardingSampleRideIfNeeded() }
     }

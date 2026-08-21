@@ -149,17 +149,44 @@ class OnboardingStateTest {
     }
 
     @Test
-    fun `the outcome carries only counts and booleans`() {
+    fun `the funnel carries primitives and keeps persona out of telemetry`() {
         val outcome = source("ui/onboarding/OnboardingState.kt")
             .substringAfter("data class OnboardingOutcome(")
             .substringBefore(")")
         val types = Regex("""val \w+: (\w+)""").findAll(outcome).map { it.groupValues[1] }.toList()
         assertTrue("no fields found — did OnboardingOutcome move?", types.isNotEmpty())
         assertTrue(
-            "OnboardingOutcome gained a non-primitive field ($types) — anything beyond counts and " +
-                "booleans risks carrying something identifying into the funnel",
-            types.all { it == "Int" || it == "Boolean" },
+            "OnboardingOutcome gained an unexpected field type ($types)",
+            types.all { it == "Int" || it == "Boolean" || it == "RidePersona" },
         )
+        assertEquals(1, types.count { it == "RidePersona" })
+
+        val analytics = source("analytics/AnalyticsManager.kt")
+            .substringAfter("fun trackOnboardingCompleted(")
+            .substringBefore("\n    }")
+        assertFalse("the local persona handoff must not enter telemetry", analytics.contains("selectedPersona"))
+    }
+
+    @Test
+    fun `dwell distinguishes skipped pages and excludes background time`() {
+        var now = 0L
+        val dwell = OnboardingDwellAccumulator(pageCount = 6, nowMillis = { now })
+
+        dwell.enter(0)
+        now = 1_500L
+        dwell.enter(1)
+        now = 1_900L
+        assertEquals(listOf(1, 0, -1, -1, -1, -1), dwell.snapshotSeconds())
+
+        dwell.pause()
+        now = 20_000L
+        dwell.enter(2)
+        now = 50_000L
+        assertEquals(listOf(1, 0, 0, -1, -1, -1), dwell.snapshotSeconds())
+
+        dwell.resume(2)
+        now = 51_200L
+        assertEquals(listOf(1, 0, 1, -1, -1, -1), dwell.snapshotSeconds())
     }
 
     private fun source(name: String): String {

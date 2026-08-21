@@ -23,6 +23,19 @@ class RadialStartRideButtonGestureTest {
     }
 
     @Test
+    fun `plain tap honors onboarding persona preselection`() {
+        assertEquals(
+            RidePersona.CYCLING,
+            selectedPersonaForRelease(
+                hoveredPersona = null,
+                didExceedTouchSlop = false,
+                releasedInsideCenter = true,
+                centerPersona = RidePersona.CYCLING,
+            ),
+        )
+    }
+
+    @Test
     fun `movement at touch slop boundary is still treated as a tap`() {
         val didExceedTouchSlop = hasExceededTouchSlop(
             previouslyExceeded = false,

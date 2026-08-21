@@ -627,7 +627,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val obBatteryCta: String = s("obBatteryCta", "Open battery settings")
     val obAnalyticsTitle: String = s("obAnalyticsTitle", "Share anonymous usage data")
     val obAnalyticsBody: String = s("obAnalyticsBody", "Helps us find bugs and see which features matter. Never your location, never personal details. Change it anytime in Settings.")
-    val obFinishCta: String = s("obFinishCta", "Start using TrackMe")
+    val obFinishCta: String = s("obFinishCta", "Start my first ride")
 
     fun personaLabel(persona: RidePersona): String = when (persona) {
         RidePersona.AUTO -> personaAuto
@@ -704,7 +704,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obBatteryCta" to "Abrir ajustes de batería",
             "obAnalyticsTitle" to "Compartir datos de uso anónimos",
             "obAnalyticsBody" to "Nos ayuda a encontrar errores y ver qué funciones importan. Nunca tu ubicación, nunca datos personales. Puedes cambiarlo cuando quieras en Ajustes.",
-            "obFinishCta" to "Empezar a usar TrackMe",
+            "obFinishCta" to "Iniciar mi primer viaje",
             "groupEdit" to "Editar",
             "groupEditTitle" to "Detalles del grupo",
             "groupNotSet" to "--",
@@ -1243,7 +1243,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obBatteryCta" to "Ouvrir les réglages de batterie",
             "obAnalyticsTitle" to "Partager des données d'usage anonymes",
             "obAnalyticsBody" to "Cela nous aide à trouver les bugs et à voir quelles fonctions comptent. Jamais votre position, jamais de données personnelles. Modifiable à tout moment dans Réglages.",
-            "obFinishCta" to "Commencer à utiliser TrackMe",
+            "obFinishCta" to "Démarrer mon premier trajet",
             "groupEdit" to "Modifier",
             "groupEditTitle" to "Détails du groupe",
             "groupNotSet" to "--",
@@ -1782,7 +1782,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obBatteryCta" to "Akku-Einstellungen öffnen",
             "obAnalyticsTitle" to "Anonyme Nutzungsdaten teilen",
             "obAnalyticsBody" to "Hilft uns, Fehler zu finden und zu sehen, welche Funktionen zählen. Niemals dein Standort, niemals persönliche Daten. Jederzeit in den Einstellungen änderbar.",
-            "obFinishCta" to "TrackMe starten",
+            "obFinishCta" to "Meine erste Fahrt starten",
             "groupEdit" to "Bearbeiten",
             "groupEditTitle" to "Gruppendetails",
             "groupNotSet" to "--",
@@ -2321,7 +2321,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obBatteryCta" to "बैटरी सेटिंग्स खोलें",
             "obAnalyticsTitle" to "गुमनाम उपयोग डेटा साझा करें",
             "obAnalyticsBody" to "इससे हमें बग ढूँढ़ने और यह देखने में मदद मिलती है कि कौन-सी सुविधाएँ मायने रखती हैं। कभी आपकी लोकेशन नहीं, कभी निजी जानकारी नहीं। इसे सेटिंग्स में कभी भी बदलें।",
-            "obFinishCta" to "TrackMe इस्तेमाल शुरू करें",
+            "obFinishCta" to "मेरी पहली राइड शुरू करें",
             "groupEdit" to "संपादित करें",
             "groupEditTitle" to "ग्रुप विवरण",
             "groupNotSet" to "--",
@@ -2860,7 +2860,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obBatteryCta" to "バッテリー設定を開く",
             "obAnalyticsTitle" to "匿名の利用データを共有",
             "obAnalyticsBody" to "不具合の発見と、どの機能が役立っているかの把握に使います。位置情報や個人情報は一切含みません。設定でいつでも変更できます。",
-            "obFinishCta" to "TrackMe を始める",
+            "obFinishCta" to "最初のライドを始める",
             "groupEdit" to "編集",
             "groupEditTitle" to "グループの詳細",
             "groupNotSet" to "--",
@@ -3399,7 +3399,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obBatteryCta" to "打开电池设置",
             "obAnalyticsTitle" to "分享匿名使用数据",
             "obAnalyticsBody" to "帮助我们发现问题、了解哪些功能真正有用。绝不包含你的位置或个人信息。可随时在设置中更改。",
-            "obFinishCta" to "开始使用 TrackMe",
+            "obFinishCta" to "开始我的第一次行程",
             "groupEdit" to "编辑",
             "groupEditTitle" to "群组详情",
             "groupNotSet" to "--",

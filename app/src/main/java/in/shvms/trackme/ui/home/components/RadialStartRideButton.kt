@@ -73,10 +73,11 @@ import kotlin.math.sin
 internal fun selectedPersonaForRelease(
     hoveredPersona: RidePersona?,
     didExceedTouchSlop: Boolean,
-    releasedInsideCenter: Boolean
+    releasedInsideCenter: Boolean,
+    centerPersona: RidePersona = RidePersona.AUTO,
 ): RidePersona? {
     if (hoveredPersona != null) return hoveredPersona
-    return if (!didExceedTouchSlop && releasedInsideCenter) RidePersona.AUTO else null
+    return if (!didExceedTouchSlop && releasedInsideCenter) centerPersona else null
 }
 
 internal fun hasExceededTouchSlop(
@@ -129,6 +130,7 @@ internal fun resetRadialInteractionState(): RadialInteractionState = RadialInter
 @Composable
 fun RadialStartRideButton(
     onStartRide: (RidePersona) -> Unit,
+    preselectedPersona: RidePersona = RidePersona.AUTO,
     onAbortRideStart: (RideStartAbortMethod) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -340,7 +342,7 @@ fun RadialStartRideButton(
                         label = if (currentLaunch == null) strings.startRideAction else strings.cancel
                     ) {
                         if (currentLaunch == null) {
-                            beginLaunch(RidePersona.AUTO)
+                            beginLaunch(preselectedPersona)
                             true
                         } else {
                             abortLaunch(currentLaunch.token)
@@ -452,7 +454,8 @@ fun RadialStartRideButton(
                         val selected = selectedPersonaForRelease(
                             hoveredPersona = interactionState.hoveredPersona,
                             didExceedTouchSlop = interactionState.didExceedTouchSlop,
-                            releasedInsideCenter = releasedInsideCenter
+                            releasedInsideCenter = releasedInsideCenter,
+                            centerPersona = preselectedPersona,
                         )
                         interactionState = resetRadialInteractionState()
                         if (selected != null) {
@@ -543,6 +546,21 @@ fun RadialStartRideButton(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                } else if (preselectedPersona != RidePersona.AUTO) {
+                    Icon(
+                        imageVector = preselectedPersona.icon(),
+                        contentDescription = null,
+                        tint = onStartButton,
+                        modifier = Modifier.size(28.dp),
+                    )
+                    Text(
+                        text = strings.personaLabel(preselectedPersona),
+                        color = onStartButton,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 } else {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
