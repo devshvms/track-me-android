@@ -26,8 +26,10 @@ object RideStatsReducer {
         zone: ZoneId
     ): Pair<RideStats, RideStatsTransition> {
 
-        // --- Idempotency: already folded in -> no-op transition reflecting current state ---
-        if (old.processedRideIds.contains(summary.rideId)) {
+        // --- Exclusion/idempotency -> no-op transition reflecting current state ---
+        // Samples never enter processedRideIds: their terminal seed state, not stats, owns
+        // deletion permanence. `alreadyProcessed` is the existing caller-facing no-op signal.
+        if (summary.isSample || old.processedRideIds.contains(summary.rideId)) {
             val noOp = RideStatsTransition(
                 rideId = summary.rideId,
                 alreadyProcessed = true,

@@ -26,6 +26,11 @@ data class RideEntity(
     val title: String? = null,
     val persona: String = "AUTO",
     /**
+     * First-run sample rides are full local rides for replay/export, but are deliberately excluded
+     * from cloud sync and retention aggregates. Defaults to false for every pre-1.8.2 row.
+     */
+    val isSample: Boolean = false,
+    /**
      * SCOPE_1.7.3 §2(a), §0 contract 5 — set before the cloud delete, cleared only if the cloud
      * rejects it.
      *

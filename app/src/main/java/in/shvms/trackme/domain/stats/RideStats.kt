@@ -59,7 +59,7 @@ data class RideStats(
  */
 data class RideStatsTransition(
     val rideId: Long,
-    /** True when this ride ID was already folded in — callers must treat as a no-op. */
+    /** True when this input was already folded in or excluded — callers must treat as a no-op. */
     val alreadyProcessed: Boolean,
     val isFirstRide: Boolean,
     /** Strict distance PR against the pre-update snapshot (never true on the first ride). */

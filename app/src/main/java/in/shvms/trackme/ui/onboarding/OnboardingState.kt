@@ -73,20 +73,21 @@ object OnboardingGate {
     fun resolve(context: Context): OnboardingState {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val stored = prefs.getString(KEY, null)
-        if (stored != null) {
-            OnboardingState.fromStored(stored)?.let { return it }
-        }
-
         val hadPreferences = prefs.all.keys.any { it != KEY }
         val wasUpdated = runCatching {
             val info = context.packageManager.getPackageInfo(context.packageName, 0)
             info.firstInstallTime != info.lastUpdateTime
         }.getOrDefault(false)
 
-        val resolved = resolveOnboardingState(stored, hadPreferences, wasUpdated)
-        // commit(), not apply(): the very next statements in onCreate write to this same file, and
-        // a process death before an async flush would re-resolve against dirtied preferences.
-        prefs.edit().putString(KEY, resolved.stored).commit()
+        val storedState = OnboardingState.fromStored(stored)
+        val resolved = storedState
+            ?: resolveOnboardingState(stored, hadPreferences, wasUpdated)
+        if (storedState == null) {
+            // commit(), not apply(): the very next statements in onCreate write to this same file,
+            // and a process death before an async flush would re-resolve against dirtied prefs.
+            prefs.edit().putString(KEY, resolved.stored).commit()
+        }
+        OnboardingSampleRideSeeder.initialize(context, resolved, wasUpdated)
         return resolved
     }
 

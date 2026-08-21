@@ -88,6 +88,24 @@ class RideStatsReducerTest {
     }
 
     @Test
+    fun sampleRide_isExcludedFromEveryAggregate() {
+        val before = RideStats()
+        val sample = GoodRideSummary(
+            rideId = 99L,
+            finishedAtMillis = millis(LocalDate.of(2026, 7, 20)),
+            durationMillis = 540_000L,
+            distanceMeters = 1_931.4,
+            isSample = true,
+        )
+
+        val (after, transition) = RideStatsReducer.reduce(before, sample, utc)
+
+        assertEquals(before, after)
+        assertTrue(transition.alreadyProcessed)
+        assertFalse(after.processedRideIds.contains(sample.rideId))
+    }
+
+    @Test
     fun emergencyRide_updatesHistoryButCarriesCelebrationSuppression() {
         val (_, transition) = RideStatsReducer.reduce(
             RideStats(), emergencySummary(1, millis(LocalDate.of(2026, 7, 20))), utc

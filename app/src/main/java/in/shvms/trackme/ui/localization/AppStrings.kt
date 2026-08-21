@@ -388,6 +388,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val exportFailed: String = s("exportFailed", "Couldn't export this ride. Check available storage and try again.")
     val notEnoughGpsDataForChart: String = s("notEnoughGpsDataForChart", "Not enough GPS data to show a chart.")
     val deleteRide: String = s("deleteRide", "Delete Ride")
+    val sampleRideBadge: String = s("sampleRideBadge", "Sample")
     val selectedCount: String = s("selectedCount", "%d selected")
     val selectAll: String = s("selectAll", "Select all")
     val clearSelection: String = s("clearSelection", "Clear selection")
@@ -969,6 +970,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportFailed" to "No se pudo exportar este viaje. Comprueba el almacenamiento e inténtalo de nuevo.",
             "notEnoughGpsDataForChart" to "No hay suficientes datos GPS para mostrar un gráfico.",
             "deleteRide" to "Eliminar Viaje",
+            "sampleRideBadge" to "Muestra",
             "selectedCount" to "%d seleccionados",
             "selectAll" to "Seleccionar todo",
             "clearSelection" to "Borrar selección",
@@ -1507,6 +1509,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportFailed" to "Impossible d'exporter ce trajet. Vérifiez l'espace de stockage et réessayez.",
             "notEnoughGpsDataForChart" to "Pas assez de données GPS pour afficher un graphique.",
             "deleteRide" to "Supprimer Trajet",
+            "sampleRideBadge" to "Exemple",
             "selectedCount" to "%d sélectionnés",
             "selectAll" to "Tout sélectionner",
             "clearSelection" to "Effacer la sélection",
@@ -2045,6 +2048,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportFailed" to "Die Fahrt konnte nicht exportiert werden. Prüfen Sie den Speicher und versuchen Sie es erneut.",
             "notEnoughGpsDataForChart" to "Nicht genügend GPS-Daten für ein Diagramm.",
             "deleteRide" to "Fahrt Löschen",
+            "sampleRideBadge" to "Beispiel",
             "selectedCount" to "%d ausgewählt",
             "selectAll" to "Alle auswählen",
             "clearSelection" to "Auswahl löschen",
@@ -2583,6 +2587,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportFailed" to "यह यात्रा निर्यात नहीं हो सकी। उपलब्ध स्टोरेज जांचें और फिर प्रयास करें।",
             "notEnoughGpsDataForChart" to "चार्ट दिखाने के लिए पर्याप्त GPS डेटा नहीं है।",
             "deleteRide" to "यात्रा हटाएं",
+            "sampleRideBadge" to "नमूना",
             "selectedCount" to "%d चयनित",
             "selectAll" to "सभी चुनें",
             "clearSelection" to "चयन हटाएं",
@@ -3121,6 +3126,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportFailed" to "このライドをエクスポートできませんでした。空き容量を確認して再試行してください。",
             "notEnoughGpsDataForChart" to "グラフを表示するにはGPSデータが不足しています。",
             "deleteRide" to "記録を削除",
+            "sampleRideBadge" to "サンプル",
             "selectedCount" to "%d 件を選択中",
             "selectAll" to "すべて選択",
             "clearSelection" to "選択を解除",
@@ -3659,6 +3665,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportFailed" to "无法导出此行程。请检查可用存储空间后重试。",
             "notEnoughGpsDataForChart" to "GPS 数据不足，无法显示图表。",
             "deleteRide" to "删除行程",
+            "sampleRideBadge" to "示例",
             "selectedCount" to "%d 项已选",
             "selectAll" to "全选",
             "clearSelection" to "清除选择",

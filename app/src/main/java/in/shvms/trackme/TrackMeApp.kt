@@ -66,6 +66,11 @@ class TrackMeApp : Application() {
      * lands in preferences is a decision the user made on a screen they saw — not an assumption.
      */
     fun completeOnboarding(outcome: `in`.shvms.trackme.ui.onboarding.OnboardingOutcome) {
+        // Persist eligibility before marking onboarding done. If the process dies between those
+        // writes, launch recovery sees PENDING onboarding and refuses to seed early; completing the
+        // walkthrough again resumes the same request without creating a duplicate.
+        `in`.shvms.trackme.ui.onboarding.OnboardingSampleRideSeeder.request(this)
+
         // Consent first, capture second. AnalyticsManager drops every event while the flag is off,
         // so emitting before this line would silently discard the one event describing the very
         // screen the user just answered — and it would deserve to, because at that instant they
@@ -85,6 +90,8 @@ class TrackMeApp : Application() {
 
         `in`.shvms.trackme.ui.onboarding.OnboardingGate.markDone(this)
         onboardingState = `in`.shvms.trackme.ui.onboarding.OnboardingState.DONE
+
+        applicationScope.launch(Dispatchers.IO) { seedOnboardingSampleRideIfNeeded() }
     }
 
     lateinit var preferencesManager: AppPreferencesManager
@@ -196,7 +203,7 @@ class TrackMeApp : Application() {
             AppDatabase::class.java,
             "trackme_db"
         )
-        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11)
+        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11, AppDatabase.MIGRATION_11_12)
         .fallbackToDestructiveMigration()
         .build()
         
@@ -226,6 +233,7 @@ class TrackMeApp : Application() {
         `in`.shvms.trackme.data.remote.SyncWorker.schedulePeriodicSync(this)
 
         applicationScope.launch(Dispatchers.IO) {
+            seedOnboardingSampleRideIfNeeded()
             evaluateSosRemovalNotice()
             `in`.shvms.trackme.service.EmergencyDataPurge.purgeOnce(
                 prefs = getSharedPreferences("trackme_prefs", MODE_PRIVATE),
@@ -253,6 +261,23 @@ class TrackMeApp : Application() {
                 errorLogger.recordException(e)
             }
             appUpdateChecker.checkForUpdate()
+        }
+    }
+
+    private suspend fun seedOnboardingSampleRideIfNeeded() {
+        try {
+            val strings = `in`.shvms.trackme.ui.localization.getAppStrings(
+                preferencesManager.appLanguage.value
+            )
+            `in`.shvms.trackme.ui.onboarding.OnboardingSampleRideSeeder.seedIfNeeded(
+                context = this,
+                database = database,
+                onboardingState = onboardingState,
+                title = strings.obDemoSampleRideTitle,
+            )
+        } catch (error: Exception) {
+            // Leave the seed request pending so a later launch can retry atomically.
+            errorLogger.recordException(error)
         }
     }
 

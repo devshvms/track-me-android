@@ -19,6 +19,8 @@ data class GoodRideSummary(
     val durationMillis: Long,
     /** Filtered ride distance in meters (as persisted on the ride). */
     val distanceMeters: Double,
+    /** Local first-run samples can be replayed/exported but never enter retention aggregates. */
+    val isSample: Boolean = false,
     /**
      * True when SOS was entered at any point during this ride. The ride still contributes to
      * history aggregates, but downstream celebratory surfaces must be suppressed.
