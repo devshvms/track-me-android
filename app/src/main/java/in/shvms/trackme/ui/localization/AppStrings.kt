@@ -37,6 +37,44 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val stopTracking: String = s("stopTracking", "Stop Tracking")
     // Spoken copy intentionally falls back to English in every app locale for 1.8.4.
     val voiceNoActiveRide: String = s("voiceNoActiveRide", "You don't have a ride recording right now.")
+
+    // TASK-196 — the spoken-copy family. **Spoken form, not glanceable form.** These deliberately do
+    // not reuse `groupAge*` ("%1$ds ago"): an abbreviation a rider reads at a glance is not what a
+    // TTS engine should pronounce, and the two vocabularies drift for good reasons. Semantically
+    // bound to `PresenceAge.Bucket` via `VoiceFreshness`; lexically their own thing.
+    //
+    // English only in 1.8.4 per HANDSFREE-01 — the hedges that keep these honest ("was", "last
+    // position") are exactly what machine translation flattens, and a line that drops "was" asserts
+    // a stale position as current. Every key here is listed in the locale test's
+    // `intentionallyEnglishOnly` set; that list is the record of the exemption, not a silence.
+    val voiceAgeSeconds: String = s("voiceAgeSeconds", "%1\$d seconds ago")
+    val voiceAgeMinutes: String = s("voiceAgeMinutes", "%1\$d minutes ago")
+    val voiceAgeHours: String = s("voiceAgeHours", "over an hour ago")
+    val voiceMemberAhead: String = s("voiceMemberAhead", "%1\$s is %2\$s ahead.")
+    val voiceMemberBehind: String = s("voiceMemberBehind", "%1\$s is %2\$s behind.")
+    val voiceMemberNearby: String = s("voiceMemberNearby", "%1\$s is %2\$s away.")
+    val voiceMemberDistanceWithAge: String =
+        s("voiceMemberDistanceWithAge", "%1\$s was %2\$s away, %3\$s.")
+    val voiceMemberAgeOnly: String = s("voiceMemberAgeOnly", "I haven't heard from %1\$s since %2\$s.")
+    val voiceMemberPresenceOnly: String =
+        s("voiceMemberPresenceOnly", "%1\$s is in the group, but I can't tell how old their position is.")
+    val voiceRosterQuiet: String = s("voiceRosterQuiet", "%1\$d riders. Nothing flagged.")
+    val voiceRosterAlert: String = s("voiceRosterAlert", "%1\$d riders. %2\$s needs help.")
+    val voiceRosterNotHeard: String =
+        s("voiceRosterNotHeard", "%1\$d riders. I've heard from %2\$d of them recently.")
+    val voiceNameNoMatch: String = s("voiceNameNoMatch", "I don't have anyone called %1\$s in this group.")
+    val voiceNameAmbiguous: String =
+        s("voiceNameAmbiguous", "I have more than one rider whose name starts like that — %1\$s. Which one?")
+    val voiceNoGroup: String = s("voiceNoGroup", "You're not in a group ride right now.")
+    val voiceGroupCacheEmpty: String = s("voiceGroupCacheEmpty", "I haven't heard from the group yet.")
+    val voiceGroupDegraded: String =
+        s("voiceGroupDegraded", "Group sharing is having trouble reconnecting, so this may be out of date.")
+    val voiceGroupLocked: String = s("voiceGroupLocked", "Unlock your phone and I'll tell you.")
+    // §3.4a — Android cannot confirm headlessly, so End by voice is deferred there. The refusal
+    // names the state rather than failing silently: a rider who thinks they ended a ride and did
+    // not is worse off than one who was told plainly.
+    val voiceEndNotAvailable: String =
+        s("voiceEndNotAvailable", "I can't end a ride by voice on Android yet. Your ride is still recording.")
     val stopRideAction: String = s("stopRideAction", "Stop ride")
     val rideStopped: String = s("rideStopped", "Ride stopped")
     val recenterMap: String = s("recenterMap", "Recenter map")
