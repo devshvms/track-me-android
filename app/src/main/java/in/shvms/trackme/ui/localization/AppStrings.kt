@@ -35,6 +35,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val pauseTracking: String = s("pauseTracking", "Pause Tracking")
     val resumeTracking: String = s("resumeTracking", "Resume Tracking")
     val stopTracking: String = s("stopTracking", "Stop Tracking")
+    // Spoken copy intentionally falls back to English in every app locale for 1.8.4.
+    val voiceNoActiveRide: String = s("voiceNoActiveRide", "You don't have a ride recording right now.")
     val stopRideAction: String = s("stopRideAction", "Stop ride")
     val rideStopped: String = s("rideStopped", "Ride stopped")
     val recenterMap: String = s("recenterMap", "Recenter map")

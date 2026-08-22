@@ -2,4 +2,7 @@
 <resources>
 
     <style name="Theme.TrackMe" parent="android:Theme.DeviceDefault.NoActionBar" />
+
+    <!-- App Actions' required Activity fulfillment with no window, transition, or visible task. -->
+    <style name="Theme.TrackMe.VoiceAction" parent="android:style/Theme.NoDisplay" />
 </resources>

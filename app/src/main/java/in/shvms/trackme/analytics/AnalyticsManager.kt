@@ -441,6 +441,12 @@ object AnalyticsManager {
         )
     }
 
+    /** SCOPE_1.8.4 §5.3 — the pure contract admits only method/outcome properties. */
+    fun trackVoiceEvent(event: `in`.shvms.trackme.domain.voice.VoiceTelemetryEvent) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(event.name, properties = event.properties)
+    }
+
     /**
      * §2.9's calibration event — the reason ETA is built a release before it is shown.
      *

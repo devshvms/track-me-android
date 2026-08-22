@@ -12,7 +12,11 @@ class AppStringsLocaleCoverageTest {
      * Keys that are intentionally identical in every language and therefore intentionally absent
      * from the locale maps. Adding to this set is a deliberate product decision.
      */
-    private val intentionallyEnglishOnly = setOf("appName")
+    private val intentionallyEnglishOnly = setOf(
+        "appName",
+        // HANDSFREE-01: spoken copy ships in English only until fluent reviewers approve it.
+        "voiceNoActiveRide",
+    )
 
     /**
      * TASK-138 owns these entries; they are supplied when that branch lands. This list is temporary
