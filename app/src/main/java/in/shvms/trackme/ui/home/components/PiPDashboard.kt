@@ -34,7 +34,7 @@ import `in`.shvms.trackme.service.TrackingState
 import `in`.shvms.trackme.theme.AmberWarn
 import `in`.shvms.trackme.theme.CyanBright
 import `in`.shvms.trackme.theme.Navy900
-import `in`.shvms.trackme.theme.RedSos
+import `in`.shvms.trackme.theme.RedDestructive
 import `in`.shvms.trackme.theme.Slate400
 import `in`.shvms.trackme.theme.Slate600
 import `in`.shvms.trackme.ui.community.statusLabelForCode
@@ -472,7 +472,7 @@ private fun PiPMetric(
 private fun PiPStrip(strip: PiPStripDisplay) {
     val (background, foreground) = when (strip.kind) {
         PiPStripKind.WARNING -> AmberWarn to Navy900
-        PiPStripKind.ALERT -> RedSos to Color.White
+        PiPStripKind.ALERT -> RedDestructive to Color.White
         PiPStripKind.RESOLVED -> Slate600 to Color.White
     }
     Text(
