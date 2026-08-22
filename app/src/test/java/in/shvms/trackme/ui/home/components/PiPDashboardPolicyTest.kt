@@ -122,11 +122,60 @@ class PiPDashboardPolicyTest {
             strings = AppStrings(),
         )
 
-        assertEquals("1.23 km", metric.distanceValue)
+        // Value and unit are split so the window can render the unit small instead of clipping it
+        // off a 30sp string — but recombined they must still be exactly what the shared formatter
+        // produces, which is what this test is named for.
+        assertEquals("1.23", metric.distanceValue)
+        assertEquals("km", metric.distanceUnit)
+        assertEquals("1.23 km", "${metric.distanceValue} ${metric.distanceUnit}")
         assertEquals("Pace", metric.secondaryLabel)
-        assertEquals("5:00 /km", metric.secondaryValue)
+        assertEquals("5:00", metric.secondaryValue)
+        assertEquals("/km", metric.secondaryUnit)
+        assertEquals("5:00 /km", "${metric.secondaryValue} ${metric.secondaryUnit}")
         assertNull(metric.strip)
+        // The spoken description keeps the full unitful strings — a screen reader should say
+        // "1.23 km", not a bare number.
+        assertTrue(metric.accessibilityDescription.contains("1.23 km"))
         assertTrue(metric.accessibilityDescription.startsWith("Ride dashboard."))
+    }
+
+    @Test
+    fun `an imperial rider still gets kilometre pace, labelled as such`() {
+        // PiP shows kilometre-pace in both unit modes to match the active HUD. Labelling that
+        // number "/mi" would be wrong by a factor of 1.6 — the one way this split could lie.
+        val metric = PiPDashboardPolicy.build(
+            rideState = PiPRideState.RECORDING,
+            distanceMeters = 1_609f,
+            speedMps = 1000f / (5 * 60),
+            persona = RidePersona.RUN,
+            isAutoPaused = false,
+            imperial = true,
+            alert = null,
+            strings = AppStrings(),
+        )
+
+        assertEquals("mi", metric.distanceUnit)
+        assertEquals("/km", metric.secondaryUnit)
+    }
+
+    @Test
+    fun `a speed persona is labelled in speed units`() {
+        val metric = PiPDashboardPolicy.build(
+            rideState = PiPRideState.RECORDING,
+            distanceMeters = 1_000f,
+            speedMps = 10f,
+            persona = RidePersona.CYCLING,
+            isAutoPaused = false,
+            imperial = false,
+            alert = null,
+            strings = AppStrings(),
+        )
+
+        assertEquals("km", metric.distanceUnit)
+        assertEquals("km/h", metric.secondaryUnit)
+        // The magnitude must carry no unit text of its own, or the window renders it twice.
+        assertFalse(metric.distanceValue.contains("km"))
+        assertFalse(metric.secondaryValue.contains("km"))
     }
 
     @Test
