@@ -1,7 +1,6 @@
 package `in`.shvms.trackme.ui.onboarding
 
 import android.database.ContentObserver
-import android.graphics.Color
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -115,8 +114,12 @@ private fun OnboardingVideoPlayer(
         AndroidView(
             factory = { viewContext ->
                 TextureView(viewContext).apply {
+                    // `isOpaque = false` is the whole transparency story here. Do NOT add a
+                    // background: TextureView.setBackgroundDrawable throws
+                    // UnsupportedOperationException unconditionally, and setBackgroundColor
+                    // routes straight to it. Calling it crashed every first run on 1.8.2 the
+                    // instant this view was constructed, before onboarding drew a single frame.
                     isOpaque = false
-                    setBackgroundColor(Color.TRANSPARENT)
                     player.setVideoTextureView(this)
                 }
             },
