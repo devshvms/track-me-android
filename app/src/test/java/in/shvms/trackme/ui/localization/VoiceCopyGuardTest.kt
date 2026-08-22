@@ -17,9 +17,11 @@ import java.io.File
  */
 class VoiceCopyGuardTest {
 
+    // `voice/` (the App Actions adapter) was removed in TASK-201 when Play refused the bundle.
+    // The pure controller under `domain/voice` remains and is still the thing that must never read
+    // a glanceable key — it is what Android voice would be rebuilt on.
     private val voiceSourceDirs = listOf(
         File("src/main/java/in/shvms/trackme/domain/voice"),
-        File("src/main/java/in/shvms/trackme/voice"),
     )
 
     /** Glanceable families that must never be read from a spoken path. */
