@@ -31,15 +31,10 @@ Each row is one feature under one worst-case condition. "Expected" is what a lau
 | Offline start attempt | Clear, friendly error — not a hang or generic failure | `formatGracefulError()` maps `UnknownHostException`/`ConnectException`/`SocketTimeoutException`/`SSLException` to specific messages (e.g., "Unable to reach live share server...") | ✅ | — |
 | Viewer opens link after session expiry | Clean "this share has ended" page, not a broken/blank viewer | Web `tracker.html` handles `404` from both location polling and viewer heartbeat by stopping both timers and showing a clear "Session Expired" state with the last-known duration when available. The marker/popup now renders the owner name as text and builds actions with DOM listeners rather than interpolated HTML/inline JavaScript. | ✅ code-reviewed; runtime check pending | P2 |
 
-## SOS / Emergency
+## ~~SOS / Emergency~~ · **VOID**
 
-| Failure condition | Expected | Actual (audited) | Status | Severity |
-|---|---|---|---|---|
-| SOS triggered — notification to user that it's in progress/sent | User sees confirmation the alert was sent (or failed) | `EmergencyBroadcastWorker` now posts to the dedicated high-priority `sos_channel`, showing accepted/partial/failed contact counts while SOS is active. The notification reports SMS-stack submission, not carrier delivery. Runtime verification remains pending. | ⚠️ | **P0 — runtime verification pending** |
-| SMS send fails (no signal, carrier reject, permission revoked) | User/app knows the alert didn't go out and can retry or is told to call emergency services directly | Each SMS now uses a sent-result `PendingIntent`; rejected or timed-out submissions are counted and surfaced in the SOS notification. Carrier delivery confirmation is still not claimed because delivery callbacks are not awaited. Runtime verification remains pending. | ⚠️ | **P0 — runtime verification pending** |
-| SMS permission revoked after setup | Clear re-prompt/explanation before the user needs SOS again | `MainActivity.onResume()` persists a revocation signal; Home shows a dismissible warning with a Settings path, and `EmergencySetupScreen` explains the disabled state and offers the same recovery path (`8d59caf`). The SOS button remains disabled until permission is restored. Revoke/grant and cold-start behavior still need physical-device verification. | ⚠️ | **P0 — code fix landed; runtime verification pending** |
-| SMS permission permanently denied during initial setup | Rationale + deep link to Settings, same pattern as location | `EmergencySetupScreen.kt` `PermissionAndTestStep` now tracks a denied request, detects permanent denial with `shouldShowRequestPermissionRationale`, explains that SMS access is blocked, and opens the app's system Settings page. Permission state refreshes when returning from Settings. | ⚠️ | **Code-complete in local commit; physical permission-flow verification pending** |
-| Emergency contact deleted from device Contacts app | Documented behavior (app should not silently rely on a stale reference, or should clearly state it uses a saved snapshot) | Contacts are copied into local Room storage at setup time (name+phone snapshot). `ContactsStep` now explains that deleting a phonebook contact does not remove the saved TrackMe entry; the user must delete it from this list. Runtime copy/font-scale verification remains pending. | ✅ code-fixed; runtime check pending | P2 |
+> ⛔ **VOID 2026-08-22 — SOS/SMS was retired in 1.6.4/1.6.5.** Kept as the record of the removed
+> feature and the findings raised against it; nothing here is actionable.
 
 ## Cloud Sync
 
@@ -77,11 +72,8 @@ Status key: 🔧 code fix landed, runtime/device verification still open · ❌ 
 2. 🔧 Airplane-mode/GPS-disabled detection — now distinguished from a plain signal gap, with a Location Settings deep link (Tracking)
 3. 🔧 Process-death mid-ride — still doesn't auto-resume the live HUD, but recovery now shows a user-facing saved/removed Snackbar instead of finalizing silently (Tracking)
 4. 🔧 Accelerometer-less devices — auto-pause no longer sticks at zero; falls back to GPS speed/drift logic when no motion sensor/sample exists (Tracking)
-5. 🔧 SOS send confirmation — `sos_channel` now posts accepted/partial/failed contact counts while SOS is active (SOS)
-6. 🔧 SOS SMS failures — each SMS now uses a sent-result `PendingIntent`; rejected/timed-out sends are counted and surfaced (SOS)
-7. 🔧 SOS permission revocation — a previously configured user now sees a Home warning with Settings navigation/dismissal, and Emergency Setup explains how to restore SMS permission (SOS)
-8. ✅ `syncAll()` reporting `Success` on a partial failure — resolved; confirmed by code review that it shares the now-rethrowing `uploadRideInternal()` with `syncPeriodic()` (Cloud Sync)
-9. 🔧 `SyncWorker` retry path — now awaits `syncPeriodic()` and only advances `last_sync_time` on real success (Cloud Sync)
+5. ✅ `syncAll()` reporting `Success` on a partial failure — resolved; confirmed by code review that it shares the now-rethrowing `uploadRideInternal()` with `syncPeriodic()` (Cloud Sync)
+6. 🔧 `SyncWorker` retry path — now awaits `syncPeriodic()` and only advances `last_sync_time` on real success (Cloud Sync)
 
 Net: all 9 P0s now have code fixes; 8 still need runtime/device confirmation under TASK-005's gate, while #8 (`syncAll()` reporting) is fully resolved by code review. No unfixed P0 remains in the current matrix.
 

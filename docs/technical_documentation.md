@@ -14,40 +14,35 @@ This section breaks down the technical implementation for the core features desc
 *   **Storage:** Rides are saved to the local SQLite database using Room (`RideDao`). UI lists use `stickyHeader` for grouped views.
 *   🔗 **Product Link:** [Real-Time Tracking Feature](product_documentation.md#11-real-time-tracking--ride-history)
 
-### 1.2. Emergency SOS & Safety Beacon
-*   **Implementation:** Handled by `EmergencyManager.kt`. When triggered, it initiates a 5-second coroutine delay (cancellation grace period). 
-*   **Action:** If not canceled, it retrieves the last known location, formats a Google Maps URL, and uses `SmsManager` to broadcast the message to contacts stored in Room (`EmergencyDao`).
-*   🔗 **Product Link:** [Emergency SOS Feature](product_documentation.md#12-emergency-sos--safety-beacon)
-
-### 1.3. Live Ride Sharing
+### 1.2. Live Ride Sharing
 *   **Implementation:** Upon ride creation, if live sharing is enabled, a unique ride session ID is generated. 
 *   **Data Sync:** The app streams real-time `(latitude, longitude, timestamp)` points to a specific Firebase Realtime Database or Firestore document. The shareable link points to a web viewer (or deep links) mapped to this session ID.
-*   🔗 **Product Link:** [Live Ride Sharing Feature](product_documentation.md#13-live-ride-sharing)
+*   🔗 **Product Link:** [Live Ride Sharing Feature](product_documentation.md#12-live-ride-sharing)
 
-### 1.4. Cloud Synchronization
+### 1.3. Cloud Synchronization
 *   **Implementation:** Uses Jetpack `WorkManager` (`SyncWorker.kt`) for background, periodic syncing.
 *   **Database:** Combines Room (Local Source of Truth) and Firebase Firestore (Remote Backup). `FirestoreSyncManager` handles upstream inserts and lazy downstream fetches based on timestamp resolution to avoid conflicts.
-*   🔗 **Product Link:** [Cloud Sync Feature](product_documentation.md#14-cloud-synchronization)
+*   🔗 **Product Link:** [Cloud Sync Feature](product_documentation.md#13-cloud-synchronization)
 
-### 1.5. Data Export & GPX Interoperability
+### 1.4. Data Export & GPX Interoperability
 *   **Local GPX:** Implemented via Strategy/Adapter pattern. `GPXExporter.kt` formats local points into GPX 1.1 XML. `GPXParser.kt` ingests `.gpx` files to map to Room entities.
 *   **Cloud Archive Export:** Complete cloud history is requested with `POST /api/export/request`. The request and optional status call use a fresh Firebase ID token in `Authorization: Bearer <token>`. The response is currently `COMPLETED` immediately because the server creates the ZIP on demand at download time. Android passes the exact tokenized `downloadUrl` to `DownloadManager`; the URL query token is required because `DownloadManager` cannot send the bearer header. Never call `/api/export/download` without that returned URL and its `token` parameter.
 *   **Canonical API contract:** [TrackMe Web API Contract](../../track-me-web/doc/api.md)
-*   🔗 **Product Link:** [Data Export & GPX Interoperability](product_documentation.md#15-data-export--gpx-interoperability)
+*   🔗 **Product Link:** [Data Export & GPX Interoperability](product_documentation.md#14-data-export--gpx-interoperability)
 
-### 1.6. Social Sharing (Image Export)
+### 1.5. Social Sharing (Image Export)
 *   **Implementation:** Uses the Google Static Maps API to render the route polyline onto a static image map tile. 
 *   **Processing:** `NativeSnapshotImageExporterImpl` overlays application statistics (distance, time) on top of the map bitmap using Android `Canvas` APIs before saving to local storage or opening the Share sheet.
-*   🔗 **Product Link:** [Social Sharing Feature](product_documentation.md#16-social-sharing-image-export)
+*   🔗 **Product Link:** [Social Sharing Feature](product_documentation.md#15-social-sharing-image-export)
 
-### 1.7. In-App Auto-Update Notifications
+### 1.6. In-App Auto-Update Notifications
 *   **Implementation:** On `MainActivity` initialization, the app queries Firebase Remote Config (`config/app_release`) and optionally the GitHub Releases API to compare the current `BuildConfig.VERSION_CODE` against the latest available version.
 *   **Action:** Displays a Material 3 dialog containing the markdown release notes if a newer version is detected.
-*   🔗 **Product Link:** [Auto-Update Feature](product_documentation.md#17-in-app-auto-update-notifications)
+*   🔗 **Product Link:** [Auto-Update Feature](product_documentation.md#16-in-app-auto-update-notifications)
 
-### 1.8. Multi-Language Localization
+### 1.7. Multi-Language Localization
 *   **Implementation:** Relies on standard Android `strings.xml` resource buckets (`values-es`, `values-fr`, etc.). App-level locale changes are handled via Android 13's per-app language preferences (`LocaleManager`) which dynamically updates the configuration context without requiring a hard restart.
-*   🔗 **Product Link:** [Localization Feature](product_documentation.md#18-multi-language-localization)
+*   🔗 **Product Link:** [Localization Feature](product_documentation.md#17-multi-language-localization)
 
 ---
 
@@ -81,7 +76,8 @@ trackme/
 │   ├── components/         // Shared components, Messenger, guarded map camera helpers
 │   ├── layout/             // TrackMeWindowClass — the app's own width breakpoints
 │   └── localization/       // AppStrings, 7 locales, coverage-tested
-├── service/                // TrackingService, EmergencyManager
+├── service/                // TrackingService (EmergencyManager remains only as a read-only
+│                           //   ride-suppression shim after the 1.6.4/1.6.5 SOS retirement)
 ├── data/                   // Repository, local (Room), remote (Firestore)
 ├── domain/                 // Business Logic (GPSProcessor, Exporters)
 └── utils/                  // Loggers, helpers

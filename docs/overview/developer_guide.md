@@ -4,13 +4,11 @@ This guide provides a high-level overview of the TrackMe Android application's a
 
 ## 1. App Configuration (`AppConfig.kt`)
 
-The central configuration for the app is located in `in.shvms.trackme.config.AppConfig`. It dictates visual styling, thresholds, and emergency behaviors:
+The central configuration for the app is located in `in.shvms.trackme.config.AppConfig`. It dictates visual styling, thresholds, and tracking behaviors:
 
 *   **Map Rendering Constants:** `MAP_LINE_COLOR`, `MAP_LINE_WEIGHT`, `STATIC_MAP_BASE_URL`
 *   **High Quality Image Export:** Resolutions and aspect ratios (`HQ_IMAGE_WIDTH`, `HQ_IMAGE_RATIO_1_1`, `HQ_IMAGE_RATIO_16_9`), retina scaling.
 *   **Social Template Rendering:** `OVERLAY_BANNER_HEIGHT_RATIO` (bottom 20%), colors, and alpha transparency.
-*   **Emergency Configuration:** 
-    *   `SOS_COUNTDOWN_SECONDS`: 5 seconds countdown before broadcasting SOS.
     *   `MAX_HAPTIC_MESSAGES`: 5 broadcast ticks for haptic vibration feedback.
     *   `HAPTIC_VIBRATION_DURATION_MS`: 1000ms duration for each vibration.
 *   **Post Processing:** `MAX_ACCELERATION_G` (2.0f) used by the `GPSProcessor` to filter out impossible speed jumps.
@@ -38,7 +36,7 @@ graph TD
 
 The application uses an "Offline-First" model. All writes happen locally via Room, and a background sync manager handles cloud operations.
 
-### Local Storage (`RideDao` & `EmergencyDao`)
+### Local Storage (`RideDao`)
 *   **Methods:** `insertRide`, `updateRide`, `insertGPSPoints`, `getPointsForRide`, `getRideWithPointsById`, `getAllRidesWithPoints`.
 *   **Relation:** Uses `RideWithPoints` (a Room relation linking `RideEntity` to a List of `GPSPointEntity`) to easily load a full trajectory.
 
@@ -46,7 +44,6 @@ The application uses an "Offline-First" model. All writes happen locally via Roo
 *   **`syncAll()`**: Syncs rides up to the cloud and downloads remote rides down to the local database.
 *   **`uploadRide(rideId: Long)`**: Takes a local ride, constructs a JSON/Map payload (including calculated stats and the compressed array of points), and sets it in the user's `rides` collection on Firestore.
 *   **`downloadFromCloud(uid: String)`**: Pulls rides from the `users/{uid}/rides` collection, checks if they exist locally, and inserts them if they are new. Re-maps Firestore GeoPoints/Data into Room Entities.
-*   **Emergency Sync**: `syncEmergencyConfigUpstream` and `syncEmergencyConfigDownstream` ensure SOS settings and contacts are synced cross-device.
 
 ## 4. Screen Flow Diagram
 
@@ -72,13 +69,10 @@ stateDiagram-v2
         History --> Settings : BottomNav
         Settings --> Home : BottomNav
         
-        Settings --> EmergencySetup : Click 'Emergency Setup'
-        EmergencySetup --> Settings : Back/Save
     }
 ```
 
 *   **Home (`HomeScreen`)**: Entry point. Start/Stop rides via swipe-to-trigger slider. Shows live stats and map.
 *   **History (`HistoryScreen`)**: Paginated/Scrollable list of past rides. 
 *   **Ride Detail (`RideDetailScreen`)**: Deep view of a single ride. Renders the static map export, detailed stats, and options to export as GPX or share an image.
-*   **Settings (`SettingsScreen`)**: Preferences (e.g., Post-processing toggles) and entry to Emergency Setup.
-*   **Emergency Setup (`EmergencySetupScreen`)**: Configure SOS contacts and message templates.
+*   **Settings (`SettingsScreen`)**: Preferences (e.g., Post-processing toggles).
