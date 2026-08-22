@@ -979,8 +979,6 @@ fun RideDetailScreen(
                         // Built once, here, and handed to both the panel geometry and the exporter.
                         // Deriving it twice is what let the file and the preview disagree (§8.1).
                         val exportOverlayContent = buildOverlayContent(
-                            rideTitle = ride.ride.title,
-                            showTitle = true,
                             date = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
                                 .format(java.util.Date(ride.ride.startTime)),
                             duration = compactDuration(
@@ -1015,7 +1013,6 @@ fun RideDetailScreen(
                                 },
                                 // The exporter renders these verbatim rather than re-deriving them,
                                 // so the file cannot say something the preview did not — §8.3.
-                                overlayTitle = exportOverlayContent.title,
                                 overlayFigures = exportOverlayContent.figures,
                                 isDarkTheme = settings.darkTheme,
                                 showDistance = settings.showDistance,
@@ -1260,8 +1257,6 @@ fun RideDetailScreen(
                         val durationMillis = (rideWithPoints?.ride?.endTime ?: rideWithPoints?.ride?.startTime ?: 0L) - (rideWithPoints?.ride?.startTime ?: 0L)
                         val dateStr = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date(rideWithPoints?.ride?.startTime ?: 0L))
                         buildOverlayContent(
-                            rideTitle = rideWithPoints?.ride?.title,
-                            showTitle = true,
                             date = dateStr,
                             duration = compactDuration(durationMillis),
                             distance = distanceStr,
@@ -1307,20 +1302,6 @@ fun RideDetailScreen(
                                     Alignment.Start
                                 }
                             ) {
-                                // The title renders here because the exported file draws one — the
-                                // preview is only worth having if it shows what the file will
-                                // contain (SCOPE_1.8.4 §8.3 contract 2). It is ellipsised inside the
-                                // panel for the same reason the exporter clips it: a title wider
-                                // than its card used to spill onto bare map.
-                                overlayContent.title?.let { titleLine ->
-                                    Text(
-                                        titleLine,
-                                        color = onPanel,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.titleSmall
-                                    )
-                                }
                                 // A card stacks its figures; the full-width band runs them inline.
                                 if (settings.statsOverlay.stacksFigures) {
                                     stats.forEach { figure ->

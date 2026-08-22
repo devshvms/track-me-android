@@ -39,16 +39,16 @@ data class ExportOptions(
     val routePoints: List<`in`.shvms.trackme.data.local.entity.GPSPointEntity>? = null,
     val includeTrackMeLockup: Boolean = true,
     /**
-     * The panel's title line, or null for none — **decided by the UI, not re-derived here.**
+     * The panel's figure lines, already formatted and ordered by the UI — **decided there, not
+     * re-derived here.** Null falls back to the legacy in-exporter derivation.
      *
      * 1.8.0 centralised the panel's *geometry* after the preview and the exporter drifted. It never
-     * centralised its *contents*, so they drifted again (SCOPE_1.8.4 §8.1): the exporter drew a ride
-     * title the preview did not show. Carrying the decided lines closes that seam. Primitives rather
-     * than the UI's `OverlayContent`, for the same reason `StatsPanelRect` mirrors `OverlayRect` —
-     * the domain does not depend on the UI layer.
+     * centralised its *contents*, so they drifted again (SCOPE_1.8.4 §8.1). Primitives rather than
+     * the UI's `OverlayContent`, for the same reason `StatsPanelRect` mirrors `OverlayRect` — the
+     * domain does not depend on the UI layer.
+     *
+     * There is deliberately **no title field**: the panel carries figures only (§8.3).
      */
-    val overlayTitle: String? = null,
-    /** The panel's figure lines, already formatted and ordered by the UI. Null falls back to legacy. */
     val overlayFigures: List<String>? = null,
     /** Draw the TrackMe wordmark beside the map's Google attribution, as the preview does. */
     val includeMapAttribution: Boolean = true
@@ -224,7 +224,6 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
  * apparent text size, and anything keyed to height alone does not. Mirrors `OverlayMetrics` in the
  * UI layer, which sizes the panel these numbers have to fit inside.
  */
-private const val OVERLAY_TITLE_TEXT_RATIO = 0.040f
 private const val OVERLAY_FIGURE_TEXT_RATIO = 0.029f
 private const val OVERLAY_TOP_PADDING_FRACTION = 0.18f
 private const val OVERLAY_LINE_ADVANCE = 1.35f
@@ -289,8 +288,7 @@ private fun drawStatsPanel(
             )
         }
     }
-    val title = options.overlayTitle?.takeIf { it.isNotBlank() }
-    if (title == null && figures.isEmpty()) return
+    if (figures.isEmpty()) return
 
     val shorterEdge = minOf(frameWidth, frameHeight).toFloat()
     val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -308,11 +306,6 @@ private fun drawStatsPanel(
     val innerWidth = (width - 2 * padding).coerceAtLeast(1f)
 
     var baseline = top + height * OVERLAY_TOP_PADDING_FRACTION
-    if (title != null) {
-        textPaint.textSize = shorterEdge * OVERLAY_TITLE_TEXT_RATIO
-        baseline += textPaint.textSize
-        canvas.drawText(ellipsise(title, textPaint, innerWidth), textX, baseline, textPaint)
-    }
     textPaint.textSize = shorterEdge * OVERLAY_FIGURE_TEXT_RATIO
     if (panel.stackFigures) {
         figures.forEach { figure ->

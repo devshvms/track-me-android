@@ -59,8 +59,7 @@ enum class StatsOverlayStyle {
      */
     fun rect(content: OverlayContent): OverlayRect? {
         if (this == None || content.isEmpty) return null
-        val lines = content.lineCount(stacksFigures)
-        val height = OverlayMetrics.panelHeightFraction(lines, hasTitle = content.title != null)
+        val height = OverlayMetrics.panelHeightFraction(content.lineCount(stacksFigures))
         return when (this) {
             None -> null
             BottomBar -> OverlayRect(left = 0f, top = 1f - height, right = 1f, bottom = 1f, inset = 0f)
@@ -150,12 +149,10 @@ fun compactDuration(millis: Long): String {
  * same instance and neither composes its own list.
  */
 data class OverlayContent(
-    /** The ride title, or null when the panel does not carry one. Rendered as the first line. */
-    val title: String?,
     /** Date / duration / distance, already formatted, in display order. */
     val figures: List<String>,
 ) {
-    val isEmpty: Boolean get() = title.isNullOrBlank() && figures.isEmpty()
+    val isEmpty: Boolean get() = figures.isEmpty()
 
     /**
      * How many rendered lines this content occupies.
@@ -163,19 +160,15 @@ data class OverlayContent(
      * A card stacks its figures, so each is a line. A band runs them inline as one line — the
      * `" • "`-joined string — which is why the count is not simply `figures.size`.
      */
-    fun lineCount(stacked: Boolean): Int {
-        val titleLines = if (title.isNullOrBlank()) 0 else 1
-        val figureLines = when {
-            figures.isEmpty() -> 0
-            stacked -> figures.size
-            else -> 1
-        }
-        return titleLines + figureLines
+    fun lineCount(stacked: Boolean): Int = when {
+        figures.isEmpty() -> 0
+        stacked -> figures.size
+        else -> 1
     }
 
     companion object {
         /** The shape [StatsOverlayStyle.rect] assumes when no content is supplied. */
-        val FIGURES_ONLY_ONE_LINE = OverlayContent(title = null, figures = listOf(""))
+        val FIGURES_ONLY_ONE_LINE = OverlayContent(figures = listOf(""))
     }
 }
 
@@ -186,8 +179,6 @@ data class OverlayContent(
  * should carry the same apparent text size, and anything keyed to height alone does not.
  */
 object OverlayMetrics {
-    /** Title line height. Larger than a figure, but nothing like the old quarter-of-the-panel. */
-    const val TITLE_LINE_RATIO = 0.052f
     /** Figure line height. */
     const val FIGURE_LINE_RATIO = 0.038f
     /** Breathing room above and below the text block, per edge. */
@@ -202,11 +193,9 @@ object OverlayMetrics {
      * dimensions to [OverlayRect] afterwards, so this only needs to be monotonic in [lines] and
      * stable across ratios — which it is, because every term is the same fraction.
      */
-    fun panelHeightFraction(lines: Int, hasTitle: Boolean): Float {
+    fun panelHeightFraction(lines: Int): Float {
         if (lines <= 0) return 0f
-        val figureLines = if (hasTitle) lines - 1 else lines
-        val titleHeight = if (hasTitle) TITLE_LINE_RATIO else 0f
-        return titleHeight + figureLines * FIGURE_LINE_RATIO + 2 * VERTICAL_PADDING_RATIO
+        return lines * FIGURE_LINE_RATIO + 2 * VERTICAL_PADDING_RATIO
     }
 }
 
@@ -214,13 +203,16 @@ object OverlayMetrics {
  * Selects the panel's lines from already-formatted parts — the one place that decides what a share
  * image says.
  *
+ * **No ride title.** 1.8.0 removed it deliberately: it is a name the sharer already knows and the
+ * viewer gets from the caption, and it cost a fifth of the frame to repeat. The preview honoured
+ * that; the exporter never did, which is the defect §8 was raised for. Confirmed by shvm 2026-08-22
+ * — the file drops the title rather than the preview gaining one.
+ *
  * Takes formatted strings rather than a ride so it stays pure and testable: the two renderers each
  * format with the same shared helpers ([compactDuration], `UnitFormatter`), but the *choice* of what
  * appears, and in what order, is made exactly once, here.
  */
 fun buildOverlayContent(
-    rideTitle: String?,
-    showTitle: Boolean,
     date: String,
     duration: String,
     distance: String,
@@ -228,7 +220,6 @@ fun buildOverlayContent(
     showDuration: Boolean,
     showDistance: Boolean,
 ): OverlayContent = OverlayContent(
-    title = rideTitle?.takeIf { showTitle && it.isNotBlank() },
     figures = buildList {
         if (showDate) add(date)
         if (showDuration) add(duration)

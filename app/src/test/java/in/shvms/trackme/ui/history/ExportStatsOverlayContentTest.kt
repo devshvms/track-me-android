@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The panel's contents and its height are now one decision, not two — SCOPE_1.8.4 §8.3.
+ * The panel's contents and its height are one decision, not two — SCOPE_1.8.4 §8.3.
  *
  * These assert the properties that actually broke in the field: a panel sized independently of what
  * it holds, and two renderers free to disagree about what that is.
@@ -14,13 +14,10 @@ import org.junit.Test
 class ExportStatsOverlayContentTest {
 
     private fun content(
-        title: String? = null,
         date: Boolean = false,
         duration: Boolean = false,
         distance: Boolean = false,
     ) = buildOverlayContent(
-        rideTitle = title,
-        showTitle = title != null,
         date = "Aug 22, 2026",
         duration = "17min",
         distance = "6.3 km",
@@ -28,19 +25,6 @@ class ExportStatsOverlayContentTest {
         showDuration = duration,
         showDistance = distance,
     )
-
-    @Test
-    fun `blank title is not a line`() {
-        assertNull(buildOverlayContent("   ", true, "d", "t", "x", false, false, false).title)
-    }
-
-    @Test
-    fun `title is dropped when not shown`() {
-        assertNull(content(title = "Evening BikeDrive").copy(title = null).title)
-        assertNull(
-            buildOverlayContent("Evening BikeDrive", false, "d", "t", "x", false, false, false).title
-        )
-    }
 
     @Test
     fun `figures keep date duration distance order`() {
@@ -52,17 +36,17 @@ class ExportStatsOverlayContentTest {
 
     @Test
     fun `a stacked card counts every figure as a line, a band counts one`() {
-        val c = content(title = "Evening BikeDrive", date = true, duration = true, distance = true)
-        assertEquals(4, c.lineCount(stacked = true))
-        assertEquals(2, c.lineCount(stacked = false))
+        val c = content(date = true, duration = true, distance = true)
+        assertEquals(3, c.lineCount(stacked = true))
+        assertEquals(1, c.lineCount(stacked = false))
     }
 
     @Test
     fun `panel height grows with its contents`() {
-        // The reported defect: height was a constant, so one figure and four lines drew the same box.
-        val one = OverlayMetrics.panelHeightFraction(1, hasTitle = false)
-        val four = OverlayMetrics.panelHeightFraction(4, hasTitle = true)
-        assertTrue("four lines must be taller than one", four > one)
+        // The reported defect: height was a constant, so one figure and three drew the same box.
+        val one = OverlayMetrics.panelHeightFraction(1)
+        val three = OverlayMetrics.panelHeightFraction(3)
+        assertTrue("three lines must be taller than one", three > one)
     }
 
     @Test
@@ -86,10 +70,28 @@ class ExportStatsOverlayContentTest {
     @Test
     fun `bottom band stays flush to the bottom edge whatever its height`() {
         val tall = StatsOverlayStyle.BottomBar.rect(
-            content(title = "Evening BikeDrive", date = true, duration = true, distance = true)
+            content(date = true, duration = true, distance = true)
         )!!
         assertEquals(1f, tall.bottom, 0.0001f)
         assertTrue(tall.top > 0f)
+    }
+
+    @Test
+    fun `a stacked card grows with each figure but a band does not`() {
+        val cardOne = StatsOverlayStyle.TopRight.rect(content(distance = true))!!
+        val cardThree = StatsOverlayStyle.TopRight.rect(
+            content(date = true, duration = true, distance = true)
+        )!!
+        assertTrue("a card stacks, so three figures are taller", cardThree.heightFraction > cardOne.heightFraction)
+
+        val bandOne = StatsOverlayStyle.BottomBar.rect(content(distance = true))!!
+        val bandThree = StatsOverlayStyle.BottomBar.rect(
+            content(date = true, duration = true, distance = true)
+        )!!
+        assertEquals(
+            "a band runs figures inline, so its height must not change",
+            bandOne.heightFraction, bandThree.heightFraction, 0.0001f,
+        )
     }
 
     @Test
