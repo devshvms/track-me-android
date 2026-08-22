@@ -69,6 +69,10 @@ internal fun computeCalcFromPoints(
     return PostRideCalculation(maxSpeed, totalDistance, avgSpeed, pauseMs)
 }
 
+/** Sample rides and local tombstones are never candidates for any bulk upload pass. */
+internal fun isRideEligibleForCloudSync(ride: RideEntity): Boolean =
+    !ride.isSample && !ride.pendingDelete
+
 sealed class SyncResult {
     object Idle : SyncResult()
     object Syncing : SyncResult()
@@ -219,7 +223,9 @@ class FirestoreSyncManager(
             try {
                 // --- UPSTREAM: Local → Cloud ---
                 val allRides = rideDao.getAllRidesWithPoints().first()
-                val unsyncedRides = allRides.filter { !it.ride.isSynced }
+                val unsyncedRides = allRides.filter {
+                    !it.ride.isSynced && isRideEligibleForCloudSync(it.ride)
+                }
                 for (rideWithPoints in unsyncedRides) {
                     if (uploadRideInternal(rideWithPoints.ride.id)) {
                         uploaded++
@@ -245,7 +251,9 @@ class FirestoreSyncManager(
         return try {
             // --- UPSTREAM: Local → Cloud ---
             val allRides = rideDao.getAllRidesWithPoints().first()
-            val unsyncedRides = allRides.filter { !it.ride.isSynced }
+            val unsyncedRides = allRides.filter {
+                !it.ride.isSynced && isRideEligibleForCloudSync(it.ride)
+            }
             for (rideWithPoints in unsyncedRides) {
                 if (uploadRideInternal(rideWithPoints.ride.id)) {
                     uploaded++
@@ -529,6 +537,10 @@ class FirestoreSyncManager(
             val rideWithPoints = rideDao.getRideWithPointsById(rideId)
                 ?: throw IllegalStateException("Ride $rideId was not found")
             if (rideWithPoints.ride.isSynced) return false
+            if (rideWithPoints.ride.isSample) {
+                errorLogger.log("Skipped upload of local sample ride $rideId")
+                return false
+            }
             // §0 contract 5: "the uploader must refuse to upload anything carrying it." Without
             // this, deleting a ride while an upload is in flight re-creates it in the cloud after
             // the batch has already removed it — the ride returns from the dead.

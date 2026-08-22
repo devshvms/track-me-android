@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RideEntity::class, 
         GPSPointEntity::class
     ], 
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -136,6 +136,15 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE `rides` ADD COLUMN `pendingDelete` INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
+        /** TASK-188: additive marker for the local-only first-run sample ride. */
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE `rides` ADD COLUMN `isSample` INTEGER NOT NULL DEFAULT 0"
                 )
             }
         }

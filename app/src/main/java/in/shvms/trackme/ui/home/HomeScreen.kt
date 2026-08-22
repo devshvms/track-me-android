@@ -1099,6 +1099,7 @@ fun HomeScreen(
                         }
                         viewModel.startTracking(persona)
                     },
+                    preselectedPersona = uiState.selectedPersona,
                     onAbortRideStart = AnalyticsManager::trackRideStartAborted,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)

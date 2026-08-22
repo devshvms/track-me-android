@@ -324,25 +324,40 @@ fun HistoryScreen(
 
                         if (!isCollapsed) {
                             items(rideList, key = { it.ride.id }) { rideWithPoints ->
-                                RideHistoryCard(
+                                Row(
                                     // G4 in the motion audit: the list had stable keys but no
                                     // placement animation, so deleting a ride made the ones below
-                                    // jump. Keys make this correct; without them it would animate
-                                    // the wrong rows.
+                                    // jump. Animate the whole row, including the sample action.
                                     modifier = Modifier.animateItem(),
-                                    rideWithPoints = rideWithPoints,
-                                    imperial = imperial,
-                                    selectionMode = selectionMode,
-                                    selected = selectedRideIds.contains(rideWithPoints.ride.id),
-                                    onClick = {
-                                        if (selectionMode) {
-                                            viewModel.toggleRideSelection(rideWithPoints.ride.id)
-                                        } else {
-                                            onNavigateToDetail(rideWithPoints.ride.id)
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RideHistoryCard(
+                                        modifier = Modifier.weight(1f),
+                                        rideWithPoints = rideWithPoints,
+                                        imperial = imperial,
+                                        selectionMode = selectionMode,
+                                        selected = selectedRideIds.contains(rideWithPoints.ride.id),
+                                        onClick = {
+                                            if (selectionMode) {
+                                                viewModel.toggleRideSelection(rideWithPoints.ride.id)
+                                            } else {
+                                                onNavigateToDetail(rideWithPoints.ride.id)
+                                            }
+                                        },
+                                        onLongClick = { viewModel.toggleRideSelection(rideWithPoints.ride.id) },
+                                    )
+                                    if (rideWithPoints.ride.isSample && !selectionMode) {
+                                        IconButton(
+                                            onClick = { viewModel.deleteRide(rideWithPoints.ride.id) },
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = strings.deleteRide,
+                                                tint = MaterialTheme.colorScheme.error,
+                                            )
                                         }
-                                    },
-                                    onLongClick = { viewModel.toggleRideSelection(rideWithPoints.ride.id) }
-                                )
+                                    }
+                                }
                             }
                         }
                     }
@@ -477,7 +492,10 @@ fun RideHistoryCard(
     val cardDescription = String.format(
         Locale.getDefault(),
         strings.rideCardAccessibilityDescription,
-        "${strings.personaLabel(personaObj)} - $rideTitle",
+        buildString {
+            if (ride.isSample) append("${strings.sampleRideBadge} - ")
+            append("${strings.personaLabel(personaObj)} - $rideTitle")
+        },
         formatDateTime(ride.startTime),
         distanceText,
         durationText,
@@ -576,11 +594,27 @@ fun RideHistoryCard(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = rideTitle,
+                            modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        if (ride.isSample) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                shape = RoundedCornerShape(50),
+                            ) {
+                                Text(
+                                    text = strings.sampleRideBadge,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
                     }
                     Spacer(modifier = Modifier.width(6.dp))
 

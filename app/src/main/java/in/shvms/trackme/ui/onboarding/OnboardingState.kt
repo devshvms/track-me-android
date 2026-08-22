@@ -1,6 +1,8 @@
 package `in`.shvms.trackme.ui.onboarding
 
 import android.content.Context
+import `in`.shvms.trackme.domain.model.RidePersona
+import kotlin.math.max
 
 /**
  * Whether the first-run walkthrough should be shown, and — separately — whether the old Start Ride
@@ -73,20 +75,21 @@ object OnboardingGate {
     fun resolve(context: Context): OnboardingState {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val stored = prefs.getString(KEY, null)
-        if (stored != null) {
-            OnboardingState.fromStored(stored)?.let { return it }
-        }
-
         val hadPreferences = prefs.all.keys.any { it != KEY }
         val wasUpdated = runCatching {
             val info = context.packageManager.getPackageInfo(context.packageName, 0)
             info.firstInstallTime != info.lastUpdateTime
         }.getOrDefault(false)
 
-        val resolved = resolveOnboardingState(stored, hadPreferences, wasUpdated)
-        // commit(), not apply(): the very next statements in onCreate write to this same file, and
-        // a process death before an async flush would re-resolve against dirtied preferences.
-        prefs.edit().putString(KEY, resolved.stored).commit()
+        val storedState = OnboardingState.fromStored(stored)
+        val resolved = storedState
+            ?: resolveOnboardingState(stored, hadPreferences, wasUpdated)
+        if (storedState == null) {
+            // commit(), not apply(): the very next statements in onCreate write to this same file,
+            // and a process death before an async flush would re-resolve against dirtied prefs.
+            prefs.edit().putString(KEY, resolved.stored).commit()
+        }
+        OnboardingSampleRideSeeder.initialize(context, resolved, wasUpdated)
         return resolved
     }
 
@@ -122,7 +125,81 @@ data class OnboardingOutcome(
     val furthestPage: Int,
     val usedSkip: Boolean,
     val seconds: Int,
+    /** `-1` means the page was never visited; `0` means visited for less than one second. */
+    val welcomeDwellSeconds: Int,
+    val rideDwellSeconds: Int,
+    val historyDwellSeconds: Int,
+    val togetherDwellSeconds: Int,
+    val permissionsDwellSeconds: Int,
+    val readyDwellSeconds: Int,
     val analyticsEnabled: Boolean,
     val locationGranted: Boolean,
     val notificationsGranted: Boolean,
+    /** Local handoff only. It is intentionally omitted from the analytics event. */
+    val selectedPersona: RidePersona,
 )
+
+/**
+ * In-memory, monotonic page timing. No intermediate value is persisted or transmitted.
+ *
+ * A visited bit is kept separately from elapsed milliseconds so an immediate visit remains `0`
+ * while a page jumped over by Skip remains `-1` in the terminal outcome.
+ */
+internal class OnboardingDwellAccumulator(
+    private val pageCount: Int,
+    private val nowMillis: () -> Long,
+    initiallyRunning: Boolean = true,
+) {
+    private val totalsMillis = LongArray(pageCount)
+    private val visited = BooleanArray(pageCount)
+    private var activePage: Int? = null
+    private var segmentStartedAtMillis: Long? = null
+    private var isRunning = initiallyRunning
+
+    fun enter(page: Int) {
+        require(page in 0 until pageCount)
+        if (activePage == page && segmentStartedAtMillis != null) return
+        val now = nowMillis()
+        closeSegment(now)
+        activePage = page
+        visited[page] = true
+        segmentStartedAtMillis = if (isRunning) now else null
+    }
+
+    fun pause() {
+        closeSegment(nowMillis())
+        segmentStartedAtMillis = null
+        isRunning = false
+    }
+
+    fun resume(page: Int) {
+        require(page in 0 until pageCount)
+        val now = nowMillis()
+        isRunning = true
+        if (activePage != page) {
+            closeSegment(now)
+            activePage = page
+            segmentStartedAtMillis = null
+        }
+        visited[page] = true
+        if (segmentStartedAtMillis == null) segmentStartedAtMillis = now
+    }
+
+    fun snapshotSeconds(): List<Int> {
+        val snapshot = totalsMillis.copyOf()
+        val page = activePage
+        val startedAt = segmentStartedAtMillis
+        if (page != null && startedAt != null) {
+            snapshot[page] += max(0L, nowMillis() - startedAt)
+        }
+        return snapshot.indices.map { index ->
+            if (visited[index]) (snapshot[index] / 1_000L).toInt() else -1
+        }
+    }
+
+    private fun closeSegment(now: Long) {
+        val page = activePage ?: return
+        val startedAt = segmentStartedAtMillis ?: return
+        totalsMillis[page] += max(0L, now - startedAt)
+    }
+}

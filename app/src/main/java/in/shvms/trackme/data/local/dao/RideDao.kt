@@ -26,6 +26,9 @@ interface RideDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGPSPoints(points: List<GPSPointEntity>): List<Long>
 
+    @Query("SELECT id FROM rides WHERE isSample = 1 LIMIT 1")
+    suspend fun getSampleRideId(): Long?
+
     @Transaction
     @Query("SELECT * FROM rides ORDER BY startTime DESC")
     fun getAllRidesWithPoints(): Flow<List<RideWithPoints>>

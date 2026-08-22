@@ -297,15 +297,37 @@ fun RideDetailScreen(
 
             TopAppBar(
                 title = {
-                    if (isEditing) {
-                        TextField(
-                            value = editedTitle,
-                            onValueChange = { editedTitle = it },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    } else {
-                        Text(displayTitle)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isEditing) {
+                            TextField(
+                                value = editedTitle,
+                                onValueChange = { editedTitle = it },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                        } else {
+                            Text(
+                                displayTitle,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        if (rideWithPoints?.ride?.isSample == true) {
+                            Spacer(Modifier.width(8.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                shape = RoundedCornerShape(50),
+                            ) {
+                                Text(
+                                    strings.sampleRideBadge,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
                     }
                 },
                 actions = {

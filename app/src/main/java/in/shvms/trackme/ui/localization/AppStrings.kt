@@ -388,6 +388,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val exportFailed: String = s("exportFailed", "Couldn't export this ride. Check available storage and try again.")
     val notEnoughGpsDataForChart: String = s("notEnoughGpsDataForChart", "Not enough GPS data to show a chart.")
     val deleteRide: String = s("deleteRide", "Delete Ride")
+    val sampleRideBadge: String = s("sampleRideBadge", "Sample")
     val selectedCount: String = s("selectedCount", "%d selected")
     val selectAll: String = s("selectAll", "Select all")
     val clearSelection: String = s("clearSelection", "Clear selection")
@@ -577,6 +578,20 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     // First-run walkthrough (1.7.1). Replaces the startRideHint pill on fresh installs.
     // §16.4 keeps ACCESS_BACKGROUND_LOCATION undeclared, so no copy here may promise
     // tracking that continues in the background.
+    val obDemoStepCounter: String = s("obDemoStepCounter", "Step %1\$d of %2\$d")
+    val obDemoSkipStep: String = s("obDemoSkipStep", "Skip step")
+    val obDemoRideStep1: String = s("obDemoRideStep1", "Drag to choose how you're moving.")
+    val obDemoRideStep2: String = s("obDemoRideStep2", "Open live sharing and start a demo session.")
+    val obDemoRideStep3: String = s("obDemoRideStep3", "Open live sharing and try Copy link.")
+    val obDemoRideStep4: String = s("obDemoRideStep4", "Slide left to stop the demo ride.")
+    val obDemoHistoryStep1: String = s("obDemoHistoryStep1", "Open the sample ride.")
+    val obDemoHistoryStep2: String = s("obDemoHistoryStep2", "Scrub the route to inspect speed and elevation.")
+    val obDemoHistoryStep3: String = s("obDemoHistoryStep3", "Scroll down and tap Share.")
+    val obDemoHistoryStep4: String = s("obDemoHistoryStep4", "Customize the export, then save the demo.")
+    val obDemoSampleRideTitle: String = s("obDemoSampleRideTitle", "Sample ride")
+    val obDemoCopyToast: String = s("obDemoCopyToast", "In a real ride, Copy link would copy its private live-sharing URL.")
+    val obDemoNoExternalAction: String = s("obDemoNoExternalAction", "Demo only — nothing was shared or saved.")
+    val obDemoCustomizeExport: String = s("obDemoCustomizeExport", "Customize export")
     val obSkip: String = s("obSkip", "Skip")
     val obNext: String = s("obNext", "Next")
     val obContinue: String = s("obContinue", "Continue")
@@ -612,7 +627,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val obBatteryCta: String = s("obBatteryCta", "Open battery settings")
     val obAnalyticsTitle: String = s("obAnalyticsTitle", "Share anonymous usage data")
     val obAnalyticsBody: String = s("obAnalyticsBody", "Helps us find bugs and see which features matter. Never your location, never personal details. Change it anytime in Settings.")
-    val obFinishCta: String = s("obFinishCta", "Start using TrackMe")
+    val obFinishCta: String = s("obFinishCta", "Start my first ride")
 
     fun personaLabel(persona: RidePersona): String = when (persona) {
         RidePersona.AUTO -> personaAuto
@@ -641,6 +656,20 @@ fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
         "es" -> AppStrings(mapOf(
             "obHistorySampleDuration" to "48:20",
+            "obDemoStepCounter" to "Paso %1\$d de %2\$d",
+            "obDemoSkipStep" to "Omitir paso",
+            "obDemoRideStep1" to "Arrastra para elegir cómo te mueves.",
+            "obDemoRideStep2" to "Abre Compartir en vivo e inicia una sesión de demostración.",
+            "obDemoRideStep3" to "Abre Compartir en vivo y prueba Copiar enlace.",
+            "obDemoRideStep4" to "Desliza a la izquierda para detener el viaje de demostración.",
+            "obDemoHistoryStep1" to "Abre el viaje de muestra.",
+            "obDemoHistoryStep2" to "Desplaza la ruta para ver la velocidad y la elevación.",
+            "obDemoHistoryStep3" to "Desplázate hacia abajo y toca Compartir.",
+            "obDemoHistoryStep4" to "Personaliza la exportación y guarda la demostración.",
+            "obDemoSampleRideTitle" to "Viaje de muestra",
+            "obDemoCopyToast" to "En un viaje real, Copiar enlace copiaría su URL privada de ubicación en vivo.",
+            "obDemoNoExternalAction" to "Solo demostración: no se compartió ni guardó nada.",
+            "obDemoCustomizeExport" to "Personalizar exportación",
             "obSkip" to "Omitir",
             "obNext" to "Siguiente",
             "obContinue" to "Continuar",
@@ -675,7 +704,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obBatteryCta" to "Abrir ajustes de batería",
             "obAnalyticsTitle" to "Compartir datos de uso anónimos",
             "obAnalyticsBody" to "Nos ayuda a encontrar errores y ver qué funciones importan. Nunca tu ubicación, nunca datos personales. Puedes cambiarlo cuando quieras en Ajustes.",
-            "obFinishCta" to "Empezar a usar TrackMe",
+            "obFinishCta" to "Iniciar mi primer viaje",
             "groupEdit" to "Editar",
             "groupEditTitle" to "Detalles del grupo",
             "groupNotSet" to "--",
@@ -941,6 +970,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportFailed" to "No se pudo exportar este viaje. Comprueba el almacenamiento e inténtalo de nuevo.",
             "notEnoughGpsDataForChart" to "No hay suficientes datos GPS para mostrar un gráfico.",
             "deleteRide" to "Eliminar Viaje",
+            "sampleRideBadge" to "Muestra",
             "selectedCount" to "%d seleccionados",
             "selectAll" to "Seleccionar todo",
             "clearSelection" to "Borrar selección",
@@ -1165,6 +1195,20 @@ fun getAppStrings(languageCode: String): AppStrings {
         ))
         "fr" -> AppStrings(mapOf(
             "obHistorySampleDuration" to "48:20",
+            "obDemoStepCounter" to "Étape %1\$d sur %2\$d",
+            "obDemoSkipStep" to "Passer l’étape",
+            "obDemoRideStep1" to "Faites glisser pour choisir votre activité.",
+            "obDemoRideStep2" to "Ouvrez le partage en direct et démarrez une session de démonstration.",
+            "obDemoRideStep3" to "Ouvrez le partage en direct et essayez Copier le lien.",
+            "obDemoRideStep4" to "Faites glisser vers la gauche pour arrêter le trajet de démonstration.",
+            "obDemoHistoryStep1" to "Ouvrez le trajet d’exemple.",
+            "obDemoHistoryStep2" to "Parcourez le trajet pour examiner la vitesse et l’altitude.",
+            "obDemoHistoryStep3" to "Faites défiler vers le bas et touchez Partager.",
+            "obDemoHistoryStep4" to "Personnalisez l’export, puis enregistrez la démonstration.",
+            "obDemoSampleRideTitle" to "Trajet d’exemple",
+            "obDemoCopyToast" to "Lors d’un vrai trajet, Copier le lien copierait son URL privée de partage en direct.",
+            "obDemoNoExternalAction" to "Démonstration uniquement : rien n’a été partagé ni enregistré.",
+            "obDemoCustomizeExport" to "Personnaliser l’export",
             "obSkip" to "Passer",
             "obNext" to "Suivant",
             "obContinue" to "Continuer",
@@ -1199,7 +1243,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obBatteryCta" to "Ouvrir les réglages de batterie",
             "obAnalyticsTitle" to "Partager des données d'usage anonymes",
             "obAnalyticsBody" to "Cela nous aide à trouver les bugs et à voir quelles fonctions comptent. Jamais votre position, jamais de données personnelles. Modifiable à tout moment dans Réglages.",
-            "obFinishCta" to "Commencer à utiliser TrackMe",
+            "obFinishCta" to "Démarrer mon premier trajet",
             "groupEdit" to "Modifier",
             "groupEditTitle" to "Détails du groupe",
             "groupNotSet" to "--",
@@ -1465,6 +1509,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportFailed" to "Impossible d'exporter ce trajet. Vérifiez l'espace de stockage et réessayez.",
             "notEnoughGpsDataForChart" to "Pas assez de données GPS pour afficher un graphique.",
             "deleteRide" to "Supprimer Trajet",
+            "sampleRideBadge" to "Exemple",
             "selectedCount" to "%d sélectionnés",
             "selectAll" to "Tout sélectionner",
             "clearSelection" to "Effacer la sélection",
@@ -1689,6 +1734,20 @@ fun getAppStrings(languageCode: String): AppStrings {
         ))
         "de" -> AppStrings(mapOf(
             "obHistorySampleDuration" to "48:20",
+            "obDemoStepCounter" to "Schritt %1\$d von %2\$d",
+            "obDemoSkipStep" to "Schritt überspringen",
+            "obDemoRideStep1" to "Ziehe, um deine Aktivität auszuwählen.",
+            "obDemoRideStep2" to "Öffne Live-Teilen und starte eine Demo-Sitzung.",
+            "obDemoRideStep3" to "Öffne Live-Teilen und probiere Link kopieren aus.",
+            "obDemoRideStep4" to "Wische nach links, um die Demo-Fahrt zu stoppen.",
+            "obDemoHistoryStep1" to "Öffne die Beispiel-Tour.",
+            "obDemoHistoryStep2" to "Spule durch die Route, um Tempo und Höhe zu prüfen.",
+            "obDemoHistoryStep3" to "Scrolle nach unten und tippe auf Teilen.",
+            "obDemoHistoryStep4" to "Passe den Export an und speichere die Demo.",
+            "obDemoSampleRideTitle" to "Beispiel-Tour",
+            "obDemoCopyToast" to "Bei einer echten Tour würde Link kopieren die private Live-URL kopieren.",
+            "obDemoNoExternalAction" to "Nur Demo: Es wurde nichts geteilt oder gespeichert.",
+            "obDemoCustomizeExport" to "Export anpassen",
             "obSkip" to "Überspringen",
             "obNext" to "Weiter",
             "obContinue" to "Fortfahren",
@@ -1723,7 +1782,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obBatteryCta" to "Akku-Einstellungen öffnen",
             "obAnalyticsTitle" to "Anonyme Nutzungsdaten teilen",
             "obAnalyticsBody" to "Hilft uns, Fehler zu finden und zu sehen, welche Funktionen zählen. Niemals dein Standort, niemals persönliche Daten. Jederzeit in den Einstellungen änderbar.",
-            "obFinishCta" to "TrackMe starten",
+            "obFinishCta" to "Meine erste Fahrt starten",
             "groupEdit" to "Bearbeiten",
             "groupEditTitle" to "Gruppendetails",
             "groupNotSet" to "--",
@@ -1989,6 +2048,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportFailed" to "Die Fahrt konnte nicht exportiert werden. Prüfen Sie den Speicher und versuchen Sie es erneut.",
             "notEnoughGpsDataForChart" to "Nicht genügend GPS-Daten für ein Diagramm.",
             "deleteRide" to "Fahrt Löschen",
+            "sampleRideBadge" to "Beispiel",
             "selectedCount" to "%d ausgewählt",
             "selectAll" to "Alle auswählen",
             "clearSelection" to "Auswahl löschen",
@@ -2213,6 +2273,20 @@ fun getAppStrings(languageCode: String): AppStrings {
         ))
         "hi" -> AppStrings(mapOf(
             "obHistorySampleDuration" to "48:20",
+            "obDemoStepCounter" to "चरण %1\$d / %2\$d",
+            "obDemoSkipStep" to "चरण छोड़ें",
+            "obDemoRideStep1" to "अपनी गतिविधि चुनने के लिए खींचें।",
+            "obDemoRideStep2" to "लाइव शेयरिंग खोलें और डेमो सत्र शुरू करें।",
+            "obDemoRideStep3" to "लाइव शेयरिंग खोलें और लिंक कॉपी करके देखें।",
+            "obDemoRideStep4" to "डेमो राइड रोकने के लिए बाईं ओर स्लाइड करें।",
+            "obDemoHistoryStep1" to "नमूना राइड खोलें।",
+            "obDemoHistoryStep2" to "गति और ऊँचाई देखने के लिए मार्ग को स्क्रब करें।",
+            "obDemoHistoryStep3" to "नीचे स्क्रॉल करें और शेयर पर टैप करें।",
+            "obDemoHistoryStep4" to "निर्यात को अनुकूलित करें, फिर डेमो सहेजें।",
+            "obDemoSampleRideTitle" to "नमूना राइड",
+            "obDemoCopyToast" to "वास्तविक राइड में लिंक कॉपी करने पर निजी लाइव-शेयरिंग URL कॉपी होगा।",
+            "obDemoNoExternalAction" to "केवल डेमो: कुछ भी शेयर या सहेजा नहीं गया।",
+            "obDemoCustomizeExport" to "निर्यात अनुकूलित करें",
             "obSkip" to "छोड़ें",
             "obNext" to "आगे",
             "obContinue" to "जारी रखें",
@@ -2247,7 +2321,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obBatteryCta" to "बैटरी सेटिंग्स खोलें",
             "obAnalyticsTitle" to "गुमनाम उपयोग डेटा साझा करें",
             "obAnalyticsBody" to "इससे हमें बग ढूँढ़ने और यह देखने में मदद मिलती है कि कौन-सी सुविधाएँ मायने रखती हैं। कभी आपकी लोकेशन नहीं, कभी निजी जानकारी नहीं। इसे सेटिंग्स में कभी भी बदलें।",
-            "obFinishCta" to "TrackMe इस्तेमाल शुरू करें",
+            "obFinishCta" to "मेरी पहली राइड शुरू करें",
             "groupEdit" to "संपादित करें",
             "groupEditTitle" to "ग्रुप विवरण",
             "groupNotSet" to "--",
@@ -2513,6 +2587,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportFailed" to "यह यात्रा निर्यात नहीं हो सकी। उपलब्ध स्टोरेज जांचें और फिर प्रयास करें।",
             "notEnoughGpsDataForChart" to "चार्ट दिखाने के लिए पर्याप्त GPS डेटा नहीं है।",
             "deleteRide" to "यात्रा हटाएं",
+            "sampleRideBadge" to "नमूना",
             "selectedCount" to "%d चयनित",
             "selectAll" to "सभी चुनें",
             "clearSelection" to "चयन हटाएं",
@@ -2738,6 +2813,20 @@ fun getAppStrings(languageCode: String): AppStrings {
         "ja" -> AppStrings(mapOf(
             "obHistorySampleDuration" to "48:20",
             "obHistorySampleDistance" to "12.4 km",
+            "obDemoStepCounter" to "%2\$d ステップ中 %1\$d",
+            "obDemoSkipStep" to "このステップをスキップ",
+            "obDemoRideStep1" to "ドラッグしてアクティビティを選びます。",
+            "obDemoRideStep2" to "ライブ共有を開き、デモセッションを開始します。",
+            "obDemoRideStep3" to "ライブ共有を開き、「リンクをコピー」を試します。",
+            "obDemoRideStep4" to "左へスライドしてデモライドを停止します。",
+            "obDemoHistoryStep1" to "サンプルライドを開きます。",
+            "obDemoHistoryStep2" to "ルートをスクラブして速度と高度を確認します。",
+            "obDemoHistoryStep3" to "下へスクロールして「共有」をタップします。",
+            "obDemoHistoryStep4" to "エクスポートを調整してデモを保存します。",
+            "obDemoSampleRideTitle" to "サンプルライド",
+            "obDemoCopyToast" to "実際のライドでは、リンクをコピーすると非公開のライブ共有 URL がコピーされます。",
+            "obDemoNoExternalAction" to "デモのため、共有も保存もされていません。",
+            "obDemoCustomizeExport" to "エクスポートを調整",
             "obSkip" to "スキップ",
             "obNext" to "次へ",
             "obContinue" to "続ける",
@@ -2771,7 +2860,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obBatteryCta" to "バッテリー設定を開く",
             "obAnalyticsTitle" to "匿名の利用データを共有",
             "obAnalyticsBody" to "不具合の発見と、どの機能が役立っているかの把握に使います。位置情報や個人情報は一切含みません。設定でいつでも変更できます。",
-            "obFinishCta" to "TrackMe を始める",
+            "obFinishCta" to "最初のライドを始める",
             "groupEdit" to "編集",
             "groupEditTitle" to "グループの詳細",
             "groupNotSet" to "--",
@@ -3037,6 +3126,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportFailed" to "このライドをエクスポートできませんでした。空き容量を確認して再試行してください。",
             "notEnoughGpsDataForChart" to "グラフを表示するにはGPSデータが不足しています。",
             "deleteRide" to "記録を削除",
+            "sampleRideBadge" to "サンプル",
             "selectedCount" to "%d 件を選択中",
             "selectAll" to "すべて選択",
             "clearSelection" to "選択を解除",
@@ -3261,6 +3351,20 @@ fun getAppStrings(languageCode: String): AppStrings {
         ))
         "zh" -> AppStrings(mapOf(
             "obHistorySampleDuration" to "48:20",
+            "obDemoStepCounter" to "第 %1\$d 步，共 %2\$d 步",
+            "obDemoSkipStep" to "跳过此步骤",
+            "obDemoRideStep1" to "拖动以选择你的活动方式。",
+            "obDemoRideStep2" to "打开实时共享并开始演示会话。",
+            "obDemoRideStep3" to "打开实时共享并尝试复制链接。",
+            "obDemoRideStep4" to "向左滑动以停止演示行程。",
+            "obDemoHistoryStep1" to "打开示例行程。",
+            "obDemoHistoryStep2" to "拖动路线以查看速度和海拔。",
+            "obDemoHistoryStep3" to "向下滚动并点按分享。",
+            "obDemoHistoryStep4" to "自定义导出，然后保存演示。",
+            "obDemoSampleRideTitle" to "示例行程",
+            "obDemoCopyToast" to "在真实行程中，复制链接会复制其私密实时共享网址。",
+            "obDemoNoExternalAction" to "仅为演示：未分享或保存任何内容。",
+            "obDemoCustomizeExport" to "自定义导出",
             "obSkip" to "跳过",
             "obNext" to "下一步",
             "obContinue" to "继续",
@@ -3295,7 +3399,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obBatteryCta" to "打开电池设置",
             "obAnalyticsTitle" to "分享匿名使用数据",
             "obAnalyticsBody" to "帮助我们发现问题、了解哪些功能真正有用。绝不包含你的位置或个人信息。可随时在设置中更改。",
-            "obFinishCta" to "开始使用 TrackMe",
+            "obFinishCta" to "开始我的第一次行程",
             "groupEdit" to "编辑",
             "groupEditTitle" to "群组详情",
             "groupNotSet" to "--",
@@ -3561,6 +3665,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "exportFailed" to "无法导出此行程。请检查可用存储空间后重试。",
             "notEnoughGpsDataForChart" to "GPS 数据不足，无法显示图表。",
             "deleteRide" to "删除行程",
+            "sampleRideBadge" to "示例",
             "selectedCount" to "%d 项已选",
             "selectAll" to "全选",
             "clearSelection" to "清除选择",
