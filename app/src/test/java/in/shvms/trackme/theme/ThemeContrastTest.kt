@@ -145,14 +145,14 @@ class ThemeContrastTest {
     // OFF, so cyan stays the out-of-box brand). What must survive a wallpaper palette is the
     // SOS/warning safety pinning — assert the pinned values Theme.kt copies in.
     listOf(true, false).forEach { isDark ->
-      val pinnedError = RedSos
+      val pinnedError = RedDestructive
       val pinnedWarning = AmberWarn
       val pinnedErrorContainer = if (isDark) ErrorContainerDark else ErrorContainerLight
       val pinnedWarningContainer = if (isDark) AmberContainerDark else AmberContainerLight
       val label = if (isDark) "dynamic dark" else "dynamic light"
 
       assertContrast("$label SOS", Color.White, pinnedError)
-      assertTrue("$label SOS must stay red/sos", pinnedError == RedSos)
+      assertTrue("$label SOS must stay red/sos", pinnedError == RedDestructive)
       assertTrue("$label warning must stay amber/warn", pinnedWarning == AmberWarn)
       assertContrast("$label error container", pinnedErrorContainer.let {
         if (isDark) ErrorContainerLight else ErrorContainerDark
@@ -181,7 +181,7 @@ class ThemeContrastTest {
       TrackMeLightColorScheme.onSurface,
       TrackMeLightColorScheme.surface,
     )
-    assertContrast("SOS arrows", Color.White, RedSos)
+    assertContrast("SOS arrows", Color.White, RedDestructive)
   }
 
   private fun assertSchemeContrast(name: String, scheme: ColorScheme) {

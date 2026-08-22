@@ -20,9 +20,9 @@ import java.util.Locale
  */
 
 /**
- * §3.1's alert colour, aliased away from `RedSos`.
+ * §3.1's alert colour, aliased away from `RedDestructive`.
  *
- * `TrackMeRed` is itself an alias for `RedSos`, a name left over from the SOS feature `1.6.4`
+ * `TrackMeRed` is itself an alias for `RedDestructive`, a name left over from the SOS feature `1.6.4`
  * removed. The colour is already reused for GPS-lost pills so the association is not new — but
  * given §5.1, status call sites reference this name instead. A reviewer grepping the codebase for
  * "SOS" should not land on this feature.
