@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import `in`.shvms.trackme.data.local.AppPreferencesManager
 import `in`.shvms.trackme.domain.group.AlertPolicy
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.domain.UnitFormatter
 import `in`.shvms.trackme.domain.model.usesPace
 import `in`.shvms.trackme.service.TrackingManager
 import `in`.shvms.trackme.service.TrackingState
@@ -207,9 +208,12 @@ internal data class PiPStripDisplay(
 
 internal data class PiPDashboardUiState(
     val distanceLabel: String,
+    /** The magnitude alone — "6.30", never "6.30 km". The unit rides in [distanceUnit]. */
     val distanceValue: String,
+    val distanceUnit: String,
     val secondaryLabel: String,
     val secondaryValue: String,
+    val secondaryUnit: String,
     val strip: PiPStripDisplay?,
     val accessibilityDescription: String,
 ) {
@@ -217,8 +221,10 @@ internal data class PiPDashboardUiState(
         val EMPTY = PiPDashboardUiState(
             distanceLabel = "",
             distanceValue = "--",
+            distanceUnit = "",
             secondaryLabel = "",
             secondaryValue = "--",
+            secondaryUnit = "",
             strip = null,
             accessibilityDescription = "",
         )
@@ -251,11 +257,25 @@ internal object PiPDashboardPolicy {
             strings,
         )
         val stripDescription = strip?.text?.let { ". $it" }.orEmpty()
+        // `UnitFormatter` returns "<value> <unit>" from all three formatters, and PiP renders the
+        // value at 30sp inside a window barely wider than the number. Rendered as one string the
+        // unit fell off the end — `maxLines = 1, overflow = Clip` — so the window showed "0.00" with
+        // no indication of what it counted. Split here rather than in the composable: the unit label
+        // comes from the formatter's own helper, so the two can never disagree about the mode.
+        val secondaryUnit = when (secondaryMetric) {
+            // PiP shows kilometre-pace in both unit modes, matching the active HUD, so the unit is
+            // "/km" even for an imperial rider. Passing `imperial` here would label the same number
+            // "/mi" and be wrong by a factor of 1.6.
+            PiPSecondaryMetric.PACE -> UnitFormatter.paceUnitLabel(imperial = false)
+            PiPSecondaryMetric.SPEED -> UnitFormatter.speedUnitLabel(imperial)
+        }
         return PiPDashboardUiState(
             distanceLabel = strings.distance,
-            distanceValue = distance,
+            distanceValue = distance.substringBeforeLast(' ', distance),
+            distanceUnit = UnitFormatter.distanceUnitLabel(imperial),
             secondaryLabel = secondaryLabel,
-            secondaryValue = secondary,
+            secondaryValue = secondary.substringBeforeLast(' ', secondary),
+            secondaryUnit = secondaryUnit,
             strip = strip,
             accessibilityDescription = String.format(
                 Locale.getDefault(),
@@ -415,12 +435,14 @@ internal fun PiPDashboard(
                 PiPMetric(
                     label = state.distanceLabel,
                     value = state.distanceValue,
+                    unit = state.distanceUnit,
                     showLabel = showLabels,
                     modifier = Modifier.weight(1f),
                 )
                 PiPMetric(
                     label = state.secondaryLabel,
                     value = state.secondaryValue,
+                    unit = state.secondaryUnit,
                     showLabel = showLabels,
                     modifier = Modifier.weight(1f),
                 )
@@ -434,6 +456,7 @@ internal fun PiPDashboard(
 private fun PiPMetric(
     label: String,
     value: String,
+    unit: String,
     showLabel: Boolean,
     modifier: Modifier,
 ) {
@@ -442,6 +465,10 @@ private fun PiPMetric(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        // Bottom-aligned so the unit sits on the magnitude's baseline shoulder rather than floating
+        // beside its centre. The parent supplies one merged spoken description for the whole
+        // dashboard, so neither child needs its own.
+        Row(verticalAlignment = Alignment.Bottom) {
         Text(
             text = value,
             color = CyanBright,
@@ -453,6 +480,19 @@ private fun PiPMetric(
             overflow = TextOverflow.Clip,
             textAlign = TextAlign.Center,
         )
+            if (unit.isNotEmpty()) {
+                Text(
+                    text = unit,
+                    color = Slate400,
+                    fontSize = 11.sp,
+                    lineHeight = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
+                    modifier = Modifier.padding(start = 2.dp, bottom = 4.dp),
+                )
+            }
+        }
         if (showLabel) {
             Text(
                 text = label.uppercase(Locale.getDefault()),
