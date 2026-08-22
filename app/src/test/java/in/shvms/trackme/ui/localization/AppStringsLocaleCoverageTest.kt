@@ -39,7 +39,6 @@ class AppStringsLocaleCoverageTest {
         "voiceGroupCacheEmpty",
         "voiceGroupDegraded",
         "voiceGroupLocked",
-        "voiceEndNotAvailable",
     )
 
     /**

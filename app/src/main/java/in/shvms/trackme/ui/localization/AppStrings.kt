@@ -70,11 +70,6 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val voiceGroupDegraded: String =
         s("voiceGroupDegraded", "Group sharing is having trouble reconnecting, so this may be out of date.")
     val voiceGroupLocked: String = s("voiceGroupLocked", "Unlock your phone and I'll tell you.")
-    // §3.4a — Android cannot confirm headlessly, so End by voice is deferred there. The refusal
-    // names the state rather than failing silently: a rider who thinks they ended a ride and did
-    // not is worse off than one who was told plainly.
-    val voiceEndNotAvailable: String =
-        s("voiceEndNotAvailable", "I can't end a ride by voice on Android yet. Your ride is still recording.")
     val stopRideAction: String = s("stopRideAction", "Stop ride")
     val rideStopped: String = s("rideStopped", "Ride stopped")
     val recenterMap: String = s("recenterMap", "Recenter map")

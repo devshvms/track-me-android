@@ -37,9 +37,6 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:supportsPictureInPicture="true">
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -82,19 +79,6 @@
             </intent-filter>
         </activity>
 
-        <!--
-            Assistant fulfillment must target an Activity. This exported trampoline uses
-            Theme.NoDisplay, dispatches only Start/Pause/Resume, and finishes from onCreate without
-            rendering or replacing the rider's navigation app. STOP_EXERCISE is intentionally not
-            registered because Android cannot confirm it headlessly (SCOPE_1.8.4 §3.4a).
-        -->
-        <activity
-            android:name=".voice.VoiceActionActivity"
-            android:excludeFromRecents="true"
-            android:exported="true"
-            android:finishOnTaskLaunch="true"
-            android:noHistory="true"
-            android:theme="@style/Theme.TrackMe.VoiceAction" />
 
         <!-- Compose's Robolectric unit-test rule launches this activity as its host. -->
         <activity
