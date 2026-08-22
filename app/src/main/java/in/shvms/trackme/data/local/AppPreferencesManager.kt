@@ -30,6 +30,10 @@ class AppPreferencesManager(private val context: Context) {
     private val _unitSystem = MutableStateFlow(prefs.getString("unit_system", null) ?: defaultUnitFromLocale())
     val unitSystem: StateFlow<String> = _unitSystem.asStateFlow()
 
+    // First use is enabled by design: a recording ride enters PiP without an interrupting dialog.
+    private val _pipDashboardEnabled = MutableStateFlow(prefs.getBoolean("pip_dashboard_enabled", true))
+    val pipDashboardEnabled: StateFlow<Boolean> = _pipDashboardEnabled.asStateFlow()
+
     init {
         updateSystemLocale(_appLanguage.value)
     }
@@ -59,6 +63,11 @@ class AppPreferencesManager(private val context: Context) {
         val normalized = if (system == "imperial") "imperial" else "metric"
         prefs.edit().putString("unit_system", normalized).apply()
         _unitSystem.value = normalized
+    }
+
+    fun setPiPDashboardEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("pip_dashboard_enabled", enabled).apply()
+        _pipDashboardEnabled.value = enabled
     }
 
     private fun defaultUnitFromLocale(): String = if (Locale.getDefault().country.uppercase() in setOf("US", "GB", "MM", "LR")) "imperial" else "metric"

@@ -33,8 +33,11 @@
 
         <activity
             android:name=".MainActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="true"
-            android:launchMode="singleTop">
+            android:launchMode="singleTop"
+            android:supportsPictureInPicture="true">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -75,6 +78,7 @@
                     android:pathPrefix="/g" />
             </intent-filter>
         </activity>
+
 
         <!-- Compose's Robolectric unit-test rule launches this activity as its host. -->
         <activity

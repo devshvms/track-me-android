@@ -87,7 +87,13 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
     var locationDeclined by remember { mutableStateOf(false) }
     var notificationsGranted by remember { mutableStateOf(hasNotifications(context)) }
     var analyticsEnabled by remember { mutableStateOf(defaultAnalytics(context)) }
+    // CYCLING is what the *demo* illustrates, not what the rider asked for. Keep the two apart:
+    // this seeds the sample ride and the persona picker's initial highlight, while
+    // `personaExplicitlyChosen` records whether anyone actually touched the picker. Handing an
+    // untouched default to Home made the idle Start control render a bike instead of a play
+    // triangle on first run — the app answering a question the rider was never asked.
     var selectedDemoPersona by remember { mutableStateOf(RidePersona.CYCLING) }
+    var personaExplicitlyChosen by remember { mutableStateOf(false) }
 
     // Funnel state. All of it stays in memory (and one local counter) until the last screen, where
     // the consent question is answered — nothing about a tour in progress is transmitted.
@@ -165,7 +171,10 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
                         PAGE_RIDE -> RidePage(
                             strings = strings,
                             selectedPersona = selectedDemoPersona,
-                            onPersonaSelected = { selectedDemoPersona = it },
+                            onPersonaSelected = {
+                                selectedDemoPersona = it
+                                personaExplicitlyChosen = true
+                            },
                             onFinished = { goTo(PAGE_HISTORY) },
                         )
                         PAGE_HISTORY -> HistoryPage(
@@ -228,7 +237,9 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
                             analyticsEnabled = analyticsEnabled,
                             locationGranted = locationGranted,
                             notificationsGranted = notificationsGranted,
-                            selectedPersona = selectedDemoPersona,
+                            // AUTO unless the rider picked: the Start control shows a play
+                            // triangle, and detection still names the activity once moving.
+                            selectedPersona = if (personaExplicitlyChosen) selectedDemoPersona else RidePersona.AUTO,
                         )
                     )
                 },

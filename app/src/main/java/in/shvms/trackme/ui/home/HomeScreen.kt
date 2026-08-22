@@ -64,6 +64,8 @@ import `in`.shvms.trackme.ui.home.components.RideCameraPolicy
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.ui.home.components.MapControlCircleButton
 import `in`.shvms.trackme.ui.home.components.GroupMapButton
+import `in`.shvms.trackme.ui.home.components.PiPModePolicy
+import `in`.shvms.trackme.ui.home.components.toPiPRideState
 import androidx.compose.ui.platform.LocalDensity
 import `in`.shvms.trackme.ui.home.components.MemberMarkerPolicy
 import `in`.shvms.trackme.ui.home.components.rememberMemberAvatarCache
@@ -152,6 +154,7 @@ fun HomeScreen(
     val mapStyle = rememberMapStyle()
     val app = context.applicationContext as TrackMeApp
     val imperialUnits by app.preferencesManager.unitSystem.collectAsState()
+    val pipDashboardEnabled by app.preferencesManager.pipDashboardEnabled.collectAsState()
     val uiPreferences = remember {
         context.getSharedPreferences("ui_prefs", android.content.Context.MODE_PRIVATE)
     }
@@ -185,11 +188,22 @@ fun HomeScreen(
     val weeklyRecap by app.weeklyRecap.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
+    var previousTrackingState by remember { mutableStateOf(uiState.trackingState) }
 
-    LaunchedEffect(uiState.trackingState) {
+    LaunchedEffect(uiState.trackingState, pipDashboardEnabled) {
+        val justStarted = previousTrackingState == TrackingState.IDLE &&
+            PiPModePolicy.isEligible(uiState.trackingState.toPiPRideState(), pipDashboardEnabled)
+        if (justStarted && !uiPreferences.getBoolean("pip_ride_start_hint_seen", false)) {
+            uiPreferences.edit().putBoolean("pip_ride_start_hint_seen", true).apply()
+            snackbarHostState.showSnackbar(
+                message = strings.pipRideStartHint,
+                duration = SnackbarDuration.Long,
+            )
+        }
         if (uiState.trackingState == TrackingState.IDLE) {
             hasRequestedStartRideUndo = false
         }
+        previousTrackingState = uiState.trackingState
     }
 
     // §8's "clear notice", on Home as well as in the Community tab.

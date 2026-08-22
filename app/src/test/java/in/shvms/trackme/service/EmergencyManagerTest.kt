@@ -116,7 +116,7 @@ class EmergencyManagerTest {
     }
 
     @Test
-    fun notice_isSkippedAndTerminalForAUserWhoNeverConfiguredSos() = runBlocking {
+    fun notice_isSkippedAndTerminalForAUserWhoNeverConfiguredDestructive() = runBlocking {
         // A read that returns no settings row is a real answer, not a failure: this user never
         // had an SOS button, so the verdict is "no notice" and it is recorded as final.
         val preferences = InMemorySharedPreferences()

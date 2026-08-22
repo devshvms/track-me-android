@@ -1,8 +1,18 @@
 package `in`.shvms.trackme
 
+import android.app.PendingIntent
+import android.app.PictureInPictureParams
+import android.app.RemoteAction
 import android.content.Intent
+import android.content.res.Configuration
+import android.content.pm.PackageManager
+import android.graphics.drawable.Icon
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.os.SystemClock
+import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -24,13 +34,35 @@ import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.localization.getAppStrings
 
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collect
 import androidx.core.content.ContextCompat
+import androidx.annotation.RequiresApi
 import `in`.shvms.trackme.data.AgeSignalDecision
 import `in`.shvms.trackme.ui.agegate.AgeRestrictedScreen
 import `in`.shvms.trackme.ui.agegate.AgeSignalCheckingScreen
+import `in`.shvms.trackme.analytics.AnalyticsManager
+import `in`.shvms.trackme.service.TrackingService
+import `in`.shvms.trackme.ui.home.components.PiPDashboard
+import `in`.shvms.trackme.ui.home.components.PiPDashboardStateSource
+import `in`.shvms.trackme.ui.home.components.PiPEntryTrigger
+import `in`.shvms.trackme.ui.home.components.PiPModePolicy
+import `in`.shvms.trackme.ui.home.components.PiPRemoteActionKind
+import `in`.shvms.trackme.ui.home.components.PiPRideState
+import `in`.shvms.trackme.ui.home.components.PiPSessionDurationBucket
+import `in`.shvms.trackme.ui.home.components.toPiPRideState
 
 class MainActivity : ComponentActivity() {
+
+  private var pipMode by mutableStateOf(false)
+  private var pipEligible = false
+  private var pipRideState = PiPRideState.INACTIVE
+  private var pendingPiPTrigger: PiPEntryTrigger? = null
+  private var pipSessionStartedElapsedMillis: Long? = null
+  private lateinit var pipDashboardStateSource: PiPDashboardStateSource
 
   /**
    * Receives the result of Play's in-app update flow. Registered as a field so it is in place
@@ -46,8 +78,23 @@ class MainActivity : ComponentActivity() {
       handleGroupInvite(intent)
     val app = applicationContext as TrackMeApp
 
+    pipDashboardStateSource = PiPDashboardStateSource(
+      trackingManager = app.trackingManager,
+      preferencesManager = app.preferencesManager,
+      alertStore = app.pipAlertStore,
+      scope = lifecycleScope,
+    )
+    observePiPLifecycle(app)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      pipMode = isInPictureInPictureMode
+    }
+
     enableEdgeToEdge()
     setContent {
+      if (pipMode) {
+        val state by pipDashboardStateSource.state.collectAsState()
+        PiPDashboard(state = state)
+      } else {
       val themeMode by app.preferencesManager.themeMode.collectAsState()
       val dynamicColor by app.preferencesManager.dynamicColor.collectAsState()
       val appLanguage by app.preferencesManager.appLanguage.collectAsState()
@@ -129,6 +176,7 @@ class MainActivity : ComponentActivity() {
           }
         }
       }
+      }
     }
     if (!app.ageSignalManager.hasCheckedBefore()) {
       lifecycleScope.launch {
@@ -175,6 +223,140 @@ class MainActivity : ComponentActivity() {
       super.onNewIntent(intent)
       setIntent(intent)
       handleGroupInvite(intent)
+  }
+
+  /** Keeps Android's auto-enter bit and the single Pause/Resume action aligned to live ride state. */
+  private fun observePiPLifecycle(app: TrackMeApp) {
+      lifecycleScope.launch {
+          repeatOnLifecycle(Lifecycle.State.STARTED) {
+              combine(
+                  app.trackingManager.trackingState,
+                  app.preferencesManager.pipDashboardEnabled,
+              ) { trackingState, enabled -> trackingState.toPiPRideState() to enabled }
+                  .collect { (rideState, enabled) ->
+                      pipRideState = rideState
+                      pipEligible = PiPModePolicy.isEligible(rideState, enabled) && supportsPiP()
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) updatePiPParams()
+                      if (!pipEligible && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                          isInPictureInPictureMode
+                      ) {
+                          // Ending/finalizing a ride closes the floating window. Finishing the
+                          // task leaves the user's map in front instead of resurrecting TrackMe.
+                          finishPiPSession()
+                          finishAndRemoveTask()
+                      }
+                  }
+          }
+      }
+  }
+
+  private fun supportsPiP(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+      packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+
+  @RequiresApi(Build.VERSION_CODES.O)
+  private fun updatePiPParams() {
+      if (!supportsPiP()) return
+      setPictureInPictureParams(buildPiPParams())
+  }
+
+  @RequiresApi(Build.VERSION_CODES.O)
+  private fun buildPiPParams(): PictureInPictureParams {
+      val builder = PictureInPictureParams.Builder()
+          .setAspectRatio(Rational(16, 9))
+          .setActions(PiPModePolicy.remoteAction(pipRideState)?.let(::remoteAction)?.let(::listOf).orEmpty())
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+          builder
+              .setAutoEnterEnabled(pipEligible)
+              .setSeamlessResizeEnabled(false)
+      }
+      return builder.build()
+  }
+
+  @RequiresApi(Build.VERSION_CODES.O)
+  private fun remoteAction(kind: PiPRemoteActionKind): RemoteAction {
+      val app = applicationContext as TrackMeApp
+      val strings = getAppStrings(app.preferencesManager.appLanguage.value)
+      val (action, iconRes, label, requestCode) = when (kind) {
+          PiPRemoteActionKind.PAUSE -> RemoteActionSpec(
+              action = TrackingService.ACTION_PAUSE_SERVICE,
+              iconRes = R.drawable.ic_notif_pause,
+              label = strings.pauseTracking,
+              requestCode = 41,
+          )
+          PiPRemoteActionKind.RESUME -> RemoteActionSpec(
+              action = TrackingService.ACTION_START_OR_RESUME_SERVICE,
+              iconRes = R.drawable.ic_notif_resume,
+              label = strings.resumeTracking,
+              requestCode = 42,
+          )
+      }
+      val pendingIntent = PendingIntent.getService(
+          this,
+          requestCode,
+          Intent(this, TrackingService::class.java).apply { this.action = action },
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+      )
+      return RemoteAction(
+          Icon.createWithResource(this, iconRes),
+          label,
+          label,
+          pendingIntent,
+      )
+  }
+
+  private data class RemoteActionSpec(
+      val action: String,
+      val iconRes: Int,
+      val label: String,
+      val requestCode: Int,
+  )
+
+  /** Android 8–11 fallback. Android 12+ uses setAutoEnterEnabled for gesture navigation. */
+  override fun onUserLeaveHint() {
+      super.onUserLeaveHint()
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+          Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+      ) {
+          val powerManager = getSystemService(PowerManager::class.java)
+          if (!pipEligible || powerManager?.isInteractive != true) return
+          pendingPiPTrigger = PiPEntryTrigger.USER_LEAVE_HINT
+          if (!enterPictureInPictureMode(buildPiPParams())) pendingPiPTrigger = null
+      }
+  }
+
+  override fun onPictureInPictureModeChanged(
+      isInPictureInPictureMode: Boolean,
+      newConfig: Configuration,
+  ) {
+      super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+      pipMode = isInPictureInPictureMode
+      if (isInPictureInPictureMode) {
+          pipSessionStartedElapsedMillis = SystemClock.elapsedRealtime()
+          val trigger = pendingPiPTrigger
+              ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                  PiPEntryTrigger.AUTO_ENTER
+              } else {
+                  PiPEntryTrigger.USER_LEAVE_HINT
+              }
+          pendingPiPTrigger = null
+          AnalyticsManager.trackPiPEntered(trigger.analyticsValue)
+      } else {
+          finishPiPSession()
+      }
+  }
+
+  private fun finishPiPSession() {
+      val started = pipSessionStartedElapsedMillis ?: return
+      pipSessionStartedElapsedMillis = null
+      val seconds = ((SystemClock.elapsedRealtime() - started).coerceAtLeast(0L) / 1_000L)
+      AnalyticsManager.trackPiPSession(
+          PiPSessionDurationBucket.fromSeconds(seconds).analyticsValue,
+      )
+  }
+
+  override fun onDestroy() {
+      finishPiPSession()
+      super.onDestroy()
   }
 
   private fun setGroupForeground(inForeground: Boolean) {

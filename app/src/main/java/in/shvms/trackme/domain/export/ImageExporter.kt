@@ -37,7 +37,21 @@ data class ExportOptions(
     val showDuration: Boolean = true,
     val showDate: Boolean = true,
     val routePoints: List<`in`.shvms.trackme.data.local.entity.GPSPointEntity>? = null,
-    val includeTrackMeLockup: Boolean = true
+    val includeTrackMeLockup: Boolean = true,
+    /**
+     * The panel's figure lines, already formatted and ordered by the UI — **decided there, not
+     * re-derived here.** Null falls back to the legacy in-exporter derivation.
+     *
+     * 1.8.0 centralised the panel's *geometry* after the preview and the exporter drifted. It never
+     * centralised its *contents*, so they drifted again (SCOPE_1.8.4 §8.1). Primitives rather than
+     * the UI's `OverlayContent`, for the same reason `StatsPanelRect` mirrors `OverlayRect` — the
+     * domain does not depend on the UI layer.
+     *
+     * There is deliberately **no title field**: the panel carries figures only (§8.3).
+     */
+    val overlayFigures: List<String>? = null,
+    /** Draw the TrackMe wordmark beside the map's Google attribution, as the preview does. */
+    val includeMapAttribution: Boolean = true
 )
 
 /**
@@ -136,46 +150,13 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
         }
         
         if (options.showStats) {
-            val bannerHeight = realH * AppConfig.OVERLAY_BANNER_HEIGHT_RATIO
-            val bannerTop = realH - bannerHeight
-            val paint = Paint().apply {
-                color = if (options.isDarkTheme) AppConfig.OVERLAY_BANNER_COLOR else android.graphics.Color.WHITE
-                alpha = if (options.isDarkTheme) AppConfig.OVERLAY_BANNER_ALPHA else 220
-                style = Paint.Style.FILL
-            }
-            canvas.drawRect(0f, bannerTop, realW.toFloat(), realH.toFloat(), paint)
-            
-            val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = if (options.isDarkTheme) AppConfig.OVERLAY_TEXT_COLOR else android.graphics.Color.BLACK
-                textSize = bannerHeight * 0.25f
-                textAlign = Paint.Align.LEFT
-            }
-            
-            val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(
-                rideWithPoints.ride.postRideCalculation?.distance ?: 0.0,
-                usesImperialUnits(context)
-            )
-            
-            val durationMillis = (rideWithPoints.ride.endTime ?: rideWithPoints.ride.startTime) - rideWithPoints.ride.startTime
-            val seconds = durationMillis / 1000
-            val durationStr = `in`.shvms.trackme.ui.history.compactDuration(durationMillis)
-            
-            val dateStr = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(rideWithPoints.ride.startTime))
-            
-            val padding = realW * 0.05f
-            
-            val rideTitle = rideWithPoints.ride.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride"
-            canvas.drawText(rideTitle, padding, bannerTop + bannerHeight * 0.4f, textPaint)
-            
-            textPaint.textSize = bannerHeight * 0.15f
-            val statsList = mutableListOf<String>()
-            if (options.showDate) statsList.add(dateStr)
-            if (options.showDuration) statsList.add(durationStr)
-            if (options.showDistance) statsList.add(distanceStr)
-            
-            canvas.drawText(statsList.joinToString(" • "), padding, bannerTop + bannerHeight * 0.7f, textPaint)
+            drawStatsPanel(canvas, context, rideWithPoints, options, realW, realH)
         }
-        
+
+        if (options.includeMapAttribution) {
+            drawMapAttribution(canvas, realW, realH)
+        }
+
         val exportsDir = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME)
         if (!exportsDir.exists()) exportsDir.mkdirs()
         val file = File(exportsDir, "${AppConfig.IMAGE_FILE_PREFIX}${rideWithPoints.ride.id}.png")
@@ -214,76 +195,13 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
         }
         
         if (options.showStats) {
-            // Geometry comes from the caller as frame fractions. Recomputing it here is what let
-            // the preview and the export disagree: this used to take 20% of the frame *width*
-            // while the preview took 20% of its height, which is 11% of a 9:16 story and 36% of a
-            // 16:9. The fallback is the historical flush bottom band, for any caller that has not
-            // been given a placement.
-            val panel = options.statsPanel
-                ?: StatsPanelRect(0f, 1f - AppConfig.OVERLAY_BANNER_HEIGHT_RATIO, 1f, 1f)
-            val bannerLeft = panel.left * finalW
-            val bannerRight = panel.right * finalW
-            val bannerTop = panel.top * finalH
-            val bannerBottom = panel.bottom * finalH
-            val bannerHeight = (bannerBottom - bannerTop).toInt().coerceAtLeast(1)
-            val bannerWidth = bannerRight - bannerLeft
-            val corner = panel.cornerFraction * minOf(finalW, finalH)
-
-            // Draw the banner
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = if (options.isDarkTheme) AppConfig.OVERLAY_BANNER_COLOR else android.graphics.Color.WHITE
-                alpha = if (options.isDarkTheme) AppConfig.OVERLAY_BANNER_ALPHA else 220
-                style = Paint.Style.FILL
-            }
-            if (corner > 0f) {
-                canvas.drawRoundRect(bannerLeft, bannerTop, bannerRight, bannerBottom, corner, corner, paint)
-            } else {
-                canvas.drawRect(bannerLeft, bannerTop, bannerRight, bannerBottom, paint)
-            }
-
-            // Draw Text
-            val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = if (options.isDarkTheme) AppConfig.OVERLAY_TEXT_COLOR else android.graphics.Color.BLACK
-                textSize = bannerHeight * 0.25f
-                textAlign = if (panel.alignEnd) Paint.Align.RIGHT else Paint.Align.LEFT
-            }
-
-            val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(
-                rideWithPoints.ride.postRideCalculation?.distance ?: 0.0,
-                usesImperialUnits(context)
-            )
-            
-            val durationMillis = (rideWithPoints.ride.endTime ?: rideWithPoints.ride.startTime) - rideWithPoints.ride.startTime
-            val seconds = durationMillis / 1000
-            val durationStr = `in`.shvms.trackme.ui.history.compactDuration(durationMillis)
-            
-            val dateStr = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(rideWithPoints.ride.startTime))
-            
-            // Padding is a fraction of the panel, not of the frame: a corner card is half the
-            // width of a full band, and 5% of the frame would eat most of it.
-            val padding = bannerWidth * 0.06f
-            val textX = if (panel.alignEnd) bannerRight - padding else bannerLeft + padding
-
-            val rideTitle = rideWithPoints.ride.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride"
-            canvas.drawText(rideTitle, textX, bannerTop + bannerHeight * 0.4f, textPaint)
-
-            textPaint.textSize = bannerHeight * 0.15f
-            val statsList = mutableListOf<String>()
-            if (options.showDate) statsList.add(dateStr)
-            if (options.showDuration) statsList.add(durationStr)
-            if (options.showDistance) statsList.add(distanceStr)
-
-            // A card stacks its figures; the band runs them inline. Same rule the preview uses.
-            if (panel.stackFigures && statsList.size > 1) {
-                val lineHeight = bannerHeight * 0.30f
-                val firstBaseline = bannerTop + bannerHeight * 0.30f
-                statsList.forEachIndexed { index, figure ->
-                    canvas.drawText(figure, textX, firstBaseline + index * lineHeight, textPaint)
-                }
-            } else {
-                canvas.drawText(statsList.joinToString(" • "), textX, bannerTop + bannerHeight * 0.66f, textPaint)
-            }
+            drawStatsPanel(canvas, context, rideWithPoints, options, finalW, finalH)
         }
+
+        if (options.includeMapAttribution) {
+            drawMapAttribution(canvas, finalW, finalH)
+        }
+
         
         val exportsDir = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME)
         if (!exportsDir.exists()) exportsDir.mkdirs()
@@ -297,6 +215,134 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
         
         file
     }
+}
+
+/**
+ * Type scale for the overlay, as fractions of the frame's **shorter edge**.
+ *
+ * Shorter edge rather than height: a 16:9 and a 9:16 export of the same ride should carry the same
+ * apparent text size, and anything keyed to height alone does not. Mirrors `OverlayMetrics` in the
+ * UI layer, which sizes the panel these numbers have to fit inside.
+ */
+private const val OVERLAY_FIGURE_TEXT_RATIO = 0.029f
+private const val OVERLAY_TOP_PADDING_FRACTION = 0.18f
+private const val OVERLAY_LINE_ADVANCE = 1.35f
+
+/**
+ * Draws the stats panel — **the only place either exporter draws one.**
+ *
+ * Both implementations previously carried their own copy of this, which is how the file came to
+ * show a ride title the preview did not (SCOPE_1.8.4 §8.1). One function, called twice.
+ */
+private fun drawStatsPanel(
+    canvas: Canvas,
+    context: Context,
+    rideWithPoints: RideWithPoints,
+    options: ExportOptions,
+    frameWidth: Int,
+    frameHeight: Int,
+) {
+    // Geometry comes from the caller as frame fractions. Recomputing it here is what let the preview
+    // and the export disagree once before: this used to take 20% of the frame *width* while the
+    // preview took 20% of its height. The fallback is the historical flush bottom band.
+    val panel = options.statsPanel
+        ?: StatsPanelRect(0f, 1f - AppConfig.OVERLAY_BANNER_HEIGHT_RATIO, 1f, 1f)
+    val left = panel.left * frameWidth
+    val right = panel.right * frameWidth
+    val top = panel.top * frameHeight
+    val bottom = panel.bottom * frameHeight
+    val width = right - left
+    val height = (bottom - top).coerceAtLeast(1f)
+    val corner = panel.cornerFraction * minOf(frameWidth, frameHeight)
+
+    val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = if (options.isDarkTheme) AppConfig.OVERLAY_BANNER_COLOR else android.graphics.Color.WHITE
+        alpha = if (options.isDarkTheme) AppConfig.OVERLAY_BANNER_ALPHA else 220
+        style = Paint.Style.FILL
+    }
+    if (corner > 0f) {
+        canvas.drawRoundRect(left, top, right, bottom, corner, corner, panelPaint)
+    } else {
+        canvas.drawRect(left, top, right, bottom, panelPaint)
+    }
+
+    // Contents come from the UI's decision, never from a second derivation here — §8.3 contract 1.
+    // The fallback keeps any caller not yet passing them rendering what it always did.
+    val figures = options.overlayFigures ?: buildList {
+        if (options.showDate) {
+            add(SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(rideWithPoints.ride.startTime)))
+        }
+        if (options.showDuration) {
+            add(
+                `in`.shvms.trackme.ui.history.compactDuration(
+                    (rideWithPoints.ride.endTime ?: rideWithPoints.ride.startTime) - rideWithPoints.ride.startTime
+                )
+            )
+        }
+        if (options.showDistance) {
+            add(
+                `in`.shvms.trackme.domain.UnitFormatter.rideDistance(
+                    rideWithPoints.ride.postRideCalculation?.distance ?: 0.0,
+                    usesImperialUnits(context)
+                )
+            )
+        }
+    }
+    if (figures.isEmpty()) return
+
+    val shorterEdge = minOf(frameWidth, frameHeight).toFloat()
+    val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = if (options.isDarkTheme) AppConfig.OVERLAY_TEXT_COLOR else android.graphics.Color.BLACK
+        textAlign = if (panel.alignEnd) Paint.Align.RIGHT else Paint.Align.LEFT
+    }
+
+    // Padding is a fraction of the panel, not of the frame: a corner card is half the width of a
+    // full band, and 5% of the frame would eat most of it.
+    val padding = width * 0.06f
+    val textX = if (panel.alignEnd) right - padding else left + padding
+    // Every line is ellipsised to the panel's inner width. The reported defect is a long title drawn
+    // right-aligned from the panel edge and running clean off it onto bare map — a share image has
+    // no layout pass to catch overflow, so whatever is drawn is in the file.
+    val innerWidth = (width - 2 * padding).coerceAtLeast(1f)
+
+    var baseline = top + height * OVERLAY_TOP_PADDING_FRACTION
+    textPaint.textSize = shorterEdge * OVERLAY_FIGURE_TEXT_RATIO
+    if (panel.stackFigures) {
+        figures.forEach { figure ->
+            baseline += textPaint.textSize * OVERLAY_LINE_ADVANCE
+            canvas.drawText(ellipsise(figure, textPaint, innerWidth), textX, baseline, textPaint)
+        }
+    } else if (figures.isNotEmpty()) {
+        baseline += textPaint.textSize * OVERLAY_LINE_ADVANCE
+        canvas.drawText(ellipsise(figures.joinToString(" • "), textPaint, innerWidth), textX, baseline, textPaint)
+    }
+}
+
+/** Truncates [text] with an ellipsis so it cannot render wider than [maxWidth]. */
+internal fun ellipsise(text: String, paint: Paint, maxWidth: Float): String {
+    if (paint.measureText(text) <= maxWidth) return text
+    val ellipsis = "…"
+    var end = text.length
+    while (end > 0 && paint.measureText(text.substring(0, end) + ellipsis) > maxWidth) end--
+    return if (end <= 0) ellipsis else text.substring(0, end) + ellipsis
+}
+
+/**
+ * The TrackMe wordmark beside the map's own Google attribution.
+ *
+ * The preview has always drawn this and the file never did, so the preview was wrong in this
+ * direction too (§8.1). Beside the Google mark, never over it — covering another party's required
+ * attribution is not ours to do.
+ */
+private fun drawMapAttribution(canvas: Canvas, width: Int, height: Int) {
+    val shorterEdge = minOf(width, height).toFloat()
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        textSize = shorterEdge * 0.026f
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        setShadowLayer(shorterEdge * 0.006f, 0f, 0f, android.graphics.Color.argb(180, 0, 0, 0))
+    }
+    canvas.drawText("TrackMe", width * 0.30f, height - shorterEdge * 0.022f, paint)
 }
 
 private fun drawTrackMeLockup(canvas: Canvas, context: Context, width: Int, height: Int) {

@@ -18,8 +18,10 @@ object BrandThemeConfig {
   val greenGo = Color(0xFF16A34A)
   val greenContainerLight = Color(0xFFDCFCE7)
   val greenContainerDark = Color(0xFF14532D)
-  val redSos = Color(0xFFDC2626)
-  // Accessible error text on dark surfaces; redSos remains the SOS/background token.
+  val redDestructive = Color(0xFFDC2626)
+  // Accessible error text on dark surfaces; redDestructive remains the destructive/error
+  // background token. Renamed from redSos in 1.8.4 (TASK-197): SOS was retired in 1.6.4/1.6.5
+  // and the old name made every call site read as an emergency surface. Value is unchanged.
   val redTextDark = Color(0xFFF87171)
   val errorContainerLight = Color(0xFFFEE2E2)
   val errorContainerDark = Color(0xFF7F1D1D)
@@ -48,7 +50,7 @@ val SurfaceDarkLowest = BrandThemeConfig.surfaceDarkLowest
 val GreenGo = BrandThemeConfig.greenGo
 val GreenContainerLight = BrandThemeConfig.greenContainerLight
 val GreenContainerDark = BrandThemeConfig.greenContainerDark
-val RedSos = BrandThemeConfig.redSos
+val RedDestructive = BrandThemeConfig.redDestructive
 val RedTextDark = BrandThemeConfig.redTextDark
 val ErrorContainerLight = BrandThemeConfig.errorContainerLight
 val ErrorContainerDark = BrandThemeConfig.errorContainerDark
@@ -91,8 +93,8 @@ val ChartAltitude = AmberWarn
 // `SuccessGreen`/`ChartSpeed` for the semantic cases.
 val TrackMeBlue = CyanDeep
 val TrackMeBlueDark = CyanDeep
-val TrackMeRed = RedSos
-val TrackMeRedLight = RedSos
+val TrackMeRed = RedDestructive
+val TrackMeRedLight = RedDestructive
 val TrackMeAmber = AmberWarn
 val TrackMeOrange = AmberWarn
 val TrackMeGrey = Slate400

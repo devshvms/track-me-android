@@ -35,6 +35,41 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val pauseTracking: String = s("pauseTracking", "Pause Tracking")
     val resumeTracking: String = s("resumeTracking", "Resume Tracking")
     val stopTracking: String = s("stopTracking", "Stop Tracking")
+    // Spoken copy intentionally falls back to English in every app locale for 1.8.4.
+    val voiceNoActiveRide: String = s("voiceNoActiveRide", "You don't have a ride recording right now.")
+
+    // TASK-196 — the spoken-copy family. **Spoken form, not glanceable form.** These deliberately do
+    // not reuse `groupAge*` ("%1$ds ago"): an abbreviation a rider reads at a glance is not what a
+    // TTS engine should pronounce, and the two vocabularies drift for good reasons. Semantically
+    // bound to `PresenceAge.Bucket` via `VoiceFreshness`; lexically their own thing.
+    //
+    // English only in 1.8.4 per HANDSFREE-01 — the hedges that keep these honest ("was", "last
+    // position") are exactly what machine translation flattens, and a line that drops "was" asserts
+    // a stale position as current. Every key here is listed in the locale test's
+    // `intentionallyEnglishOnly` set; that list is the record of the exemption, not a silence.
+    val voiceAgeSeconds: String = s("voiceAgeSeconds", "%1\$d seconds ago")
+    val voiceAgeMinutes: String = s("voiceAgeMinutes", "%1\$d minutes ago")
+    val voiceAgeHours: String = s("voiceAgeHours", "over an hour ago")
+    val voiceMemberAhead: String = s("voiceMemberAhead", "%1\$s is %2\$s ahead.")
+    val voiceMemberBehind: String = s("voiceMemberBehind", "%1\$s is %2\$s behind.")
+    val voiceMemberNearby: String = s("voiceMemberNearby", "%1\$s is %2\$s away.")
+    val voiceMemberDistanceWithAge: String =
+        s("voiceMemberDistanceWithAge", "%1\$s was %2\$s away, %3\$s.")
+    val voiceMemberAgeOnly: String = s("voiceMemberAgeOnly", "I haven't heard from %1\$s since %2\$s.")
+    val voiceMemberPresenceOnly: String =
+        s("voiceMemberPresenceOnly", "%1\$s is in the group, but I can't tell how old their position is.")
+    val voiceRosterQuiet: String = s("voiceRosterQuiet", "%1\$d riders. Nothing flagged.")
+    val voiceRosterAlert: String = s("voiceRosterAlert", "%1\$d riders. %2\$s needs help.")
+    val voiceRosterNotHeard: String =
+        s("voiceRosterNotHeard", "%1\$d riders. I've heard from %2\$d of them recently.")
+    val voiceNameNoMatch: String = s("voiceNameNoMatch", "I don't have anyone called %1\$s in this group.")
+    val voiceNameAmbiguous: String =
+        s("voiceNameAmbiguous", "I have more than one rider whose name starts like that — %1\$s. Which one?")
+    val voiceNoGroup: String = s("voiceNoGroup", "You're not in a group ride right now.")
+    val voiceGroupCacheEmpty: String = s("voiceGroupCacheEmpty", "I haven't heard from the group yet.")
+    val voiceGroupDegraded: String =
+        s("voiceGroupDegraded", "Group sharing is having trouble reconnecting, so this may be out of date.")
+    val voiceGroupLocked: String = s("voiceGroupLocked", "Unlock your phone and I'll tell you.")
     val stopRideAction: String = s("stopRideAction", "Stop ride")
     val rideStopped: String = s("rideStopped", "Ride stopped")
     val recenterMap: String = s("recenterMap", "Recenter map")
@@ -87,6 +122,12 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val notifTrackingMetrics: String = s("notifTrackingMetrics", "%1\$s • %2\$s • %3\$s")
     val notifTrackingPaused: String = s("notifTrackingPaused", "Paused • %1\$s")
     val notifTrackingGpsSearching: String = s("notifTrackingGpsSearching", "Searching for GPS…")
+    val pipDashboardTitle: String = s("pipDashboardTitle", "Picture-in-picture dashboard")
+    val pipDashboardDescription: String = s("pipDashboardDescription", "Show ride stats and group alerts when you switch to another app.")
+    val pipRideStartHint: String = s("pipRideStartHint", "Ride stats will appear in picture-in-picture when you switch apps. Turn it off in Advanced Settings.")
+    val pipDashboardAccessibility: String = s("pipDashboardAccessibility", "Ride dashboard. %1\$s, %2\$s%3\$s")
+    val pipAutoPaused: String = s("pipAutoPaused", "Auto-paused")
+    val pipAlertCleared: String = s("pipAlertCleared", "cleared")
     // Group Ride presence. §16.2 requires the foreground-service notification to state the real
     // reason the service is running — presence keeps it alive with no ride in progress, and the
     // March-2026 policy scrutinises exactly that.
@@ -901,6 +942,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "En pausa • %1\$s",
             "notifTrackingGpsSearching" to "Buscando GPS…",
+            "pipDashboardTitle" to "Panel de imagen en imagen",
+            "pipDashboardDescription" to "Muestra las estadísticas del trayecto y las alertas del grupo cuando cambias a otra aplicación.",
+            "pipRideStartHint" to "Las estadísticas del trayecto aparecerán en imagen en imagen cuando cambies de aplicación. Puedes desactivarlo en Ajustes avanzados.",
+            "pipDashboardAccessibility" to "Panel del trayecto. %1\$s, %2\$s%3\$s",
+            "pipAutoPaused" to "Pausa automática",
+            "pipAlertCleared" to "resuelto",
             "notifStorageLowTitle" to "Almacenamiento casi lleno",
             "notifStorageLowText" to "El seguimiento está pausado. Libera espacio y toca Reanudar en TrackMe.",
             "hudGpsLostPill" to "Señal GPS perdida (%1\$ss)",
@@ -1440,6 +1487,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "En pause • %1\$s",
             "notifTrackingGpsSearching" to "Recherche du GPS…",
+            "pipDashboardTitle" to "Tableau en incrustation",
+            "pipDashboardDescription" to "Affiche les statistiques du trajet et les alertes du groupe lorsque vous changez d’application.",
+            "pipRideStartHint" to "Les statistiques du trajet s’afficheront en incrustation lorsque vous changez d’application. Désactivez cette option dans les réglages avancés.",
+            "pipDashboardAccessibility" to "Tableau du trajet. %1\$s, %2\$s%3\$s",
+            "pipAutoPaused" to "Pause automatique",
+            "pipAlertCleared" to "résolu",
             "notifStorageLowTitle" to "Stockage presque plein",
             "notifStorageLowText" to "Le suivi est en pause. Libérez de l'espace, puis appuyez sur Reprendre dans TrackMe.",
             "hudGpsLostPill" to "Signal GPS perdu (%1\$ss)",
@@ -1979,6 +2032,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "Pausiert • %1\$s",
             "notifTrackingGpsSearching" to "GPS wird gesucht…",
+            "pipDashboardTitle" to "Bild-im-Bild-Dashboard",
+            "pipDashboardDescription" to "Zeigt Fahrdaten und Gruppenwarnungen, wenn du zu einer anderen App wechselst.",
+            "pipRideStartHint" to "Beim Wechseln der App erscheinen die Fahrdaten im Bild-in-Bild-Modus. Du kannst dies in den erweiterten Einstellungen ausschalten.",
+            "pipDashboardAccessibility" to "Fahrtdashboard. %1\$s, %2\$s%3\$s",
+            "pipAutoPaused" to "Automatisch pausiert",
+            "pipAlertCleared" to "behoben",
             "notifStorageLowTitle" to "Speicher fast voll",
             "notifStorageLowText" to "Die Aufzeichnung ist pausiert. Speicher freigeben und in TrackMe auf Fortsetzen tippen.",
             "hudGpsLostPill" to "GPS-Signal verloren (%1\$ss)",
@@ -2518,6 +2577,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "रुकी हुई • %1\$s",
             "notifTrackingGpsSearching" to "GPS खोजा जा रहा है…",
+            "pipDashboardTitle" to "पिक्चर-इन-पिक्चर डैशबोर्ड",
+            "pipDashboardDescription" to "दूसरे ऐप पर जाने पर राइड के आँकड़े और ग्रुप अलर्ट दिखाता है।",
+            "pipRideStartHint" to "दूसरे ऐप पर जाने पर राइड के आँकड़े पिक्चर-इन-पिक्चर में दिखेंगे। इसे एडवांस्ड सेटिंग्स में बंद किया जा सकता है।",
+            "pipDashboardAccessibility" to "राइड डैशबोर्ड। %1\$s, %2\$s%3\$s",
+            "pipAutoPaused" to "अपने-आप रुका",
+            "pipAlertCleared" to "समाधान हुआ",
             "notifStorageLowTitle" to "स्टोरेज लगभग भर गया",
             "notifStorageLowText" to "ट्रैकिंग रुकी हुई है। जगह खाली करें और TrackMe में फिर से शुरू करें पर टैप करें।",
             "hudGpsLostPill" to "GPS सिग्नल गुम (%1\$ss)",
@@ -3057,6 +3122,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "一時停止中 • %1\$s",
             "notifTrackingGpsSearching" to "GPSを検索中…",
+            "pipDashboardTitle" to "ピクチャーインピクチャーダッシュボード",
+            "pipDashboardDescription" to "別のアプリに切り替えたときに、ライドの統計とグループアラートを表示します。",
+            "pipRideStartHint" to "別のアプリに切り替えると、ライドの統計がピクチャーインピクチャーに表示されます。詳細設定でオフにできます。",
+            "pipDashboardAccessibility" to "ライドダッシュボード。%1\$s、%2\$s%3\$s",
+            "pipAutoPaused" to "自動一時停止",
+            "pipAlertCleared" to "解決済み",
             "notifStorageLowTitle" to "ストレージがほぼ満杯です",
             "notifStorageLowText" to "トラッキングは一時停止中です。空き容量を確保し、TrackMeで再開をタップしてください。",
             "hudGpsLostPill" to "GPS信号を消失 (%1\$ss)",
@@ -3596,6 +3667,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "notifTrackingMetrics" to "%1\$s • %2\$s • %3\$s",
             "notifTrackingPaused" to "已暂停 • %1\$s",
             "notifTrackingGpsSearching" to "正在搜索 GPS…",
+            "pipDashboardTitle" to "画中画仪表板",
+            "pipDashboardDescription" to "切换到其他应用时显示骑行数据和群组提醒。",
+            "pipRideStartHint" to "切换到其他应用时，骑行数据会显示在画中画中。可在高级设置中关闭。",
+            "pipDashboardAccessibility" to "骑行仪表板。%1\$s，%2\$s%3\$s",
+            "pipAutoPaused" to "已自动暂停",
+            "pipAlertCleared" to "已解除",
             "notifStorageLowTitle" to "存储空间即将不足",
             "notifStorageLowText" to "跟踪已暂停。请释放设备空间，然后在TrackMe中点按继续。",
             "hudGpsLostPill" to "GPS 信号丢失 (%1\$ss)",

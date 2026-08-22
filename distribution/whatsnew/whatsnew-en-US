@@ -1,5 +1,5 @@
-TrackMe 1.8.3
+TrackMe 1.8.4 — keep riding, keep your stats in view.
 
-• Fixes a crash that stopped the app opening on a fresh install. The walkthrough could not draw its first screen, so nothing loaded at all. Sorry — it is fixed.
-
-• Everything from 1.8.2: try the app during the walkthrough instead of watching it, a sample ride already in History on day one, and rebuilt intro screens.
+• Floating dashboard — your distance, pace and time stay on screen while you navigate in another app. Tap the home gesture mid-ride and TrackMe shrinks into a corner window instead of disappearing.
+• Share images now match their preview exactly, and the stats panel is sized to fit its text instead of a fixed band.
+• Fixes and polish across ride history and group rides.

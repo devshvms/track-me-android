@@ -29,7 +29,7 @@ This document provides a detailed breakdown of the algorithms, database schema, 
 | `startTime: Long` | `startTime: Date` | Epoch timestamp |
 | `endTime: Long?` | `endTime: Date?` | Nullable end time |
 | `sourceInfo: String` | `sourceInfo: String` | Default "iOS Device" |
-| `isBroadcasted: Boolean` | `isBroadcasted: Bool` | Emergency broadcast state |
+| ~~`isBroadcasted`~~ | — | **VOID 2026-08-22** — emergency broadcast state; SOS retired 1.6.4/1.6.5 |
 | `isSynced: Boolean` | `isSynced: Bool` | Upload state to Firestore |
 | `firestoreId: String?` | `firestoreId: String?` | Link to remote doc |
 | `title: String?` | `title: String?` | User-defined or auto title |
@@ -50,10 +50,10 @@ This document provides a detailed breakdown of the algorithms, database schema, 
 
 ## 3. Advanced Features & Exporters
 
-### A. Emergency SOS System (`EmergencyBroadcastWorker`)
-- **Android Workflow:** Triggers an active emergency state. Sends automated SMS messages using `SmsManager` to saved contacts. Replaces tags in the user's template (`[Location Link]`, `[Battery Percent]`, `[Device Name]`, `[Timestamp]`) with real data. Progressively backs off the broadcast frequency (every 2m for first 10m, then 10m for an hour, then 1h up to 24h). Vibrates the phone up to `MAX_HAPTIC_MESSAGES` (5) times to provide physical feedback that the SOS was sent.
-- **iOS Equivalent:** iOS restrictions strictly prohibit apps from sending SMS silently in the background without user interaction via `MFMessageComposeViewController`. 
-  - *Workaround:* Use a backend service (e.g., Firebase Cloud Functions + Twilio) to send the SMS. The iOS app will just ping Firestore with the latest coordinates and trigger the cloud function. Use `UIImpactFeedbackGenerator` or `AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)` for the haptic feedback.
+### A. ~~Emergency SOS System~~ · **VOID**
+
+> ⛔ **VOID 2026-08-22 — SOS/SMS was retired in 1.6.4/1.6.5.** Kept as the record of the removed
+> feature and the findings raised against it; nothing here is actionable.
 
 ### B. High-Quality Image Export (`ImageExporter`)
 - **Android Workflow:** Supports two modes: Native Map Snapshot and Google Static Maps API. Creates a composite bitmap (PNG) combining the map and a dark overlay banner at the bottom (20% height). Draws the ride stats (Date, Time Duration, Distance) using `Canvas`.

@@ -12,7 +12,34 @@ class AppStringsLocaleCoverageTest {
      * Keys that are intentionally identical in every language and therefore intentionally absent
      * from the locale maps. Adding to this set is a deliberate product decision.
      */
-    private val intentionallyEnglishOnly = setOf("appName")
+    private val intentionallyEnglishOnly = setOf(
+        "appName",
+        // HANDSFREE-01: spoken copy ships in English only until fluent reviewers approve it.
+        // This is a deliberate, logged exemption from the all-language bar, not an oversight — the
+        // hedges that keep these lines honest ("was", "last position") are exactly what machine
+        // translation flattens, and a line that drops "was" asserts a stale position as current.
+        // Delete entries from here as fluent reviewers approve each language; do not add non-voice
+        // keys to this set.
+        "voiceNoActiveRide",
+        "voiceAgeSeconds",
+        "voiceAgeMinutes",
+        "voiceAgeHours",
+        "voiceMemberAhead",
+        "voiceMemberBehind",
+        "voiceMemberNearby",
+        "voiceMemberDistanceWithAge",
+        "voiceMemberAgeOnly",
+        "voiceMemberPresenceOnly",
+        "voiceRosterQuiet",
+        "voiceRosterAlert",
+        "voiceRosterNotHeard",
+        "voiceNameNoMatch",
+        "voiceNameAmbiguous",
+        "voiceNoGroup",
+        "voiceGroupCacheEmpty",
+        "voiceGroupDegraded",
+        "voiceGroupLocked",
+    )
 
     /**
      * TASK-138 owns these entries; they are supplied when that branch lands. This list is temporary

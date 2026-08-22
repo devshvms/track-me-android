@@ -119,7 +119,7 @@ internal object Tone {
   val NeutralVariant80 = Color(0xFFBAC8D4)
   val NeutralVariant90 = Color(0xFFD6E4F1)
 
-  // ── Error — hue 35°, chroma 62 (derived from the existing RedSos) ─────────
+  // ── Error — hue 35°, chroma 62 (derived from the existing RedDestructive) ─────────
   val Error10 = Color(0xFF390B00)
   val Error20 = Color(0xFF690003)
   val Error30 = Color(0xFF900C12)
