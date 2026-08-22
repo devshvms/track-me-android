@@ -1,6 +1,6 @@
 # Per-Screen UX Specs (TASK-015 W3)
 
-*Owner: Claude (Product/Design Agent). Written 2026-07-17 per `.ai/context/ANDROID_QUALITY_GUIDELINES.md` W3. Six screens (Home, History, RideDetail, Settings, AccountManagement, EmergencySetup) checked against items 1–7 of the W3 punch list. Findings are code-audited (file:line cited) where the answer is determinable from source; items that require a running app (dark-theme rendering, font-scale rendering, TalkBack walkthrough) are marked **[DEVICE CHECK]** with the exact spec Codex/tester should verify against — these cannot be closed from source review alone.*
+*Owner: Claude (Product/Design Agent). Written 2026-07-17 per `.ai/context/ANDROID_QUALITY_GUIDELINES.md` W3. Five screens (Home, History, RideDetail, Settings, AccountManagement) checked against items 1–7 of the W3 punch list. Findings are code-audited (file:line cited) where the answer is determinable from source; items that require a running app (dark-theme rendering, font-scale rendering, TalkBack walkthrough) are marked **[DEVICE CHECK]** with the exact spec Codex/tester should verify against — these cannot be closed from source review alone.*
 
 Legend: ✅ Meets spec · ⚠️ Partial / needs fix · ❌ Missing · 🔍 [DEVICE CHECK] required
 
@@ -15,7 +15,7 @@ This is also the live-HUD screen during an active ride (`ActiveRideHudPanel`).
 | 1 | Notification channels | ✅ | Foreground tracking notification correctly uses `tracking_channel` (low importance, non-intrusive). |
 | 2 | Dark theme | 🔍 | Map tile overlay, HUD status pills (amber/orange with black text, red/green with white text — raw brand colors, not theme-contrast-managed, per audit) need explicit dark-mode visual check. |
 | 3 | Accessibility | ✅ code | **Fixed in `b9599c4` and refined in the current Android follow-up:** `RadialStartRideButton` exposes a semantic Start Ride button, activity-selection state, and custom TalkBack actions for Walk/Run/Cycling/Bike/Car while preserving the touch drag gesture. The child play icon no longer contributes a duplicate description because the parent owns the merged semantics. Physical TalkBack walkthrough remains a device check. |
-| 3b | Touch targets | ✅ | HUD buttons (SOS, pause/stop, share) explicitly sized 52dp — compliant. `MapControlCircleButton` also 52dp. |
+| 3b | Touch targets | ✅ | HUD buttons (pause/stop, share) explicitly sized 52dp — compliant. `MapControlCircleButton` also 52dp. |
 | 4 | State preservation | ⚠️ | **Code-fixed in the Android follow-up after `26eb57e`:** `TrackingService` persists active/paused-session markers and restores the unfinished ride, path, persona, duration, distance, current speed, and explicit pause state after sticky-service/process recreation; `MainActivity` requests reattachment only when the service is not already alive, so rotation does not reissue a resume command. Unmarked orphaned rides retain the existing localized recovered/discarded Snackbar fallback. Physical process-death, force-stop, relaunch, rotation, and HUD continuity checks remain under TASK-005. |
 | 5 | Empty/edge states | ✅ code | The idle map now shows a persistent one-time localized coach mark above `RadialStartRideButton` after location permission is available; it explains the hold-and-drag gesture and can be dismissed or is dismissed automatically when a ride starts. Physical layout/font-scale verification remains pending. |
 | 6 | Permission choreography | ✅ mostly | Foreground location + notifications requested on load with a well-designed blocking dialog on denial (rationale text + re-request + Settings deep link) — this is the reference-quality flow in the app. **Gap**: `ACCESS_BACKGROUND_LOCATION` is declared in the manifest but never requested at runtime anywhere. **Spec: confirm with Antigravity whether background location is actually required** given the foreground-service-with-location-type exemption already in use; if not required, remove the unused manifest permission (cleaner Play Console permissions disclosure). If it IS required for some flow, add the proper in-context request per Google's separate-background-permission guidance. |
@@ -59,7 +59,7 @@ This is also the live-HUD screen during an active ride (`ActiveRideHudPanel`).
 | 3 | Accessibility | ✅ code | **Fixed in `f7794e1`:** Intelligent Auto-Pause and Disable GPS Post-Processing rows are single labeled `Role.Switch` semantics with the visual switches as indicators, so TalkBack announces the setting label and state together. Physical verification remains a device check. |
 | 4 | State preservation | ✅ | Standard settings screen; no special concern. |
 | 5 | Empty/edge states | ✅ code | **Fixed in `50d4411` and refined in `31a26a0`:** the shared connectivity monitor now drives a localized, single-node offline banner on Settings, explicitly explaining that changes remain on-device and sync when connected. |
-| 6 | Permission choreography | N/A | Permissions are requested from Home/EmergencySetup, not here. |
+| 6 | Permission choreography | N/A | Permissions are requested from Home, not here. |
 | 7 | Sync status trustworthiness | ✅ code | **Fixed in the shared upload path:** `uploadRideInternal()` rethrows failures, so `syncAll()` and `syncPeriodic()` publish `SyncResult.Error` rather than showing false success when an upload fails. A real Firestore failure/runtime check remains recommended before production. |
 | 7b | Locale/polish | 🔍 | Settings labels at longest-locale + largest font scale — verify no two-line wrap breaks alignment with toggles. |
 
@@ -76,30 +76,19 @@ This is also the live-HUD screen during an active ride (`ActiveRideHudPanel`).
 | 7 | Export auth pattern | ✅ *(corrects a prior assumption)* | Confirmed via audit: export uses a short-lived server-issued `token` query parameter on the download URL, not an `Authorization` header on `DownloadManager.Request` — this is a valid, intentional pattern (headers aren't reliable across `DownloadManager` OEM implementations). The export *request* call does correctly force-refresh its Bearer token. **No fix needed**; flagging so this doesn't get "re-fixed" by a future agent working from a stale inbox note. |
 | 7b | Disk-full / large-history export | ✅ code | Account export request and DownloadManager failures now use localized connection/storage guidance, and incomplete streamed archives are rejected. A 500+ ride archive and physical disk-full run remain runtime checks. |
 
-## 6. Emergency Setup (`ui/settings/EmergencySetupScreen.kt`)
+## 6. ~~Emergency Setup~~ · **VOID**
 
-| # | Item | Status | Notes / Fix Spec |
-|---|---|---|---|
-| 1 | Notification channels | ✅ | **Fixed (commit `f315d25`), re-verified against code:** `EmergencyBroadcastWorker` now posts to `sos_channel` with accepted/partial/failed contact counts while SOS is active. Runtime notification-display verification remains a device-check item (see checklist below), not a code gap. |
-| 2 | Dark theme | 🔍 | Contact list + permission step — standard risk. |
-| 3 | Accessibility | ✅ code | **Fixed in `777607d`:** wizard titles are exposed as TalkBack headings, the Emergency Message Template already uses a real `OutlinedTextField` label, text buttons expose their actions, and delete actions now identify the contact being removed. Physical TalkBack verification remains a device check. |
-| 4 | State preservation | ✅ | Standard form screen; no special concern beyond not losing in-progress contact entry on rotation (verify `rememberSaveable` is used for form fields — not confirmed in this pass). |
-| 5 | Empty/edge states | ✅ | Setup flow itself functions as the "empty state" (no contacts yet → setup prompt) — appropriate for this screen type. |
-| 6 | Permission choreography | ⚠️ | **Code-complete in the current Codex follow-up:** `PermissionAndTestStep` tracks a denied request, uses `shouldShowRequestPermissionRationale` to detect permanent denial, shows localized SMS-settings guidance, opens `ACTION_APPLICATION_DETAILS_SETTINGS`, and refreshes state on return. Verify first denial, permanent denial, Settings grant, and back-navigation on a physical device. |
-| 6b | Post-setup revocation | ⚠️ | **Fixed in commit `8d59caf`, re-verified against current code:** `MainActivity.onResume()` persists a revocation signal when a configured user loses `SEND_SMS`; Home now shows a dismissible warning with a direct Settings path, and `EmergencySetupScreen` explains the failure and opens app settings. Runtime revoke/grant and cold-start verification remain under TASK-005. |
-| 7 | SMS failure feedback | ⚠️ | **Partially fixed (commit `f315d25`), re-verified against code:** a live/just-completed SOS broadcast now reports its outcome via the `sos_channel` notification (accepted/partial/failed counts). **Remaining gap, unchanged from original finding:** this screen itself still has no persistent "last SOS attempt" history — the notification is the only record, and it's ephemeral once dismissed/cleared. **Spec (P2, not blocking):** surface the same summary (timestamp + per-contact outcome) as a small status row on this screen, sourced from the same data the notification already uses. |
-| 7b | Locale/polish | 🔍 | Contact name/phone fields at largest font scale — verify no clipping in the list rows. |
-
----
+> ⛔ **VOID 2026-08-22 — SOS/SMS was retired in 1.6.4/1.6.5.** Kept as the record of the removed
+> feature and the findings raised against it; nothing here is actionable.
 
 ## Cross-screen theme/font-scale verification checklist 🔍
 
 The following require a running emulator or device — Codex or the user should walk this list once W1's smoke test exists to reuse as a regression baseline:
 
-1. Toggle system dark theme; visit all 6 screens; confirm no white-on-white/black-on-black regions, especially: Home's HUD status pills (raw brand colors bypass theme contrast roles per audit), RideDetail's Canvas chart, History's route thumbnails.
-2. Set system font scale to Large and then to the largest available (typically 200%); visit all 6 screens; confirm no text truncation/clipping, especially in HUD stat labels, Settings toggle rows, and EmergencySetup contact list rows.
+1. Toggle system dark theme; visit all 5 screens; confirm no white-on-white/black-on-black regions, especially: Home's HUD status pills (raw brand colors bypass theme contrast roles per audit), RideDetail's Canvas chart, History's route thumbnails.
+2. Set system font scale to Large and then to the largest available (typically 200%); visit all 5 screens; confirm no text truncation/clipping, especially in HUD stat labels, Settings toggle rows, and EmergencySetup contact list rows.
 3. Switch device language to Hindi and Japanese (2 of the 7 supported locales flagged as highest line-length risk in the guidelines); spot-check Home HUD and Settings for wrapping/overflow.
-4. Run TalkBack through: Home → start a ride via the persona picker → Settings → EmergencySetup → add a contact → RideDetail → scrub the chart. Home, EmergencySetup, and RideDetail semantics are covered in source and need physical-device confirmation; remaining device checks include announcement order, font scale, and system permission flows.
+4. Run TalkBack through: Home → start a ride via the persona picker → Settings → RideDetail → scrub the chart. Home, EmergencySetup, and RideDetail semantics are covered in source and need physical-device confirmation; remaining device checks include announcement order, font scale, and system permission flows.
 
 ## Sign-off status
 

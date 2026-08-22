@@ -42,19 +42,30 @@ enum class StatsOverlayStyle {
 
     val isVisible: Boolean get() = this != None
 
+    /** Backwards-compatible default: a one-line, figures-only panel. Prefer [rect] with content. */
+    fun rect(): OverlayRect? = rect(OverlayContent.FIGURES_ONLY_ONE_LINE)
+
     /**
-     * The panel rectangle as fractions of the frame, or null when nothing is drawn.
+     * The panel rectangle sized to the content it will actually hold — §8.3 contract 3.
      *
-     * Heights are for the figures alone. They were sized for two lines when the panel repeated the
-     * ride title above them — a name the sharer already knows and the viewer gets from the caption,
-     * costing a fifth of the frame to say it.
+     * The old fixed rectangle is what the customer saw as "the grey overlay is too big": a corner
+     * card was **19% of frame height whatever was in it**, so a single figure sat in a mostly empty
+     * box, and a title drawn at a quarter of that height overflowed the card onto bare map.
+     *
+     * Height is therefore derived from the rendered line count rather than assumed. Width stays a
+     * bound rather than a measurement: measuring text needs a `Paint` on one side and a
+     * `TextMeasurer` on the other, and two independent measurements is precisely the drift §8.1
+     * documents. Renderers ellipsise inside the bound instead.
      */
-    fun rect(): OverlayRect? = when (this) {
-        None -> null
-        BottomBar -> OverlayRect(left = 0f, top = 0.88f, right = 1f, bottom = 1f, inset = 0f)
-        // Corner cards stack their figures, so they are taller and narrower than the band.
-        TopLeft -> OverlayRect(left = 0.03f, top = 0.03f, right = 0.44f, bottom = 0.22f, inset = 0.02f)
-        TopRight -> OverlayRect(left = 0.56f, top = 0.03f, right = 0.97f, bottom = 0.22f, inset = 0.02f)
+    fun rect(content: OverlayContent): OverlayRect? {
+        if (this == None || content.isEmpty) return null
+        val height = OverlayMetrics.panelHeightFraction(content.lineCount(stacksFigures))
+        return when (this) {
+            None -> null
+            BottomBar -> OverlayRect(left = 0f, top = 1f - height, right = 1f, bottom = 1f, inset = 0f)
+            TopLeft -> OverlayRect(left = 0.03f, top = 0.03f, right = 0.44f, bottom = 0.03f + height, inset = 0.02f)
+            TopRight -> OverlayRect(left = 0.56f, top = 0.03f, right = 0.97f, bottom = 0.03f + height, inset = 0.02f)
+        }
     }
 
     /** Corner cards read as cards; the flush bottom band does not. */
@@ -120,3 +131,98 @@ fun compactDuration(millis: Long): String {
         else -> "${seconds}s"
     }
 }
+
+
+/**
+ * Exactly what a stats panel renders, decided **once** for both the Compose preview and the bitmap
+ * exporter — `SCOPE_1.8.4.md` §8.3 contract 1.
+ *
+ * ### Why this type exists
+ *
+ * 1.8.0 centralised the panel's *rectangle* in [OverlayRect] because the two renderers had drifted.
+ * It never centralised the panel's *contents*, so they drifted again — and in both directions at
+ * once: the exporter drew a ride title and a TrackMe lockup the preview did not, while the preview
+ * drew a TrackMe attribution beside the Google mark that the exporter did not. A preview that is
+ * wrong in both directions is worse than no preview, because the sharer trusts it.
+ *
+ * Pure by construction: no Android types, no formatting, no measurement. Both renderers consume the
+ * same instance and neither composes its own list.
+ */
+data class OverlayContent(
+    /** Date / duration / distance, already formatted, in display order. */
+    val figures: List<String>,
+) {
+    val isEmpty: Boolean get() = figures.isEmpty()
+
+    /**
+     * How many rendered lines this content occupies.
+     *
+     * A card stacks its figures, so each is a line. A band runs them inline as one line — the
+     * `" • "`-joined string — which is why the count is not simply `figures.size`.
+     */
+    fun lineCount(stacked: Boolean): Int = when {
+        figures.isEmpty() -> 0
+        stacked -> figures.size
+        else -> 1
+    }
+
+    companion object {
+        /** The shape [StatsOverlayStyle.rect] assumes when no content is supplied. */
+        val FIGURES_ONLY_ONE_LINE = OverlayContent(figures = listOf(""))
+    }
+}
+
+/**
+ * The type scale and padding a panel is built from, as fractions of the frame's **shorter edge**.
+ *
+ * Fractions of the shorter edge rather than of height: a 16:9 and a 9:16 export of the same ride
+ * should carry the same apparent text size, and anything keyed to height alone does not.
+ */
+object OverlayMetrics {
+    /** Figure line height. */
+    const val FIGURE_LINE_RATIO = 0.038f
+    /** Breathing room above and below the text block, per edge. */
+    const val VERTICAL_PADDING_RATIO = 0.016f
+    /** Inner horizontal padding, per edge, as a fraction of the panel's own width. */
+    const val HORIZONTAL_PADDING_FRACTION = 0.06f
+
+    /**
+     * Panel height as a fraction of frame height, for [lines] rendered lines.
+     *
+     * Assumes a square-ish frame for the shorter-edge conversion; the callers pass real pixel
+     * dimensions to [OverlayRect] afterwards, so this only needs to be monotonic in [lines] and
+     * stable across ratios — which it is, because every term is the same fraction.
+     */
+    fun panelHeightFraction(lines: Int): Float {
+        if (lines <= 0) return 0f
+        return lines * FIGURE_LINE_RATIO + 2 * VERTICAL_PADDING_RATIO
+    }
+}
+
+/**
+ * Selects the panel's lines from already-formatted parts — the one place that decides what a share
+ * image says.
+ *
+ * **No ride title.** 1.8.0 removed it deliberately: it is a name the sharer already knows and the
+ * viewer gets from the caption, and it cost a fifth of the frame to repeat. The preview honoured
+ * that; the exporter never did, which is the defect §8 was raised for. Confirmed by shvm 2026-08-22
+ * — the file drops the title rather than the preview gaining one.
+ *
+ * Takes formatted strings rather than a ride so it stays pure and testable: the two renderers each
+ * format with the same shared helpers ([compactDuration], `UnitFormatter`), but the *choice* of what
+ * appears, and in what order, is made exactly once, here.
+ */
+fun buildOverlayContent(
+    date: String,
+    duration: String,
+    distance: String,
+    showDate: Boolean,
+    showDuration: Boolean,
+    showDistance: Boolean,
+): OverlayContent = OverlayContent(
+    figures = buildList {
+        if (showDate) add(date)
+        if (showDuration) add(duration)
+        if (showDistance) add(distance)
+    },
+)

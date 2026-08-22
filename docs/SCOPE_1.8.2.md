@@ -149,11 +149,11 @@ verification pending":
 | GPS signal gap mid-ride | ⚠️ P0 |
 | Airplane mode / GPS off mid-ride | ⚠️ P0 |
 | No accelerometer — auto-pause degradation | ⚠️ P0 |
-| SOS notification and SMS failure paths | ⚠️ P0 ×4 |
+| ~~SOS notification and SMS failure paths~~ · **VOID — SOS retired 1.6.4/1.6.5** | n/a |
 | Storage nearly full | ⚠️ P1 |
 
 **What.** A written device-test matrix, executed once, with results recorded against each row. Some
-of these are automatable (process death via `adb shell am kill`); the SOS ones are not.
+of these are automatable (process death via `adb shell am kill`).
 
 **Why now.** These have been P0 through several releases. Either they get verified or the matrix
 should stop calling them P0, because a permanent P0 is not a priority, it is a decoration.

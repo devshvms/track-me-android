@@ -16,8 +16,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.res.painterResource
+import `in`.shvms.trackme.R
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -972,6 +976,22 @@ fun RideDetailScreen(
                 }
                 coroutineScope.launch(Dispatchers.IO) {
                     runCatching {
+                        // Built once, here, and handed to both the panel geometry and the exporter.
+                        // Deriving it twice is what let the file and the preview disagree (§8.1).
+                        val exportOverlayContent = buildOverlayContent(
+                            date = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
+                                .format(java.util.Date(ride.ride.startTime)),
+                            duration = compactDuration(
+                                (ride.ride.endTime ?: ride.ride.startTime) - ride.ride.startTime
+                            ),
+                            distance = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(
+                                ride.ride.postRideCalculation?.distance ?: 0.0,
+                                imperial
+                            ),
+                            showDate = settings.showDate,
+                            showDuration = settings.showDuration,
+                            showDistance = settings.showDistance,
+                        )
                         NativeSnapshotImageExporterImpl().export(
                             ride,
                             settings.ratio.first,
@@ -979,9 +999,8 @@ fun RideDetailScreen(
                             context,
                             bitmap,
                             ExportOptions(
-                                showStats = settings.statsOverlay.isVisible &&
-                                    (settings.showDate || settings.showDuration || settings.showDistance),
-                                statsPanel = settings.statsOverlay.rect()?.let { panel ->
+                                showStats = settings.statsOverlay.isVisible && !exportOverlayContent.isEmpty,
+                                statsPanel = settings.statsOverlay.rect(exportOverlayContent)?.let { panel ->
                                     `in`.shvms.trackme.domain.export.StatsPanelRect(
                                         left = panel.left,
                                         top = panel.top,
@@ -992,6 +1011,9 @@ fun RideDetailScreen(
                                         stackFigures = settings.statsOverlay.stacksFigures,
                                     )
                                 },
+                                // The exporter renders these verbatim rather than re-deriving them,
+                                // so the file cannot say something the preview did not — §8.3.
+                                overlayFigures = exportOverlayContent.figures,
                                 isDarkTheme = settings.darkTheme,
                                 showDistance = settings.showDistance,
                                 showDuration = settings.showDuration,
@@ -1202,20 +1224,49 @@ fun RideDetailScreen(
                     // Beside the Google mark the snapshot already carries, never over it.
                     TrackMeMapAttribution(modifier = Modifier.align(Alignment.BottomStart))
 
+                    // The exporter stamps this lockup on every file; the preview never showed it,
+                    // so the sharer only met it after exporting (SCOPE_1.8.4 §8.1). Mirrors
+                    // `drawTrackMeLockup`'s placement and dark plate.
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(with(density) { (previewWidthPx * AppConfig.LOCKUP_MARGIN_RATIO).toDp() })
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xDC12161C))
+                            .padding(horizontal = 4.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_trackme_logo),
+                            contentDescription = null,
+                            modifier = Modifier.size(with(density) { (previewWidthPx * AppConfig.LOCKUP_ICON_RATIO).toDp() })
+                        )
+                        Text(
+                            "TrackMe",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1
+                        )
+                    }
+
                     // Nothing selected means nothing drawn. A panel with an empty line in it is a
                     // smear across the map that says less than the map it is covering.
-                    val anyFigureSelected = settings.showDate || settings.showDuration || settings.showDistance
-                    settings.statsOverlay.rect()?.takeIf { anyFigureSelected }?.let { panel ->
+                    val overlayContent = run {
                         val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(rideWithPoints?.ride?.postRideCalculation?.distance ?: 0.0, imperial)
                         val durationMillis = (rideWithPoints?.ride?.endTime ?: rideWithPoints?.ride?.startTime ?: 0L) - (rideWithPoints?.ride?.startTime ?: 0L)
-                        val seconds = durationMillis / 1000
-                        val durationStr = compactDuration(durationMillis)
                         val dateStr = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date(rideWithPoints?.ride?.startTime ?: 0L))
-                        val stats = buildList {
-                            if (settings.showDate) add(dateStr)
-                            if (settings.showDuration) add(durationStr)
-                            if (settings.showDistance) add(distanceStr)
-                        }
+                        buildOverlayContent(
+                            date = dateStr,
+                            duration = compactDuration(durationMillis),
+                            distance = distanceStr,
+                            showDate = settings.showDate,
+                            showDuration = settings.showDuration,
+                            showDistance = settings.showDistance,
+                        )
+                    }
+                    settings.statsOverlay.rect(overlayContent)?.let { panel ->
+                        val stats = overlayContent.figures
                         val panelColor = if (settings.darkTheme) {
                             Color(AppConfig.OVERLAY_BANNER_COLOR).copy(alpha = AppConfig.OVERLAY_BANNER_ALPHA / 255f)
                         } else {
@@ -1244,8 +1295,6 @@ fun RideDetailScreen(
                                 Alignment.CenterStart
                             }
                         ) {
-                            // The ride title is gone. It is a name the sharer already knows and the
-                            // viewer gets from the caption, and it cost a fifth of the frame.
                             Column(
                                 horizontalAlignment = if (settings.statsOverlay.alignsTextEnd) {
                                     Alignment.End
