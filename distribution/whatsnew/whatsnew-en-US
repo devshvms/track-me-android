@@ -1,6 +1,5 @@
-TrackMe 1.8.4 — hands-free riding.
+TrackMe 1.8.4 — keep riding, keep your stats in view.
 
-• Floating dashboard — distance and pace stay visible while you navigate in another app. Picture-in-picture on Android, Dynamic Island on iOS.
-• Voice control — start, pause and resume a ride with Siri or Google Assistant, and ask how far you have gone.
-• Group answers you can trust — ask where another rider is and you are told how old that answer is. If we cannot vouch for it, we say so.
-• Share images now match their preview exactly.
+• Floating dashboard — your distance, pace and time stay on screen while you navigate in another app. Tap the home gesture mid-ride and TrackMe shrinks into a corner window instead of disappearing.
+• Share images now match their preview exactly, and the stats panel is sized to fit its text instead of a fixed band.
+• Fixes and polish across ride history and group rides.
