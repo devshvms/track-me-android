@@ -56,7 +56,8 @@ fun MapControlCircleButton(
     contentDescription: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    iconTint: Color = MaterialTheme.colorScheme.onSurface
+    iconTint: Color = MaterialTheme.colorScheme.onSurface,
+    enabled: Boolean = true,
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -73,6 +74,7 @@ fun MapControlCircleButton(
             triggerPhysicalVibrate(context, 35L)
             onClick()
         },
+        enabled = enabled,
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = LocalTrackMeElevation.current.mapOverlay,
@@ -84,7 +86,7 @@ fun MapControlCircleButton(
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                tint = iconTint,
+                tint = iconTint.copy(alpha = if (enabled) 1f else 0.38f),
                 modifier = Modifier.size(24.dp)
             )
         }

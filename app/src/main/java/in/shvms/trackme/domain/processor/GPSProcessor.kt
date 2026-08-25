@@ -180,7 +180,11 @@ class DefaultGPSProcessor(
             rawPointCount = rawPointCount
         )
 
-        val updatedRide = ride.copy(postRideCalculation = updatedCalc)
+        val updatedRide = ride.copy(postRideCalculation = updatedCalc).let { updated ->
+            val activeDuration = ((updated.endTime ?: updated.startTime) - updated.startTime - updatedCalc.pauseDuration)
+                .coerceAtLeast(0L)
+            `in`.shvms.trackme.data.local.withDashboardMetadata(updated, activeDuration)
+        }
         
         // Finalize in DB
         rideDao.deletePointsForRide(rideId)

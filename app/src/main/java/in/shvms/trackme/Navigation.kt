@@ -159,7 +159,11 @@ fun MainNavigation() {
                         .padding(bottom = innerPadding.calculateBottomPadding())
                 ) {
                     composable("home") {
-                        HomeScreen(onOpenCommunity = { navigateToTab("community") })
+                        HomeScreen(
+                            onOpenCommunity = { navigateToTab("community") },
+                            onOpenHistory = { navigateToTab("history") },
+                            onOpenRideDetail = { id -> navController.navigate("ride_detail/$id") },
+                        )
                     }
                     composable("history") { 
                         HistoryScreen(

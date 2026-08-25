@@ -103,7 +103,7 @@ object OrphanedRideRecoveryManager {
                 endTime = endTime,
                 title = newTitle,
                 postRideCalculation = calculation
-            )
+            ).let { `in`.shvms.trackme.data.local.withDashboardMetadata(it, durationMillis) }
 
             rideDao.updateRide(recoveredRide)
             recoveredCount++

@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
+import `in`.shvms.trackme.domain.model.RidePersona
 
 class AppPreferencesManager(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
@@ -33,6 +34,15 @@ class AppPreferencesManager(private val context: Context) {
     // First use is enabled by design: a recording ride enters PiP without an interrupting dialog.
     private val _pipDashboardEnabled = MutableStateFlow(prefs.getBoolean("pip_dashboard_enabled", true))
     val pipDashboardEnabled: StateFlow<Boolean> = _pipDashboardEnabled.asStateFlow()
+
+    private val _lastStartedPersona = MutableStateFlow(
+        prefs.getString("last_started_persona", null)
+            ?.let { runCatching { RidePersona.valueOf(it) }.getOrNull() }
+            ?: prefs.getString("onboarding_persona", null)
+                ?.let { runCatching { RidePersona.valueOf(it) }.getOrNull() }
+            ?: RidePersona.AUTO
+    )
+    val lastStartedPersona: StateFlow<RidePersona> = _lastStartedPersona.asStateFlow()
 
     init {
         updateSystemLocale(_appLanguage.value)
@@ -68,6 +78,18 @@ class AppPreferencesManager(private val context: Context) {
     fun setPiPDashboardEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("pip_dashboard_enabled", enabled).apply()
         _pipDashboardEnabled.value = enabled
+    }
+
+    /** Called only after the service has inserted the recording row successfully. */
+    fun setLastStartedPersona(persona: RidePersona) {
+        prefs.edit().putString("last_started_persona", persona.name).apply()
+        _lastStartedPersona.value = persona
+    }
+
+    /** The onboarding choice seeds Home until a real recording has committed. */
+    fun setOnboardingPersona(persona: RidePersona) {
+        prefs.edit().putString("onboarding_persona", persona.name).apply()
+        if (!prefs.contains("last_started_persona")) _lastStartedPersona.value = persona
     }
 
     private fun defaultUnitFromLocale(): String = if (Locale.getDefault().country.uppercase() in setOf("US", "GB", "MM", "LR")) "imperial" else "metric"

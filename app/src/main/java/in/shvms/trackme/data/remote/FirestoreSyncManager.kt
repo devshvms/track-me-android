@@ -466,7 +466,10 @@ class FirestoreSyncManager(
                 title = title,
                 persona = persona,
                 postRideCalculation = calc
-            )
+            ).let { ride ->
+                val activeDuration = ((endTime ?: startTime) - startTime - calc.pauseDuration).coerceAtLeast(0L)
+                `in`.shvms.trackme.data.local.withDashboardMetadata(ride, activeDuration)
+            }
             val rideId = rideDao.insertRide(newRide)
 
             if (gpsPoints.isNotEmpty()) {

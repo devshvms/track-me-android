@@ -9,13 +9,21 @@ import `in`.shvms.trackme.service.TrackingState
 import `in`.shvms.trackme.service.EmergencyManager
 import `in`.shvms.trackme.auth.AuthManager
 import `in`.shvms.trackme.data.local.AppPreferencesManager
+import `in`.shvms.trackme.data.local.HomeDashboardRepository
+import `in`.shvms.trackme.data.local.dao.HomeDashboardRoutePoint
+import `in`.shvms.trackme.data.remote.FirestoreSyncManager
+import `in`.shvms.trackme.data.remote.SyncResult
+import `in`.shvms.trackme.domain.home.HomeDashboardSummary
 import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -56,6 +64,10 @@ data class HomeUiState(
     val isAutoPaused: Boolean = false,
     val inferredActivityType: `in`.shvms.trackme.domain.processor.InferredActivityType = `in`.shvms.trackme.domain.processor.InferredActivityType.RUN_OR_TREK,
     val selectedPersona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO,
+    val selectedDashboardPersona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO,
+    val dashboardSummary: HomeDashboardSummary = HomeDashboardSummary.empty(0L),
+    val isDashboardReconciling: Boolean = true,
+    val dashboardSyncNeedsAction: Boolean = false,
     val isAuthenticated: Boolean = false,
     val userName: String? = null
 )
@@ -65,8 +77,39 @@ class HomeViewModel(
     private val emergencyManager: EmergencyManager,
     private val authManager: AuthManager,
     private val liveShareManager: LiveShareManager,
-    private val preferencesManager: AppPreferencesManager
+    private val preferencesManager: AppPreferencesManager,
+    private val dashboardRepository: HomeDashboardRepository,
+    private val firestoreSyncManager: FirestoreSyncManager,
 ) : ViewModel() {
+
+    private val selectedDashboardPersona = MutableStateFlow(preferencesManager.lastStartedPersona.value)
+    private val _dashboardRoute = MutableStateFlow<List<HomeDashboardRoutePoint>>(emptyList())
+    val dashboardRoute: StateFlow<List<HomeDashboardRoutePoint>> = _dashboardRoute.asStateFlow()
+    private var loadedDashboardRouteId: Long? = null
+
+    private data class DashboardState(
+        val summary: HomeDashboardSummary,
+        val persona: `in`.shvms.trackme.domain.model.RidePersona,
+        val reconciling: Boolean,
+        val syncNeedsAction: Boolean,
+    )
+
+    private val dashboardState = combine(
+        dashboardRepository.summary,
+        selectedDashboardPersona,
+        dashboardRepository.isReconciling,
+        firestoreSyncManager.syncResult,
+    ) { summary, persona, reconciling, syncResult ->
+        DashboardState(summary, persona, reconciling, syncResult is SyncResult.Error)
+    }
+
+    init {
+        viewModelScope.launch {
+            preferencesManager.lastStartedPersona.collect { committed ->
+                selectedDashboardPersona.value = committed
+            }
+        }
+    }
 
     // One-shot, Context-free UI events (service commands + toast-worthy outcomes). The
     // ViewModel must not hold a Context, so it emits data describing WHAT happened; HomeScreen
@@ -148,13 +191,18 @@ class HomeViewModel(
         trackingStats,
         emergencyManager.isEmergencyActive,
         liveShareManager.state,
-        authManager.currentUser
-    ) { stats, isEmergency, liveShare, user ->
+        authManager.currentUser,
+        dashboardState,
+    ) { stats, isEmergency, liveShare, user, dashboard ->
         stats.copy(
             isEmergencyActive = isEmergency,
             liveShareState = liveShare,
             isAuthenticated = user != null,
-            userName = user?.displayName
+            userName = user?.displayName,
+            selectedDashboardPersona = dashboard.persona,
+            dashboardSummary = dashboard.summary,
+            isDashboardReconciling = dashboard.reconciling,
+            dashboardSyncNeedsAction = dashboard.syncNeedsAction,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
 
@@ -199,6 +247,19 @@ class HomeViewModel(
     fun startTracking(persona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO) {
         trackingManager.setSelectedPersona(persona)
         sendCommandToService(TrackingService.ACTION_START_OR_RESUME_SERVICE)
+    }
+
+    fun selectDashboardPersona(persona: `in`.shvms.trackme.domain.model.RidePersona) {
+        selectedDashboardPersona.value = persona
+    }
+
+    fun loadDashboardRoute(localId: Long) {
+        if (loadedDashboardRouteId == localId) return
+        loadedDashboardRouteId = localId
+        _dashboardRoute.value = emptyList()
+        viewModelScope.launch {
+            _dashboardRoute.value = dashboardRepository.routePreview(localId)
+        }
     }
 
     fun pauseTracking() {
@@ -258,12 +319,22 @@ class HomeViewModelFactory(
     private val emergencyManager: EmergencyManager,
     private val authManager: AuthManager,
     private val liveShareManager: LiveShareManager,
-    private val preferencesManager: AppPreferencesManager
+    private val preferencesManager: AppPreferencesManager,
+    private val dashboardRepository: HomeDashboardRepository,
+    private val firestoreSyncManager: FirestoreSyncManager,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return HomeViewModel(trackingManager, emergencyManager, authManager, liveShareManager, preferencesManager) as T
+            return HomeViewModel(
+                trackingManager,
+                emergencyManager,
+                authManager,
+                liveShareManager,
+                preferencesManager,
+                dashboardRepository,
+                firestoreSyncManager,
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

@@ -30,6 +30,8 @@ import kotlinx.coroutines.launch
 
 class TrackMeApp : Application() {
     lateinit var database: AppDatabase
+    lateinit var homeDashboardRepository: `in`.shvms.trackme.data.local.HomeDashboardRepository
+        private set
     lateinit var trackingManager: TrackingManager
     internal lateinit var pipAlertStore: `in`.shvms.trackme.ui.home.components.PiPAlertStore
         private set
@@ -101,6 +103,7 @@ class TrackMeApp : Application() {
         // The CTA lands on Home rather than starting a permission-gated recording. The chosen
         // persona becomes the idle Start control's explicit default for that first real gesture.
         trackingManager.setSelectedPersona(outcome.selectedPersona)
+        preferencesManager.setOnboardingPersona(outcome.selectedPersona)
 
         applicationScope.launch(Dispatchers.IO) { seedOnboardingSampleRideIfNeeded() }
     }
@@ -214,9 +217,23 @@ class TrackMeApp : Application() {
             AppDatabase::class.java,
             "trackme_db"
         )
-        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11, AppDatabase.MIGRATION_11_12)
+        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11, AppDatabase.MIGRATION_11_12, AppDatabase.MIGRATION_12_13)
         .fallbackToDestructiveMigration()
         .build()
+
+        homeDashboardRepository = `in`.shvms.trackme.data.local.HomeDashboardRepository(
+            database.homeDashboardDao(),
+            database.rideDao(),
+        )
+        // Upgrade work starts with the application, not with Home. Home only observes the
+        // authoritative aggregate flow and its loading state; it never rebuilds ride metrics.
+        applicationScope.launch(Dispatchers.IO) {
+            try {
+                homeDashboardRepository.reconcileLegacyMetadata()
+            } catch (e: Exception) {
+                errorLogger.recordException(e)
+            }
+        }
         
         trackingManager = TrackingManager()
         pipAlertStore = `in`.shvms.trackme.ui.home.components.PiPAlertStore(applicationScope)

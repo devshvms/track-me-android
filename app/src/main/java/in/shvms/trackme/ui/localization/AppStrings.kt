@@ -32,6 +32,37 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val startRideAction: String = s("startRideAction", "Start ride")
     val dragToSelect: String = s("dragToSelect", "Drag to select")
     val dismissStartRideHint: String = s("dismissStartRideHint", "Got it")
+    val dashboardStartPersona: String = s("dashboardStartPersona", "Start %1\$s")
+    val dashboardChangeActivity: String = s("dashboardChangeActivity", "Change activity")
+    val dashboardThisWeek: String = s("dashboardThisWeek", "This week")
+    val dashboardActivityCount: String = s("dashboardActivityCount", "%1\$d activities")
+    val dashboardDurationHours: String = s("dashboardDurationHours", "%1\$dh %2\$dm")
+    val dashboardDurationMinutes: String = s("dashboardDurationMinutes", "%1\$dm")
+    val dashboardWeeklyStreak: String = s("dashboardWeeklyStreak", "%1\$d-week streak")
+    val dashboardInsights: String = s("dashboardInsights", "Insights")
+    val dashboardInsightPersonalBestDistance: String = s("dashboardInsightPersonalBestDistance", "Your latest %1\$s was a new distance best.")
+    val dashboardInsightPersonalBestDuration: String = s("dashboardInsightPersonalBestDuration", "Your latest %1\$s was a new duration best.")
+    val dashboardInsightReturn: String = s("dashboardInsightReturn", "Welcome back to %1\$s after %2\$d days.")
+    val dashboardInsightHigher: String = s("dashboardInsightHigher", "You recorded more distance in the recent period.")
+    val dashboardInsightStable: String = s("dashboardInsightStable", "Your recent distance was steady.")
+    val dashboardInsightLower: String = s("dashboardInsightLower", "A lighter recent period.")
+    val dashboardInsightDominant: String = s("dashboardInsightDominant", "%1\$s led your recent activities.")
+    val dashboardInsightBasisHistory: String = s("dashboardInsightBasisHistory", "Based on your qualifying activity history")
+    val dashboardInsightBasisWeeks: String = s("dashboardInsightBasisWeeks", "Based on comparable active weeks")
+    val dashboardRecentActivity: String = s("dashboardRecentActivity", "Recent activity")
+    val dashboardViewAllHistory: String = s("dashboardViewAllHistory", "View all history")
+    val dashboardPrivateOffline: String = s("dashboardPrivateOffline", "Private by default • Works offline")
+    val dashboardPreviewWeekly: String = s("dashboardPreviewWeekly", "See weekly distance")
+    val dashboardPreviewBests: String = s("dashboardPreviewBests", "Spot personal bests")
+    val dashboardPreviewRoutes: String = s("dashboardPreviewRoutes", "Revisit recent routes")
+    val dashboardLocationAfterStart: String = s("dashboardLocationAfterStart", "Location is requested after Start so TrackMe can record your route.")
+    val dashboardLoadingHistory: String = s("dashboardLoadingHistory", "Preparing your activity history…")
+    val dashboardWeeklyChart: String = s("dashboardWeeklyChart", "Weekly distance chart")
+    val dashboardGroupActive: String = s("dashboardGroupActive", "Group session active")
+    val dashboardGroupMembers: String = s("dashboardGroupMembers", "%1\$d members")
+    val dashboardViewLiveMap: String = s("dashboardViewLiveMap", "View live map")
+    val dashboardSyncAction: String = s("dashboardSyncAction", "Some history could not sync. Open History to retry.")
+    val dashboardOfflineReady: String = s("dashboardOfflineReady", "Your dashboard and recording stay available offline.")
     val pauseTracking: String = s("pauseTracking", "Pause Tracking")
     val resumeTracking: String = s("resumeTracking", "Resume Tracking")
     val stopTracking: String = s("stopTracking", "Stop Tracking")
@@ -696,6 +727,37 @@ val SUPPORTED_LANGUAGE_CODES: List<String> = listOf("en", "es", "fr", "de", "hi"
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
         "es" -> AppStrings(mapOf(
+            "dashboardStartPersona" to "Iniciar %1\$s",
+            "dashboardChangeActivity" to "Cambiar actividad",
+            "dashboardThisWeek" to "Esta semana",
+            "dashboardActivityCount" to "%1\$d actividades",
+            "dashboardDurationHours" to "%1\$d h %2\$d min",
+            "dashboardDurationMinutes" to "%1\$d min",
+            "dashboardWeeklyStreak" to "Racha de %1\$d semanas",
+            "dashboardInsights" to "Datos destacados",
+            "dashboardInsightPersonalBestDistance" to "Tu última actividad de %1\$s marcó un nuevo récord de distancia.",
+            "dashboardInsightPersonalBestDuration" to "Tu última actividad de %1\$s marcó un nuevo récord de duración.",
+            "dashboardInsightReturn" to "Qué bueno volver a %1\$s después de %2\$d días.",
+            "dashboardInsightHigher" to "Registraste más distancia en el período reciente.",
+            "dashboardInsightStable" to "Tu distancia reciente se mantuvo estable.",
+            "dashboardInsightLower" to "Un período reciente más ligero.",
+            "dashboardInsightDominant" to "%1\$s fue tu actividad más frecuente recientemente.",
+            "dashboardInsightBasisHistory" to "Basado en tu historial de actividades válidas",
+            "dashboardInsightBasisWeeks" to "Basado en semanas activas comparables",
+            "dashboardRecentActivity" to "Actividad reciente",
+            "dashboardViewAllHistory" to "Ver todo el historial",
+            "dashboardPrivateOffline" to "Privado de forma predeterminada • Funciona sin conexión",
+            "dashboardPreviewWeekly" to "Consulta la distancia semanal",
+            "dashboardPreviewBests" to "Detecta récords personales",
+            "dashboardPreviewRoutes" to "Vuelve a tus rutas recientes",
+            "dashboardLocationAfterStart" to "La ubicación se solicita después de Iniciar para que TrackMe pueda registrar tu ruta.",
+            "dashboardLoadingHistory" to "Preparando tu historial de actividades…",
+            "dashboardWeeklyChart" to "Gráfico de distancia semanal",
+            "dashboardGroupActive" to "Sesión de grupo activa",
+            "dashboardGroupMembers" to "%1\$d miembros",
+            "dashboardViewLiveMap" to "Ver mapa en vivo",
+            "dashboardSyncAction" to "Parte del historial no se pudo sincronizar. Abre Historial para reintentar.",
+            "dashboardOfflineReady" to "Tu panel y la grabación siguen disponibles sin conexión.",
             "obHistorySampleDuration" to "48:20",
             "obDemoStepCounter" to "Paso %1\$d de %2\$d",
             "obDemoSkipStep" to "Omitir paso",
@@ -1241,6 +1303,37 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
         "fr" -> AppStrings(mapOf(
+            "dashboardStartPersona" to "Démarrer %1\$s",
+            "dashboardChangeActivity" to "Changer d’activité",
+            "dashboardThisWeek" to "Cette semaine",
+            "dashboardActivityCount" to "%1\$d activités",
+            "dashboardDurationHours" to "%1\$d h %2\$d min",
+            "dashboardDurationMinutes" to "%1\$d min",
+            "dashboardWeeklyStreak" to "Série de %1\$d semaines",
+            "dashboardInsights" to "Tendances",
+            "dashboardInsightPersonalBestDistance" to "Votre dernière activité %1\$s établit un nouveau record de distance.",
+            "dashboardInsightPersonalBestDuration" to "Votre dernière activité %1\$s établit un nouveau record de durée.",
+            "dashboardInsightReturn" to "Heureux de vous revoir en %1\$s après %2\$d jours.",
+            "dashboardInsightHigher" to "Vous avez parcouru plus de distance sur la période récente.",
+            "dashboardInsightStable" to "Votre distance récente est restée stable.",
+            "dashboardInsightLower" to "Une période récente plus légère.",
+            "dashboardInsightDominant" to "%1\$s a dominé vos activités récentes.",
+            "dashboardInsightBasisHistory" to "D’après votre historique d’activités admissibles",
+            "dashboardInsightBasisWeeks" to "D’après des semaines actives comparables",
+            "dashboardRecentActivity" to "Activité récente",
+            "dashboardViewAllHistory" to "Voir tout l’historique",
+            "dashboardPrivateOffline" to "Privé par défaut • Fonctionne hors ligne",
+            "dashboardPreviewWeekly" to "Consultez la distance hebdomadaire",
+            "dashboardPreviewBests" to "Repérez vos records personnels",
+            "dashboardPreviewRoutes" to "Retrouvez vos itinéraires récents",
+            "dashboardLocationAfterStart" to "La localisation est demandée après Démarrer afin que TrackMe puisse enregistrer votre itinéraire.",
+            "dashboardLoadingHistory" to "Préparation de votre historique d’activités…",
+            "dashboardWeeklyChart" to "Graphique de distance hebdomadaire",
+            "dashboardGroupActive" to "Session de groupe active",
+            "dashboardGroupMembers" to "%1\$d membres",
+            "dashboardViewLiveMap" to "Voir la carte en direct",
+            "dashboardSyncAction" to "Une partie de l’historique n’a pas pu être synchronisée. Ouvrez Historique pour réessayer.",
+            "dashboardOfflineReady" to "Votre tableau de bord et l’enregistrement restent disponibles hors ligne.",
             "obHistorySampleDuration" to "48:20",
             "obDemoStepCounter" to "Étape %1\$d sur %2\$d",
             "obDemoSkipStep" to "Passer l’étape",
@@ -1786,6 +1879,37 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Session ouverte",
         ))
         "de" -> AppStrings(mapOf(
+            "dashboardStartPersona" to "%1\$s starten",
+            "dashboardChangeActivity" to "Aktivität ändern",
+            "dashboardThisWeek" to "Diese Woche",
+            "dashboardActivityCount" to "%1\$d Aktivitäten",
+            "dashboardDurationHours" to "%1\$d Std. %2\$d Min.",
+            "dashboardDurationMinutes" to "%1\$d Min.",
+            "dashboardWeeklyStreak" to "%1\$d-Wochen-Serie",
+            "dashboardInsights" to "Einblicke",
+            "dashboardInsightPersonalBestDistance" to "Deine letzte %1\$s-Aktivität war ein neuer Distanzrekord.",
+            "dashboardInsightPersonalBestDuration" to "Deine letzte %1\$s-Aktivität war ein neuer Dauerrekord.",
+            "dashboardInsightReturn" to "Willkommen zurück bei %1\$s nach %2\$d Tagen.",
+            "dashboardInsightHigher" to "Im letzten Zeitraum hast du mehr Distanz aufgezeichnet.",
+            "dashboardInsightStable" to "Deine letzte Distanz blieb stabil.",
+            "dashboardInsightLower" to "Ein ruhigerer letzter Zeitraum.",
+            "dashboardInsightDominant" to "%1\$s war zuletzt deine häufigste Aktivität.",
+            "dashboardInsightBasisHistory" to "Basierend auf deinem gültigen Aktivitätsverlauf",
+            "dashboardInsightBasisWeeks" to "Basierend auf vergleichbaren aktiven Wochen",
+            "dashboardRecentActivity" to "Letzte Aktivität",
+            "dashboardViewAllHistory" to "Gesamten Verlauf anzeigen",
+            "dashboardPrivateOffline" to "Standardmäßig privat • Funktioniert offline",
+            "dashboardPreviewWeekly" to "Wöchentliche Distanz ansehen",
+            "dashboardPreviewBests" to "Persönliche Bestwerte erkennen",
+            "dashboardPreviewRoutes" to "Letzte Routen erneut ansehen",
+            "dashboardLocationAfterStart" to "Der Standort wird erst nach Start angefordert, damit TrackMe deine Route aufzeichnen kann.",
+            "dashboardLoadingHistory" to "Aktivitätsverlauf wird vorbereitet…",
+            "dashboardWeeklyChart" to "Diagramm der wöchentlichen Distanz",
+            "dashboardGroupActive" to "Gruppensitzung aktiv",
+            "dashboardGroupMembers" to "%1\$d Mitglieder",
+            "dashboardViewLiveMap" to "Live-Karte anzeigen",
+            "dashboardSyncAction" to "Ein Teil des Verlaufs konnte nicht synchronisiert werden. Öffne den Verlauf, um es erneut zu versuchen.",
+            "dashboardOfflineReady" to "Dashboard und Aufzeichnung bleiben offline verfügbar.",
             "obHistorySampleDuration" to "48:20",
             "obDemoStepCounter" to "Schritt %1\$d von %2\$d",
             "obDemoSkipStep" to "Schritt überspringen",
@@ -2331,6 +2455,37 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Angemeldet",
         ))
         "hi" -> AppStrings(mapOf(
+            "dashboardStartPersona" to "%1\$s शुरू करें",
+            "dashboardChangeActivity" to "गतिविधि बदलें",
+            "dashboardThisWeek" to "इस सप्ताह",
+            "dashboardActivityCount" to "%1\$d गतिविधियाँ",
+            "dashboardDurationHours" to "%1\$d घं %2\$d मि",
+            "dashboardDurationMinutes" to "%1\$d मि",
+            "dashboardWeeklyStreak" to "%1\$d सप्ताह की निरंतरता",
+            "dashboardInsights" to "जानकारी",
+            "dashboardInsightPersonalBestDistance" to "आपकी पिछली %1\$s गतिविधि दूरी का नया सर्वश्रेष्ठ रिकॉर्ड थी।",
+            "dashboardInsightPersonalBestDuration" to "आपकी पिछली %1\$s गतिविधि अवधि का नया सर्वश्रेष्ठ रिकॉर्ड थी।",
+            "dashboardInsightReturn" to "%2\$d दिनों बाद %1\$s में आपका फिर स्वागत है।",
+            "dashboardInsightHigher" to "हाल की अवधि में आपने अधिक दूरी रिकॉर्ड की।",
+            "dashboardInsightStable" to "आपकी हाल की दूरी स्थिर रही।",
+            "dashboardInsightLower" to "हाल की अवधि थोड़ी हल्की रही।",
+            "dashboardInsightDominant" to "हाल की गतिविधियों में %1\$s सबसे अधिक रही।",
+            "dashboardInsightBasisHistory" to "आपकी योग्य गतिविधियों के इतिहास पर आधारित",
+            "dashboardInsightBasisWeeks" to "तुलनीय सक्रिय सप्ताहों पर आधारित",
+            "dashboardRecentActivity" to "हाल की गतिविधि",
+            "dashboardViewAllHistory" to "पूरा इतिहास देखें",
+            "dashboardPrivateOffline" to "डिफ़ॉल्ट रूप से निजी • ऑफ़लाइन काम करता है",
+            "dashboardPreviewWeekly" to "साप्ताहिक दूरी देखें",
+            "dashboardPreviewBests" to "व्यक्तिगत सर्वश्रेष्ठ पहचानें",
+            "dashboardPreviewRoutes" to "हाल के मार्ग दोबारा देखें",
+            "dashboardLocationAfterStart" to "TrackMe आपके मार्ग को रिकॉर्ड कर सके, इसलिए स्थान की अनुमति शुरू करने के बाद माँगी जाती है।",
+            "dashboardLoadingHistory" to "आपकी गतिविधि का इतिहास तैयार हो रहा है…",
+            "dashboardWeeklyChart" to "साप्ताहिक दूरी चार्ट",
+            "dashboardGroupActive" to "समूह सत्र सक्रिय है",
+            "dashboardGroupMembers" to "%1\$d सदस्य",
+            "dashboardViewLiveMap" to "लाइव मैप देखें",
+            "dashboardSyncAction" to "कुछ इतिहास सिंक नहीं हो सका। फिर कोशिश करने के लिए इतिहास खोलें।",
+            "dashboardOfflineReady" to "आपका डैशबोर्ड और रिकॉर्डिंग ऑफ़लाइन भी उपलब्ध रहते हैं।",
             "obHistorySampleDuration" to "48:20",
             "obDemoStepCounter" to "चरण %1\$d / %2\$d",
             "obDemoSkipStep" to "चरण छोड़ें",
@@ -2876,6 +3031,37 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "साइन इन",
         ))
         "ja" -> AppStrings(mapOf(
+            "dashboardStartPersona" to "%1\$sを開始",
+            "dashboardChangeActivity" to "アクティビティを変更",
+            "dashboardThisWeek" to "今週",
+            "dashboardActivityCount" to "%1\$d件のアクティビティ",
+            "dashboardDurationHours" to "%1\$d時間%2\$d分",
+            "dashboardDurationMinutes" to "%1\$d分",
+            "dashboardWeeklyStreak" to "%1\$d週間連続",
+            "dashboardInsights" to "インサイト",
+            "dashboardInsightPersonalBestDistance" to "直近の%1\$sで距離の自己ベストを更新しました。",
+            "dashboardInsightPersonalBestDuration" to "直近の%1\$sで時間の自己ベストを更新しました。",
+            "dashboardInsightReturn" to "%2\$d日ぶりの%1\$s、おかえりなさい。",
+            "dashboardInsightHigher" to "直近の期間は記録した距離が増えました。",
+            "dashboardInsightStable" to "直近の距離は安定していました。",
+            "dashboardInsightLower" to "直近は軽めの期間でした。",
+            "dashboardInsightDominant" to "最近は%1\$sが最も多いアクティビティでした。",
+            "dashboardInsightBasisHistory" to "対象となるアクティビティ履歴に基づく情報",
+            "dashboardInsightBasisWeeks" to "比較可能なアクティブ週に基づく情報",
+            "dashboardRecentActivity" to "最近のアクティビティ",
+            "dashboardViewAllHistory" to "履歴をすべて表示",
+            "dashboardPrivateOffline" to "初期設定で非公開 • オフライン対応",
+            "dashboardPreviewWeekly" to "週間距離を確認",
+            "dashboardPreviewBests" to "自己ベストを発見",
+            "dashboardPreviewRoutes" to "最近のルートを振り返る",
+            "dashboardLocationAfterStart" to "TrackMeがルートを記録できるよう、位置情報は開始後に求められます。",
+            "dashboardLoadingHistory" to "アクティビティ履歴を準備しています…",
+            "dashboardWeeklyChart" to "週間距離グラフ",
+            "dashboardGroupActive" to "グループセッションが進行中",
+            "dashboardGroupMembers" to "%1\$d人のメンバー",
+            "dashboardViewLiveMap" to "ライブマップを表示",
+            "dashboardSyncAction" to "一部の履歴を同期できませんでした。履歴を開いて再試行してください。",
+            "dashboardOfflineReady" to "ダッシュボードと記録はオフラインでも利用できます。",
             "obHistorySampleDuration" to "48:20",
             "obHistorySampleDistance" to "12.4 km",
             "obDemoStepCounter" to "%2\$d ステップ中 %1\$d",
@@ -3421,6 +3607,37 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "サインイン済み",
         ))
         "zh" -> AppStrings(mapOf(
+            "dashboardStartPersona" to "开始%1\$s",
+            "dashboardChangeActivity" to "更改活动",
+            "dashboardThisWeek" to "本周",
+            "dashboardActivityCount" to "%1\$d 次活动",
+            "dashboardDurationHours" to "%1\$d 小时 %2\$d 分钟",
+            "dashboardDurationMinutes" to "%1\$d 分钟",
+            "dashboardWeeklyStreak" to "连续 %1\$d 周",
+            "dashboardInsights" to "洞察",
+            "dashboardInsightPersonalBestDistance" to "你最近一次%1\$s创下了新的距离最佳记录。",
+            "dashboardInsightPersonalBestDuration" to "你最近一次%1\$s创下了新的时长最佳记录。",
+            "dashboardInsightReturn" to "时隔 %2\$d 天，欢迎再次%1\$s。",
+            "dashboardInsightHigher" to "最近一段时间记录的距离更多。",
+            "dashboardInsightStable" to "你最近的距离保持稳定。",
+            "dashboardInsightLower" to "最近是一段较轻松的时期。",
+            "dashboardInsightDominant" to "%1\$s是你近期最多的活动。",
+            "dashboardInsightBasisHistory" to "依据符合条件的活动历史",
+            "dashboardInsightBasisWeeks" to "依据可比较的活跃周",
+            "dashboardRecentActivity" to "最近活动",
+            "dashboardViewAllHistory" to "查看全部历史",
+            "dashboardPrivateOffline" to "默认私密 • 支持离线使用",
+            "dashboardPreviewWeekly" to "查看每周距离",
+            "dashboardPreviewBests" to "发现个人最佳",
+            "dashboardPreviewRoutes" to "回顾最近路线",
+            "dashboardLocationAfterStart" to "点击开始后才会请求位置权限，以便 TrackMe 记录你的路线。",
+            "dashboardLoadingHistory" to "正在准备你的活动历史…",
+            "dashboardWeeklyChart" to "每周距离图表",
+            "dashboardGroupActive" to "群组活动进行中",
+            "dashboardGroupMembers" to "%1\$d 位成员",
+            "dashboardViewLiveMap" to "查看实时地图",
+            "dashboardSyncAction" to "部分历史记录无法同步。请打开历史记录重试。",
+            "dashboardOfflineReady" to "仪表盘和记录功能在离线时仍可使用。",
             "obHistorySampleDuration" to "48:20",
             "obDemoStepCounter" to "第 %1\$d 步，共 %2\$d 步",
             "obDemoSkipStep" to "跳过此步骤",

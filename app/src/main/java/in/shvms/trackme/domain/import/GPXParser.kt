@@ -146,7 +146,7 @@ class GPXParser {
             isSynced = false,
             title = rideName ?: "Imported Ride",
             postRideCalculation = calc
-        )
+        ).let { `in`.shvms.trackme.data.local.withDashboardMetadata(it, durationMillis) }
 
         val rideWithPoints = RideWithPoints(ride, points)
 

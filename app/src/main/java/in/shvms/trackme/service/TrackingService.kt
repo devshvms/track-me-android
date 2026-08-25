@@ -319,6 +319,9 @@ class TrackingService : Service() {
                     )
                     currentRideId = rideId
                     activeRideId = rideId
+                    (application as TrackMeApp).preferencesManager.setLastStartedPersona(
+                        trackingManager.selectedPersona.value
+                    )
                     setPersistedActiveSession(true)
                     setPersistedPausedSession(false)
 
@@ -1087,14 +1090,14 @@ class TrackingService : Service() {
                 distance = finalDistance,
                 maxSpeed = maxSpeed,
                 avgSpeed = avgSpeed,
-                pauseDuration = 0L
+                pauseDuration = (System.currentTimeMillis() - ride.startTime - finalDuration).coerceAtLeast(0L)
             )
             
             val finishedRide = ride.copy(
                 endTime = System.currentTimeMillis(), 
                 title = newTitle,
                 postRideCalculation = calc
-            )
+            ).let { `in`.shvms.trackme.data.local.withDashboardMetadata(it, finalDuration) }
             rideDao.updateRide(finishedRide)
             
             `in`.shvms.trackme.analytics.AnalyticsManager.trackRideCompleted(
