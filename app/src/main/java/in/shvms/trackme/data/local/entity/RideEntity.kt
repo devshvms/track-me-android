@@ -30,6 +30,11 @@ data class RideEntity(
     val title: String? = null,
     val persona: String = "AUTO",
     /**
+     * IANA zone captured when a locally recorded ride starts. Legacy/imported rides remain null
+     * and deliberately retain the historical device-zone fallback at read time.
+     */
+    val startZoneId: String? = null,
+    /**
      * First-run sample rides are full local rides for replay/export, but are deliberately excluded
      * from cloud sync and retention aggregates. Defaults to false for every pre-1.8.2 row.
      */
@@ -57,6 +62,8 @@ data class RideEntity(
     val qualifiesForStats: Boolean = false,
     /** Active (pause-excluded) duration used by dashboard projections. */
     val dashboardActiveDurationMillis: Long = 0L,
+    /** Persisted route availability fact; Home never probes gps_points to decide card content. */
+    val dashboardPointCount: Int = 0,
     /** Version of the rebuildable dashboard metadata contract; 0 means reconciliation is pending. */
     val dashboardMetadataVersion: Int = 0,
     @Embedded

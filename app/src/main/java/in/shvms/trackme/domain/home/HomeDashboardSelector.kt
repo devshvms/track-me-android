@@ -25,7 +25,7 @@ object HomeDashboardSelector {
             compareByDescending<HomeDashboardRideProjection> { it.startedAtEpochMillis }
                 .thenByDescending { it.localId }
         )
-        val grouped = sorted.groupBy { weekStart(dateOf(it.startedAtEpochMillis, zoneId)) }
+        val grouped = sorted.groupBy { weekStart(dateOf(it, zoneId)) }
         val chartBuckets = (CHART_WEEKS - 1 downTo 0).map { weeksAgo ->
             val start = currentWeekStart.minusWeeks(weeksAgo.toLong())
             weeklyBucket(start, grouped[start].orEmpty())
@@ -34,7 +34,7 @@ object HomeDashboardSelector {
         val activeWeekStarts = grouped.keys.sortedDescending()
         val recentActiveStarts = activeWeekStarts.take(INSIGHT_ACTIVE_WEEKS).toSet()
         val recentPersonaRides = sorted.filter {
-            weekStart(dateOf(it.startedAtEpochMillis, zoneId)) in recentActiveStarts
+            weekStart(dateOf(it, zoneId)) in recentActiveStarts
         }
         val personaCounts = RidePersona.entries.mapNotNull { persona ->
             val count = recentPersonaRides.count { personaOf(it.personaRaw) == persona }
@@ -106,8 +106,8 @@ object HomeDashboardSelector {
         rides: List<HomeDashboardRideProjection>,
         zoneId: ZoneId,
     ): HomeInsight.Return? {
-        val latestDate = dateOf(rides[0].startedAtEpochMillis, zoneId)
-        val previousDate = dateOf(rides[1].startedAtEpochMillis, zoneId)
+        val latestDate = dateOf(rides[0], zoneId)
+        val previousDate = dateOf(rides[1], zoneId)
         val inactiveDays = java.time.temporal.ChronoUnit.DAYS.between(previousDate, latestDate)
         return if (inactiveDays >= 14) {
             HomeInsight.Return(personaOf(rides[0].personaRaw), inactiveDays)
@@ -129,7 +129,7 @@ object HomeDashboardSelector {
         val elapsedDay = java.time.temporal.ChronoUnit.DAYS.between(currentWeekStart, today)
         val comparisonEndInclusive = comparisonStart.plusDays(elapsedDay)
         val comparison = grouped[comparisonStart].orEmpty().filter {
-            !dateOf(it.startedAtEpochMillis, zoneId).isAfter(comparisonEndInclusive)
+            !dateOf(it, zoneId).isAfter(comparisonEndInclusive)
         }
         return comparison(
             currentValue = current.sumOf { it.distanceMeters },
@@ -165,7 +165,7 @@ object HomeDashboardSelector {
     ): HomeInsight.DominantPersona? {
         val window = activeWeekStarts.take(INSIGHT_ACTIVE_WEEKS)
         if (window.isEmpty()) return null
-        val candidates = rides.filter { weekStart(dateOf(it.startedAtEpochMillis, zoneId)) in window }
+        val candidates = rides.filter { weekStart(dateOf(it, zoneId)) in window }
         if (candidates.size < 3) return null
         val counts = candidates.groupingBy { personaOf(it.personaRaw) }.eachCount()
         val max = counts.values.maxOrNull() ?: return null
@@ -242,8 +242,12 @@ object HomeDashboardSelector {
     private fun personaOf(raw: String): RidePersona =
         runCatching { RidePersona.valueOf(raw) }.getOrDefault(RidePersona.AUTO)
 
-    private fun dateOf(epochMillis: Long, zoneId: ZoneId): LocalDate =
-        Instant.ofEpochMilli(epochMillis).atZone(zoneId).toLocalDate()
+    private fun dateOf(ride: HomeDashboardRideProjection, fallbackZoneId: ZoneId): LocalDate {
+        val rideZone = ride.startZoneId?.let { stored ->
+            runCatching { ZoneId.of(stored) }.getOrNull()
+        } ?: fallbackZoneId
+        return Instant.ofEpochMilli(ride.startedAtEpochMillis).atZone(rideZone).toLocalDate()
+    }
 
     private fun weekStart(date: LocalDate): LocalDate =
         date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))

@@ -314,7 +314,8 @@ class TrackingService : Service() {
                         RideEntity(
                             startTime = startTime,
                             title = RideUtils.getDefaultTitle(startTime, trackingManager.selectedPersona.value),
-                            persona = trackingManager.selectedPersona.value.name
+                            persona = trackingManager.selectedPersona.value.name,
+                            startZoneId = java.time.ZoneId.systemDefault().id,
                         )
                     )
                     currentRideId = rideId
@@ -1086,18 +1087,26 @@ class TrackingService : Service() {
                 RideUtils.getDefaultTitle(ride.startTime, persona, maxSpeed * 3.6f)
             } else ride.title
 
+            val finishedAt = System.currentTimeMillis()
             val calc = `in`.shvms.trackme.data.local.entity.PostRideCalculation(
                 distance = finalDistance,
                 maxSpeed = maxSpeed,
                 avgSpeed = avgSpeed,
-                pauseDuration = (System.currentTimeMillis() - ride.startTime - finalDuration).coerceAtLeast(0L)
+                pauseDuration = (finishedAt - ride.startTime - activeTimeMs).coerceAtLeast(0L),
+                rawPointCount = points.size,
             )
             
             val finishedRide = ride.copy(
-                endTime = System.currentTimeMillis(), 
+                endTime = finishedAt,
                 title = newTitle,
                 postRideCalculation = calc
-            ).let { `in`.shvms.trackme.data.local.withDashboardMetadata(it, finalDuration) }
+            ).let {
+                `in`.shvms.trackme.data.local.withDashboardMetadata(
+                    it,
+                    activeTimeMs,
+                    points.size,
+                )
+            }
             rideDao.updateRide(finishedRide)
             
             `in`.shvms.trackme.analytics.AnalyticsManager.trackRideCompleted(
@@ -1114,7 +1123,7 @@ class TrackingService : Service() {
             // retention stats, even when the user chose to keep them (discardNearEmptyRide=false).
             // Mirror iOS's guard so the eligibility rule is identical on both platforms.
             val isJunkRide = finalDistance < JUNK_RIDE_DISTANCE_METERS &&
-                finalDuration < JUNK_RIDE_DURATION_MILLIS
+                activeTimeMs < JUNK_RIDE_DURATION_MILLIS
             if (!isJunkRide) {
                 try {
                     val app = application as? TrackMeApp

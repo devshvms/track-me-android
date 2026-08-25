@@ -181,9 +181,11 @@ class DefaultGPSProcessor(
         )
 
         val updatedRide = ride.copy(postRideCalculation = updatedCalc).let { updated ->
-            val activeDuration = ((updated.endTime ?: updated.startTime) - updated.startTime - updatedCalc.pauseDuration)
-                .coerceAtLeast(0L)
-            `in`.shvms.trackme.data.local.withDashboardMetadata(updated, activeDuration)
+            `in`.shvms.trackme.data.local.withDashboardMetadata(
+                updated,
+                activeTimeMs,
+                compressedPoints.size,
+            )
         }
         
         // Finalize in DB

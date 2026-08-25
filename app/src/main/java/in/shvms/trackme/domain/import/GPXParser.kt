@@ -136,7 +136,8 @@ class GPXParser {
             maxSpeed = maxSpeed,
             distance = totalDistance,
             avgSpeed = avgSpeed,
-            pauseDuration = 0L
+            pauseDuration = 0L,
+            rawPointCount = points.size,
         )
 
         val ride = RideEntity(
@@ -146,7 +147,9 @@ class GPXParser {
             isSynced = false,
             title = rideName ?: "Imported Ride",
             postRideCalculation = calc
-        ).let { `in`.shvms.trackme.data.local.withDashboardMetadata(it, durationMillis) }
+        ).let {
+            `in`.shvms.trackme.data.local.withDashboardMetadata(it, durationMillis, points.size)
+        }
 
         val rideWithPoints = RideWithPoints(ride, points)
 

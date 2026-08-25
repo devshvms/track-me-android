@@ -3,6 +3,7 @@ package `in`.shvms.trackme.data.local
 import `in`.shvms.trackme.data.local.dao.HomeDashboardRoutePoint
 import `in`.shvms.trackme.data.local.entity.PostRideCalculation
 import `in`.shvms.trackme.data.local.entity.RideEntity
+import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -35,9 +36,29 @@ class HomeDashboardMetadataTest {
 
     @Test fun `missing aggregate is versioned but omitted rather than guessed`() {
         val missing = RideEntity(id = 9, startTime = 1_000L, endTime = 301_000L)
-        val metadata = withDashboardMetadata(missing, 300_000L)
+        val metadata = withUnavailableDashboardMetadata(missing, pointCount = 1)
         assertFalse(metadata.qualifiesForStats)
         assertEquals(HOME_DASHBOARD_METADATA_VERSION, metadata.dashboardMetadataVersion)
+        assertEquals(1, metadata.dashboardPointCount)
+    }
+
+    @Test fun `point reconciliation uses only positive unpaused intervals`() {
+        val points = listOf(
+            point(timestamp = 1_000L, paused = false),
+            point(timestamp = 11_000L, paused = false),
+            point(timestamp = 21_000L, paused = true),
+            point(timestamp = 31_000L, paused = false),
+            point(timestamp = 41_000L, paused = false),
+            point(timestamp = 40_000L, paused = false),
+        )
+        assertEquals(20_000L, dashboardActiveDurationFromPoints(points))
+        assertEquals(null, dashboardActiveDurationFromPoints(points.take(1)))
+    }
+
+    @Test fun `canonical metadata persists route availability without a point-table probe`() {
+        val metadata = withDashboardMetadata(completed(5_000.0), 300_000L, pointCount = 42)
+        assertEquals(42, metadata.dashboardPointCount)
+        assertTrue(metadata.qualifiesForStats)
     }
 
     @Test fun `downsampling is bounded and retains endpoints`() {
@@ -47,4 +68,15 @@ class HomeDashboardMetadataTest {
         assertEquals(points.first(), sampled.first())
         assertEquals(points.last(), sampled.last())
     }
+
+    private fun point(timestamp: Long, paused: Boolean) = GPSPointEntity(
+        rideId = 7,
+        latitude = 0.0,
+        longitude = 0.0,
+        altitude = 0.0,
+        accuracy = 1f,
+        speed = 0f,
+        timestamp = timestamp,
+        isPaused = paused,
+    )
 }

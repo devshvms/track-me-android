@@ -48,9 +48,9 @@ class HomeDashboardRepository(
     }
 
     /**
-     * Upgrade reconciliation is intentionally paged. Existing aggregate columns are reused; only
-     * genuinely missing aggregates read the candidate ride's points. A corrupt/empty legacy row is
-     * versioned as non-qualifying so Home can finish loading without inventing a metric.
+     * Upgrade reconciliation is intentionally paged. Every pre-dashboard row must read its points:
+     * no shipped row ever persisted active duration, even when its other aggregates exist. A
+     * corrupt/empty legacy row is versioned as non-qualifying rather than guessing wall duration.
      */
     suspend fun reconcileLegacyMetadata(pageSize: Int = 25) {
         try {
@@ -88,28 +88,34 @@ class HomeDashboardRepository(
 
     private suspend fun reconcile(ride: RideEntity) {
         val existing = ride.postRideCalculation
-        val points = if (existing == null) rideDao.getPointsForRideSync(ride.id) else emptyList()
-        val rebuilt = existing ?: calculationFrom(points)
-        val endTime = ride.endTime ?: 0L
-        val activeDuration = when {
-            ride.dashboardActiveDurationMillis > 0L -> ride.dashboardActiveDurationMillis
-            rebuilt != null -> (endTime - ride.startTime - rebuilt.pauseDuration).coerceAtLeast(0L)
-            else -> 0L
+        val points = rideDao.getPointsForRideSync(ride.id)
+        val activeDuration = dashboardActiveDurationFromPoints(points)
+        if (activeDuration == null) {
+            rideDao.updateRide(withUnavailableDashboardMetadata(ride, points.size))
+            return
+        }
+        val rebuilt = (existing ?: calculationFrom(points, activeDuration))?.copy(
+            rawPointCount = points.size,
+        )
+        if (rebuilt == null) {
+            rideDao.updateRide(withUnavailableDashboardMetadata(ride, points.size))
+            return
         }
         rideDao.updateRide(
             withDashboardMetadata(
-                ride.copy(
-                postRideCalculation = rebuilt,
-                ),
+                ride.copy(postRideCalculation = rebuilt),
                 activeDuration,
+                points.size,
             )
         )
     }
 
-    private fun calculationFrom(points: List<GPSPointEntity>): PostRideCalculation? {
+    private fun calculationFrom(
+        points: List<GPSPointEntity>,
+        activeDurationMillis: Long,
+    ): PostRideCalculation? {
         if (points.size < 2) return null
         var distance = 0.0
-        var activeMillis = 0L
         var maxSpeed = points.first().speed
         for (index in 1 until points.size) {
             val previous = points[index - 1]
@@ -117,16 +123,17 @@ class HomeDashboardRepository(
             maxSpeed = maxOf(maxSpeed, current.speed)
             if (!previous.isPaused && !current.isPaused) {
                 distance += haversineMeters(previous, current)
-                val gap = current.timestamp - previous.timestamp
-                if (gap in 1..60_000) activeMillis += gap
             }
         }
         val totalMillis = (points.last().timestamp - points.first().timestamp).coerceAtLeast(0L)
         return PostRideCalculation(
             maxSpeed = maxSpeed,
             distance = distance,
-            avgSpeed = if (activeMillis > 0) (distance / (activeMillis / 1_000.0)).toFloat() else 0f,
-            pauseDuration = (totalMillis - activeMillis).coerceAtLeast(0L),
+            avgSpeed = if (activeDurationMillis > 0) {
+                (distance / (activeDurationMillis / 1_000.0)).toFloat()
+            } else 0f,
+            pauseDuration = (totalMillis - activeDurationMillis).coerceAtLeast(0L),
+            rawPointCount = points.size,
         )
     }
 

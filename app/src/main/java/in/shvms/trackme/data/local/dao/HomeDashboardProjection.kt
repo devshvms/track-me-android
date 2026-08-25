@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 data class HomeDashboardRideProjection(
     val localId: Long,
     val startedAtEpochMillis: Long,
+    val startZoneId: String?,
     val personaRaw: String,
     val distanceMeters: Double,
     val activeDurationMillis: Long,
@@ -33,14 +34,15 @@ interface HomeDashboardDao {
         """
         SELECT rides.id AS localId,
                rides.startTime AS startedAtEpochMillis,
+               rides.startZoneId AS startZoneId,
                rides.persona AS personaRaw,
                COALESCE(rides.distance, 0.0) AS distanceMeters,
                rides.dashboardActiveDurationMillis AS activeDurationMillis,
                COALESCE(rides.avgSpeed, 0.0) AS avgSpeedMps,
-               EXISTS(SELECT 1 FROM gps_points WHERE gps_points.rideId = rides.id LIMIT 1) AS hasRoute
+               rides.dashboardPointCount > 0 AS hasRoute
         FROM rides
         WHERE rides.qualifiesForStats = 1
-          AND rides.dashboardMetadataVersion = 1
+          AND rides.dashboardMetadataVersion = 2
           AND rides.endTime IS NOT NULL
           AND rides.endTime > 0
           AND rides.pendingDelete = 0
@@ -54,7 +56,7 @@ interface HomeDashboardDao {
     @Query(
         """
         SELECT * FROM rides
-        WHERE dashboardMetadataVersion < 1
+        WHERE dashboardMetadataVersion < 2
           AND endTime IS NOT NULL
           AND endTime > 0
         ORDER BY startTime ASC

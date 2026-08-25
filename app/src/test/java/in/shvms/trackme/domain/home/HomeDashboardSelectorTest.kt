@@ -20,9 +20,11 @@ class HomeDashboardSelectorTest {
         persona: RidePersona = RidePersona.CYCLING,
         distance: Double = 1_000.0,
         duration: Long = 600_000L,
+        startZoneId: String? = null,
     ) = HomeDashboardRideProjection(
         localId = id,
         startedAtEpochMillis = Instant.parse(at).toEpochMilli(),
+        startZoneId = startZoneId,
         personaRaw = persona.name,
         distanceMeters = distance,
         activeDurationMillis = duration,
@@ -169,12 +171,51 @@ class HomeDashboardSelectorTest {
     }
 
     @Test
-    fun `week bucketing honors caller timezone`() {
+    fun `a qualifying current week extends rather than resets the live streak`() {
+        val summary = select(
+            ride(4, "2026-08-25T10:00:00Z"),
+            ride(3, "2026-08-18T10:00:00Z"),
+            ride(2, "2026-08-11T10:00:00Z"),
+            ride(1, "2026-08-04T10:00:00Z"),
+        )
+        assertEquals(4, summary.displayStreakWeeks)
+    }
+
+    @Test
+    fun `legacy week bucketing honors caller timezone`() {
         val kolkata = ZoneId.of("Asia/Kolkata")
         val sundayUtc = ride(1, "2026-08-23T20:00:00Z") // Monday 01:30 in Kolkata
         val summary = HomeDashboardSelector.select(listOf(sundayUtc), now, kolkata)
         assertEquals(1, summary.currentWeek.activityCount)
         assertTrue(summary.weeklyBuckets.last().activityCount == 1)
+    }
+
+    @Test
+    fun `persisted ride timezone survives a different current device timezone`() {
+        val sundayUtc = ride(
+            1,
+            "2026-08-23T20:00:00Z",
+            startZoneId = "Asia/Kolkata",
+        ) // Monday 01:30 at recording, still Sunday in the current UTC fallback.
+        val summary = HomeDashboardSelector.select(listOf(sundayUtc), now, utc)
+        assertEquals(1, summary.currentWeek.activityCount)
+    }
+
+    @Test
+    fun `invalid persisted timezone safely keeps legacy fallback semantics`() {
+        val sundayUtc = ride(1, "2026-08-23T20:00:00Z", startZoneId = "not-a-zone")
+        val summary = HomeDashboardSelector.select(listOf(sundayUtc), now, utc)
+        assertEquals(0, summary.currentWeek.activityCount)
+    }
+
+    @Test
+    fun `streak is omitted once the most recent active week is older than last week`() {
+        val summary = select(
+            ride(3, "2026-08-11T10:00:00Z"),
+            ride(2, "2026-08-04T10:00:00Z"),
+            ride(1, "2026-07-28T10:00:00Z"),
+        )
+        assertEquals(0, summary.displayStreakWeeks)
     }
 
     @Test
