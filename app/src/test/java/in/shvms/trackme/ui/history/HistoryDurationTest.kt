@@ -44,7 +44,7 @@ class HistoryDurationTest {
         )
 
         assertNull(displayActiveDurationMillis(ride))
-        assertEquals("Unknown", displayExportDuration(ride, "Unknown"))
+        assertNull(displayExportDuration(ride))
     }
 
     @Test
@@ -56,6 +56,6 @@ class HistoryDurationTest {
             dashboardMetadataVersion = HOME_DASHBOARD_METADATA_VERSION,
         )
 
-        assertEquals("5min", displayExportDuration(ride, "Unknown"))
+        assertEquals("5min", displayExportDuration(ride))
     }
 }

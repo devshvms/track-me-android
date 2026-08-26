@@ -35,6 +35,14 @@ class ExportStatsOverlayContentTest {
     }
 
     @Test
+    fun `duration can be omitted when its value is unavailable`() {
+        assertEquals(
+            listOf("Aug 22, 2026", "6.3 km"),
+            content(date = true, duration = false, distance = true).figures,
+        )
+    }
+
+    @Test
     fun `a stacked card counts every figure as a line, a band counts one`() {
         val c = content(date = true, duration = true, distance = true)
         assertEquals(3, c.lineCount(stacked = true))
