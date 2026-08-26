@@ -26,6 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.graphicsLayer
 import `in`.shvms.trackme.theme.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
@@ -747,6 +749,7 @@ fun HomeScreen(
             // is never valid in the next one, and a tail that outlived its group would be exactly
             // the retained position history §5.1.4 forbids.
             val headingTailBuffer = rememberHeadingTailBuffer(groupSession.groupId)
+            val canBlurMap = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
             run {
                 val groupSyncIntervalSec = groupSession.syncIntervalSec
@@ -775,9 +778,22 @@ fun HomeScreen(
                     bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
                         if (uiState.trackingState != TrackingState.IDLE) 88.dp else 0.dp
                 )
+                val isIdleDashboard = presentationMode == HomePresentationMode.IDLE_DASHBOARD
+                val idleMapBlurRadiusPx = with(LocalDensity.current) { 18.dp.toPx() }
 
                 GoogleMap(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        // Blur the frozen map before the scrim so street labels do not compete
+                        // with the dashboard cards. RenderEffect is Android 12+; older devices
+                        // keep the map covered by the heavier fallback scrim below.
+                        .graphicsLayer {
+                            renderEffect = if (isIdleDashboard && canBlurMap) {
+                                BlurEffect(idleMapBlurRadiusPx, idleMapBlurRadiusPx)
+                            } else {
+                                null
+                            }
+                        },
                     cameraPositionState = cameraPositionState,
                     properties = MapProperties(
                         // Idle Home owns a real map view but never owns location. The location
@@ -967,12 +983,20 @@ fun HomeScreen(
             }
 
             val scrimTopAlpha by animateFloatAsState(
-                targetValue = if (presentationMode == HomePresentationMode.IDLE_DASHBOARD) 0.72f else 0.28f,
+                targetValue = when {
+                    presentationMode == HomePresentationMode.IDLE_DASHBOARD && !canBlurMap -> 0.84f
+                    presentationMode == HomePresentationMode.IDLE_DASHBOARD -> 0.72f
+                    else -> 0.28f
+                },
                 animationSpec = if (animationsEnabled) tween(420, easing = LinearEasing) else snap(),
                 label = "home_scrim_top",
             )
             val scrimBottomAlpha by animateFloatAsState(
-                targetValue = if (presentationMode == HomePresentationMode.IDLE_DASHBOARD) 0.30f else 0f,
+                targetValue = when {
+                    presentationMode == HomePresentationMode.IDLE_DASHBOARD && !canBlurMap -> 0.42f
+                    presentationMode == HomePresentationMode.IDLE_DASHBOARD -> 0.30f
+                    else -> 0f
+                },
                 animationSpec = if (animationsEnabled) tween(420, easing = LinearEasing) else snap(),
                 label = "home_scrim_bottom",
             )
