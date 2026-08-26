@@ -42,12 +42,15 @@ class HomeDashboardMapBoundaryTest {
     @Test fun `all personas have a visible select then start path`() {
         val home = read("ui/home/HomeScreen.kt")
         val dashboard = read("ui/home/HomeDashboardScreen.kt")
-        assertTrue(home.contains("DashboardPersonaDock("))
+        val control = read("ui/home/components/RadialStartRideButton.kt")
+        assertFalse(home.contains("DashboardPersonaDock("))
+        assertFalse(dashboard.contains("DashboardPersonaDock("))
+        assertTrue(home.contains("onOpenAllPersonas = { showDashboardPersonaPicker = true }"))
         assertTrue(home.contains("RidePersona.entries.forEach"))
         assertTrue(home.contains("dashboardSelectionCameFromPicker = true"))
-        assertTrue(dashboard.contains("suggestedPersonas.take(3)"))
-        assertTrue(dashboard.contains("strings.dashboardStartPersona"))
-        assertTrue(dashboard.contains("strings.dashboardChangeActivity"))
+        assertTrue(control.contains("awaitsPersonaChoice = true"))
+        assertTrue(control.contains("onOpenAllPersonas"))
+        assertTrue(control.contains("startPersonaImmediately(persona)"))
     }
 
     private fun read(relative: String): String {

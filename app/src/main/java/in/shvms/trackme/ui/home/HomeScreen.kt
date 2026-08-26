@@ -180,21 +180,6 @@ fun HomeScreen(
         )
     }
     val uiState by viewModel.uiState.collectAsState()
-    val suggestedDashboardPersonas = remember(
-        uiState.selectedDashboardPersona,
-        uiState.dashboardSummary.personaCounts,
-    ) {
-        buildList {
-            uiState.dashboardSummary.personaCounts
-                .asSequence()
-                .map { it.persona }
-                .filterNot { it == uiState.selectedDashboardPersona }
-                .forEach { if (it !in this) add(it) }
-            RidePersona.entries
-                .filterNot { it == uiState.selectedDashboardPersona || it in this }
-                .forEach(::add)
-        }.take(3)
-    }
     val dashboardRoute by viewModel.dashboardRoute.collectAsState()
     val groupSession by app.groupSessionManager.state.collectAsState()
     val isOffline = rememberIsOffline()
@@ -1411,16 +1396,8 @@ fun HomeScreen(
                 exit = if (animationsEnabled) fadeOut(tween(300)) else ExitTransition.None,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    DashboardPersonaDock(
-                        selectedPersona = uiState.selectedDashboardPersona,
-                        suggestedPersonas = suggestedDashboardPersonas,
-                        onSelectPersona = { persona ->
-                            viewModel.selectDashboardPersona(persona)
-                            dashboardSelectionCameFromPicker = true
-                        },
-                        onOpenAll = { showDashboardPersonaPicker = true },
-                    )
                     RadialStartRideButton(
+                        onOpenAllPersonas = { showDashboardPersonaPicker = true },
                         onStartRide = { persona ->
                             val method = if (dashboardSelectionCameFromPicker ||
                                 persona != uiState.selectedDashboardPersona
@@ -1432,7 +1409,6 @@ fun HomeScreen(
                             beginDashboardStart(persona, method)
                         },
                         preselectedPersona = uiState.selectedDashboardPersona,
-                        onAbortRideStart = AnalyticsManager::trackRideStartAborted,
                         modifier = Modifier
                             .navigationBarsPadding()
                             .padding(bottom = 8.dp),
