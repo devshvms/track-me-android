@@ -1,13 +1,38 @@
 package `in`.shvms.trackme.data.remote
 
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.RideEntity
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 import com.google.firebase.Timestamp
 import java.util.Date
 
 class SyncDownloadCoercionTest {
+
+    @Test
+    fun `dashboard cloud metadata preserves active duration point count and ride zone`() {
+        val metadata = dashboardCloudMetadata(
+            RideEntity(
+                startTime = 1L,
+                startZoneId = "Asia/Kolkata",
+                dashboardActiveDurationMillis = 123_456L,
+                dashboardMetadataVersion = `in`.shvms.trackme.data.local.HOME_DASHBOARD_METADATA_VERSION,
+            ),
+            pointCount = 42,
+        )
+        assertEquals(123_456L, metadata["activeDurationMillis"])
+        assertEquals(42, metadata["rawPointCount"])
+        assertEquals("Asia/Kolkata", metadata["startZoneId"])
+    }
+
+    @Test
+    fun `dashboard cloud metadata omits placeholder duration before reconciliation`() {
+        val metadata = dashboardCloudMetadata(RideEntity(startTime = 1L), pointCount = 7)
+        assertFalse(metadata.containsKey("activeDurationMillis"))
+        assertEquals(7, metadata["rawPointCount"])
+    }
 
     @Test
     fun testCoerceEpochMillis_Long() {

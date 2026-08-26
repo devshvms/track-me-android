@@ -2,11 +2,13 @@ package `in`.shvms.trackme.ui.home
 
 import androidx.compose.material3.SnackbarDuration
 import `in`.shvms.trackme.ui.components.TrackMeMapAttribution
+import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.ui.components.rememberMessenger
 import `in`.shvms.trackme.ui.components.rememberMapStyle
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -23,12 +25,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import `in`.shvms.trackme.theme.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.content.ContextCompat
@@ -50,8 +50,8 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import kotlinx.coroutines.launch
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
-import `in`.shvms.trackme.ui.home.components.RadialStartRideButton
 import `in`.shvms.trackme.ui.home.components.ActiveRideHudPanel
+import `in`.shvms.trackme.ui.home.components.RadialStartRideButton
 import `in`.shvms.trackme.ui.components.animateSafely
 import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.domain.group.GroupPresencePolicy
@@ -76,6 +76,9 @@ import com.google.maps.android.compose.rememberMarkerState
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.analytics.RideStartAbortMethod
+import `in`.shvms.trackme.analytics.ActivityStartMethod
+import `in`.shvms.trackme.domain.home.HomePresentationMode
+import `in`.shvms.trackme.domain.home.HomePresentationModePolicy
 import `in`.shvms.trackme.domain.map.CameraFollowPolicy
 import `in`.shvms.trackme.domain.map.CameraMoveCause
 import com.google.maps.android.compose.CameraMoveStartedReason
@@ -138,13 +141,17 @@ private fun openAppSettings(context: android.content.Context) {
 @Composable
 fun HomeScreen(
     onOpenCommunity: () -> Unit = {},
+    onOpenHistory: () -> Unit = {},
+    onOpenRideDetail: (Long) -> Unit = {},
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModelFactory(
             (LocalContext.current.applicationContext as TrackMeApp).trackingManager,
             (LocalContext.current.applicationContext as TrackMeApp).emergencyManager,
             (LocalContext.current.applicationContext as TrackMeApp).authManager,
             (LocalContext.current.applicationContext as TrackMeApp).liveShareManager,
-            (LocalContext.current.applicationContext as TrackMeApp).preferencesManager
+            (LocalContext.current.applicationContext as TrackMeApp).preferencesManager,
+            (LocalContext.current.applicationContext as TrackMeApp).homeDashboardRepository,
+            (LocalContext.current.applicationContext as TrackMeApp).firestoreSyncManager,
         )
     )
 ) {
@@ -158,18 +165,9 @@ fun HomeScreen(
     val uiPreferences = remember {
         context.getSharedPreferences("ui_prefs", android.content.Context.MODE_PRIVATE)
     }
-    // Fresh installs learn the press-and-hold gesture from the walkthrough, so the pill would be
-    // saying the same thing twice. It stays for anyone who upgraded past it — deleting it outright
-    // would strand exactly the people who were never shown the tour.
-    var showStartRideHint by remember {
-        mutableStateOf(
-            `in`.shvms.trackme.ui.onboarding.shouldShowStartRideHint(
-                state = app.onboardingState,
-                hintAlreadySeen = uiPreferences.getBoolean("start_ride_hint_seen", false),
-            )
-        )
-    }
     var showDiscardRideDialog by remember { mutableStateOf(false) }
+    var showDashboardPersonaPicker by rememberSaveable { mutableStateOf(false) }
+    var dashboardSelectionCameFromPicker by rememberSaveable { mutableStateOf(false) }
     var hasRequestedStartRideUndo by remember { mutableStateOf(false) }
     var hasLocationPermission by remember {
         mutableStateOf(
@@ -180,6 +178,40 @@ fun HomeScreen(
         )
     }
     val uiState by viewModel.uiState.collectAsState()
+    val suggestedDashboardPersonas = remember(
+        uiState.selectedDashboardPersona,
+        uiState.dashboardSummary.personaCounts,
+    ) {
+        buildList {
+            uiState.dashboardSummary.personaCounts
+                .asSequence()
+                .map { it.persona }
+                .filterNot { it == uiState.selectedDashboardPersona }
+                .forEach { if (it !in this) add(it) }
+            RidePersona.entries
+                .filterNot { it == uiState.selectedDashboardPersona || it in this }
+                .forEach(::add)
+        }.take(3)
+    }
+    val dashboardRoute by viewModel.dashboardRoute.collectAsState()
+    val groupSession by app.groupSessionManager.state.collectAsState()
+    val isOffline = rememberIsOffline()
+    var explicitGroupMap by rememberSaveable { mutableStateOf(false) }
+    val presentationMode = HomePresentationModePolicy.resolve(
+        isTrackingIdle = uiState.trackingState == TrackingState.IDLE,
+        explicitGroupMap = explicitGroupMap,
+    )
+    val isInteractiveMap = presentationMode != HomePresentationMode.IDLE_DASHBOARD
+    val animationsEnabled = remember(context.contentResolver) {
+        android.provider.Settings.Global.getFloat(
+            context.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        ) != 0f
+    }
+    BackHandler(enabled = presentationMode == HomePresentationMode.EXPLICIT_GROUP_MAP) {
+        explicitGroupMap = false
+    }
     val recoveryNotice by app.recoveryNotice.collectAsState()
     val locationPermissionRevokedNotice by app.locationPermissionRevokedNotice.collectAsState()
     // B1: durable one-shot post-ride reveal (null unless a good ride was just saved).
@@ -191,6 +223,9 @@ fun HomeScreen(
     var previousTrackingState by remember { mutableStateOf(uiState.trackingState) }
 
     LaunchedEffect(uiState.trackingState, pipDashboardEnabled) {
+        if (previousTrackingState != TrackingState.IDLE && uiState.trackingState == TrackingState.IDLE) {
+            explicitGroupMap = false
+        }
         val justStarted = previousTrackingState == TrackingState.IDLE &&
             PiPModePolicy.isEligible(uiState.trackingState.toPiPRideState(), pipDashboardEnabled)
         if (justStarted && !uiPreferences.getBoolean("pip_ride_start_hint_seen", false)) {
@@ -204,6 +239,10 @@ fun HomeScreen(
             hasRequestedStartRideUndo = false
         }
         previousTrackingState = uiState.trackingState
+    }
+
+    LaunchedEffect(groupSession.isActive) {
+        if (!groupSession.isActive) explicitGroupMap = false
     }
 
     // §8's "clear notice", on Home as well as in the Community tab.
@@ -316,16 +355,33 @@ fun HomeScreen(
         }
     }
 
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions(),
-        onResult = { permissions ->
-            hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
-        }
-    )
-
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { /* Notification access is optional; ride tracking still proceeds. */ }
+    )
+
+    var pendingStartPersona by remember { mutableStateOf<RidePersona?>(null) }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+        onResult = { permissions ->
+            val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+            hasLocationPermission = granted
+            val persona = pendingStartPersona
+            pendingStartPersona = null
+            if (granted && persona != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.POST_NOTIFICATIONS,
+                    ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                ) {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+                viewModel.startTracking(persona)
+            } else if (!granted && persona != null) {
+                AnalyticsManager.trackRideStartAborted(RideStartAbortMethod.PRE_COMMIT)
+            }
+        }
     )
 
     // The location AlertDialog below is the primer and sole trigger for the native
@@ -349,10 +405,9 @@ fun HomeScreen(
     }
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
-    var followCamera by rememberSaveable { mutableStateOf(true) }
     var hasCenteredOnLocation by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(hasLocationPermission) {
-        if (hasLocationPermission && !hasCenteredOnLocation && uiState.pathPoints.isEmpty()) {
+    LaunchedEffect(hasLocationPermission, isInteractiveMap) {
+        if (isInteractiveMap && hasLocationPermission && !hasCenteredOnLocation && uiState.pathPoints.isEmpty()) {
             try {
                 fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
                     if (loc != null) {
@@ -399,8 +454,8 @@ fun HomeScreen(
     // Any user gesture drops into free-look. Maps Compose already reports why the camera moved, so
     // this needs no touch interception — and our own animateSafely calls report
     // DEVELOPER_ANIMATION, so follow cannot switch itself off on its first move.
-    LaunchedEffect(cameraPositionState.isMoving, cameraPositionState.cameraMoveStartedReason) {
-        if (cameraPositionState.isMoving &&
+    LaunchedEffect(cameraPositionState.isMoving, cameraPositionState.cameraMoveStartedReason, isInteractiveMap) {
+        if (isInteractiveMap && cameraPositionState.isMoving &&
             CameraFollowPolicy.releasesFollow(cameraPositionState.cameraMoveStartedReason.toMoveCause())
         ) {
             isFollowingRider = false
@@ -419,6 +474,12 @@ fun HomeScreen(
     LaunchedEffect(pendingMemberFocus) {
         val focus = pendingMemberFocus ?: return@LaunchedEffect
         if (!`in`.shvms.trackme.domain.group.MemberFocusPolicy.shouldApply(focus)) return@LaunchedEffect
+        if (!isInteractiveMap) {
+            explicitGroupMap = true
+            // Let the explicit-map state commit before the one-shot is consumed. Camera state is
+            // hoisted, so the move can be prepared on this frame and the map receives it on mount.
+            withFrameNanos { }
+        }
         // §4: "focusing a member is a camera move that must NOT be immediately undone by follow-me.
         // It should put the camera into free-look, exactly as a manual pan would." Without this the
         // next GPS fix drags the camera straight back to the rider — §1's defect, wearing a hat.
@@ -442,7 +503,8 @@ fun HomeScreen(
     //
     // Deliberately does NOT re-arm follow. §1 Q1.1 is "button only", and the next ride re-arms
     // through armsOnRecordingStart anyway, so touching the flag here would only weaken that rule.
-    LaunchedEffect(uiState.trackingState) {
+    LaunchedEffect(uiState.trackingState, isInteractiveMap) {
+        if (!isInteractiveMap) return@LaunchedEffect
         if (uiState.trackingState != TrackingState.IDLE) return@LaunchedEffect
         if (cameraPositionState.position.tilt <= 0.5f) return@LaunchedEffect
         cameraPositionState.animateSafely {
@@ -456,6 +518,7 @@ fun HomeScreen(
     }
 
     LaunchedEffect(uiState.pathPoints, isFollowingRider, isRecording) {
+        if (!isInteractiveMap) return@LaunchedEffect
         val move = CameraFollowPolicy.moveFor(
             following = isFollowingRider,
             isRecording = uiState.trackingState == TrackingState.TRACKING,
@@ -561,32 +624,139 @@ fun HomeScreen(
         }
     }
 
+    var dashboardEntryTracked by remember { mutableStateOf(false) }
+    var dashboardInsightTracked by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(
+        presentationMode,
+        uiState.dashboardSummaryResolved,
+        uiState.isDashboardReconciling,
+        uiState.dashboardSummary.historyBucket,
+    ) {
+        if (presentationMode != HomePresentationMode.IDLE_DASHBOARD) {
+            dashboardEntryTracked = false
+            dashboardInsightTracked = null
+        } else if (uiState.dashboardSummaryResolved &&
+            !uiState.isDashboardReconciling &&
+            !dashboardEntryTracked
+        ) {
+            AnalyticsManager.trackHomeDashboardViewed(uiState.dashboardSummary.historyBucket)
+            dashboardEntryTracked = true
+        }
+    }
+    LaunchedEffect(presentationMode, uiState.dashboardSummary.insight?.analyticsValue) {
+        val type = uiState.dashboardSummary.insight?.analyticsValue
+        if (presentationMode == HomePresentationMode.IDLE_DASHBOARD &&
+            type != null && dashboardInsightTracked != type
+        ) {
+            AnalyticsManager.trackHomeInsightShown(type)
+            dashboardInsightTracked = type
+        }
+    }
+    LaunchedEffect(presentationMode, uiState.dashboardSummary.latestActivity?.localId) {
+        if (presentationMode == HomePresentationMode.IDLE_DASHBOARD) {
+            uiState.dashboardSummary.latestActivity?.localId?.let(viewModel::loadDashboardRoute)
+        }
+    }
+
+    fun beginDashboardStart(persona: RidePersona, method: ActivityStartMethod) {
+        AnalyticsManager.trackActivityStartCtaTapped(persona, method)
+        if (!hasLocationPermission) {
+            pendingStartPersona = persona
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        viewModel.startTracking(persona)
+    }
+
+    if (pendingStartPersona != null && !hasLocationPermission) {
+        AlertDialog(
+            onDismissRequest = {
+                pendingStartPersona = null
+                AnalyticsManager.trackRideStartAborted(RideStartAbortMethod.PRE_COMMIT)
+            },
+            title = { Text(strings.locationPermissionRequired) },
+            text = { Text(strings.locationPermissionDesc) },
+            confirmButton = {
+                Button(onClick = {
+                    locationPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                        )
+                    )
+                }) { Text(strings.grantPermission) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    pendingStartPersona = null
+                    AnalyticsManager.trackRideStartAborted(RideStartAbortMethod.PRE_COMMIT)
+                }) { Text(strings.cancel) }
+            },
+        )
+    }
+
+    if (showDashboardPersonaPicker) {
+        AlertDialog(
+            onDismissRequest = { showDashboardPersonaPicker = false },
+            title = { Text(strings.dashboardChangeActivity) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    RidePersona.entries.forEach { persona ->
+                        TextButton(
+                            onClick = {
+                                viewModel.selectDashboardPersona(persona)
+                                dashboardSelectionCameFromPicker = true
+                                showDashboardPersonaPicker = false
+                            },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        ) {
+                            Icon(persona.icon(), contentDescription = null)
+                            Spacer(Modifier.width(12.dp))
+                            Text(strings.personaLabel(persona), modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showDashboardPersonaPicker = false }) {
+                    Text(strings.cancel)
+                }
+            },
+        )
+    }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0.dp)
     ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             var mapType by remember { mutableStateOf(MapType.NORMAL) }
             var isTrafficEnabled by remember { mutableStateOf(false) }
 
             // Box scope, not map scope: the map draws member markers and the control stack draws
             // the group button, and both need the same session.
-            val groupSession by app.groupSessionManager.state.collectAsState()
             val avatarCache = rememberMemberAvatarCache()
             // Keyed by groupId for the same reason the avatar cache is: a uid from a previous group
             // is never valid in the next one, and a tail that outlived its group would be exactly
             // the retained position history §5.1.4 forbids.
             val headingTailBuffer = rememberHeadingTailBuffer(groupSession.groupId)
 
-            if (hasLocationPermission) {
+            run {
                 val groupSyncIntervalSec = groupSession.syncIntervalSec
 
                 // Staleness is a function of wall-clock time, not of new data — a member who stops
                 // syncing produces no recomposition, so without a tick their marker would stay
                 // bright forever. One second is cheap and makes "2m ago" honest.
                 var groupClockTick by remember { mutableLongStateOf(System.currentTimeMillis()) }
-                LaunchedEffect(groupSession.isActive) {
-                    while (groupSession.isActive) {
+                LaunchedEffect(groupSession.isActive, isInteractiveMap) {
+                    while (groupSession.isActive && isInteractiveMap) {
                         groupClockTick = System.currentTimeMillis()
                         delay(1_000L)
                     }
@@ -610,7 +780,9 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = cameraPositionState,
                     properties = MapProperties(
-                        isMyLocationEnabled = true,
+                        // Idle Home owns a real map view but never owns location. The location
+                        // layer and all controls switch on only after an explicit interactive mode.
+                        isMyLocationEnabled = isInteractiveMap && hasLocationPermission,
                         mapType = mapType,
                         isTrafficEnabled = isTrafficEnabled,
                         // Null in light theme — Google's default basemap is already the light one.
@@ -618,10 +790,18 @@ fun HomeScreen(
                     ),
                     uiSettings = MapUiSettings(
                         zoomControlsEnabled = false,
-                        myLocationButtonEnabled = false
+                        myLocationButtonEnabled = false,
+                        compassEnabled = isInteractiveMap,
+                        mapToolbarEnabled = isInteractiveMap,
+                        rotationGesturesEnabled = isInteractiveMap,
+                        scrollGesturesEnabled = isInteractiveMap,
+                        scrollGesturesEnabledDuringRotateOrZoom = isInteractiveMap,
+                        tiltGesturesEnabled = isInteractiveMap,
+                        zoomGesturesEnabled = isInteractiveMap,
                     ),
                     contentPadding = mapContentPadding
                 ) {
+                    if (isInteractiveMap) {
                     if (uiState.pathPoints.isNotEmpty()) {
                         Polyline(
                             points = uiState.pathPoints,
@@ -776,6 +956,7 @@ fun HomeScreen(
                             anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
                         )
                     }
+                    }
                 }
                 // After the map, so it draws on top of it rather than under. Beside Google's own
                 // mark and never over it — see MapAttribution.
@@ -783,34 +964,32 @@ fun HomeScreen(
                     modifier = Modifier.align(Alignment.BottomStart),
                     bottomOffset = mapContentPadding.calculateBottomPadding(),
                 )
-            } else {
-                AlertDialog(
-                    onDismissRequest = { /* Blocking dialog, do nothing */ },
-                    title = { Text(strings.locationPermissionRequired) },
-                    text = { Text(strings.locationPermissionDesc) },
-                    confirmButton = {
-                        Button(onClick = {
-                            val permissionsToRequest = arrayOf(
-                                Manifest.permission.ACCESS_COARSE_LOCATION,
-                                Manifest.permission.ACCESS_FINE_LOCATION
-                            )
-                            locationPermissionLauncher.launch(permissionsToRequest)
-                        }) {
-                            Text(strings.grantPermission)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = {
-                            openAppSettings(context)
-                        }) {
-                            Text(strings.openSettings)
-                        }
-                    }
-                )
             }
 
+            val scrimTopAlpha by animateFloatAsState(
+                targetValue = if (presentationMode == HomePresentationMode.IDLE_DASHBOARD) 0.72f else 0.28f,
+                animationSpec = if (animationsEnabled) tween(420, easing = LinearEasing) else snap(),
+                label = "home_scrim_top",
+            )
+            val scrimBottomAlpha by animateFloatAsState(
+                targetValue = if (presentationMode == HomePresentationMode.IDLE_DASHBOARD) 0.30f else 0f,
+                animationSpec = if (animationsEnabled) tween(420, easing = LinearEasing) else snap(),
+                label = "home_scrim_bottom",
+            )
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Black.copy(alpha = scrimTopAlpha),
+                                Color.Black.copy(alpha = scrimBottomAlpha),
+                            )
+                        )
+                    )
+            )
+
             val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-            val isOffline = rememberIsOffline()
 
             // **A29**: renders whenever the session is active, independent of `ActiveRideHudPanel`
             // — which only exists when tracking is not IDLE. A rider who stopped their ride but is
@@ -819,7 +998,7 @@ fun HomeScreen(
             var groupPresencePillShown by remember { mutableStateOf(false) }
             var pauseStartedElapsed by remember { mutableLongStateOf(0L) }
             var pauseCause by remember { mutableStateOf("") }
-            if (groupSession.isActive) {
+            if (groupSession.isActive && isInteractiveMap) {
                 // A 1 Hz tick, because `elapsedRealtime()` is not observable state: without it the
                 // pill would never appear when the threshold is crossed, and "Last shared 2m ago"
                 // would freeze until some unrelated recomposition happened to occur. The map's
@@ -888,6 +1067,7 @@ fun HomeScreen(
                 )
             }
 
+            if (isInteractiveMap) {
             Column(
 
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = topPadding + 80.dp, end = 12.dp),
@@ -904,6 +1084,7 @@ fun HomeScreen(
                 MapControlCircleButton(
                     icon = Icons.Default.MyLocation,
                     contentDescription = strings.recenterMap,
+                    enabled = hasLocationPermission,
                     onClick = {
                         // §1: this is the ONLY thing that re-arms follow (Q1.1 — button only,
                         // never a timer). It also gives the control a real job rather than a
@@ -1004,7 +1185,6 @@ fun HomeScreen(
                             // North-up is a deliberate override of the ride camera. Leaving follow
                             // armed would re-tilt and re-bear on the next GPS fix, so the button
                             // would appear not to work.
-                            followCamera = false
                             coroutineScope.launch {
                                 cameraPositionState.animateSafely {
                                     CameraUpdateFactory.newCameraPosition(
@@ -1019,118 +1199,18 @@ fun HomeScreen(
                     )
                 }
             }
+            }
 
-            // Idle State: Radial Persona Start Button
-            if (uiState.trackingState == TrackingState.IDLE) {
-                if (locationPermissionRevokedNotice) {
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = topPadding + 16.dp, start = 12.dp, end = 12.dp)
-                            .semantics { liveRegion = LiveRegionMode.Polite },
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        shape = RoundedCornerShape(12.dp),
-                        tonalElevation = 3.dp
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 12.dp, end = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 8.dp, vertical = 10.dp)
-                            ) {
-                                Text(
-                                    text = strings.locationPermissionRevokedTitle,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = strings.locationPermissionRevokedBody,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                            TextButton(onClick = { openAppSettings(context) }) {
-                                Text(strings.openSettings)
-                            }
-                            IconButton(onClick = { app.dismissLocationPermissionRevokedNoticeForSession() }) {
-                                Icon(Icons.Default.Close, contentDescription = strings.close)
-                            }
-                        }
-                    }
-                }
-
-                if (hasLocationPermission && showStartRideHint) {
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            // Tracks the start button, which is itself lifted clear of the
-                            // navigation bar — without this the hint would drift onto it.
-                            .navigationBarsPadding()
-                            .padding(bottom = 186.dp, start = 24.dp, end = 24.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        tonalElevation = 3.dp
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = strings.startRideHint,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.weight(1f)
-                            )
-                            TextButton(
-                                onClick = {
-                                    showStartRideHint = false
-                                    uiPreferences.edit().putBoolean("start_ride_hint_seen", true).apply()
-                                }
-                            ) {
-                                Text(strings.dismissStartRideHint)
-                            }
-                        }
-                    }
-                }
-
-                RadialStartRideButton(
-                    onStartRide = { persona ->
-                        showStartRideHint = false
-                        uiPreferences.edit().putBoolean("start_ride_hint_seen", true).apply()
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                            ContextCompat.checkSelfPermission(
-                                context,
-                                Manifest.permission.POST_NOTIFICATIONS
-                            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-                        ) {
-                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        }
-                        viewModel.startTracking(persona)
-                    },
-                    preselectedPersona = uiState.selectedPersona,
-                    onAbortRideStart = AnalyticsManager::trackRideStartAborted,
+            if (presentationMode == HomePresentationMode.EXPLICIT_GROUP_MAP) {
+                MapControlCircleButton(
+                    icon = Icons.Default.Close,
+                    contentDescription = strings.close,
+                    onClick = { explicitGroupMap = false },
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        // The map is deliberately full-bleed (Scaffold contributes no insets),
-                        // so every interactive overlay has to clear the navigation bar itself.
-                        // Without this the start button sits under the 3-button nav bar.
-                        .navigationBarsPadding()
-                        .padding(bottom = 8.dp)
+                        .align(Alignment.TopStart)
+                        .padding(top = topPadding + 16.dp, start = 12.dp),
                 )
-
-
-                // No live-share surface while idle. A share is always started with
-                // stopOnRideEnd = true from the ride HUD's share drawer, so it can never
-                // legitimately outlive the ride — the only way this branch could render was
-                // during the async teardown gap after a stop, which flashed a stale green
-                // "sharing" FAB for about a second. The drawer owns live share now.
-            } else {
+            } else if (presentationMode == HomePresentationMode.ACTIVE_TRACKING_MAP) {
                 // Active Recording / Non-Ideal State HUD Panel
                 val showRideStartUndo = !hasRequestedStartRideUndo && shouldShowRideStartUndo(
                     elapsedDurationMillis = uiState.elapsedDurationMillis,
@@ -1257,6 +1337,85 @@ fun HomeScreen(
                 }
             }
 
+            val dashboardVisible = presentationMode == HomePresentationMode.IDLE_DASHBOARD
+            AnimatedVisibility(
+                visible = dashboardVisible,
+                modifier = Modifier.matchParentSize(),
+                enter = if (animationsEnabled) {
+                    slideInVertically(
+                        animationSpec = tween(420, delayMillis = 320, easing = FastOutSlowInEasing),
+                        initialOffsetY = { -it },
+                    ) + fadeIn(tween(300, delayMillis = 320))
+                } else EnterTransition.None,
+                exit = if (animationsEnabled) {
+                    slideOutVertically(
+                        animationSpec = tween(420, easing = FastOutSlowInEasing),
+                        targetOffsetY = { -it },
+                    ) + fadeOut(tween(300, easing = FastOutLinearInEasing))
+                } else ExitTransition.None,
+            ) {
+                HomeDashboardScreen(
+                    summary = uiState.dashboardSummary,
+                    routePoints = dashboardRoute,
+                    isSummaryResolved = uiState.dashboardSummaryResolved,
+                    isReconciling = uiState.isDashboardReconciling,
+                    groupActive = groupSession.isActive,
+                    groupMemberCount = groupSession.roster.size,
+                    syncNeedsAction = uiState.dashboardSyncNeedsAction,
+                    isOffline = isOffline,
+                    locationPermissionRevoked = locationPermissionRevokedNotice,
+                    imperial = imperialUnits == "imperial",
+                    onOpenRecent = { localId, persona ->
+                        AnalyticsManager.trackHomeRecentActivityOpened(persona)
+                        onOpenRideDetail(localId)
+                    },
+                    onOpenHistory = onOpenHistory,
+                    onOpenCommunity = onOpenCommunity,
+                    onOpenGroupMap = {
+                        AnalyticsManager.trackHomeGroupMapOpened()
+                        explicitGroupMap = true
+                    },
+                    onOpenSettings = { openAppSettings(context) },
+                    onDismissPermissionNotice = app::dismissLocationPermissionRevokedNoticeForSession,
+                )
+            }
+
+            AnimatedVisibility(
+                visible = dashboardVisible,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = if (animationsEnabled) fadeIn(tween(300, delayMillis = 320)) else EnterTransition.None,
+                exit = if (animationsEnabled) fadeOut(tween(300)) else ExitTransition.None,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    DashboardPersonaDock(
+                        selectedPersona = uiState.selectedDashboardPersona,
+                        suggestedPersonas = suggestedDashboardPersonas,
+                        onSelectPersona = { persona ->
+                            viewModel.selectDashboardPersona(persona)
+                            dashboardSelectionCameFromPicker = true
+                        },
+                        onOpenAll = { showDashboardPersonaPicker = true },
+                    )
+                    RadialStartRideButton(
+                        onStartRide = { persona ->
+                            val method = if (dashboardSelectionCameFromPicker ||
+                                persona != uiState.selectedDashboardPersona
+                            ) {
+                                ActivityStartMethod.PERSONA_PICKER
+                            } else ActivityStartMethod.PRIMARY
+                            dashboardSelectionCameFromPicker = false
+                            viewModel.selectDashboardPersona(persona)
+                            beginDashboardStart(persona, method)
+                        },
+                        preselectedPersona = uiState.selectedDashboardPersona,
+                        onAbortRideStart = AnalyticsManager::trackRideStartAborted,
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .padding(bottom = 8.dp),
+                    )
+                }
+            }
+
             if (showDiscardRideDialog) {
                 AlertDialog(
                     // Blocking dialog: an outside tap or back press must not silently close this
@@ -1288,5 +1447,4 @@ fun HomeScreen(
             }
         }
     }
-}
 }

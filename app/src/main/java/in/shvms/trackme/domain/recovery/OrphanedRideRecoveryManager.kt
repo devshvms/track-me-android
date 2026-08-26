@@ -79,8 +79,10 @@ object OrphanedRideRecoveryManager {
             val startTime = ride.startTime
             val endTime = points.last().timestamp
             val durationMillis = (endTime - startTime).coerceAtLeast(0L)
-            val avgSpeed = if (durationMillis > 0L) {
-                (totalDistance / (durationMillis / 1000f)).toFloat()
+            val activeDurationMillis =
+                `in`.shvms.trackme.data.local.dashboardActiveDurationFromPoints(points) ?: 0L
+            val avgSpeed = if (activeDurationMillis > 0L) {
+                (totalDistance / (activeDurationMillis / 1000f)).toFloat()
             } else {
                 0f
             }
@@ -96,14 +98,21 @@ object OrphanedRideRecoveryManager {
                 distance = totalDistance,
                 maxSpeed = maxSpeed,
                 avgSpeed = avgSpeed,
-                pauseDuration = 0L
+                pauseDuration = (durationMillis - activeDurationMillis).coerceAtLeast(0L),
+                rawPointCount = points.size,
             )
 
             val recoveredRide = ride.copy(
                 endTime = endTime,
                 title = newTitle,
                 postRideCalculation = calculation
-            )
+            ).let {
+                `in`.shvms.trackme.data.local.withDashboardMetadata(
+                    it,
+                    activeDurationMillis,
+                    points.size,
+                )
+            }
 
             rideDao.updateRide(recoveredRide)
             recoveredCount++

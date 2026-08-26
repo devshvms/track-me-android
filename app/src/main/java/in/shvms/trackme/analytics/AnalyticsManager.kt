@@ -441,6 +441,41 @@ object AnalyticsManager {
         )
     }
 
+    // TASK-205 dashboard taxonomy. Every value is deliberately coarse and allowlisted here; route,
+    // local ride ID, exact time, title, and raw metric history have no parameter slot.
+    fun trackHomeDashboardViewed(historyBucket: String) {
+        if (!_isTelemetryEnabled.value) return
+        require(historyBucket in setOf("empty", "early", "established"))
+        PostHog.capture("home_dashboard_viewed", properties = mapOf("history_bucket" to historyBucket))
+    }
+
+    fun trackActivityStartCtaTapped(
+        persona: `in`.shvms.trackme.domain.model.RidePersona,
+        method: ActivityStartMethod,
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "activity_start_cta_tapped",
+            properties = mapOf("persona" to persona.name, "method" to method.analyticsValue),
+        )
+    }
+
+    fun trackHomeInsightShown(insightType: String) {
+        if (!_isTelemetryEnabled.value) return
+        require(insightType in setOf("return", "period_comparison", "dominant_persona"))
+        PostHog.capture("home_insight_shown", properties = mapOf("insight_type" to insightType))
+    }
+
+    fun trackHomeRecentActivityOpened(persona: `in`.shvms.trackme.domain.model.RidePersona) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("home_recent_activity_opened", properties = mapOf("persona" to persona.name))
+    }
+
+    fun trackHomeGroupMapOpened() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("home_group_map_opened")
+    }
+
     /** SCOPE_1.8.4 §5.3 — the pure contract admits only method/outcome properties. */
     fun trackVoiceEvent(event: `in`.shvms.trackme.domain.voice.VoiceTelemetryEvent) {
         if (!_isTelemetryEnabled.value) return
@@ -622,6 +657,11 @@ object AnalyticsManager {
 enum class RideStartAbortMethod(val analyticsValue: String) {
     PRE_COMMIT("pre_commit"),
     POST_COMMIT_UNDO("post_commit_undo")
+}
+
+enum class ActivityStartMethod(val analyticsValue: String) {
+    PRIMARY("primary"),
+    PERSONA_PICKER("persona_picker"),
 }
 
 /**

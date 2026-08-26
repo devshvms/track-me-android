@@ -2,6 +2,7 @@ package `in`.shvms.trackme.data.local.entity
 
 import androidx.room.Embedded
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 data class PostRideCalculation(
@@ -13,7 +14,10 @@ data class PostRideCalculation(
     val rawPointCount: Int? = null
 )
 
-@Entity(tableName = "rides")
+@Entity(
+    tableName = "rides",
+    indices = [Index(value = ["qualifiesForStats", "pendingDelete", "isSample", "startTime"], name = "index_rides_dashboard_summary")],
+)
 data class RideEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
@@ -25,6 +29,11 @@ data class RideEntity(
     val firestoreId: String? = null,
     val title: String? = null,
     val persona: String = "AUTO",
+    /**
+     * IANA zone captured when a locally recorded ride starts. Legacy/imported rides remain null
+     * and deliberately retain the historical device-zone fallback at read time.
+     */
+    val startZoneId: String? = null,
     /**
      * First-run sample rides are full local rides for replay/export, but are deliberately excluded
      * from cloud sync and retention aggregates. Defaults to false for every pre-1.8.2 row.
@@ -44,6 +53,19 @@ data class RideEntity(
      * dead. The uploader refuses to upload anything carrying this.
      */
     val pendingDelete: Boolean = false,
+    /**
+     * Persisted dashboard eligibility. This is deliberately a stored fact rather than a Home-time
+     * heuristic: every aggregate query must agree about junk/sample/deletion exclusion without
+     * loading route points. Legacy rows remain false until the bounded metadata reconciler has
+     * rebuilt their aggregate facts.
+     */
+    val qualifiesForStats: Boolean = false,
+    /** Active (pause-excluded) duration used by dashboard projections. */
+    val dashboardActiveDurationMillis: Long = 0L,
+    /** Persisted route availability fact; Home never probes gps_points to decide card content. */
+    val dashboardPointCount: Int = 0,
+    /** Version of the rebuildable dashboard metadata contract; 0 means reconciliation is pending. */
+    val dashboardMetadataVersion: Int = 0,
     @Embedded
     val postRideCalculation: PostRideCalculation? = null
 )

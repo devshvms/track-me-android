@@ -4,6 +4,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.*
 import `in`.shvms.trackme.ui.layout.rememberWindowClass
 import androidx.compose.runtime.*
@@ -29,6 +37,7 @@ import `in`.shvms.trackme.ui.history.MultiRideCompareRoute
 import `in`.shvms.trackme.ui.settings.SettingsScreen
 import `in`.shvms.trackme.ui.community.CommunityScreen
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.service.TrackingState
 
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -99,6 +108,15 @@ fun MainNavigation() {
     // application and observed here, where the controller already lives. Same outcome, none of the
     // blast radius.
     val app = LocalContext.current.applicationContext as TrackMeApp
+    val trackingState by app.trackingManager.trackingState.collectAsState()
+    val topLevelNavigationVisible = trackingState == TrackingState.IDLE
+    val animationsEnabled = remember(app.contentResolver) {
+        android.provider.Settings.Global.getFloat(
+            app.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        ) != 0f
+    }
     val pendingInvite by app.pendingGroupInvite.collectAsState()
     LaunchedEffect(pendingInvite) {
         if (pendingInvite != null) navigateToTab("community")
@@ -122,15 +140,25 @@ fun MainNavigation() {
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
                 if (!useRail) {
-                    NavigationBar {
-                        items.forEachIndexed { index, item ->
-                            NavigationBarItem(
-                                icon = { Icon(icons[index], contentDescription = item) },
-                                label = { Text(item) },
-                                alwaysShowLabel = true,
-                                selected = selectedItem == index,
-                                onClick = { navigateToTab(routes[index]) }
-                            )
+                    AnimatedVisibility(
+                        visible = topLevelNavigationVisible,
+                        enter = if (animationsEnabled) {
+                            slideInVertically(tween(300)) { it } + fadeIn(tween(300))
+                        } else EnterTransition.None,
+                        exit = if (animationsEnabled) {
+                            slideOutVertically(tween(300)) { it } + fadeOut(tween(300))
+                        } else ExitTransition.None,
+                    ) {
+                        NavigationBar {
+                            items.forEachIndexed { index, item ->
+                                NavigationBarItem(
+                                    icon = { Icon(icons[index], contentDescription = item) },
+                                    label = { Text(item) },
+                                    alwaysShowLabel = true,
+                                    selected = selectedItem == index,
+                                    onClick = { navigateToTab(routes[index]) }
+                                )
+                            }
                         }
                     }
                 }
@@ -138,15 +166,21 @@ fun MainNavigation() {
         ) { innerPadding ->
             Row(modifier = Modifier.fillMaxSize()) {
                 if (useRail) {
-                    NavigationRail {
-                        items.forEachIndexed { index, item ->
-                            NavigationRailItem(
-                                icon = { Icon(icons[index], contentDescription = item) },
-                                label = { Text(item) },
-                                alwaysShowLabel = true,
-                                selected = selectedItem == index,
-                                onClick = { navigateToTab(routes[index]) }
-                            )
+                    AnimatedVisibility(
+                        visible = topLevelNavigationVisible,
+                        enter = if (animationsEnabled) fadeIn(tween(300)) else EnterTransition.None,
+                        exit = if (animationsEnabled) fadeOut(tween(300)) else ExitTransition.None,
+                    ) {
+                        NavigationRail {
+                            items.forEachIndexed { index, item ->
+                                NavigationRailItem(
+                                    icon = { Icon(icons[index], contentDescription = item) },
+                                    label = { Text(item) },
+                                    alwaysShowLabel = true,
+                                    selected = selectedItem == index,
+                                    onClick = { navigateToTab(routes[index]) }
+                                )
+                            }
                         }
                     }
                 }
@@ -159,7 +193,11 @@ fun MainNavigation() {
                         .padding(bottom = innerPadding.calculateBottomPadding())
                 ) {
                     composable("home") {
-                        HomeScreen(onOpenCommunity = { navigateToTab("community") })
+                        HomeScreen(
+                            onOpenCommunity = { navigateToTab("community") },
+                            onOpenHistory = { navigateToTab("history") },
+                            onOpenRideDetail = { id -> navController.navigate("ride_detail/$id") },
+                        )
                     }
                     composable("history") { 
                         HistoryScreen(
