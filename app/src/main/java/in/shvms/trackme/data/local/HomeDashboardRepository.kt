@@ -134,6 +134,7 @@ class HomeDashboardRepository(
             } else 0f,
             pauseDuration = (totalMillis - activeDurationMillis).coerceAtLeast(0L),
             rawPointCount = points.size,
+            elevationGainMeters = `in`.shvms.trackme.domain.processor.calculateElevationGainMeters(points),
         )
     }
 

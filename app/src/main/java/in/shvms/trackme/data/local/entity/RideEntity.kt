@@ -11,7 +11,8 @@ data class PostRideCalculation(
     val avgSpeed: Float,
     val pauseDuration: Long,
     val maxAcceleration: Float? = null,
-    val rawPointCount: Int? = null
+    val rawPointCount: Int? = null,
+    val elevationGainMeters: Double? = null
 )
 
 @Entity(

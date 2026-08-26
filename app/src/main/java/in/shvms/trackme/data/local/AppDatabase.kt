@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RideEntity::class, 
         GPSPointEntity::class
     ], 
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -179,6 +179,13 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL(
                     "ALTER TABLE `rides` ADD COLUMN `startZoneId` TEXT"
                 )
+            }
+        }
+
+        /** TASK-215: persisted ascent is nullable until a ride has enough valid altitude data. */
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `rides` ADD COLUMN `elevationGainMeters` REAL")
             }
         }
     }

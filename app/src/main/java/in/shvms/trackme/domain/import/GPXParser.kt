@@ -138,6 +138,7 @@ class GPXParser {
             avgSpeed = avgSpeed,
             pauseDuration = 0L,
             rawPointCount = points.size,
+            elevationGainMeters = `in`.shvms.trackme.domain.processor.calculateElevationGainMeters(points),
         )
 
         val ride = RideEntity(

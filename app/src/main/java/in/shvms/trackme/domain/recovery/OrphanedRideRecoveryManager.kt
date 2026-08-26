@@ -100,6 +100,7 @@ object OrphanedRideRecoveryManager {
                 avgSpeed = avgSpeed,
                 pauseDuration = (durationMillis - activeDurationMillis).coerceAtLeast(0L),
                 rawPointCount = points.size,
+                elevationGainMeters = `in`.shvms.trackme.domain.processor.calculateElevationGainMeters(points),
             )
 
             val recoveredRide = ride.copy(
