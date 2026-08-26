@@ -749,14 +749,6 @@ fun RideDetailScreen(
                         val dateFormat = remember {
                             java.text.SimpleDateFormat("MMM dd, yyyy - HH:mm", java.util.Locale.getDefault())
                         }
-                        // Start time reads as a caption under the heading rather than as a grid
-                        // cell. In a third of a row it was always truncated to "Aug 17, ..." — the one
-                        // part of a timestamp that carries no information.
-                        Text(
-                            text = dateFormat.format(java.util.Date(ride.startTime)),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                         Spacer(modifier = Modifier.height(16.dp))
                         // Hairline-separated cells with tabular figures so the columns stop
                         // jittering as values change.
@@ -788,8 +780,6 @@ fun RideDetailScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                         StatGrid(
                             listOf(
-                                Stat(strings.gpsPoints, points.size.toString()),
-                                Stat(strings.maxGForce, String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f)),
                                 Stat(
                                     if (effortIsPace) strings.bestPace else strings.maxSpeed,
                                     if (effortIsPace) {
@@ -798,8 +788,60 @@ fun RideDetailScreen(
                                         `in`.shvms.trackme.domain.UnitFormatter.speed(maxMps, imperial)
                                     }
                                 ),
-                            )
+                                ride.postRideCalculation?.elevationGainMeters?.let { elevationMeters ->
+                                    Stat(
+                                        strings.elevationGain,
+                                        String.format(
+                                            java.util.Locale.getDefault(),
+                                            "%.0f %s",
+                                            if (imperial) elevationMeters * 3.28084 else elevationMeters,
+                                            if (imperial) "ft" else "m",
+                                        ),
+                                    )
+                                },
+                                Stat(
+                                    strings.startTime,
+                                    dateFormat.format(java.util.Date(ride.startTime)),
+                                ),
+                            ).filterNotNull()
                         )
+                        var showRecordingDetails by rememberSaveable { mutableStateOf(false) }
+                        val signalGapCount = points.zipWithNext().count { (previous, current) ->
+                            current.timestamp - previous.timestamp > 25_000L
+                        }
+                        TextButton(
+                            onClick = { showRecordingDetails = !showRecordingDetails },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(
+                                imageVector = if (showRecordingDetails) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = null,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(strings.recordingDetails)
+                        }
+                        if (showRecordingDetails) {
+                            StatGrid(
+                                listOf(
+                                    Stat(strings.gpsPoints, points.size.toString()),
+                                    Stat(
+                                        strings.maxGForce,
+                                        String.format(
+                                            java.util.Locale.getDefault(),
+                                            "%.2f G",
+                                            (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f,
+                                        ),
+                                    ),
+                                    Stat(strings.gpsSignalGaps, signalGapCount.toString()),
+                                ),
+                            )
+                            Text(
+                                text = if (ride.isSynced) strings.syncStatusSynced else strings.syncStatusLocal,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
                     }
                 }
                 
