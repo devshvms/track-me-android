@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.domain.export.GPXExporterImpl
 import `in`.shvms.trackme.domain.export.NativeSnapshotImageExporterImpl
 import `in`.shvms.trackme.domain.export.trimGpsPointsForExport
@@ -984,9 +985,7 @@ fun RideDetailScreen(
                         val exportOverlayContent = buildOverlayContent(
                             date = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
                                 .format(java.util.Date(ride.ride.startTime)),
-                            duration = compactDuration(
-                                (ride.ride.endTime ?: ride.ride.startTime) - ride.ride.startTime
-                            ),
+                            duration = displayExportDuration(ride.ride, strings.unknown),
                             distance = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(
                                 ride.ride.postRideCalculation?.distance ?: 0.0,
                                 imperial
@@ -1257,11 +1256,11 @@ fun RideDetailScreen(
                     // smear across the map that says less than the map it is covering.
                     val overlayContent = run {
                         val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(rideWithPoints?.ride?.postRideCalculation?.distance ?: 0.0, imperial)
-                        val durationMillis = (rideWithPoints?.ride?.endTime ?: rideWithPoints?.ride?.startTime ?: 0L) - (rideWithPoints?.ride?.startTime ?: 0L)
                         val dateStr = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date(rideWithPoints?.ride?.startTime ?: 0L))
                         buildOverlayContent(
                             date = dateStr,
-                            duration = compactDuration(durationMillis),
+                            duration = rideWithPoints?.ride?.let { displayExportDuration(it, strings.unknown) }
+                                ?: strings.unknown,
                             distance = distanceStr,
                             showDate = settings.showDate,
                             showDuration = settings.showDuration,
@@ -1593,6 +1592,11 @@ private fun formatDuration(durationMillis: Long): String {
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
     return String.format(java.util.Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
+}
+
+/** Uses the same reconciled active duration as the History card; never guesses from wall time. */
+internal fun displayExportDuration(ride: RideEntity, unknown: String): String {
+    return displayActiveDurationMillis(ride)?.let(::compactDuration) ?: unknown
 }
 
 /**

@@ -44,5 +44,18 @@ class HistoryDurationTest {
         )
 
         assertNull(displayActiveDurationMillis(ride))
+        assertEquals("Unknown", displayExportDuration(ride, "Unknown"))
+    }
+
+    @Test
+    fun `export duration uses active time rather than wall time`() {
+        val ride = RideEntity(
+            startTime = 1_000L,
+            endTime = 1_201_000L,
+            dashboardActiveDurationMillis = 300_000L,
+            dashboardMetadataVersion = HOME_DASHBOARD_METADATA_VERSION,
+        )
+
+        assertEquals("5min", displayExportDuration(ride, "Unknown"))
     }
 }
