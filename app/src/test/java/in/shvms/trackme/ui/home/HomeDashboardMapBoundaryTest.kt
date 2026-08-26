@@ -39,6 +39,17 @@ class HomeDashboardMapBoundaryTest {
         assertTrue(dashboard.contains("if (deckResolved)"))
     }
 
+    @Test fun `all personas have a visible select then start path`() {
+        val home = read("ui/home/HomeScreen.kt")
+        val dashboard = read("ui/home/HomeDashboardScreen.kt")
+        assertTrue(home.contains("DashboardPersonaDock("))
+        assertTrue(home.contains("RidePersona.entries.forEach"))
+        assertTrue(home.contains("dashboardSelectionCameFromPicker = true"))
+        assertTrue(dashboard.contains("suggestedPersonas.take(3)"))
+        assertTrue(dashboard.contains("strings.dashboardStartPersona"))
+        assertTrue(dashboard.contains("strings.dashboardChangeActivity"))
+    }
+
     private fun read(relative: String): String {
         var directory: File? = File("").absoluteFile
         val path = "app/src/main/java/in/shvms/trackme/$relative"

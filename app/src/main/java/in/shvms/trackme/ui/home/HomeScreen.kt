@@ -2,6 +2,7 @@ package `in`.shvms.trackme.ui.home
 
 import androidx.compose.material3.SnackbarDuration
 import `in`.shvms.trackme.ui.components.TrackMeMapAttribution
+import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.ui.components.rememberMessenger
 import `in`.shvms.trackme.ui.components.rememberMapStyle
 import android.Manifest
@@ -165,6 +166,8 @@ fun HomeScreen(
         context.getSharedPreferences("ui_prefs", android.content.Context.MODE_PRIVATE)
     }
     var showDiscardRideDialog by remember { mutableStateOf(false) }
+    var showDashboardPersonaPicker by rememberSaveable { mutableStateOf(false) }
+    var dashboardSelectionCameFromPicker by rememberSaveable { mutableStateOf(false) }
     var hasRequestedStartRideUndo by remember { mutableStateOf(false) }
     var hasLocationPermission by remember {
         mutableStateOf(
@@ -175,6 +178,21 @@ fun HomeScreen(
         )
     }
     val uiState by viewModel.uiState.collectAsState()
+    val suggestedDashboardPersonas = remember(
+        uiState.selectedDashboardPersona,
+        uiState.dashboardSummary.personaCounts,
+    ) {
+        buildList {
+            uiState.dashboardSummary.personaCounts
+                .asSequence()
+                .map { it.persona }
+                .filterNot { it == uiState.selectedDashboardPersona }
+                .forEach { if (it !in this) add(it) }
+            RidePersona.entries
+                .filterNot { it == uiState.selectedDashboardPersona || it in this }
+                .forEach(::add)
+        }.take(3)
+    }
     val dashboardRoute by viewModel.dashboardRoute.collectAsState()
     val groupSession by app.groupSessionManager.state.collectAsState()
     val isOffline = rememberIsOffline()
@@ -680,6 +698,37 @@ fun HomeScreen(
                     pendingStartPersona = null
                     AnalyticsManager.trackRideStartAborted(RideStartAbortMethod.PRE_COMMIT)
                 }) { Text(strings.cancel) }
+            },
+        )
+    }
+
+    if (showDashboardPersonaPicker) {
+        AlertDialog(
+            onDismissRequest = { showDashboardPersonaPicker = false },
+            title = { Text(strings.dashboardChangeActivity) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    RidePersona.entries.forEach { persona ->
+                        TextButton(
+                            onClick = {
+                                viewModel.selectDashboardPersona(persona)
+                                dashboardSelectionCameFromPicker = true
+                                showDashboardPersonaPicker = false
+                            },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        ) {
+                            Icon(persona.icon(), contentDescription = null)
+                            Spacer(Modifier.width(12.dp))
+                            Text(strings.personaLabel(persona), modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showDashboardPersonaPicker = false }) {
+                    Text(strings.cancel)
+                }
             },
         )
     }
@@ -1337,20 +1386,34 @@ fun HomeScreen(
                 enter = if (animationsEnabled) fadeIn(tween(300, delayMillis = 320)) else EnterTransition.None,
                 exit = if (animationsEnabled) fadeOut(tween(300)) else ExitTransition.None,
             ) {
-                RadialStartRideButton(
-                    onStartRide = { persona ->
-                        val method = if (persona == uiState.selectedDashboardPersona) {
-                            ActivityStartMethod.PRIMARY
-                        } else ActivityStartMethod.PERSONA_PICKER
-                        viewModel.selectDashboardPersona(persona)
-                        beginDashboardStart(persona, method)
-                    },
-                    preselectedPersona = uiState.selectedDashboardPersona,
-                    onAbortRideStart = AnalyticsManager::trackRideStartAborted,
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .padding(bottom = 8.dp),
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    DashboardPersonaDock(
+                        selectedPersona = uiState.selectedDashboardPersona,
+                        suggestedPersonas = suggestedDashboardPersonas,
+                        onSelectPersona = { persona ->
+                            viewModel.selectDashboardPersona(persona)
+                            dashboardSelectionCameFromPicker = true
+                        },
+                        onOpenAll = { showDashboardPersonaPicker = true },
+                    )
+                    RadialStartRideButton(
+                        onStartRide = { persona ->
+                            val method = if (dashboardSelectionCameFromPicker ||
+                                persona != uiState.selectedDashboardPersona
+                            ) {
+                                ActivityStartMethod.PERSONA_PICKER
+                            } else ActivityStartMethod.PRIMARY
+                            dashboardSelectionCameFromPicker = false
+                            viewModel.selectDashboardPersona(persona)
+                            beginDashboardStart(persona, method)
+                        },
+                        preselectedPersona = uiState.selectedDashboardPersona,
+                        onAbortRideStart = AnalyticsManager::trackRideStartAborted,
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .padding(bottom = 8.dp),
+                    )
+                }
             }
 
             if (showDiscardRideDialog) {

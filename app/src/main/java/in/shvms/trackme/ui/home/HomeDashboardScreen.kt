@@ -3,6 +3,8 @@ package `in`.shvms.trackme.ui.home
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -31,6 +34,7 @@ import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -105,7 +109,7 @@ internal fun HomeDashboardScreen(
             end = 16.dp,
             // The radial control is fixed outside this scrolling deck and remains actionable at
             // every font scale. Cards may scroll behind its reserved dock, never under its touch.
-            bottom = 190.dp,
+            bottom = 252.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -164,6 +168,61 @@ internal fun HomeDashboardScreen(
                         onOpen = { onOpenRecent(recent.localId, recent.persona) },
                         onOpenHistory = onOpenHistory,
                     )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Visible tap semantics for persona selection, complementing (not replacing) the retained radial
+ * drag gesture. Selection only relabels the primary control; the ride starts on the subsequent
+ * radial-control tap, preserving the spec's two-tap alternate-persona path.
+ */
+@Composable
+internal fun DashboardPersonaDock(
+    selectedPersona: RidePersona,
+    suggestedPersonas: List<RidePersona>,
+    onSelectPersona: (RidePersona) -> Unit,
+    onOpenAll: () -> Unit,
+) {
+    val strings = LocalAppStrings.current
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shape = RoundedCornerShape(22.dp),
+        tonalElevation = 3.dp,
+    ) {
+        Column(
+            Modifier.widthIn(max = 360.dp).padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                String.format(
+                    Locale.getDefault(),
+                    strings.dashboardStartPersona,
+                    strings.personaLabel(selectedPersona),
+                ),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                suggestedPersonas.take(3).forEach { persona ->
+                    AssistChip(
+                        onClick = { onSelectPersona(persona) },
+                        label = { Text(strings.personaLabel(persona), maxLines = 1) },
+                        leadingIcon = {
+                            Icon(persona.icon(), contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                    )
+                }
+                TextButton(onClick = onOpenAll, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(strings.dashboardChangeActivity, maxLines = 1)
                 }
             }
         }
