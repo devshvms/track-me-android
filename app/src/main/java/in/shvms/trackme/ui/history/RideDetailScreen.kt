@@ -982,16 +982,17 @@ fun RideDetailScreen(
                     runCatching {
                         // Built once, here, and handed to both the panel geometry and the exporter.
                         // Deriving it twice is what let the file and the preview disagree (§8.1).
+                        val exportDuration = displayExportDuration(ride.ride)
                         val exportOverlayContent = buildOverlayContent(
                             date = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
                                 .format(java.util.Date(ride.ride.startTime)),
-                            duration = displayExportDuration(ride.ride, strings.unknown),
+                            duration = exportDuration ?: strings.unknown,
                             distance = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(
                                 ride.ride.postRideCalculation?.distance ?: 0.0,
                                 imperial
                             ),
                             showDate = settings.showDate,
-                            showDuration = settings.showDuration,
+                            showDuration = settings.showDuration && exportDuration != null,
                             showDistance = settings.showDistance,
                         )
                         NativeSnapshotImageExporterImpl().export(
@@ -1256,14 +1257,14 @@ fun RideDetailScreen(
                     // smear across the map that says less than the map it is covering.
                     val overlayContent = run {
                         val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(rideWithPoints?.ride?.postRideCalculation?.distance ?: 0.0, imperial)
+                        val exportDuration = rideWithPoints?.ride?.let(::displayExportDuration)
                         val dateStr = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date(rideWithPoints?.ride?.startTime ?: 0L))
                         buildOverlayContent(
                             date = dateStr,
-                            duration = rideWithPoints?.ride?.let { displayExportDuration(it, strings.unknown) }
-                                ?: strings.unknown,
+                            duration = exportDuration ?: strings.unknown,
                             distance = distanceStr,
                             showDate = settings.showDate,
-                            showDuration = settings.showDuration,
+                            showDuration = settings.showDuration && exportDuration != null,
                             showDistance = settings.showDistance,
                         )
                     }
@@ -1595,9 +1596,8 @@ private fun formatDuration(durationMillis: Long): String {
 }
 
 /** Uses the same reconciled active duration as the History card; never guesses from wall time. */
-internal fun displayExportDuration(ride: RideEntity, unknown: String): String {
-    return displayActiveDurationMillis(ride)?.let(::compactDuration) ?: unknown
-}
+internal fun displayExportDuration(ride: RideEntity): String? =
+    displayActiveDurationMillis(ride)?.let(::compactDuration)
 
 /**
  * One sample of the effort series, in whatever unit the chart is plotting.
