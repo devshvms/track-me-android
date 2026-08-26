@@ -54,25 +54,14 @@ class HomeDashboardSelectorTest {
     }
 
     @Test
-    fun `latest strict personal best wins highest priority`() {
+    fun `latest personal best is never surfaced on Home`() {
         val summary = select(
             ride(3, "2026-08-25T10:00:00Z", distance = 2_000.0),
             ride(2, "2026-08-04T10:00:00Z", distance = 1_500.0),
             ride(1, "2026-07-28T10:00:00Z", distance = 1_200.0),
         )
-        val insight = summary.insight as HomeInsight.PersonalBest
-        assertEquals(InsightMetric.DISTANCE, insight.metric)
-        assertEquals(1_500.0, insight.previousBestValue, 0.0)
-    }
-
-    @Test
-    fun `tie is not a personal best`() {
-        val summary = select(
-            ride(3, "2026-08-25T10:00:00Z", distance = 1_500.0),
-            ride(2, "2026-08-18T10:00:00Z", distance = 1_500.0),
-            ride(1, "2026-08-11T10:00:00Z", RidePersona.WALK, distance = 900.0),
-        )
-        assertFalse(summary.insight is HomeInsight.PersonalBest)
+        assertTrue(summary.insight is HomeInsight.Return)
+        assertFalse(summary.insight?.analyticsValue == "personal_best")
     }
 
     @Test

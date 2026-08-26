@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import java.util.concurrent.TimeUnit
 import java.util.Locale
@@ -66,6 +68,8 @@ data class HomeUiState(
     val selectedPersona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO,
     val selectedDashboardPersona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO,
     val dashboardSummary: HomeDashboardSummary = HomeDashboardSummary.empty(0L),
+    /** False until Room has emitted at least one authoritative dashboard projection. */
+    val dashboardSummaryResolved: Boolean = false,
     val isDashboardReconciling: Boolean = true,
     val dashboardSyncNeedsAction: Boolean = false,
     val isAuthenticated: Boolean = false,
@@ -90,17 +94,28 @@ class HomeViewModel(
     private data class DashboardState(
         val summary: HomeDashboardSummary,
         val persona: `in`.shvms.trackme.domain.model.RidePersona,
+        val resolved: Boolean,
         val reconciling: Boolean,
         val syncNeedsAction: Boolean,
     )
 
+    private val dashboardSummary = dashboardRepository.summary
+        .map<HomeDashboardSummary, HomeDashboardSummary?> { it }
+        .onStart { emit(null) }
+
     private val dashboardState = combine(
-        dashboardRepository.summary,
+        dashboardSummary,
         selectedDashboardPersona,
         dashboardRepository.isReconciling,
         firestoreSyncManager.syncResult,
     ) { summary, persona, reconciling, syncResult ->
-        DashboardState(summary, persona, reconciling, syncResult is SyncResult.Error)
+        DashboardState(
+            summary = summary ?: HomeDashboardSummary.empty(0L),
+            persona = persona,
+            resolved = summary != null,
+            reconciling = reconciling,
+            syncNeedsAction = syncResult is SyncResult.Error,
+        )
     }
 
     init {
@@ -201,6 +216,7 @@ class HomeViewModel(
             userName = user?.displayName,
             selectedDashboardPersona = dashboard.persona,
             dashboardSummary = dashboard.summary,
+            dashboardSummaryResolved = dashboard.resolved,
             isDashboardReconciling = dashboard.reconciling,
             dashboardSyncNeedsAction = dashboard.syncNeedsAction,
         )

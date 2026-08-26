@@ -28,12 +28,9 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Route
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,11 +39,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,17 +48,17 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import `in`.shvms.trackme.analytics.ActivityStartMethod
 import `in`.shvms.trackme.data.local.dao.HomeDashboardRoutePoint
 import `in`.shvms.trackme.domain.UnitFormatter
 import `in`.shvms.trackme.domain.home.HomeDashboardSummary
 import `in`.shvms.trackme.domain.home.HomeInsight
 import `in`.shvms.trackme.domain.home.InsightDirection
-import `in`.shvms.trackme.domain.home.InsightMetric
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.domain.model.usesPace
 import `in`.shvms.trackme.ui.components.icon
@@ -83,168 +75,98 @@ import kotlin.math.max
 @Composable
 internal fun HomeDashboardScreen(
     summary: HomeDashboardSummary,
-    selectedPersona: RidePersona,
     routePoints: List<HomeDashboardRoutePoint>,
+    isSummaryResolved: Boolean,
     isReconciling: Boolean,
     groupActive: Boolean,
     groupMemberCount: Int,
     syncNeedsAction: Boolean,
     isOffline: Boolean,
+    locationPermissionRevoked: Boolean,
     imperial: Boolean,
-    onSelectPersona: (RidePersona) -> Unit,
-    onStart: (RidePersona, ActivityStartMethod) -> Unit,
     onOpenRecent: (Long, RidePersona) -> Unit,
     onOpenHistory: () -> Unit,
     onOpenCommunity: () -> Unit,
     onOpenGroupMap: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onDismissPermissionNotice: () -> Unit,
 ) {
     val strings = LocalAppStrings.current
-    var showPersonaPicker by remember { mutableStateOf(false) }
-    var startMethod by remember { mutableStateOf(ActivityStartMethod.PRIMARY) }
-    val suggested = remember(selectedPersona, summary.personaCounts) {
-        buildList {
-            add(selectedPersona)
-            summary.personaCounts.map { it.persona }
-                .filterNot { it == selectedPersona }
-                .take(3)
-                .forEach(::add)
-            listOf(RidePersona.AUTO, RidePersona.CYCLING, RidePersona.WALK, RidePersona.RUN)
-                .filterNot(::contains)
-                .take(4 - size)
-                .forEach(::add)
-        }
-    }
+    // A first Room emission can still be an empty projection while legacy metadata is being
+    // reconciled. Treat that as unknown, not empty, so a rider with a large history never sees
+    // first-run copy flash as though their data vanished.
+    val deckResolved = isSummaryResolved && (!isReconciling || summary.lifetimeActivityCount > 0)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 16.dp,
+            top = 16.dp,
+            end = 16.dp,
+            // The radial control is fixed outside this scrolling deck and remains actionable at
+            // every font scale. Cards may scroll behind its reserved dock, never under its touch.
+            bottom = 190.dp,
+        ),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                shape = RoundedCornerShape(24.dp),
-            ) {
-                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text(
-                        text = strings.appName,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        if (deckResolved) {
+            if (locationPermissionRevoked) {
+                item {
+                    PermissionRevokedCard(
+                        strings = strings,
+                        onOpenSettings = onOpenSettings,
+                        onDismiss = onDismissPermissionNotice,
                     )
-                    Button(
-                        onClick = { onStart(selectedPersona, startMethod) },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                    ) {
-                        Icon(selectedPersona.icon(), contentDescription = null)
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            String.format(
-                                Locale.getDefault(),
-                                strings.dashboardStartPersona,
-                                strings.personaLabel(selectedPersona),
-                            ),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        suggested.forEach { persona ->
-                            AssistChip(
-                                onClick = {
-                                    startMethod = if (persona == selectedPersona) {
-                                        ActivityStartMethod.PRIMARY
-                                    } else ActivityStartMethod.PERSONA_PICKER
-                                    onSelectPersona(persona)
-                                },
-                                label = { Text(strings.personaLabel(persona)) },
-                                leadingIcon = {
-                                    Icon(persona.icon(), contentDescription = null, modifier = Modifier.size(18.dp))
-                                },
-                            )
-                        }
-                    }
-                    TextButton(onClick = { showPersonaPicker = true }) {
-                        Text(strings.dashboardChangeActivity)
-                    }
                 }
             }
-        }
 
-        if (summary.lifetimeActivityCount > 0) {
-            item { WeeklySummaryCard(summary, imperial, strings) }
-        } else {
-            item { EmptyDashboardCard(strings) }
-        }
-
-        item {
-            ContextCard(
-                groupActive = groupActive,
-                groupMemberCount = groupMemberCount,
-                syncNeedsAction = syncNeedsAction,
-                isOffline = isOffline,
-                strings = strings,
-                onOpenCommunity = onOpenCommunity,
-                onOpenGroupMap = onOpenGroupMap,
-                onOpenHistory = onOpenHistory,
-            )
-        }
-
-        if (isReconciling) {
             item {
-                Row(
-                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Text(strings.dashboardLoadingHistory, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        }
-
-        summary.insight?.let { insight ->
-            item { InsightCard(insight, strings) }
-        }
-
-        summary.latestActivity?.let { recent ->
-            item {
-                RecentActivityCard(
-                    summary = summary,
-                    routePoints = routePoints,
-                    imperial = imperial,
+                ContextCard(
+                    groupActive = groupActive,
+                    groupMemberCount = groupMemberCount,
+                    syncNeedsAction = syncNeedsAction,
+                    isOffline = isOffline,
                     strings = strings,
-                    onOpen = { onOpenRecent(recent.localId, recent.persona) },
+                    onOpenCommunity = onOpenCommunity,
+                    onOpenGroupMap = onOpenGroupMap,
                     onOpenHistory = onOpenHistory,
                 )
             }
-        }
-    }
 
-    if (showPersonaPicker) {
-        AlertDialog(
-            onDismissRequest = { showPersonaPicker = false },
-            title = { Text(strings.dashboardChangeActivity) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    RidePersona.entries.forEach { persona ->
-                        TextButton(
-                            onClick = {
-                                onSelectPersona(persona)
-                                startMethod = ActivityStartMethod.PERSONA_PICKER
-                                showPersonaPicker = false
-                            },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        ) {
-                            Icon(persona.icon(), contentDescription = null)
-                            Spacer(Modifier.width(12.dp))
-                            Text(strings.personaLabel(persona), modifier = Modifier.weight(1f))
-                        }
-                    }
+            if (summary.lifetimeActivityCount > 0) {
+                item { WeeklySummaryCard(summary, imperial, strings) }
+            } else {
+                item { EmptyDashboardCard(strings) }
+            }
+
+            if (isReconciling && summary.lifetimeActivityCount > 0) {
+                item {
+                    Text(
+                        strings.dashboardLoadingHistory,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { showPersonaPicker = false }) { Text(strings.cancel) } },
-        )
+            }
+
+            summary.insight?.let { insight ->
+                item { InsightCard(insight, strings) }
+            }
+
+            summary.latestActivity?.let { recent ->
+                item {
+                    RecentActivityCard(
+                        summary = summary,
+                        routePoints = routePoints,
+                        imperial = imperial,
+                        strings = strings,
+                        onOpen = { onOpenRecent(recent.localId, recent.persona) },
+                        onOpenHistory = onOpenHistory,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -274,7 +196,7 @@ private fun WeeklySummaryCard(summary: HomeDashboardSummary, imperial: Boolean, 
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            WeeklyDistanceChart(summary, strings)
+            WeeklyDistanceChart(summary, imperial, strings)
         }
     }
 }
@@ -288,13 +210,22 @@ private fun Metric(value: String, label: String) {
 }
 
 @Composable
-private fun WeeklyDistanceChart(summary: HomeDashboardSummary, strings: AppStrings) {
+private fun WeeklyDistanceChart(summary: HomeDashboardSummary, imperial: Boolean, strings: AppStrings) {
     val buckets = summary.weeklyBuckets.takeLast(4)
     val maxDistance = max(1.0, buckets.maxOfOrNull { it.distanceMeters } ?: 1.0)
     val barColor = MaterialTheme.colorScheme.primary
+    val accessibleValues = buckets.map { UnitFormatter.rideDistance(it.distanceMeters, imperial) }
+    val accessibleLabel = String.format(
+        Locale.getDefault(),
+        strings.dashboardWeeklyChartValues,
+        accessibleValues.getOrElse(0) { UnitFormatter.rideDistance(0.0, imperial) },
+        accessibleValues.getOrElse(1) { UnitFormatter.rideDistance(0.0, imperial) },
+        accessibleValues.getOrElse(2) { UnitFormatter.rideDistance(0.0, imperial) },
+        accessibleValues.getOrElse(3) { UnitFormatter.rideDistance(0.0, imperial) },
+    )
     Canvas(
         Modifier.fillMaxWidth().height(64.dp).semantics {
-            contentDescription = strings.dashboardWeeklyChart
+            contentDescription = accessibleLabel
         }
     ) {
         val gap = 12.dp.toPx()
@@ -323,7 +254,7 @@ private fun EmptyDashboardCard(strings: AppStrings) {
             }
             listOf(
                 Icons.Default.BarChart to strings.dashboardPreviewWeekly,
-                Icons.Default.Insights to strings.dashboardPreviewBests,
+                Icons.Default.Insights to strings.dashboardPreviewComparison,
                 Icons.Default.Route to strings.dashboardPreviewRoutes,
             ).forEach { (icon, label) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -337,6 +268,42 @@ private fun EmptyDashboardCard(strings: AppStrings) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+@Composable
+private fun PermissionRevokedCard(
+    strings: AppStrings,
+    onOpenSettings: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        ),
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(strings.locationPermissionRevokedTitle, fontWeight = FontWeight.Bold)
+                    Text(strings.locationPermissionRevokedBody, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            Row(
+                modifier = Modifier.align(Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                TextButton(onClick = onDismiss) { Text(strings.close) }
+                FilledTonalButton(onClick = onOpenSettings) { Text(strings.openSettings) }
+            }
         }
     }
 }
@@ -391,13 +358,6 @@ private fun ContextCard(
 @Composable
 private fun InsightCard(insight: HomeInsight, strings: AppStrings) {
     val text = when (insight) {
-        is HomeInsight.PersonalBest -> String.format(
-            Locale.getDefault(),
-            if (insight.metric == InsightMetric.DISTANCE) {
-                strings.dashboardInsightPersonalBestDistance
-            } else strings.dashboardInsightPersonalBestDuration,
-            strings.personaLabel(insight.persona),
-        )
         is HomeInsight.Return -> String.format(
             Locale.getDefault(), strings.dashboardInsightReturn,
             strings.personaLabel(insight.persona), insight.inactiveDays,

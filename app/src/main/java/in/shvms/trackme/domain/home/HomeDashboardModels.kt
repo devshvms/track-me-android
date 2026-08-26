@@ -35,15 +35,6 @@ data class InsightPeriod(
 sealed interface HomeInsight {
     val analyticsValue: String
 
-    data class PersonalBest(
-        val persona: RidePersona,
-        val metric: InsightMetric,
-        val currentValue: Double,
-        val previousBestValue: Double,
-    ) : HomeInsight {
-        override val analyticsValue: String = "personal_best"
-    }
-
     data class Return(
         val persona: RidePersona,
         val inactiveDays: Long,

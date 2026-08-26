@@ -13,21 +13,30 @@ class HomeDashboardMapBoundaryTest {
         assertFalse(dashboard.contains("ACCESS_FINE_LOCATION"))
     }
 
-    @Test fun `Home chooses dashboard before the only GoogleMap call`() {
+    @Test fun `Home keeps one map host beneath the dashboard`() {
         val home = read("ui/home/HomeScreen.kt")
-        val dashboardBranch = home.indexOf("if (presentationMode == HomePresentationMode.IDLE_DASHBOARD)")
         val map = home.indexOf("GoogleMap(")
-        assertTrue(dashboardBranch >= 0)
-        assertTrue(map > dashboardBranch)
-        assertTrue(home.contains("isMyLocationEnabled = hasLocationPermission"))
+        val dashboard = home.indexOf("HomeDashboardScreen(")
+        assertTrue(map >= 0)
+        assertTrue(dashboard > map)
+        assertTrue(home.contains("isMyLocationEnabled = isInteractiveMap && hasLocationPermission"))
+        assertTrue(home.contains("scrollGesturesEnabled = isInteractiveMap"))
+        assertTrue(home.contains("zoomGesturesEnabled = isInteractiveMap"))
         assertTrue(home.contains("enabled = hasLocationPermission"))
-        assertFalse("the removed radial launcher must not remain callable", home.contains("RadialStartRideButton("))
+        assertTrue("the retained radial launcher must remain callable", home.contains("RadialStartRideButton("))
     }
 
-    @Test fun `idle location lookup is gated on map presentation`() {
+    @Test fun `idle location lookup is gated on interactive map presentation`() {
         val home = read("ui/home/HomeScreen.kt")
-        assertTrue(home.contains("LaunchedEffect(hasLocationPermission, shouldConstructMap)"))
-        assertTrue(home.contains("shouldConstructMap && hasLocationPermission"))
+        assertTrue(home.contains("LaunchedEffect(hasLocationPermission, isInteractiveMap)"))
+        assertTrue(home.contains("isInteractiveMap && hasLocationPermission"))
+    }
+
+    @Test fun `unknown dashboard cannot render first-run state`() {
+        val dashboard = read("ui/home/HomeDashboardScreen.kt")
+        assertTrue(dashboard.contains("val deckResolved = isSummaryResolved"))
+        assertTrue(dashboard.contains("!isReconciling || summary.lifetimeActivityCount > 0"))
+        assertTrue(dashboard.contains("if (deckResolved)"))
     }
 
     private fun read(relative: String): String {

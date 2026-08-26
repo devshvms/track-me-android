@@ -24,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import `in`.shvms.trackme.theme.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
@@ -49,6 +50,7 @@ import androidx.compose.animation.core.*
 import kotlinx.coroutines.launch
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.home.components.ActiveRideHudPanel
+import `in`.shvms.trackme.ui.home.components.RadialStartRideButton
 import `in`.shvms.trackme.ui.components.animateSafely
 import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.domain.group.GroupPresencePolicy
@@ -129,6 +131,12 @@ private tailrec fun android.content.Context.findActivity(): android.app.Activity
     else -> null
 }
 
+private fun openAppSettings(context: android.content.Context) {
+    val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+    intent.data = android.net.Uri.fromParts("package", context.packageName, null)
+    context.startActivity(intent)
+}
+
 @Composable
 fun HomeScreen(
     onOpenCommunity: () -> Unit = {},
@@ -175,11 +183,19 @@ fun HomeScreen(
         isTrackingIdle = uiState.trackingState == TrackingState.IDLE,
         explicitGroupMap = explicitGroupMap,
     )
-    val shouldConstructMap = presentationMode != HomePresentationMode.IDLE_DASHBOARD
+    val isInteractiveMap = presentationMode != HomePresentationMode.IDLE_DASHBOARD
+    val animationsEnabled = remember(context.contentResolver) {
+        android.provider.Settings.Global.getFloat(
+            context.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        ) != 0f
+    }
     BackHandler(enabled = presentationMode == HomePresentationMode.EXPLICIT_GROUP_MAP) {
         explicitGroupMap = false
     }
     val recoveryNotice by app.recoveryNotice.collectAsState()
+    val locationPermissionRevokedNotice by app.locationPermissionRevokedNotice.collectAsState()
     // B1: durable one-shot post-ride reveal (null unless a good ride was just saved).
     val pendingReveal by app.pendingRevealStore.pending.collectAsState()
     // B2: weekly recap for a completed week (null unless one is pending on foreground).
@@ -372,8 +388,8 @@ fun HomeScreen(
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
     var hasCenteredOnLocation by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(hasLocationPermission, shouldConstructMap) {
-        if (shouldConstructMap && hasLocationPermission && !hasCenteredOnLocation && uiState.pathPoints.isEmpty()) {
+    LaunchedEffect(hasLocationPermission, isInteractiveMap) {
+        if (isInteractiveMap && hasLocationPermission && !hasCenteredOnLocation && uiState.pathPoints.isEmpty()) {
             try {
                 fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
                     if (loc != null) {
@@ -420,8 +436,8 @@ fun HomeScreen(
     // Any user gesture drops into free-look. Maps Compose already reports why the camera moved, so
     // this needs no touch interception — and our own animateSafely calls report
     // DEVELOPER_ANIMATION, so follow cannot switch itself off on its first move.
-    LaunchedEffect(cameraPositionState.isMoving, cameraPositionState.cameraMoveStartedReason, shouldConstructMap) {
-        if (shouldConstructMap && cameraPositionState.isMoving &&
+    LaunchedEffect(cameraPositionState.isMoving, cameraPositionState.cameraMoveStartedReason, isInteractiveMap) {
+        if (isInteractiveMap && cameraPositionState.isMoving &&
             CameraFollowPolicy.releasesFollow(cameraPositionState.cameraMoveStartedReason.toMoveCause())
         ) {
             isFollowingRider = false
@@ -440,7 +456,7 @@ fun HomeScreen(
     LaunchedEffect(pendingMemberFocus) {
         val focus = pendingMemberFocus ?: return@LaunchedEffect
         if (!`in`.shvms.trackme.domain.group.MemberFocusPolicy.shouldApply(focus)) return@LaunchedEffect
-        if (!shouldConstructMap) {
+        if (!isInteractiveMap) {
             explicitGroupMap = true
             // Let the explicit-map state commit before the one-shot is consumed. Camera state is
             // hoisted, so the move can be prepared on this frame and the map receives it on mount.
@@ -469,8 +485,8 @@ fun HomeScreen(
     //
     // Deliberately does NOT re-arm follow. §1 Q1.1 is "button only", and the next ride re-arms
     // through armsOnRecordingStart anyway, so touching the flag here would only weaken that rule.
-    LaunchedEffect(uiState.trackingState, shouldConstructMap) {
-        if (!shouldConstructMap) return@LaunchedEffect
+    LaunchedEffect(uiState.trackingState, isInteractiveMap) {
+        if (!isInteractiveMap) return@LaunchedEffect
         if (uiState.trackingState != TrackingState.IDLE) return@LaunchedEffect
         if (cameraPositionState.position.tilt <= 0.5f) return@LaunchedEffect
         cameraPositionState.animateSafely {
@@ -484,7 +500,7 @@ fun HomeScreen(
     }
 
     LaunchedEffect(uiState.pathPoints, isFollowingRider, isRecording) {
-        if (!shouldConstructMap) return@LaunchedEffect
+        if (!isInteractiveMap) return@LaunchedEffect
         val move = CameraFollowPolicy.moveFor(
             following = isFollowingRider,
             isRecording = uiState.trackingState == TrackingState.TRACKING,
@@ -592,11 +608,19 @@ fun HomeScreen(
 
     var dashboardEntryTracked by remember { mutableStateOf(false) }
     var dashboardInsightTracked by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(presentationMode, uiState.isDashboardReconciling, uiState.dashboardSummary.historyBucket) {
+    LaunchedEffect(
+        presentationMode,
+        uiState.dashboardSummaryResolved,
+        uiState.isDashboardReconciling,
+        uiState.dashboardSummary.historyBucket,
+    ) {
         if (presentationMode != HomePresentationMode.IDLE_DASHBOARD) {
             dashboardEntryTracked = false
             dashboardInsightTracked = null
-        } else if (!uiState.isDashboardReconciling && !dashboardEntryTracked) {
+        } else if (uiState.dashboardSummaryResolved &&
+            !uiState.isDashboardReconciling &&
+            !dashboardEntryTracked
+        ) {
             AnalyticsManager.trackHomeDashboardViewed(uiState.dashboardSummary.historyBucket)
             dashboardEntryTracked = true
         }
@@ -663,33 +687,7 @@ fun HomeScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0.dp)
     ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-        if (presentationMode == HomePresentationMode.IDLE_DASHBOARD) {
-            HomeDashboardScreen(
-                summary = uiState.dashboardSummary,
-                selectedPersona = uiState.selectedDashboardPersona,
-                routePoints = dashboardRoute,
-                isReconciling = uiState.isDashboardReconciling,
-                groupActive = groupSession.isActive,
-                groupMemberCount = groupSession.roster.size,
-                syncNeedsAction = uiState.dashboardSyncNeedsAction,
-                isOffline = isOffline,
-                imperial = imperialUnits == "imperial",
-                onSelectPersona = viewModel::selectDashboardPersona,
-                onStart = ::beginDashboardStart,
-                onOpenRecent = { localId, persona ->
-                    AnalyticsManager.trackHomeRecentActivityOpened(persona)
-                    onOpenRideDetail(localId)
-                },
-                onOpenHistory = onOpenHistory,
-                onOpenCommunity = onOpenCommunity,
-                onOpenGroupMap = {
-                    AnalyticsManager.trackHomeGroupMapOpened()
-                    explicitGroupMap = true
-                },
-            )
-        } else {
-        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             var mapType by remember { mutableStateOf(MapType.NORMAL) }
             var isTrafficEnabled by remember { mutableStateOf(false) }
 
@@ -708,8 +706,8 @@ fun HomeScreen(
                 // syncing produces no recomposition, so without a tick their marker would stay
                 // bright forever. One second is cheap and makes "2m ago" honest.
                 var groupClockTick by remember { mutableLongStateOf(System.currentTimeMillis()) }
-                LaunchedEffect(groupSession.isActive) {
-                    while (groupSession.isActive) {
+                LaunchedEffect(groupSession.isActive, isInteractiveMap) {
+                    while (groupSession.isActive && isInteractiveMap) {
                         groupClockTick = System.currentTimeMillis()
                         delay(1_000L)
                     }
@@ -733,7 +731,9 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = cameraPositionState,
                     properties = MapProperties(
-                        isMyLocationEnabled = hasLocationPermission,
+                        // Idle Home owns a real map view but never owns location. The location
+                        // layer and all controls switch on only after an explicit interactive mode.
+                        isMyLocationEnabled = isInteractiveMap && hasLocationPermission,
                         mapType = mapType,
                         isTrafficEnabled = isTrafficEnabled,
                         // Null in light theme — Google's default basemap is already the light one.
@@ -741,10 +741,18 @@ fun HomeScreen(
                     ),
                     uiSettings = MapUiSettings(
                         zoomControlsEnabled = false,
-                        myLocationButtonEnabled = false
+                        myLocationButtonEnabled = false,
+                        compassEnabled = isInteractiveMap,
+                        mapToolbarEnabled = isInteractiveMap,
+                        rotationGesturesEnabled = isInteractiveMap,
+                        scrollGesturesEnabled = isInteractiveMap,
+                        scrollGesturesEnabledDuringRotateOrZoom = isInteractiveMap,
+                        tiltGesturesEnabled = isInteractiveMap,
+                        zoomGesturesEnabled = isInteractiveMap,
                     ),
                     contentPadding = mapContentPadding
                 ) {
+                    if (isInteractiveMap) {
                     if (uiState.pathPoints.isNotEmpty()) {
                         Polyline(
                             points = uiState.pathPoints,
@@ -899,6 +907,7 @@ fun HomeScreen(
                             anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
                         )
                     }
+                    }
                 }
                 // After the map, so it draws on top of it rather than under. Beside Google's own
                 // mark and never over it — see MapAttribution.
@@ -907,6 +916,29 @@ fun HomeScreen(
                     bottomOffset = mapContentPadding.calculateBottomPadding(),
                 )
             }
+
+            val scrimTopAlpha by animateFloatAsState(
+                targetValue = if (presentationMode == HomePresentationMode.IDLE_DASHBOARD) 0.72f else 0.28f,
+                animationSpec = if (animationsEnabled) tween(420, easing = LinearEasing) else snap(),
+                label = "home_scrim_top",
+            )
+            val scrimBottomAlpha by animateFloatAsState(
+                targetValue = if (presentationMode == HomePresentationMode.IDLE_DASHBOARD) 0.30f else 0f,
+                animationSpec = if (animationsEnabled) tween(420, easing = LinearEasing) else snap(),
+                label = "home_scrim_bottom",
+            )
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Black.copy(alpha = scrimTopAlpha),
+                                Color.Black.copy(alpha = scrimBottomAlpha),
+                            )
+                        )
+                    )
+            )
 
             val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
@@ -917,7 +949,7 @@ fun HomeScreen(
             var groupPresencePillShown by remember { mutableStateOf(false) }
             var pauseStartedElapsed by remember { mutableLongStateOf(0L) }
             var pauseCause by remember { mutableStateOf("") }
-            if (groupSession.isActive) {
+            if (groupSession.isActive && isInteractiveMap) {
                 // A 1 Hz tick, because `elapsedRealtime()` is not observable state: without it the
                 // pill would never appear when the threshold is crossed, and "Last shared 2m ago"
                 // would freeze until some unrelated recomposition happened to occur. The map's
@@ -986,6 +1018,7 @@ fun HomeScreen(
                 )
             }
 
+            if (isInteractiveMap) {
             Column(
 
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = topPadding + 80.dp, end = 12.dp),
@@ -1117,10 +1150,9 @@ fun HomeScreen(
                     )
                 }
             }
+            }
 
-            // Idle can reach this branch only through an explicitly opened group map. Starting an
-            // activity stays on the dashboard; the legacy radial launcher is intentionally gone.
-            if (uiState.trackingState == TrackingState.IDLE) {
+            if (presentationMode == HomePresentationMode.EXPLICIT_GROUP_MAP) {
                 MapControlCircleButton(
                     icon = Icons.Default.Close,
                     contentDescription = strings.close,
@@ -1129,7 +1161,7 @@ fun HomeScreen(
                         .align(Alignment.TopStart)
                         .padding(top = topPadding + 16.dp, start = 12.dp),
                 )
-            } else {
+            } else if (presentationMode == HomePresentationMode.ACTIVE_TRACKING_MAP) {
                 // Active Recording / Non-Ideal State HUD Panel
                 val showRideStartUndo = !hasRequestedStartRideUndo && shouldShowRideStartUndo(
                     elapsedDurationMillis = uiState.elapsedDurationMillis,
@@ -1256,6 +1288,71 @@ fun HomeScreen(
                 }
             }
 
+            val dashboardVisible = presentationMode == HomePresentationMode.IDLE_DASHBOARD
+            AnimatedVisibility(
+                visible = dashboardVisible,
+                modifier = Modifier.matchParentSize(),
+                enter = if (animationsEnabled) {
+                    slideInVertically(
+                        animationSpec = tween(420, delayMillis = 320, easing = FastOutSlowInEasing),
+                        initialOffsetY = { -it },
+                    ) + fadeIn(tween(300, delayMillis = 320))
+                } else EnterTransition.None,
+                exit = if (animationsEnabled) {
+                    slideOutVertically(
+                        animationSpec = tween(420, easing = FastOutSlowInEasing),
+                        targetOffsetY = { -it },
+                    ) + fadeOut(tween(300, easing = FastOutLinearInEasing))
+                } else ExitTransition.None,
+            ) {
+                HomeDashboardScreen(
+                    summary = uiState.dashboardSummary,
+                    routePoints = dashboardRoute,
+                    isSummaryResolved = uiState.dashboardSummaryResolved,
+                    isReconciling = uiState.isDashboardReconciling,
+                    groupActive = groupSession.isActive,
+                    groupMemberCount = groupSession.roster.size,
+                    syncNeedsAction = uiState.dashboardSyncNeedsAction,
+                    isOffline = isOffline,
+                    locationPermissionRevoked = locationPermissionRevokedNotice,
+                    imperial = imperialUnits == "imperial",
+                    onOpenRecent = { localId, persona ->
+                        AnalyticsManager.trackHomeRecentActivityOpened(persona)
+                        onOpenRideDetail(localId)
+                    },
+                    onOpenHistory = onOpenHistory,
+                    onOpenCommunity = onOpenCommunity,
+                    onOpenGroupMap = {
+                        AnalyticsManager.trackHomeGroupMapOpened()
+                        explicitGroupMap = true
+                    },
+                    onOpenSettings = { openAppSettings(context) },
+                    onDismissPermissionNotice = app::dismissLocationPermissionRevokedNoticeForSession,
+                )
+            }
+
+            AnimatedVisibility(
+                visible = dashboardVisible,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = if (animationsEnabled) fadeIn(tween(300, delayMillis = 320)) else EnterTransition.None,
+                exit = if (animationsEnabled) fadeOut(tween(300)) else ExitTransition.None,
+            ) {
+                RadialStartRideButton(
+                    onStartRide = { persona ->
+                        val method = if (persona == uiState.selectedDashboardPersona) {
+                            ActivityStartMethod.PRIMARY
+                        } else ActivityStartMethod.PERSONA_PICKER
+                        viewModel.selectDashboardPersona(persona)
+                        beginDashboardStart(persona, method)
+                    },
+                    preselectedPersona = uiState.selectedDashboardPersona,
+                    onAbortRideStart = AnalyticsManager::trackRideStartAborted,
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .padding(bottom = 8.dp),
+                )
+            }
+
             if (showDiscardRideDialog) {
                 AlertDialog(
                     // Blocking dialog: an outside tap or back press must not silently close this
@@ -1286,7 +1383,5 @@ fun HomeScreen(
                 )
             }
         }
-        }
     }
-}
 }

@@ -73,33 +73,11 @@ object HomeDashboardSelector {
         zoneId: ZoneId,
     ): HomeInsight? {
         if (rides.size < 3) return null
-        personalBest(rides)?.let { return it }
         returnAfterInactivity(rides, zoneId)?.let { return it }
         previousActiveWeekComparison(grouped, activeWeekStarts, currentWeekStart, today, zoneId)
             ?.let { return it }
         fourWeekComparison(grouped, activeWeekStarts, currentWeekStart)?.let { return it }
         return dominantPersona(rides, activeWeekStarts, zoneId)
-    }
-
-    private fun personalBest(rides: List<HomeDashboardRideProjection>): HomeInsight.PersonalBest? {
-        val latest = rides.first()
-        val samePersona = rides.drop(1).filter { personaOf(it.personaRaw) == personaOf(latest.personaRaw) }
-        if (samePersona.isEmpty()) return null
-        val priorDistance = samePersona.maxOf { it.distanceMeters }
-        if (latest.distanceMeters > priorDistance) {
-            return HomeInsight.PersonalBest(
-                personaOf(latest.personaRaw), InsightMetric.DISTANCE,
-                latest.distanceMeters, priorDistance,
-            )
-        }
-        val priorDuration = samePersona.maxOf { it.activeDurationMillis }.toDouble()
-        if (latest.activeDurationMillis.toDouble() > priorDuration) {
-            return HomeInsight.PersonalBest(
-                personaOf(latest.personaRaw), InsightMetric.ACTIVE_DURATION,
-                latest.activeDurationMillis.toDouble(), priorDuration,
-            )
-        }
-        return null
     }
 
     private fun returnAfterInactivity(

@@ -26,7 +26,7 @@ class HomeDashboardTelemetryPrivacyTest {
 
         listOf(
             "ride_id", "title", "latitude", "longitude", "route", "timestamp",
-            "email", "name", "distance_meters", "duration_millis",
+            "email", "name", "distance_meters", "duration_millis", "personal_best",
         ).forEach { assertFalse("forbidden dashboard property $it", section.contains("\"$it\"")) }
     }
 
