@@ -47,7 +47,9 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import `in`.shvms.trackme.data.local.HOME_DASHBOARD_METADATA_VERSION
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import java.text.SimpleDateFormat
@@ -487,7 +489,7 @@ fun RideHistoryCard(
     // instead of riding along inside rideTitle.
     val rideTitle = ride.title ?: formatDateTime(ride.startTime)
     val distanceText = `in`.shvms.trackme.domain.UnitFormatter.distance(ride.postRideCalculation?.distance ?: 0.0, imperial, decimals = 1)
-    val durationText = formatDuration((ride.endTime ?: ride.startTime) - ride.startTime)
+    val durationText = displayActiveDurationMillis(ride)?.let(::formatDuration) ?: strings.unknown
     val avgSpeedText = `in`.shvms.trackme.domain.UnitFormatter.speed(ride.postRideCalculation?.avgSpeed?.toDouble() ?: 0.0, imperial)
     val cardDescription = String.format(
         Locale.getDefault(),
@@ -724,6 +726,13 @@ private fun formatDateTime(timestamp: Long): String {
     if (timestamp == 0L) return "Unknown Date"
     val sdf = SimpleDateFormat("MMM dd, yyyy • h:mm a", Locale.getDefault())
     return sdf.format(Date(timestamp))
+}
+
+/** Returns the pause-excluded duration only after dashboard metadata reconciliation. */
+internal fun displayActiveDurationMillis(ride: RideEntity): Long? {
+    return ride.dashboardActiveDurationMillis
+        .takeIf { ride.dashboardMetadataVersion >= HOME_DASHBOARD_METADATA_VERSION }
+        ?.coerceAtLeast(0L)
 }
 
 private fun formatDuration(durationMillis: Long): String {
