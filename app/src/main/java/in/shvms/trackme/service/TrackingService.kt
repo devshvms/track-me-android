@@ -1094,6 +1094,7 @@ class TrackingService : Service() {
                 avgSpeed = avgSpeed,
                 pauseDuration = (finishedAt - ride.startTime - activeTimeMs).coerceAtLeast(0L),
                 rawPointCount = points.size,
+                elevationGainMeters = `in`.shvms.trackme.domain.processor.calculateElevationGainMeters(points),
             )
             
             val finishedRide = ride.copy(

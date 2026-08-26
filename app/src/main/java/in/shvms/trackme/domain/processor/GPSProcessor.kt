@@ -177,7 +177,9 @@ class DefaultGPSProcessor(
             avgSpeed = avgSpeed,
             pauseDuration = pauseDurationMs,
             maxAcceleration = maxAcceleration,
-            rawPointCount = rawPointCount
+            rawPointCount = rawPointCount,
+            elevationGainMeters = currentCalc.elevationGainMeters
+                ?: calculateElevationGainMeters(validPoints)
         )
 
         val updatedRide = ride.copy(postRideCalculation = updatedCalc).let { updated ->

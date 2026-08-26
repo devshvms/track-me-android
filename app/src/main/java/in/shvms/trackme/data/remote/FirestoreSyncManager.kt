@@ -67,7 +67,14 @@ internal fun computeCalcFromPoints(
     val avgSpeed = if (activeTimeMs > 0) (totalDistance / (activeTimeMs / 1000f)).toFloat() else 0f
     val total = points.last().timestamp - points.first().timestamp
     val pauseMs = maxOf(0L, total - activeTimeMs)
-    return PostRideCalculation(maxSpeed, totalDistance, avgSpeed, pauseMs, rawPointCount = points.size)
+    return PostRideCalculation(
+        maxSpeed,
+        totalDistance,
+        avgSpeed,
+        pauseMs,
+        rawPointCount = points.size,
+        elevationGainMeters = `in`.shvms.trackme.domain.processor.calculateElevationGainMeters(points),
+    )
 }
 
 /** Sample rides and local tombstones are never candidates for any bulk upload pass. */
@@ -439,6 +446,7 @@ class FirestoreSyncManager(
             val distance = doc.getDouble("distance") ?: 0.0
             val avgSpeed = (doc.getDouble("avgSpeed") ?: 0.0).toFloat()
             val pauseDuration = doc.getLong("pauseDuration") ?: 0L
+            val elevationGainMeters = doc.getDouble("elevationGainMeters")
             val persistedActiveDuration = doc.getLong("activeDurationMillis")
 
             val docHasStats = doc.get("distance") != null
@@ -464,6 +472,7 @@ class FirestoreSyncManager(
                     avgSpeed,
                     pauseDuration,
                     rawPointCount = gpsPoints.size,
+                    elevationGainMeters = elevationGainMeters,
                 )
             } else if (gpsPoints.isNotEmpty()) {
                 computeCalcFromPoints(gpsPoints) { a, b ->
@@ -614,6 +623,7 @@ class FirestoreSyncManager(
                 "distance" to (calc?.distance ?: 0.0),
                 "avgSpeed" to (calc?.avgSpeed ?: 0f),
                 "pauseDuration" to (calc?.pauseDuration ?: 0L),
+                "elevationGainMeters" to calc?.elevationGainMeters,
                 RideChunking.CHUNK_COUNT_FIELD to chunks.size
             ) + dashboardCloudMetadata(rideWithPoints.ride, rideWithPoints.points.size)
 
