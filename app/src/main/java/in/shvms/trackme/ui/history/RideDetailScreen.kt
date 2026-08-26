@@ -770,7 +770,10 @@ fun RideDetailScreen(
                         StatGrid(
                             listOf(
                                 Stat(strings.distance, `in`.shvms.trackme.domain.UnitFormatter.rideDistance(ride.postRideCalculation?.distance ?: 0.0, imperial)),
-                                Stat(strings.duration, formatDuration((ride.endTime ?: ride.startTime) - ride.startTime)),
+                                Stat(
+                                    strings.duration,
+                                    displayActiveDurationMillis(ride)?.let(::formatDuration) ?: strings.unknown
+                                ),
                                 Stat(
                                     if (effortIsPace) strings.avgPace else strings.avgSpeed,
                                     if (effortIsPace) {
