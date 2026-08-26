@@ -558,6 +558,14 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val timeFrameThisMonth: String = s("timeFrameThisMonth", "This Month")
     val timeFrameThisYear: String = s("timeFrameThisYear", "This Year")
     val filterTitle: String = s("filterTitle", "Filter Rides")
+    val filterActivity: String = s("filterActivity", "Activity")
+    val searchRides: String = s("searchRides", "Search rides")
+    val dateRangeAny: String = s("dateRangeAny", "Any time")
+    val dateRangeThisMonth: String = s("dateRangeThisMonth", "This month")
+    val dateRangeLast3Months: String = s("dateRangeLast3Months", "Last 3 months")
+    val dateRangeThisYear: String = s("dateRangeThisYear", "This year")
+    val dateRangeCustom: String = s("dateRangeCustom", "Custom range…")
+    val noRidesMatchFilters: String = s("noRidesMatchFilters", "No rides match these filters.")
     val sortTitle: String = s("sortTitle", "Sort By")
     val sortNewest: String = s("sortNewest", "Newest First")
     val sortOldest: String = s("sortOldest", "Oldest First")
@@ -1151,6 +1159,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "timeFrameThisMonth" to "Este mes",
             "timeFrameThisYear" to "Este año",
             "filterTitle" to "Filtrar viajes",
+            "filterActivity" to "Actividad",
+            "searchRides" to "Buscar viajes",
+            "dateRangeAny" to "Cualquier momento",
+            "dateRangeThisMonth" to "Este mes",
+            "dateRangeLast3Months" to "Últimos 3 meses",
+            "dateRangeThisYear" to "Este año",
+            "dateRangeCustom" to "Rango personalizado…",
+            "noRidesMatchFilters" to "Ningún viaje coincide con estos filtros.",
             "sortTitle" to "Ordenar por",
             "sortNewest" to "Más recientes",
             "sortOldest" to "Más antiguos",
@@ -1725,6 +1741,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "timeFrameThisMonth" to "Ce mois-ci",
             "timeFrameThisYear" to "Cette année",
             "filterTitle" to "Filtrer les trajets",
+            "filterActivity" to "Activité",
+            "searchRides" to "Rechercher des trajets",
+            "dateRangeAny" to "À tout moment",
+            "dateRangeThisMonth" to "Ce mois-ci",
+            "dateRangeLast3Months" to "Ces 3 derniers mois",
+            "dateRangeThisYear" to "Cette année",
+            "dateRangeCustom" to "Période personnalisée…",
+            "noRidesMatchFilters" to "Aucun trajet ne correspond à ces filtres.",
             "sortTitle" to "Trier par",
             "sortNewest" to "Plus récents",
             "sortOldest" to "Plus anciens",
@@ -2299,6 +2323,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "timeFrameThisMonth" to "Diesen Monat",
             "timeFrameThisYear" to "Dieses Jahr",
             "filterTitle" to "Fahrten filtern",
+            "filterActivity" to "Aktivität",
+            "searchRides" to "Fahrten suchen",
+            "dateRangeAny" to "Jederzeit",
+            "dateRangeThisMonth" to "Diesen Monat",
+            "dateRangeLast3Months" to "Letzte 3 Monate",
+            "dateRangeThisYear" to "Dieses Jahr",
+            "dateRangeCustom" to "Benutzerdefinierter Zeitraum…",
+            "noRidesMatchFilters" to "Keine Fahrten entsprechen diesen Filtern.",
             "sortTitle" to "Sortieren nach",
             "sortNewest" to "Neueste zuerst",
             "sortOldest" to "Älteste zuerst",
@@ -2873,6 +2905,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "timeFrameThisMonth" to "इस महीने",
             "timeFrameThisYear" to "इस वर्ष",
             "filterTitle" to "राइड फ़िल्टर करें",
+            "filterActivity" to "गतिविधि",
+            "searchRides" to "राइड खोजें",
+            "dateRangeAny" to "किसी भी समय",
+            "dateRangeThisMonth" to "इस महीने",
+            "dateRangeLast3Months" to "पिछले 3 महीने",
+            "dateRangeThisYear" to "इस वर्ष",
+            "dateRangeCustom" to "कस्टम अवधि…",
+            "noRidesMatchFilters" to "इन फ़िल्टर से कोई राइड मेल नहीं खाती।",
             "sortTitle" to "क्रमबद्ध करें",
             "sortNewest" to "नवीनतम पहले",
             "sortOldest" to "पुराने पहले",
@@ -3447,6 +3487,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "timeFrameThisMonth" to "今月",
             "timeFrameThisYear" to "今年",
             "filterTitle" to "ライドのフィルタリング",
+            "filterActivity" to "アクティビティ",
+            "searchRides" to "ライドを検索",
+            "dateRangeAny" to "いつでも",
+            "dateRangeThisMonth" to "今月",
+            "dateRangeLast3Months" to "過去3か月",
+            "dateRangeThisYear" to "今年",
+            "dateRangeCustom" to "カスタム期間…",
+            "noRidesMatchFilters" to "これらのフィルターに一致するライドはありません。",
             "sortTitle" to "並び替え",
             "sortNewest" to "新しい順",
             "sortOldest" to "古い順",
@@ -4021,6 +4069,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "timeFrameThisMonth" to "本月",
             "timeFrameThisYear" to "今年",
             "filterTitle" to "筛选行程",
+            "filterActivity" to "活动",
+            "searchRides" to "搜索行程",
+            "dateRangeAny" to "任何时间",
+            "dateRangeThisMonth" to "本月",
+            "dateRangeLast3Months" to "最近 3 个月",
+            "dateRangeThisYear" to "今年",
+            "dateRangeCustom" to "自定义范围…",
+            "noRidesMatchFilters" to "没有行程符合这些筛选条件。",
             "sortTitle" to "排序方式",
             "sortNewest" to "最新发布",
             "sortOldest" to "最早发布",

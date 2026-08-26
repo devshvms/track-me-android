@@ -145,6 +145,7 @@ fun HomeScreen(
     onOpenCommunity: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenRideDetail: (Long) -> Unit = {},
+    scrollToTopRequest: Int = 0,
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModelFactory(
             (LocalContext.current.applicationContext as TrackMeApp).trackingManager,
@@ -1401,6 +1402,7 @@ fun HomeScreen(
                     },
                     onOpenSettings = { openAppSettings(context) },
                     onDismissPermissionNotice = app::dismissLocationPermissionRevokedNoticeForSession,
+                    scrollToTopRequest = scrollToTopRequest,
                 )
             }
 
