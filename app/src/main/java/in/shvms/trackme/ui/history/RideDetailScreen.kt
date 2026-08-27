@@ -1317,12 +1317,12 @@ private fun RideSummaryCard(
             StatGrid(
                 listOf(
                     Stat(strings.distance, `in`.shvms.trackme.domain.UnitFormatter.rideDistance(ride.postRideCalculation?.distance ?: 0.0, imperial)),
-                    // TASK-230: this value was already the pause-excluded one (SS5.1) but was
-                    // labelled only "Duration", so a rider who paused for twenty minutes could not
-                    // tell which of the two figures the HUD had shown them they were holding. The
-                    // label now says which, and "Total time" below restores the other half.
+                    // TASK-230/235: this value is the pause-excluded one (SS5.1). It keeps the
+                    // label "Duration" and the sixth cell below restores "Total" beside it -- the
+                    // same two words the HUD uses mid-ride, which is where a rider learns the
+                    // distinction. A single unlabelled figure was the defect; the pair is the fix.
                     Stat(
-                        strings.movingTime,
+                        strings.duration,
                         displayActiveDurationMillis(ride)?.let(::formatDuration) ?: strings.unknown,
                     ),
                     Stat(
@@ -1361,7 +1361,7 @@ private fun RideSummaryCard(
                     // moving time: a ride with no pause showing both figures equal is the fact,
                     // and it is what makes the pair readable without a legend.
                     Stat(
-                        strings.totalTime,
+                        strings.total,
                         displayTotalElapsedMillis(ride)?.let(::formatDuration) ?: strings.unknown,
                     ),
                 ).filterNotNull(),

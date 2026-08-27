@@ -53,7 +53,8 @@ data class HomeUiState(
     val distanceText: String = "0.00 km",
     val durationText: String = "00:00:00",
     /** Total wall-clock time since start, including paused segments — see [formatElapsedDuration]. */
-    val elapsedDurationText: String = "Total 00:00:00",
+    /** Bare elapsed figure. The "Total" label is added by the HUD, which has the strings. */
+    val elapsedDurationText: String = "00:00:00",
     val elapsedDurationMillis: Long = 0L,
     val distanceMeters: Float = 0f,
     val durationMillis: Long = 0L,
@@ -246,7 +247,7 @@ class HomeViewModel(
      * persona. Reuses [formatDuration]'s HH:MM:SS formatting so the two stay visually aligned.
      */
     private fun formatElapsedDuration(millis: Long): String {
-        return "Total ${formatDuration(millis)}"
+        return formatDuration(millis)
     }
 
     /**

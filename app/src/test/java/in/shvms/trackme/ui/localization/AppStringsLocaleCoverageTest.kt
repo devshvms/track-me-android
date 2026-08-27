@@ -71,8 +71,15 @@ class AppStringsLocaleCoverageTest {
      * unit, so it lands identical to English while es/fr/de take the comma and hi/zh take their
      * own unit. These are illustration data rather than prose; the completeness test requires every
      * locale to carry every key, so they cannot simply be omitted.
+     *
+     * Raised to 43 on 2026-08-27 for `es:total` and `fr:total`. TASK-235 chose `Total` as Ride
+     * Detail's elapsed cell, reusing the word the HUD already uses mid-ride. "Total" is genuinely
+     * the Spanish and French word for it — two real translations that happen to be spelled the
+     * same, not a copy-paste. German, Hindi, Japanese and Chinese all differ (`Gesamt`, `कुल`,
+     * `合計`, `总计`), which is the check that this is a spelling coincidence and not four skipped
+     * languages.
      */
-    private val maxEntriesIdenticalToEnglish = 41
+    private val maxEntriesIdenticalToEnglish = 43
 
     /** Every `val x: String = s("x", …)` field on the base class, derived from its getters. */
     private fun declaredStringKeys(): Set<String> =
