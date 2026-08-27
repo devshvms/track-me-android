@@ -329,7 +329,16 @@ fun ActiveRideHudPanel(
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     StatItem(label = strings.distance, value = distanceText)
-                    StatItem(label = strings.duration, value = durationText, subValue = elapsedDurationText)
+                    // TASK-235: the elapsed caption used to read a hardcoded English "Total",
+                    // built in the ViewModel -- untranslated in all seven locales, the same defect
+                    // TASK-228 found in the pills. The figure comes from the ViewModel, which holds
+                    // no Context by design; the word is added here, where the strings live. Ride
+                    // Detail's sixth cell uses the same key, so the two surfaces agree.
+                    StatItem(
+                        label = strings.duration,
+                        value = durationText,
+                        subValue = "${strings.total} $elapsedDurationText",
+                    )
                     // Shared rule, not an inline WALK check: running is the persona that cares
                     // most about pace and was showing speed. "PACE" was also a hardcoded English
                     // literal on a screen that ships in seven languages.
