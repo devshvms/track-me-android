@@ -122,6 +122,9 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val statusIdle: String = s("statusIdle", "IDLE")
     val statusRecording: String = s("statusRecording", "RECORDING")
     val statusPaused: String = s("statusPaused", "PAUSED")
+    val hudAutoPausedPill: String = s("hudAutoPausedPill", "Auto paused")
+    val hudLiveSharingPill: String = s("hudLiveSharingPill", "Live sharing")
+    val hudOfflineShieldPill: String = s("hudOfflineShieldPill", "Offline shield active")
     val speed: String = s("speed", "Speed")
     val distance: String = s("distance", "Distance")
     val duration: String = s("duration", "Duration")
@@ -337,8 +340,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val shareLinkGenerated: String = s("shareLinkGenerated", "Share Link Generated")
     val copyLink: String = s("copyLink", "Copy Link")
     val linkCopied: String = s("linkCopied", "Link copied to clipboard")
-    val liveShareReadyIdle: String = s("liveShareReadyIdle", "Sharing link is ready! Starts once you start the ride.")
-    val liveShareReadyActive: String = s("liveShareReadyActive", "Sharing link is ready! Live sharing is now active.")
+    val liveShareReadyIdle: String = s("liveShareReadyIdle", "Sharing link is ready. Starts once you start the ride.")
+    val liveShareReadyActive: String = s("liveShareReadyActive", "Sharing link is ready. Live sharing is now active.")
     val liveShareStoppedToast: String = s("liveShareStoppedToast", "Live Share stopped.")
     val liveShareStartFailed: String = s("liveShareStartFailed", "Failed to start Live Share: ")
     val liveShareStopFailed: String = s("liveShareStopFailed", "Failed to stop Live Share: ")
@@ -995,6 +998,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusIdle" to "INACTIVO",
             "statusRecording" to "GRABANDO",
             "statusPaused" to "PAUSADO",
+            "hudAutoPausedPill" to "Pausa automática",
+            "hudLiveSharingPill" to "Compartiendo en vivo",
+            "hudOfflineShieldPill" to "Escudo sin conexión activo",
             "speed" to "Velocidad",
             "distance" to "Distancia",
             "duration" to "Duración",
@@ -1045,8 +1051,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLinkGenerated" to "Enlace Generado",
             "copyLink" to "Copiar Enlace",
             "linkCopied" to "Enlace copiado al portapapeles",
-            "liveShareReadyIdle" to "¡Enlace de compartir listo! Comienza cuando inicias el viaje.",
-            "liveShareReadyActive" to "¡Enlace de compartir listo! Compartir en tiempo real activo.",
+            "liveShareReadyIdle" to "Enlace de compartir listo. Comienza cuando inicias el viaje.",
+            "liveShareReadyActive" to "Enlace de compartir listo. Compartir en tiempo real activo.",
             "liveShareStoppedToast" to "Compartir en tiempo real detenido.",
             "liveShareStartFailed" to "Error al iniciar Compartir: ",
             "liveShareStopFailed" to "Error al detener Compartir: ",
@@ -1582,6 +1588,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusIdle" to "INACTIF",
             "statusRecording" to "EN COURS",
             "statusPaused" to "EN PAUSE",
+            "hudAutoPausedPill" to "Pause automatique",
+            "hudLiveSharingPill" to "Partage en direct",
+            "hudOfflineShieldPill" to "Bouclier hors ligne actif",
             "speed" to "Vitesse",
             "distance" to "Distance",
             "duration" to "Durée",
@@ -1632,8 +1641,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLinkGenerated" to "Lien de Partage Généré",
             "copyLink" to "Copier le Lien",
             "linkCopied" to "Lien copié dans le presse-papiers",
-            "liveShareReadyIdle" to "Lien de partage prêt ! Démarre une fois le trajet commencé.",
-            "liveShareReadyActive" to "Lien de partage prêt ! Partage en direct actif.",
+            "liveShareReadyIdle" to "Lien de partage prêt. Démarre une fois le trajet commencé.",
+            "liveShareReadyActive" to "Lien de partage prêt. Partage en direct actif.",
             "liveShareStoppedToast" to "Partage en direct arrêté.",
             "liveShareStartFailed" to "Échec au démarrage du partage : ",
             "liveShareStopFailed" to "Échec à l'arrêt du partage : ",
@@ -2169,6 +2178,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusIdle" to "BEREIT",
             "statusRecording" to "AUFNAHME",
             "statusPaused" to "PAUSIERT",
+            "hudAutoPausedPill" to "Automatisch pausiert",
+            "hudLiveSharingPill" to "Live-Freigabe",
+            "hudOfflineShieldPill" to "Offline-Schutz aktiv",
             "speed" to "Geschw.",
             "distance" to "Distanz",
             "duration" to "Dauer",
@@ -2219,8 +2231,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLinkGenerated" to "Link Erstellt",
             "copyLink" to "Link Kopieren",
             "linkCopied" to "Link in die Zwischenablage kopiert",
-            "liveShareReadyIdle" to "Freigabelink ist bereit! Startet, sobald die Fahrt beginnt.",
-            "liveShareReadyActive" to "Freigabelink ist bereit! Live-Freigabe ist jetzt aktiv.",
+            "liveShareReadyIdle" to "Freigabelink ist bereit. Startet, sobald die Fahrt beginnt.",
+            "liveShareReadyActive" to "Freigabelink ist bereit. Live-Freigabe ist jetzt aktiv.",
             "liveShareStoppedToast" to "Live-Freigabe beendet.",
             "liveShareStartFailed" to "Live-Freigabe konnte nicht gestartet werden: ",
             "liveShareStopFailed" to "Live-Freigabe konnte nicht beendet werden: ",
@@ -2756,6 +2768,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusIdle" to "निष्क्रिय",
             "statusRecording" to "रिकॉर्डिंग",
             "statusPaused" to "रुका हुआ",
+            "hudAutoPausedPill" to "स्वतः रुका",
+            "hudLiveSharingPill" to "लाइव साझा",
+            "hudOfflineShieldPill" to "ऑफ़लाइन शील्ड सक्रिय",
             "speed" to "गति",
             "distance" to "दूरी",
             "duration" to "समय",
@@ -2806,8 +2821,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLinkGenerated" to "शेयर लिंक बन गया है",
             "copyLink" to "लिंक कॉपी करें",
             "linkCopied" to "लिंक क्लिपबोर्ड पर कॉपी किया गया",
-            "liveShareReadyIdle" to "शेयरिंग लिंक तैयार है! यात्रा शुरू होते ही यह शुरू हो जाएगा।",
-            "liveShareReadyActive" to "शेयरिंग लिंक तैयार है! लाइव शेयरिंग सक्रिय है।",
+            "liveShareReadyIdle" to "शेयरिंग लिंक तैयार है। यात्रा शुरू होते ही यह शुरू हो जाएगा।",
+            "liveShareReadyActive" to "शेयरिंग लिंक तैयार है। लाइव शेयरिंग सक्रिय है।",
             "liveShareStoppedToast" to "लाइव शेयर बंद किया गया।",
             "liveShareStartFailed" to "लाइव शेयर शुरू करने में विफल: ",
             "liveShareStopFailed" to "लाइव शेयर रोकने में विफल: ",
@@ -3343,6 +3358,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusIdle" to "待機中",
             "statusRecording" to "記録中",
             "statusPaused" to "一時停止中",
+            "hudAutoPausedPill" to "自動停止中",
+            "hudLiveSharingPill" to "ライブ共有中",
+            "hudOfflineShieldPill" to "オフライン保護中",
             "speed" to "速度",
             "distance" to "距離",
             "duration" to "時間",
@@ -3393,8 +3411,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLinkGenerated" to "共有リンクを作成しました",
             "copyLink" to "リンクをコピー",
             "linkCopied" to "リンクをクリップボードにコピーしました",
-            "liveShareReadyIdle" to "共有リンクの準備ができました！ライドを開始すると開始されます。",
-            "liveShareReadyActive" to "共有リンクの準備ができました！ライブ共有は現在アクティブです。",
+            "liveShareReadyIdle" to "共有リンクの準備ができました。ライドを開始すると開始されます。",
+            "liveShareReadyActive" to "共有リンクの準備ができました。ライブ共有は現在アクティブです。",
             "liveShareStoppedToast" to "ライブ共有を停止しました。",
             "liveShareStartFailed" to "ライブ共有の開始に失敗しました: ",
             "liveShareStopFailed" to "ライブ共有の停止に失敗しました: ",
@@ -3930,6 +3948,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusIdle" to "空闲",
             "statusRecording" to "记录中",
             "statusPaused" to "已暂停",
+            "hudAutoPausedPill" to "已自动暂停",
+            "hudLiveSharingPill" to "实时共享中",
+            "hudOfflineShieldPill" to "离线保护已启用",
             "speed" to "速度",
             "distance" to "距离",
             "duration" to "时长",
@@ -3980,8 +4001,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLinkGenerated" to "共享链接已生成",
             "copyLink" to "复制链接",
             "linkCopied" to "链接已复制到剪贴板",
-            "liveShareReadyIdle" to "共享链接已准备好！开始骑行后即可实时分享。",
-            "liveShareReadyActive" to "共享链接已准备好！实时共享现已开启。",
+            "liveShareReadyIdle" to "共享链接已准备好。开始骑行后即可实时分享。",
+            "liveShareReadyActive" to "共享链接已准备好。实时共享现已开启。",
             "liveShareStoppedToast" to "实时共享已停止。",
             "liveShareStartFailed" to "启动实时共享失败: ",
             "liveShareStopFailed" to "停止实时共享失败: ",
