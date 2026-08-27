@@ -258,6 +258,7 @@ fun MainNavigation() {
                         CommunityScreen(
                             onNavigateToSignIn = { navigateToTab("settings") },
                             onOpenHome = { navigateToTab("home") },
+                            onOpenRideDetail = { id -> navController.navigate("ride_detail/$id") },
                             // 00a74: the focus travels on the application object rather than as a route
                             // argument, for the same reason the pending invite does 2014 a parameterised
                             // `home?uid=2026` route would miss the tab-highlight lookup above and would

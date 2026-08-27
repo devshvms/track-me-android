@@ -174,6 +174,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupSignIn: String = s("groupSignIn", "Sign in")
     val groupCreate: String = s("groupCreate", "Create a group")
     val groupJoinWithCode: String = s("groupJoinWithCode", "Join with a code")
+    val groupRidesTogetherTitle: String = s("groupRidesTogetherTitle", "Rides you rode together")
+    val groupRideRiderCount: String = s("groupRideRiderCount", "%1\$d riders")
     val groupHowItWorks: String = s("groupHowItWorks", "Everyone in the group sees everyone else, for as long as the group is live. Nobody sees where you've been. Nothing is saved. You can leave at any time and nobody is told.")
     val groupNameLabel: String = s("groupNameLabel", "Group name")
     val groupDefaultName: String = s("groupDefaultName", "%1\$s's ride")
@@ -907,6 +909,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSignIn" to "Iniciar sesión",
             "groupCreate" to "Crear un grupo",
             "groupJoinWithCode" to "Unirse con un código",
+            "groupRidesTogetherTitle" to "Viajes que hiciste en grupo",
+            "groupRideRiderCount" to "%1\$d ciclistas",
             "groupHowItWorks" to "Todos en el grupo se ven entre sí mientras el grupo esté activo. Nadie ve dónde has estado. No se guarda nada. Puedes salir cuando quieras y no se avisa a nadie.",
             "groupNameLabel" to "Nombre del grupo",
             "groupDefaultName" to "Ruta de %1\$s",
@@ -1498,6 +1502,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSignIn" to "Se connecter",
             "groupCreate" to "Créer un groupe",
             "groupJoinWithCode" to "Rejoindre avec un code",
+            "groupRidesTogetherTitle" to "Trajets effectués ensemble",
+            "groupRideRiderCount" to "%1\$d participants",
             "groupHowItWorks" to "Tout le monde dans le groupe se voit, tant que le groupe est actif. Personne ne voit où vous êtes allé. Rien n'est enregistré. Vous pouvez partir à tout moment, sans que personne en soit informé.",
             "groupNameLabel" to "Nom du groupe",
             "groupDefaultName" to "La sortie de %1\$s",
@@ -2089,6 +2095,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSignIn" to "Anmelden",
             "groupCreate" to "Gruppe erstellen",
             "groupJoinWithCode" to "Mit Code beitreten",
+            "groupRidesTogetherTitle" to "Fahrten, die ihr zusammen gefahren seid",
+            "groupRideRiderCount" to "%1\$d Fahrer",
             "groupHowItWorks" to "Alle in der Gruppe sehen einander, solange die Gruppe aktiv ist. Niemand sieht, wo du warst. Nichts wird gespeichert. Du kannst jederzeit gehen, ohne dass es jemandem mitgeteilt wird.",
             "groupNameLabel" to "Gruppenname",
             "groupDefaultName" to "%1\$ss Fahrt",
@@ -2680,6 +2688,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSignIn" to "साइन इन करें",
             "groupCreate" to "ग्रुप बनाएँ",
             "groupJoinWithCode" to "कोड से जुड़ें",
+            "groupRidesTogetherTitle" to "साथ की गई यात्राएँ",
+            "groupRideRiderCount" to "%1\$d सवार",
             "groupHowItWorks" to "जब तक ग्रुप लाइव है, ग्रुप में सभी एक-दूसरे को देखते हैं। कोई नहीं देखता कि आप कहाँ थे। कुछ भी सहेजा नहीं जाता। आप कभी भी छोड़ सकते हैं और किसी को नहीं बताया जाता।",
             "groupNameLabel" to "ग्रुप का नाम",
             "groupDefaultName" to "%1\$s की सवारी",
@@ -3271,6 +3281,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSignIn" to "サインイン",
             "groupCreate" to "グループを作成",
             "groupJoinWithCode" to "コードで参加",
+            "groupRidesTogetherTitle" to "一緒に走ったライド",
+            "groupRideRiderCount" to "%1\$d人",
             "groupHowItWorks" to "グループが有効な間、メンバー全員がお互いを見られます。過去の経路は誰にも見えません。何も保存されません。いつでも退出でき、誰にも通知されません。",
             "groupNameLabel" to "グループ名",
             "groupDefaultName" to "%1\$sのライド",
@@ -3862,6 +3874,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSignIn" to "登录",
             "groupCreate" to "创建群组",
             "groupJoinWithCode" to "用代码加入",
+            "groupRidesTogetherTitle" to "你们一起骑行的记录",
+            "groupRideRiderCount" to "%1\$d 位骑行者",
             "groupHowItWorks" to "只要群组处于活动状态，群内所有人都能看到彼此。没有人能看到你去过哪里。不保存任何内容。你可以随时离开，且不会通知任何人。",
             "groupNameLabel" to "群组名称",
             "groupDefaultName" to "%1\$s 的骑行",

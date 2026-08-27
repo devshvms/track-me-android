@@ -538,7 +538,13 @@ fun RideHistoryCard(
     onLongClick: () -> Unit = {},
     selectionMode: Boolean = false,
     selected: Boolean = false,
-    imperial: Boolean = false
+    imperial: Boolean = false,
+    /**
+     * TASK-232: an extra fact the caller wants on the metrics row. Community passes the group's
+     * rider count here so its list is the same card as History's rather than a second one that
+     * drifts from it. Null on every other call site, which is every call site but one.
+     */
+    trailingLabel: String? = null,
 ) {
     val strings = LocalAppStrings.current
     val ride = rideSummary
@@ -724,6 +730,14 @@ fun RideHistoryCard(
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold
                     )
+
+                    trailingLabel?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -761,6 +775,8 @@ fun RideHistoryCard(
             // The demo holds its points already, so it draws its own shape rather than the
             // stored one -- a seeded ride is rendered before any reconciler has seen it.
             dashboardRoutePolyline = dashboardRoutePolylineFromPoints(rideWithPoints.points),
+            wasGroupRide = ride.wasGroupRide,
+            groupRiderCount = ride.groupRiderCount,
         ),
         onClick = onClick,
         modifier = modifier,

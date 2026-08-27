@@ -29,6 +29,10 @@ data class HistoryRideSummary(
     val dashboardPointCount: Int,
     /** TASK-231: the card's route shape, on the row. Still no join to gps_points. */
     val dashboardRoutePolyline: String?,
+    /** TASK-232: recorded during a group session. */
+    val wasGroupRide: Boolean,
+    /** TASK-232: riders in that group, including this one. Null when never observed. */
+    val groupRiderCount: Int?,
 )
 
 @Dao
@@ -66,13 +70,36 @@ interface RideDao {
         """
         SELECT id, startTime, endTime, isSynced, firestoreId, title, persona, isSample,
                pendingDelete, distance, avgSpeed, dashboardActiveDurationMillis,
-               dashboardMetadataVersion, dashboardPointCount, dashboardRoutePolyline
+               dashboardMetadataVersion, dashboardPointCount, dashboardRoutePolyline,
+               wasGroupRide, groupRiderCount
         FROM rides
         WHERE endTime IS NOT NULL AND endTime > 0
         ORDER BY startTime DESC
         """
     )
     fun getAllCompletedRideSummaries(): Flow<List<HistoryRideSummary>>
+
+    /**
+     * TASK-232: Community's list. The rider's own rides, recorded while a group was live.
+     *
+     * Same projection and the same deliberate exclusion of gps_points as the History list -- this
+     * is a read of local ride records and nothing else. There is no membership table to join
+     * against and there is not going to be one.
+     */
+    @Query(
+        """
+        SELECT id, startTime, endTime, isSynced, firestoreId, title, persona, isSample,
+               pendingDelete, distance, avgSpeed, dashboardActiveDurationMillis,
+               dashboardMetadataVersion, dashboardPointCount, dashboardRoutePolyline,
+               wasGroupRide, groupRiderCount
+        FROM rides
+        WHERE endTime IS NOT NULL AND endTime > 0
+          AND wasGroupRide = 1
+          AND pendingDelete = 0
+        ORDER BY startTime DESC
+        """
+    )
+    fun getGroupRideSummaries(): Flow<List<HistoryRideSummary>>
 
     @Query("SELECT * FROM rides WHERE endTime IS NULL OR endTime <= 0")
     suspend fun getUncompletedRides(): List<RideEntity>

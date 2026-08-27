@@ -74,6 +74,21 @@ data class RideEntity(
     val dashboardRoutePolyline: String? = null,
     /** Version of the rebuildable dashboard metadata contract; 0 means reconciliation is pending. */
     val dashboardMetadataVersion: Int = 0,
+    /**
+     * TASK-232: this ride was recorded while a group session was live.
+     *
+     * The marker and the count below are deliberately the *whole* record. No group id, no roster,
+     * no name -- COMMUNITY_REDESIGN_SPEC SS2.2 allows a count and nothing else, because a count is
+     * not identities and the promise printed on that screen is that nothing about the other riders
+     * is saved. Neither field is synced: FirestoreSyncManager writes an explicit field map, and
+     * these are not in it, so this opens no new Data Safety surface (SS5.4).
+     */
+    val wasGroupRide: Boolean = false,
+    /**
+     * How many riders were in the group, including this one. Null when it was never observed --
+     * SS5.5's honesty rule: an unknown count renders no count, never `0`.
+     */
+    val groupRiderCount: Int? = null,
     @Embedded
     val postRideCalculation: PostRideCalculation? = null
 )
