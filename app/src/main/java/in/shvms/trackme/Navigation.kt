@@ -37,6 +37,7 @@ import `in`.shvms.trackme.ui.history.MultiRideCompareRoute
 import `in`.shvms.trackme.ui.settings.SettingsScreen
 import `in`.shvms.trackme.ui.community.CommunityScreen
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.ui.navigation.TabDoubleTapDetector
 import `in`.shvms.trackme.service.TrackingState
 
 import androidx.compose.material3.SnackbarHost
@@ -66,6 +67,15 @@ fun MainNavigation() {
     val currentRoute = navBackStackEntry?.destination?.route
     val selectedItem = routes.indexOf(currentRoute).takeIf { it >= 0 } ?: -1
     var tabScrollToTopRequest by remember { mutableIntStateOf(0) }
+    // TASK-226. The platform's own double-tap timeout, so the gesture feels the same here as it
+    // does everywhere else on the device.
+    var tabDoubleTap by remember {
+        mutableStateOf(
+            TabDoubleTapDetector(
+                windowMillis = android.view.ViewConfiguration.getDoubleTapTimeout().toLong()
+            )
+        )
+    }
 
     /**
      * The ONE way to move between top-level tabs.
@@ -88,6 +98,26 @@ fun MainNavigation() {
             launchSingleTop = true
             restoreState = true
             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+        }
+    }
+
+    /**
+     * TASK-226: the bottom bar's and rail's own entry point, so a double-tap is only ever a
+     * *rider's* two taps. Programmatic hops -- a deep-linked invite, "show member on map" -- keep
+     * calling [navigateToTab] directly and cannot pair up with a real tap that follows them.
+     *
+     * shvm asked for this three times; the scroll-to-top of SS4.4 stays exactly as it was and this
+     * sits on top of it.
+     */
+    fun onTabItemTapped(route: String) {
+        val outcome = tabDoubleTap.tap(route, android.os.SystemClock.uptimeMillis())
+        tabDoubleTap = outcome.detector
+        navigateToTab(route)
+        if (outcome.isDoubleTap) {
+            // The tab's main page, guaranteed: drop anything still sitting above it, whether it was
+            // pushed just now or restored by `restoreState`. A no-op when the route is already the
+            // top of the stack, which is why the common case costs nothing.
+            navController.popBackStack(route, inclusive = false)
         }
     }
     var currentScreenStartTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -160,7 +190,7 @@ fun MainNavigation() {
                                     label = { Text(item) },
                                     alwaysShowLabel = true,
                                     selected = selectedItem == index,
-                                    onClick = { navigateToTab(routes[index]) }
+                                    onClick = { onTabItemTapped(routes[index]) }
                                 )
                             }
                         }
@@ -182,7 +212,7 @@ fun MainNavigation() {
                                     label = { Text(item) },
                                     alwaysShowLabel = true,
                                     selected = selectedItem == index,
-                                    onClick = { navigateToTab(routes[index]) }
+                                    onClick = { onTabItemTapped(routes[index]) }
                                 )
                             }
                         }
