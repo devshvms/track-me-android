@@ -878,6 +878,18 @@ internal fun displayActiveDurationMillis(ride: RideEntity): Long? {
         ?.coerceAtLeast(0L)
 }
 
+/**
+ * TASK-230: wall-clock elapsed, the pair to [displayActiveDurationMillis].
+ *
+ * Unlike active duration this needs no reconciliation -- it is two stored timestamps -- so an
+ * unreconciled ride shows a real total beside an "Unknown" moving time rather than two blanks.
+ * Null only when the ride has no usable end, which is not a completed ride.
+ *
+ * SS5.1 still stands: this is wall time and it is never labelled simply "Duration".
+ */
+internal fun displayTotalElapsedMillis(ride: RideEntity): Long? =
+    ride.endTime?.takeIf { it > ride.startTime }?.minus(ride.startTime)
+
 private fun formatDuration(durationMillis: Long): String {
     if (durationMillis <= 0) return "00:00:00"
     val totalSeconds = durationMillis / 1000

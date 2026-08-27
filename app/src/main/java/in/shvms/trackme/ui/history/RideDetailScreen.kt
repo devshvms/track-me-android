@@ -1293,9 +1293,23 @@ private fun RideSummaryCard(
                     }
                 }
             }
+            // TASK-229: start time reads as a caption under the heading, not as a grid cell. In a
+            // third of a row a date plus a time was always truncated to "Aug 23, 2026 - ...", which
+            // drops the one half a rider is actually looking for and says less than 1.8.4 did.
+            // Full width, and formatted by the platform so it stays unabbreviated in all seven
+            // locales rather than in an en-US pattern.
             val dateFormat = remember {
-                java.text.SimpleDateFormat("MMM dd, yyyy - HH:mm", java.util.Locale.getDefault())
+                java.text.DateFormat.getDateTimeInstance(
+                    java.text.DateFormat.MEDIUM,
+                    java.text.DateFormat.SHORT,
+                    java.util.Locale.getDefault(),
+                )
             }
+            Text(
+                text = dateFormat.format(java.util.Date(ride.startTime)),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(modifier = Modifier.height(16.dp))
             val effortIsPace = ridePersona.usesPace
             val avgMps = (ride.postRideCalculation?.avgSpeed ?: 0f).toDouble()
@@ -1303,8 +1317,12 @@ private fun RideSummaryCard(
             StatGrid(
                 listOf(
                     Stat(strings.distance, `in`.shvms.trackme.domain.UnitFormatter.rideDistance(ride.postRideCalculation?.distance ?: 0.0, imperial)),
+                    // TASK-230: this value was already the pause-excluded one (SS5.1) but was
+                    // labelled only "Duration", so a rider who paused for twenty minutes could not
+                    // tell which of the two figures the HUD had shown them they were holding. The
+                    // label now says which, and "Total time" below restores the other half.
                     Stat(
-                        strings.duration,
+                        strings.movingTime,
                         displayActiveDurationMillis(ride)?.let(::formatDuration) ?: strings.unknown,
                     ),
                     Stat(
@@ -1339,9 +1357,12 @@ private fun RideSummaryCard(
                             ),
                         )
                     },
+                    // The cell TASK-229 freed. Always rendered, never suppressed when it equals
+                    // moving time: a ride with no pause showing both figures equal is the fact,
+                    // and it is what makes the pair readable without a legend.
                     Stat(
-                        strings.startTime,
-                        dateFormat.format(java.util.Date(ride.startTime)),
+                        strings.totalTime,
+                        displayTotalElapsedMillis(ride)?.let(::formatDuration) ?: strings.unknown,
                     ),
                 ).filterNotNull(),
             )

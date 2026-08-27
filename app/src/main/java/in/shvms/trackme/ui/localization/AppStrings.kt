@@ -125,6 +125,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val speed: String = s("speed", "Speed")
     val distance: String = s("distance", "Distance")
     val duration: String = s("duration", "Duration")
+    val movingTime: String = s("movingTime", "Moving time")
+    val totalTime: String = s("totalTime", "Total time")
     val avgSpeed: String = s("avgSpeed", "Avg Speed")
     val maxSpeed: String = s("maxSpeed", "Max Speed")
     val avgPace: String = s("avgPace", "Avg Pace")
@@ -996,6 +998,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "speed" to "Velocidad",
             "distance" to "Distancia",
             "duration" to "Duración",
+            "movingTime" to "Tiempo en movimiento",
+            "totalTime" to "Tiempo total",
             "avgSpeed" to "Vel. Media",
             "maxSpeed" to "Vel. Máx",
             "avgPace" to "Ritmo medio",
@@ -1581,6 +1585,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "speed" to "Vitesse",
             "distance" to "Distance",
             "duration" to "Durée",
+            "movingTime" to "Temps en mouvement",
+            "totalTime" to "Temps total",
             "avgSpeed" to "Vit. Moy",
             "maxSpeed" to "Vit. Max",
             "avgPace" to "Allure moy.",
@@ -2166,6 +2172,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "speed" to "Geschw.",
             "distance" to "Distanz",
             "duration" to "Dauer",
+            "movingTime" to "Bewegungszeit",
+            "totalTime" to "Gesamtzeit",
             "avgSpeed" to "Ø Geschw.",
             "maxSpeed" to "Max Geschw.",
             "avgPace" to "Ø Tempo",
@@ -2751,6 +2759,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "speed" to "गति",
             "distance" to "दूरी",
             "duration" to "समय",
+            "movingTime" to "चलने का समय",
+            "totalTime" to "कुल समय",
             "avgSpeed" to "औसत गति",
             "maxSpeed" to "अधिकतम गति",
             "avgPace" to "औसत गति-दर",
@@ -3336,6 +3346,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "speed" to "速度",
             "distance" to "距離",
             "duration" to "時間",
+            "movingTime" to "移動時間",
+            "totalTime" to "合計時間",
             "avgSpeed" to "平均速度",
             "maxSpeed" to "最高速度",
             "avgPace" to "平均ペース",
@@ -3921,6 +3933,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "speed" to "速度",
             "distance" to "距离",
             "duration" to "时长",
+            "movingTime" to "运动时间",
+            "totalTime" to "总时间",
             "avgSpeed" to "平均速度",
             "maxSpeed" to "最高速度",
             "avgPace" to "平均配速",

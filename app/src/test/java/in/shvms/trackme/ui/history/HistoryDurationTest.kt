@@ -47,6 +47,57 @@ class HistoryDurationTest {
         assertNull(displayExportDuration(ride))
     }
 
+    /**
+     * TASK-230. The rider is taught mid-ride that moving and total are different numbers; the pair
+     * has to survive the ride ending, and a ride that never paused has to show them equal rather
+     * than suppress one -- suppression is what made a single unlabelled figure ambiguous.
+     */
+    @Test
+    fun `a paused ride shows moving and total as a differing pair`() {
+        val ride = RideEntity(
+            startTime = 1_000L,
+            endTime = 1_201_000L,
+            dashboardActiveDurationMillis = 300_000L,
+            dashboardMetadataVersion = HOME_DASHBOARD_METADATA_VERSION,
+        )
+
+        assertEquals(300_000L, displayActiveDurationMillis(ride))
+        assertEquals(1_200_000L, displayTotalElapsedMillis(ride))
+    }
+
+    @Test
+    fun `a ride with no pause shows both figures equal rather than suppressing one`() {
+        val ride = RideEntity(
+            startTime = 1_000L,
+            endTime = 301_000L,
+            dashboardActiveDurationMillis = 300_000L,
+            dashboardMetadataVersion = HOME_DASHBOARD_METADATA_VERSION,
+        )
+
+        assertEquals(displayActiveDurationMillis(ride), displayTotalElapsedMillis(ride))
+    }
+
+    @Test
+    fun `an unreconciled ride still reads unknown for moving time, never a fake zero`() {
+        val ride = RideEntity(
+            startTime = 1_000L,
+            endTime = 1_201_000L,
+            dashboardActiveDurationMillis = 0L,
+            dashboardMetadataVersion = 0,
+        )
+
+        assertNull(displayActiveDurationMillis(ride))
+        // Total elapsed needs no reconciliation, so the rider still gets one real number.
+        assertEquals(1_200_000L, displayTotalElapsedMillis(ride))
+    }
+
+    @Test
+    fun `a ride with no usable end has no total`() {
+        assertNull(displayTotalElapsedMillis(RideEntity(startTime = 1_000L, endTime = null)))
+        assertNull(displayTotalElapsedMillis(RideEntity(startTime = 1_000L, endTime = 0L)))
+        assertNull(displayTotalElapsedMillis(RideEntity(startTime = 1_000L, endTime = 1_000L)))
+    }
+
     @Test
     fun `export duration uses active time rather than wall time`() {
         val ride = RideEntity(
