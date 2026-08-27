@@ -140,6 +140,9 @@ private fun openAppSettings(context: android.content.Context) {
     context.startActivity(intent)
 }
 
+/** TASK-244: how much of the idle backdrop map still shows — ~80% transparent, per shvm. */
+private const val IDLE_MAP_ALPHA = 0.2f
+
 @Composable
 fun HomeScreen(
     onOpenCommunity: () -> Unit = {},
@@ -774,6 +777,13 @@ fun HomeScreen(
                         // with the dashboard cards. RenderEffect is Android 12+; older devices
                         // keep the map covered by the heavier fallback scrim below.
                         .graphicsLayer {
+                            // TASK-244, shvm: the idle backdrop is ~80% transparent — the map
+                            // itself fades toward the app background rather than being buried
+                            // under more black. That is deliberate: the spec's own amendment says
+                            // "a heavier scrim would flatten it into grey", so the lever is the
+                            // map's alpha, not the scrim's. The scrim below drops accordingly, or
+                            // fading and then re-darkening would just be grey by another route.
+                            alpha = if (isIdleDashboard) IDLE_MAP_ALPHA else 1f
                             renderEffect = if (isIdleDashboard && canBlurMap) {
                                 BlurEffect(idleMapBlurRadiusPx, idleMapBlurRadiusPx)
                             } else {
@@ -970,8 +980,11 @@ fun HomeScreen(
 
             val scrimTopAlpha by animateFloatAsState(
                 targetValue = when {
-                    presentationMode == HomePresentationMode.IDLE_DASHBOARD && !canBlurMap -> 0.84f
-                    presentationMode == HomePresentationMode.IDLE_DASHBOARD -> 0.72f
+                    // The map is already faded to IDLE_MAP_ALPHA, so the scrim only has to give the
+                    // deck a little depth. Without blur it keeps a touch more, because unblurred
+                    // street labels still read faintly even at low alpha.
+                    presentationMode == HomePresentationMode.IDLE_DASHBOARD && !canBlurMap -> 0.30f
+                    presentationMode == HomePresentationMode.IDLE_DASHBOARD -> 0.18f
                     else -> 0.28f
                 },
                 animationSpec = if (animationsEnabled) tween(420, easing = LinearEasing) else snap(),
@@ -979,8 +992,8 @@ fun HomeScreen(
             )
             val scrimBottomAlpha by animateFloatAsState(
                 targetValue = when {
-                    presentationMode == HomePresentationMode.IDLE_DASHBOARD && !canBlurMap -> 0.42f
-                    presentationMode == HomePresentationMode.IDLE_DASHBOARD -> 0.30f
+                    presentationMode == HomePresentationMode.IDLE_DASHBOARD && !canBlurMap -> 0.12f
+                    presentationMode == HomePresentationMode.IDLE_DASHBOARD -> 0.06f
                     else -> 0f
                 },
                 animationSpec = if (animationsEnabled) tween(420, easing = LinearEasing) else snap(),
