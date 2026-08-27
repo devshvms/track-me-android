@@ -104,6 +104,17 @@ class HomeDashboardRepository(
         }
         val rebuilt = (existing ?: calculationFrom(points, activeDuration))?.copy(
             rawPointCount = points.size,
+            // TASK-239: recompute ascent only where the stored value is absent or the zero the
+            // broken sample-to-sample noise floor produced for every real ride. A real number is
+            // never overwritten -- SS5.2 says no platform recomputes elevation for a ride it did
+            // not record, and a synced ride arrives with the recording device's figure.
+            //
+            // SS5.2 deferred any elevation backfill because it would mean a second full-table pass
+            // over gps_points. It is not a second pass: TASK-231's metadata bump already sweeps
+            // every ride and this reconcile already holds the points in hand, so the recomputation
+            // is free. That is the only reason it is here rather than deferred with the rest.
+            elevationGainMeters = existing?.elevationGainMeters?.takeIf { it > 0.0 }
+                ?: `in`.shvms.trackme.domain.processor.calculateElevationGainMeters(points),
         )
         if (rebuilt == null) {
             rideDao.updateRide(withUnavailableDashboardMetadata(ride, points.size, routePolyline))
