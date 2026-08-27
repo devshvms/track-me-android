@@ -499,16 +499,25 @@ class FirestoreSyncManager(
             val reconstructedActiveDuration =
                 `in`.shvms.trackme.data.local.dashboardActiveDurationFromPoints(gpsPoints)
             val activeDuration = persistedActiveDuration ?: reconstructedActiveDuration
+            // TASK-246: the route shape must be built here too. Omitting it let a downloaded ride
+            // land with points, a null polyline and the *current* metadata version, which the
+            // backfill's version gate then skipped forever -- so every cloud ride kept the generic
+            // glyph. `ride` is freshly constructed, so the parameter's default (the existing
+            // polyline) is always null on this path.
+            val downloadedPolyline =
+                `in`.shvms.trackme.data.local.dashboardRoutePolylineFromPoints(gpsPoints)
             val newRide = if (activeDuration != null) {
                 `in`.shvms.trackme.data.local.withDashboardMetadata(
                     ride,
                     activeDuration,
                     gpsPoints.size,
+                    downloadedPolyline,
                 )
             } else {
                 `in`.shvms.trackme.data.local.withUnavailableDashboardMetadata(
                     ride,
                     gpsPoints.size,
+                    downloadedPolyline,
                 )
             }
             val rideId = rideDao.insertRide(newRide)

@@ -43,7 +43,13 @@ fun withDashboardMetadata(
     ride: RideEntity,
     activeDurationMillis: Long,
     pointCount: Int = ride.dashboardPointCount,
-    routePolyline: String? = ride.dashboardRoutePolyline,
+    // TASK-246: deliberately has no default. It used to default to the ride's existing polyline,
+    // which reads as harmless preservation but silently produced null on every path that builds a
+    // fresh entity -- cloud download, GPX import, orphan recovery -- while still stamping the
+    // current metadata version, so the backfill's version gate skipped those rows forever and they
+    // kept the generic glyph. Requiring the argument makes the compiler ask the question at every
+    // call site, which is the only reason all five of them are now correct.
+    routePolyline: String?,
 ): RideEntity {
     val duration = activeDurationMillis.coerceAtLeast(0L)
     val distance = ride.postRideCalculation?.distance ?: 0.0
@@ -66,7 +72,8 @@ fun withDashboardMetadata(
 fun withUnavailableDashboardMetadata(
     ride: RideEntity,
     pointCount: Int,
-    routePolyline: String? = ride.dashboardRoutePolyline,
+    // TASK-246: no default, for the reason given on `withDashboardMetadata`.
+    routePolyline: String?,
 ): RideEntity = ride.copy(
     qualifiesForStats = false,
     dashboardActiveDurationMillis = 0L,

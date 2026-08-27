@@ -52,13 +52,31 @@ interface HomeDashboardDao {
     )
     fun observeRides(): Flow<List<HomeDashboardRideProjection>>
 
-    /** Bounded metadata pages keep an upgrade from loading a large history into memory at once. */
+    /**
+     * Bounded metadata pages keep an upgrade from loading a large history into memory at once.
+     *
+     * TASK-246: the second clause is the important one. Version alone was not enough — a ride could
+     * be stamped with the *current* version and still carry no route shape, because four write
+     * paths (cloud download, GPX import, orphan recovery, the compression pass) built metadata
+     * without a polyline. Those rows were invisible to a version gate, so they kept the generic
+     * glyph permanently. Selecting on the missing shape itself repairs them, and repairs any future
+     * path that forgets, instead of needing a version bump per mistake.
+     *
+     * **This terminates.** `reconcile` always rewrites `dashboardPointCount` from the points it
+     * actually read, so a row leaves the candidate set either way: with >= 2 real points it gains a
+     * polyline, and with fewer its count is rewritten below 2. The `>= 2` bound is what makes that
+     * true — a polyline needs two points, so matching on `> 0` would spin forever on a one-point
+     * ride that can never produce one.
+     */
     @Query(
         """
         SELECT * FROM rides
-        WHERE dashboardMetadataVersion < 3
-          AND endTime IS NOT NULL
+        WHERE endTime IS NOT NULL
           AND endTime > 0
+          AND (
+            dashboardMetadataVersion < 3
+            OR (dashboardRoutePolyline IS NULL AND dashboardPointCount >= 2)
+          )
         ORDER BY startTime ASC
         LIMIT :limit
         """

@@ -108,6 +108,39 @@ class ReconcileBackfillTest {
         assertTrue(rideDao.updated.values.all { it.dashboardRoutePolyline != null })
     }
 
+    @Test
+    fun `a ride at the current version with points but no shape is still repaired`() = runTest {
+        // The TASK-246 defect exactly: cloud download stamped the current metadata version while
+        // leaving the polyline null, so a version gate alone could never see this row again.
+        val dashboardDao = FakeDashboardDao(listOf(ride(1L, HOME_DASHBOARD_METADATA_VERSION)))
+        val rideDao = FakeRideDao(mapOf(1L to points(1L, 120))).linkedTo(dashboardDao)
+        val repository = HomeDashboardRepository(dashboardDao, rideDao, UnconfinedTestDispatcher())
+
+        repository.reconcileLegacyMetadata()
+
+        val repaired = rideDao.updated.getValue(1L)
+        assertNotNull("a ride with 120 points must end up with a route shape", repaired.dashboardRoutePolyline)
+        assertTrue(repaired.dashboardRoutePolyline!!.isNotEmpty())
+    }
+
+    @Test
+    fun `a row claiming points it does not have leaves the candidate set instead of looping`() = runTest {
+        // Termination guard. The polyline clause matches on `>= 2` precisely so that a row which
+        // can never produce a polyline still stops matching: reconcile rewrites the count from the
+        // points it actually read. Matching on `> 0` would spin here forever, and because the sweep
+        // is a `while (true)` over pages, that would hang app startup rather than fail visibly.
+        val dashboardDao = FakeDashboardDao(listOf(ride(1L, HOME_DASHBOARD_METADATA_VERSION, pointCount = 9)))
+        val rideDao = FakeRideDao(mapOf(1L to points(1L, 1))).linkedTo(dashboardDao)
+        val repository = HomeDashboardRepository(dashboardDao, rideDao, UnconfinedTestDispatcher())
+
+        repository.reconcileLegacyMetadata()
+
+        val settled = rideDao.updated.getValue(1L)
+        assertNull("one point cannot make a polyline", settled.dashboardRoutePolyline)
+        assertEquals("the count must be rewritten from the real points", 1, settled.dashboardPointCount)
+        assertTrue("the sweep must stop paging", dashboardDao.candidatePages <= 3)
+    }
+
     private class FakeDashboardDao(rides: List<RideEntity>) : HomeDashboardDao {
         private val pending = rides.associateBy { it.id }.toMutableMap()
         var candidatePages = 0
@@ -117,10 +150,14 @@ class ReconcileBackfillTest {
 
         override suspend fun getBackfillCandidates(limit: Int): List<RideEntity> {
             candidatePages++
-            // Mirrors the real query: only rows below the current contract version come back, so a
-            // row that has been reconciled must not reappear.
+            // Mirrors the real query, TASK-246 clause included: a row is a candidate if it predates
+            // the contract version *or* if it claims two or more points while holding no route
+            // shape. A reconciled row must not reappear under either clause.
             return pending.values
-                .filter { it.dashboardMetadataVersion < HOME_DASHBOARD_METADATA_VERSION }
+                .filter {
+                    it.dashboardMetadataVersion < HOME_DASHBOARD_METADATA_VERSION ||
+                        (it.dashboardRoutePolyline == null && it.dashboardPointCount >= 2)
+                }
                 .sortedBy { it.startTime }
                 .take(limit)
         }

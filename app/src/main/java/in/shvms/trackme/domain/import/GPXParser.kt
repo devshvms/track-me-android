@@ -149,7 +149,13 @@ class GPXParser {
             title = rideName ?: "Imported Ride",
             postRideCalculation = calc
         ).let {
-            `in`.shvms.trackme.data.local.withDashboardMetadata(it, durationMillis, points.size)
+            // TASK-246: imported rides get a thumbnail like any other.
+            `in`.shvms.trackme.data.local.withDashboardMetadata(
+                it,
+                durationMillis,
+                points.size,
+                `in`.shvms.trackme.data.local.dashboardRoutePolylineFromPoints(points),
+            )
         }
 
         val rideWithPoints = RideWithPoints(ride, points)
