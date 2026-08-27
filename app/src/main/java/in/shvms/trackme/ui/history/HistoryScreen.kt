@@ -35,6 +35,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -251,16 +253,43 @@ fun HistoryScreen(
                 .padding(padding)
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = viewModel::setSearchQuery,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    label = { Text(strings.searchRides) },
-                )
+                // Search collapses to an icon in the filter row and expands to a full field only
+                // while it is being used. A permanently open text field cost a whole row of the
+                // list to a control that is empty almost always -- History is scanned far more
+                // often than it is searched. Expanded state survives a non-empty query so the
+                // field cannot collapse while it is still filtering the list.
+                var searchExpanded by rememberSaveable { mutableStateOf(false) }
+                val searchOpen = searchExpanded || searchQuery.isNotBlank()
+                val searchFocus = remember { FocusRequester() }
+
+                if (searchOpen) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = viewModel::setSearchQuery,
+                        modifier = Modifier.fillMaxWidth().focusRequester(searchFocus),
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        label = { Text(strings.searchRides) },
+                        trailingIcon = {
+                            IconButton(onClick = {
+                                viewModel.setSearchQuery("")
+                                searchExpanded = false
+                            }) {
+                                Icon(Icons.Default.Close, contentDescription = strings.close)
+                            }
+                        },
+                    )
+                    // Opening the field without the caret in it would make the tap feel inert.
+                    LaunchedEffect(Unit) { runCatching { searchFocus.requestFocus() } }
+                }
+
                 Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                Row(
+                    modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -314,6 +343,10 @@ fun HistoryScreen(
                         }
                     }
 
+                    // The Box is load-bearing: DropdownMenu anchors to its parent, so without one
+                    // this menu anchored to the whole filter Row and opened at the row's far left
+                    // instead of under its own chip. The other two chips have always had it.
+                    Box {
                     var showDistMenu by remember { mutableStateOf(false) }
                     val distLabel = when (distanceFilter) {
                         DistanceFilterOption.ALL -> strings.distanceAll
@@ -344,6 +377,15 @@ fun HistoryScreen(
                                     showDistMenu = false
                                 }
                             )
+                        }
+                    }
+                    }
+                }
+                    // Pinned to the right, outside the scrolling chip row, so it never scrolls out
+                    // of reach the way it would as just another chip.
+                    if (!searchOpen) {
+                        IconButton(onClick = { searchExpanded = true }) {
+                            Icon(Icons.Default.Search, contentDescription = strings.searchRides)
                         }
                     }
                 }
