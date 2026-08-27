@@ -1410,6 +1410,9 @@ fun HomeScreen(
                             viewModel.selectDashboardPersona(persona)
                             beginDashboardStart(persona, method)
                         },
+                        onAbortRideStart = { method ->
+                            AnalyticsManager.trackRideStartAborted(method)
+                        },
                         preselectedPersona = uiState.selectedDashboardPersona,
                         modifier = Modifier
                             .navigationBarsPadding()

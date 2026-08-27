@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.home.components
 
+import `in`.shvms.trackme.analytics.RideStartAbortMethod
 import `in`.shvms.trackme.ui.components.HapticFeedbackUtils
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -114,6 +115,7 @@ fun RadialStartRideButton(
     onStartRide: (RidePersona) -> Unit,
     preselectedPersona: RidePersona = RidePersona.AUTO,
     onOpenAllPersonas: () -> Unit = {},
+    onAbortRideStart: (RideStartAbortMethod) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
