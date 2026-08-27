@@ -22,7 +22,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
@@ -59,6 +61,76 @@ import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+
+/**
+ * TASK-228: one pill, for every pill on the ride HUD.
+ *
+ * There used to be two families in this row -- persona and the GPS warning built as
+ * `Surface { Row { Icon, Spacer, Text } }`, and auto-paused / live sharing / offline shield as a
+ * bare `Text` with the icon baked into the string as an emoji. The two have different intrinsic
+ * heights, so they could not sit on one baseline however the FlowRow was arranged, and on a wrap
+ * `Arrangement.Center` centred each wrapped line independently and made a 2+1 split look ragged.
+ *
+ * The emoji were also why three of those pills shipped as hardcoded English: an emoji plus a label
+ * in one literal is not a string anyone thinks to translate, and no test can assert on a key that
+ * was never registered. Icons are `Icon` composables here, and the label is always a string key.
+ */
+@Composable
+private fun HudPill(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    containerColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+    shadowElevation: androidx.compose.ui.unit.Dp = 2.dp,
+    onClick: (() -> Unit)? = null,
+) {
+    val shape = RoundedCornerShape(14.dp)
+    val content: @Composable () -> Unit = {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            // The shared minimum is what actually equalises the family: label text alone varies in
+            // height between scripts, and a pill that is one pixel shorter still breaks the line.
+            modifier = Modifier
+                .defaultMinSize(minHeight = 24.dp)
+                .padding(horizontal = 10.dp, vertical = 4.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+    // onClick on the Surface so the press indication is clipped to the pill's corners rather than
+    // flashing as a rectangle behind it.
+    if (onClick == null) {
+        Surface(
+            shape = shape,
+            color = containerColor,
+            contentColor = contentColor,
+            shadowElevation = shadowElevation,
+            modifier = modifier.padding(horizontal = 4.dp),
+            content = content,
+        )
+    } else {
+        Surface(
+            onClick = onClick,
+            shape = shape,
+            color = containerColor,
+            contentColor = contentColor,
+            shadowElevation = shadowElevation,
+            modifier = modifier.padding(horizontal = 4.dp),
+            content = content,
+        )
+    }
+}
 
 internal object RideControlAccessibility {
     fun pauseToggleContentDescription(
@@ -128,36 +200,23 @@ fun ActiveRideHudPanel(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.Center,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            // TASK-228. Without this the default is Alignment.Top, and pills of unequal height
+            // cannot share a centre line -- which is what made the row look ragged even before
+            // the two pill families were unified below.
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
             // Persona pill. Was a fixed amber fill — amber is the warning role, and "you are
             // riding as Motorbike" is not a warning; the colour made a neutral fact look like a
             // caution. It is floating chrome over the map, so it now joins the map control
             // buttons on the surface ramp and follows the themed basemap.
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            HudPill(
+                text = strings.personaLabel(selectedPersona),
+                icon = selectedPersona.icon(),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 shadowElevation = elevation.mapOverlay,
-                modifier = Modifier.padding(horizontal = 4.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Icon(
-                        imageVector = selectedPersona.icon(),
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = strings.personaLabel(selectedPersona),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
+            )
 
             if (trackingState == TrackingState.GPS_LOST || trackingState == TrackingState.GPS_DISABLED || trackingState == TrackingState.STORAGE_LOW) {
                 val context = LocalContext.current
@@ -166,7 +225,27 @@ fun ActiveRideHudPanel(
                 // that must not be missable.
                 // onClick on the Surface so the press indication is clipped to the pill's corners
                 // rather than flashing as a rectangle behind it.
-                Surface(
+                val lostSeconds = (timeSinceLastGps / 1000L).coerceAtLeast(1L)
+                HudPill(
+                    text = when (trackingState) {
+                        TrackingState.STORAGE_LOW -> strings.hudStorageLowPill
+                        TrackingState.GPS_DISABLED -> String.format(
+                            java.util.Locale.getDefault(),
+                            strings.hudLocationDisabledPill,
+                            lostSeconds.toString()
+                        )
+                        else -> String.format(
+                            java.util.Locale.getDefault(),
+                            strings.hudGpsLostPill,
+                            lostSeconds.toString()
+                        )
+                    },
+                    // The warning mark was a literal "⚠" inside the string, which screen
+                    // readers announce inconsistently and translators have to carry.
+                    icon = Icons.Default.WarningAmber,
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                    shadowElevation = elevation.mapOverlay,
                     onClick = {
                         val settingsAction = if (trackingState == TrackingState.STORAGE_LOW) {
                             android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS
@@ -175,114 +254,45 @@ fun ActiveRideHudPanel(
                         }
                         context.startActivity(android.content.Intent(settingsAction))
                     },
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError,
-                    shadowElevation = elevation.mapOverlay,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                ) {
-                    val lostSeconds = (timeSinceLastGps / 1000L).coerceAtLeast(1L)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        // The warning mark was a literal "⚠" inside the string, which screen
-                        // readers announce inconsistently and translators have to carry.
-                        Icon(
-                            imageVector = Icons.Default.WarningAmber,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = when (trackingState) {
-                                TrackingState.STORAGE_LOW -> strings.hudStorageLowPill
-                                TrackingState.GPS_DISABLED -> String.format(
-                                    java.util.Locale.getDefault(),
-                                    strings.hudLocationDisabledPill,
-                                    lostSeconds.toString()
-                                )
-                                else -> String.format(
-                                    java.util.Locale.getDefault(),
-                                    strings.hudGpsLostPill,
-                                    lostSeconds.toString()
-                                )
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+                )
             }
 
             // Auto-Paused / Paused Pill
             if (isAutoPaused) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = TrackMeOrange,
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                ) {
-                    Text(
-                        text = "⏸ Auto Paused",
-                        color = Color.Black,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
+                HudPill(
+                    text = strings.hudAutoPausedPill,
+                    icon = Icons.Default.Pause,
+                    containerColor = TrackMeOrange,
+                    contentColor = Color.Black,
+                )
             } else if (trackingState == TrackingState.PAUSED) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = TrackMeOrange,
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                ) {
-                    Text(
-                        text = "⏸ ${strings.statusPaused}",
-                        color = Color.Black,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
+                HudPill(
+                    text = strings.statusPaused,
+                    icon = Icons.Default.Pause,
+                    containerColor = TrackMeOrange,
+                    contentColor = Color.Black,
+                )
             }
 
             // Live Share Pill
             if (liveShareState.status == LiveShareStatus.ACTIVE) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = CyanBright,
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                ) {
-                    Text(
-                        text = "📡 LiveSharing",
-                        color = Color.Black,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
+                HudPill(
+                    text = strings.hudLiveSharingPill,
+                    icon = Icons.Default.Sensors,
+                    containerColor = CyanBright,
+                    contentColor = Color.Black,
+                )
             }
 
             // Offline Shield Pill
             if (isOffline && !groupPresencePillShown) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
+                HudPill(
+                    text = strings.hudOfflineShieldPill,
+                    icon = Icons.Default.Shield,
                     // C1: semantic — "shield active" is a positive state, not brand accent.
-                    color = SuccessGreen,
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                ) {
-                    Text(
-                        text = "🛡 Offline Shield Active",
-                        color = Color.Black,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
+                    containerColor = SuccessGreen,
+                    contentColor = Color.Black,
+                )
             }
         }
 
