@@ -16,6 +16,20 @@ import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 const val HOME_DASHBOARD_METADATA_VERSION = 3
 
 /**
+ * TASK-246, shvm: "default thumbnail only for less than 50 points or distance is 0 or no points".
+ *
+ * Below this, a drawn shape is worse than no shape. A handful of samples renders as a stray tick
+ * that reads like a broken route rather than a short one, and a ride that never moved normalises
+ * against a zero span and comes out a dot in the middle of the tile. The glyph says "nothing to
+ * show here" honestly; a two-point scribble does not.
+ */
+const val ROUTE_THUMBNAIL_MIN_POINTS = 50
+
+/** The single rule for whether a History thumbnail draws a route or falls back to the glyph. */
+fun routeThumbnailDrawsShape(pointCount: Int, distanceMeters: Double): Boolean =
+    pointCount >= ROUTE_THUMBNAIL_MIN_POINTS && distanceMeters > 0.0
+
+/**
  * Point budget for the stored thumbnail shape. 40 vertices is more than a 52dp box can resolve and
  * holds the encoded string to a few hundred bytes, so the History projection stays a single-row read.
  */
