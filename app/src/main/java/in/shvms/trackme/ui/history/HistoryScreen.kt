@@ -350,13 +350,13 @@ fun HistoryScreen(
                         TextButton(onClick = { viewModel.resetFilters() }) { Text(strings.resetFilter, style = MaterialTheme.typography.labelMedium) }
                     }
                 }
-            }
 
             // Ride List with Mutually Exclusive Chronological Grouping
             if (groupedRides.isEmpty()) {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
+                        .weight(1f)
                         .padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -368,7 +368,7 @@ fun HistoryScreen(
             } else {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxWidth().weight(1f),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -440,6 +440,7 @@ fun HistoryScreen(
                 }
             }
         }
+    }
 
     if (showDeleteConfirmation) {
         AlertDialog(
