@@ -1106,6 +1106,7 @@ class TrackingService : Service() {
                     it,
                     activeTimeMs,
                     points.size,
+                    `in`.shvms.trackme.data.local.dashboardRoutePolylineFromPoints(points),
                 )
             }
             rideDao.updateRide(finishedRide)

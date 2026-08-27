@@ -89,16 +89,18 @@ class HomeDashboardRepository(
     private suspend fun reconcile(ride: RideEntity) {
         val existing = ride.postRideCalculation
         val points = rideDao.getPointsForRideSync(ride.id)
+        // TASK-231: rebuilt here alongside the aggregates, from the points this sweep already read.
+        val routePolyline = dashboardRoutePolylineFromPoints(points)
         val activeDuration = dashboardActiveDurationFromPoints(points)
         if (activeDuration == null) {
-            rideDao.updateRide(withUnavailableDashboardMetadata(ride, points.size))
+            rideDao.updateRide(withUnavailableDashboardMetadata(ride, points.size, routePolyline))
             return
         }
         val rebuilt = (existing ?: calculationFrom(points, activeDuration))?.copy(
             rawPointCount = points.size,
         )
         if (rebuilt == null) {
-            rideDao.updateRide(withUnavailableDashboardMetadata(ride, points.size))
+            rideDao.updateRide(withUnavailableDashboardMetadata(ride, points.size, routePolyline))
             return
         }
         rideDao.updateRide(
@@ -106,6 +108,7 @@ class HomeDashboardRepository(
                 ride.copy(postRideCalculation = rebuilt),
                 activeDuration,
                 points.size,
+                routePolyline,
             )
         )
     }

@@ -27,6 +27,8 @@ data class HistoryRideSummary(
     val dashboardActiveDurationMillis: Long,
     val dashboardMetadataVersion: Int,
     val dashboardPointCount: Int,
+    /** TASK-231: the card's route shape, on the row. Still no join to gps_points. */
+    val dashboardRoutePolyline: String?,
 )
 
 @Dao
@@ -64,7 +66,7 @@ interface RideDao {
         """
         SELECT id, startTime, endTime, isSynced, firestoreId, title, persona, isSample,
                pendingDelete, distance, avgSpeed, dashboardActiveDurationMillis,
-               dashboardMetadataVersion, dashboardPointCount
+               dashboardMetadataVersion, dashboardPointCount, dashboardRoutePolyline
         FROM rides
         WHERE endTime IS NOT NULL AND endTime > 0
         ORDER BY startTime DESC

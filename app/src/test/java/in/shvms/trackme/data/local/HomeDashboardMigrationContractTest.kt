@@ -8,7 +8,7 @@ class HomeDashboardMigrationContractTest {
     @Test fun `database upgrades add and register all dashboard metadata`() {
         val database = read("data/local/AppDatabase.kt")
         val app = read("TrackMeApp.kt")
-        assertTrue(database.contains("version = 15"))
+        assertTrue(database.contains("version = 16"))
         assertTrue(database.contains("MIGRATION_12_13"))
         assertTrue(database.contains("MIGRATION_13_14"))
         assertTrue(database.contains("`qualifiesForStats` INTEGER NOT NULL DEFAULT 0"))
@@ -18,9 +18,12 @@ class HomeDashboardMigrationContractTest {
         assertTrue(database.contains("`startZoneId` TEXT"))
         assertTrue(database.contains("MIGRATION_14_15"))
         assertTrue(database.contains("`elevationGainMeters` REAL"))
+        assertTrue(database.contains("MIGRATION_15_16"))
+        assertTrue(database.contains("`dashboardRoutePolyline` TEXT"))
         assertTrue(app.contains("AppDatabase.MIGRATION_12_13"))
         assertTrue(app.contains("AppDatabase.MIGRATION_13_14"))
         assertTrue(app.contains("AppDatabase.MIGRATION_14_15"))
+        assertTrue(app.contains("AppDatabase.MIGRATION_15_16"))
     }
 
     private fun read(relative: String): String {

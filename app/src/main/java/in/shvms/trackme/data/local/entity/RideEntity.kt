@@ -65,6 +65,13 @@ data class RideEntity(
     val dashboardActiveDurationMillis: Long = 0L,
     /** Persisted route availability fact; Home never probes gps_points to decide card content. */
     val dashboardPointCount: Int = 0,
+    /**
+     * TASK-231: bounded route shape (Google encoded polyline, <= 40 points) carried on the ride row
+     * so the History list can draw a real route without reading gps_points. Null means "no drawable
+     * route" -- fewer than two points, or a row the reconciler has not reached yet, which its
+     * metadata version distinguishes.
+     */
+    val dashboardRoutePolyline: String? = null,
     /** Version of the rebuildable dashboard metadata contract; 0 means reconciliation is pending. */
     val dashboardMetadataVersion: Int = 0,
     @Embedded

@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RideEntity::class, 
         GPSPointEntity::class
     ], 
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -186,6 +186,17 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_14_15 = object : Migration(14, 15) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE `rides` ADD COLUMN `elevationGainMeters` REAL")
+            }
+        }
+
+        /**
+         * TASK-231: the History thumbnail's route shape, stored on the ride row. Additive and
+         * nullable, the same pattern as startZoneId -- existing rows are filled in by the bounded
+         * metadata reconciler, not by this migration, so an upgrade never reads gps_points inline.
+         */
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `rides` ADD COLUMN `dashboardRoutePolyline` TEXT")
             }
         }
     }
