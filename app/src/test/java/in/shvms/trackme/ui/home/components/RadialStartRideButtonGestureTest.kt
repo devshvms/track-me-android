@@ -110,41 +110,24 @@ class RadialStartRideButtonGestureTest {
     }
 
     @Test
-    fun `touch inside center aborts current launch and consumes gesture`() {
-        val launch = PendingRideLaunch(token = 7L, persona = RidePersona.RUN)
-
-        val decision = pendingLaunchAbortDecision(
-            pendingLaunch = launch,
-            observedLaunchToken = launch.token,
-            pressedInsideCenter = true
+    fun `tap launch waits for an explicit persona choice`() {
+        val launch = PendingRideLaunch(
+            token = 7L,
+            persona = RidePersona.RUN,
+            awaitsPersonaChoice = true,
         )
 
-        assertTrue(decision.shouldAbort)
-        assertTrue(decision.consumeGesture)
+        assertTrue(launch.awaitsPersonaChoice)
+        assertTrue(canCommitPendingLaunch(launch, expectedLaunchToken = launch.token))
     }
 
     @Test
-    fun `touch after launch window is a no-op and is not consumed`() {
-        val decision = pendingLaunchAbortDecision(
-            pendingLaunch = null,
-            observedLaunchToken = 7L,
-            pressedInsideCenter = true
-        )
+    fun `direct persona launch remains identity guarded`() {
+        val launch = PendingRideLaunch(token = 8L, persona = RidePersona.RUN)
 
-        assertFalse(decision.shouldAbort)
-        assertFalse(decision.consumeGesture)
-    }
-
-    @Test
-    fun `stale touch cannot abort a newer launch`() {
-        val decision = pendingLaunchAbortDecision(
-            pendingLaunch = PendingRideLaunch(token = 8L, persona = RidePersona.RUN),
-            observedLaunchToken = 7L,
-            pressedInsideCenter = true
-        )
-
-        assertFalse(decision.shouldAbort)
-        assertFalse(decision.consumeGesture)
+        assertFalse(launch.awaitsPersonaChoice)
+        assertTrue(canCommitPendingLaunch(launch, expectedLaunchToken = launch.token))
+        assertFalse(canCommitPendingLaunch(launch, expectedLaunchToken = 7L))
     }
 
     @Test
@@ -165,6 +148,5 @@ class RadialStartRideButtonGestureTest {
         assertNull(reset.lastVibratedPersona)
         assertFalse(reset.didExceedTouchSlop)
         assertNull(reset.pendingLaunch)
-        assertFalse(reset.isAbortGestureActive)
     }
 }
