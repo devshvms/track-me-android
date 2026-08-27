@@ -4,14 +4,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.core.tween
 import androidx.compose.material3.*
 import `in`.shvms.trackme.ui.layout.rememberWindowClass
 import androidx.compose.runtime.*
@@ -38,7 +30,6 @@ import `in`.shvms.trackme.ui.settings.SettingsScreen
 import `in`.shvms.trackme.ui.community.CommunityScreen
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.navigation.TabDoubleTapDetector
-import `in`.shvms.trackme.service.TrackingState
 
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -142,15 +133,18 @@ fun MainNavigation() {
     // application and observed here, where the controller already lives. Same outcome, none of the
     // blast radius.
     val app = LocalContext.current.applicationContext as TrackMeApp
-    val trackingState by app.trackingManager.trackingState.collectAsState()
-    val topLevelNavigationVisible = trackingState == TrackingState.IDLE
-    val animationsEnabled = remember(app.contentResolver) {
-        android.provider.Settings.Global.getFloat(
-            app.contentResolver,
-            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
-            1f,
-        ) != 0f
-    }
+    // TASK-224: the bottom navigation is never hidden, which is what 1.8.4 shipped.
+    //
+    // 1.8.5 gated it on `trackingState == IDLE`, so History, Community and Settings were
+    // unreachable for the whole ride — worst in a group ride, where Community holds the roster and
+    // the live map and a mid-ride rider is exactly who wants them. That gate was never a design
+    // decision: it came out of TASK-209's start choreography, relayed as "the tab bar slides out",
+    // and a transition flourish was written as a permanent state. iOS never had it.
+    //
+    // Leaving Home mid-ride is safe by construction, not by care: recording lives in a
+    // foregroundServiceType="location" Service that the composable does not own, and Home's
+    // presentation mode is derived from tracking state by HomePresentationModePolicy, so coming
+    // back yields the live HUD rather than the idle deck without anything having to remember.
     val pendingInvite by app.pendingGroupInvite.collectAsState()
     LaunchedEffect(pendingInvite) {
         if (pendingInvite != null) navigateToTab("community")
@@ -174,25 +168,15 @@ fun MainNavigation() {
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
                 if (!useRail) {
-                    AnimatedVisibility(
-                        visible = topLevelNavigationVisible,
-                        enter = if (animationsEnabled) {
-                            slideInVertically(tween(300)) { it } + fadeIn(tween(300))
-                        } else EnterTransition.None,
-                        exit = if (animationsEnabled) {
-                            slideOutVertically(tween(300)) { it } + fadeOut(tween(300))
-                        } else ExitTransition.None,
-                    ) {
-                        NavigationBar {
-                            items.forEachIndexed { index, item ->
-                                NavigationBarItem(
-                                    icon = { Icon(icons[index], contentDescription = item) },
-                                    label = { Text(item) },
-                                    alwaysShowLabel = true,
-                                    selected = selectedItem == index,
-                                    onClick = { onTabItemTapped(routes[index]) }
-                                )
-                            }
+                    NavigationBar {
+                        items.forEachIndexed { index, item ->
+                            NavigationBarItem(
+                                icon = { Icon(icons[index], contentDescription = item) },
+                                label = { Text(item) },
+                                alwaysShowLabel = true,
+                                selected = selectedItem == index,
+                                onClick = { onTabItemTapped(routes[index]) }
+                            )
                         }
                     }
                 }
@@ -200,21 +184,15 @@ fun MainNavigation() {
         ) { innerPadding ->
             Row(modifier = Modifier.fillMaxSize()) {
                 if (useRail) {
-                    AnimatedVisibility(
-                        visible = topLevelNavigationVisible,
-                        enter = if (animationsEnabled) fadeIn(tween(300)) else EnterTransition.None,
-                        exit = if (animationsEnabled) fadeOut(tween(300)) else ExitTransition.None,
-                    ) {
-                        NavigationRail {
-                            items.forEachIndexed { index, item ->
-                                NavigationRailItem(
-                                    icon = { Icon(icons[index], contentDescription = item) },
-                                    label = { Text(item) },
-                                    alwaysShowLabel = true,
-                                    selected = selectedItem == index,
-                                    onClick = { onTabItemTapped(routes[index]) }
-                                )
-                            }
+                    NavigationRail {
+                        items.forEachIndexed { index, item ->
+                            NavigationRailItem(
+                                icon = { Icon(icons[index], contentDescription = item) },
+                                label = { Text(item) },
+                                alwaysShowLabel = true,
+                                selected = selectedItem == index,
+                                onClick = { onTabItemTapped(routes[index]) }
+                            )
                         }
                     }
                 }
