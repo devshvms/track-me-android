@@ -103,7 +103,6 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val stopRideAction: String = s("stopRideAction", "Stop ride")
     val rideStopped: String = s("rideStopped", "Ride stopped")
     val recenterMap: String = s("recenterMap", "Recenter map")
-    val compassNorth: String = s("compassNorth", "Point north")
     val send: String = s("send", "Send")
     val copy: String = s("copy", "Copy")
     val sharePin: String = s("sharePin", "Share location pin")
@@ -974,7 +973,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "stopRideAction" to "Detener viaje",
             "rideStopped" to "Viaje detenido",
             "recenterMap" to "Centrar mapa",
-            "compassNorth" to "Apuntar al norte",
             "send" to "Enviar",
             "copy" to "Copiar",
             "sharePin" to "Compartir ubicación",
@@ -1566,7 +1564,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "stopRideAction" to "Arrêter le trajet",
             "rideStopped" to "Trajet arrêté",
             "recenterMap" to "Recentrer la carte",
-            "compassNorth" to "Orienter vers le nord",
             "send" to "Envoyer",
             "copy" to "Copier",
             "sharePin" to "Partager la position",
@@ -2158,7 +2155,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "stopRideAction" to "Fahrt beenden",
             "rideStopped" to "Fahrt beendet",
             "recenterMap" to "Karte zentrieren",
-            "compassNorth" to "Nach Norden ausrichten",
             "send" to "Senden",
             "copy" to "Kopieren",
             "sharePin" to "Standort teilen",
@@ -2750,7 +2746,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "stopRideAction" to "यात्रा रोकें",
             "rideStopped" to "यात्रा रुक गई",
             "recenterMap" to "मानचित्र को केंद्रित करें",
-            "compassNorth" to "उत्तर दिशा में रखें",
             "send" to "भेजें",
             "copy" to "कॉपी करें",
             "sharePin" to "स्थान साझा करें",
@@ -3342,7 +3337,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "stopRideAction" to "記録を停止",
             "rideStopped" to "記録を停止しました",
             "recenterMap" to "地図を中央に戻す",
-            "compassNorth" to "北を向く",
             "send" to "送信",
             "copy" to "コピー",
             "sharePin" to "位置情報を共有",
@@ -3934,7 +3928,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "stopRideAction" to "停止行程",
             "rideStopped" to "行程已停止",
             "recenterMap" to "重新居中地图",
-            "compassNorth" to "指向北方",
             "send" to "发送",
             "copy" to "复制",
             "sharePin" to "分享位置",
