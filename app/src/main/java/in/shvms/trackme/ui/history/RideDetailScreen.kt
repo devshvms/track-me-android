@@ -97,6 +97,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
 // Currently has no callers. Kept, but pinned to the canonical ride-summary precision so it cannot
@@ -380,6 +381,9 @@ fun RideDetailScreen(
                     .padding(padding)
                     .verticalScroll(scrollState, enabled = columnScrollEnabled)
             ) {
+                RideSummaryCard(ride = ride, imperial = imperial, strings = strings)
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -709,99 +713,11 @@ fun RideDetailScreen(
                     )
                 }
                 
-                Card(
-                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        val ridePersona = remember(ride.persona) {
-                            runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(strings.rideStats, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = ridePersona.icon(),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = strings.personaLabel(ridePersona),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                            }
-                        }
-                        val dateFormat = remember {
-                            java.text.SimpleDateFormat("MMM dd, yyyy - HH:mm", java.util.Locale.getDefault())
-                        }
-                        // Start time reads as a caption under the heading rather than as a grid
-                        // cell. In a third of a row it was always truncated to "Aug 17, ..." — the one
-                        // part of a timestamp that carries no information.
-                        Text(
-                            text = dateFormat.format(java.util.Date(ride.startTime)),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        // Hairline-separated cells with tabular figures so the columns stop
-                        // jittering as values change.
-                        //
-                        // The effort column follows the persona: a walk or a run reports pace,
-                        // everything else reports speed. Freeing the start-time cell left room for
-                        // the best/max figure, which was already computed and only ever used to
-                        // name the ride.
-                        val effortIsPace = ridePersona.usesPace
-                        val avgMps = (ride.postRideCalculation?.avgSpeed ?: 0f).toDouble()
-                        val maxMps = (ride.postRideCalculation?.maxSpeed ?: 0f).toDouble()
-                        StatGrid(
-                            listOf(
-                                Stat(strings.distance, `in`.shvms.trackme.domain.UnitFormatter.rideDistance(ride.postRideCalculation?.distance ?: 0.0, imperial)),
-                                Stat(
-                                    strings.duration,
-                                    displayActiveDurationMillis(ride)?.let(::formatDuration) ?: strings.unknown
-                                ),
-                                Stat(
-                                    if (effortIsPace) strings.avgPace else strings.avgSpeed,
-                                    if (effortIsPace) {
-                                        `in`.shvms.trackme.domain.UnitFormatter.pace(avgMps, imperial)
-                                    } else {
-                                        `in`.shvms.trackme.domain.UnitFormatter.speed(avgMps, imperial)
-                                    }
-                                ),
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        StatGrid(
-                            listOf(
-                                Stat(strings.gpsPoints, points.size.toString()),
-                                Stat(strings.maxGForce, String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f)),
-                                Stat(
-                                    if (effortIsPace) strings.bestPace else strings.maxSpeed,
-                                    if (effortIsPace) {
-                                        `in`.shvms.trackme.domain.UnitFormatter.pace(maxMps, imperial)
-                                    } else {
-                                        `in`.shvms.trackme.domain.UnitFormatter.speed(maxMps, imperial)
-                                    }
-                                ),
-                            )
-                        )
-                    }
-                }
+                RecordingDetailsCard(
+                    ride = ride,
+                    points = points,
+                    strings = strings,
+                )
                 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -1329,6 +1245,158 @@ fun RideDetailScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RideSummaryCard(
+    ride: RideEntity,
+    imperial: Boolean,
+    strings: AppStrings,
+) {
+    Card(
+        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            val ridePersona = remember(ride.persona) {
+                runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(strings.rideStats, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    ) {
+                        Icon(
+                            imageVector = ridePersona.icon(),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = strings.personaLabel(ridePersona),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+            }
+            val dateFormat = remember {
+                java.text.SimpleDateFormat("MMM dd, yyyy - HH:mm", java.util.Locale.getDefault())
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            val effortIsPace = ridePersona.usesPace
+            val avgMps = (ride.postRideCalculation?.avgSpeed ?: 0f).toDouble()
+            val maxMps = (ride.postRideCalculation?.maxSpeed ?: 0f).toDouble()
+            StatGrid(
+                listOf(
+                    Stat(strings.distance, `in`.shvms.trackme.domain.UnitFormatter.rideDistance(ride.postRideCalculation?.distance ?: 0.0, imperial)),
+                    Stat(
+                        strings.duration,
+                        displayActiveDurationMillis(ride)?.let(::formatDuration) ?: strings.unknown,
+                    ),
+                    Stat(
+                        if (effortIsPace) strings.avgPace else strings.avgSpeed,
+                        if (effortIsPace) {
+                            `in`.shvms.trackme.domain.UnitFormatter.pace(avgMps, imperial)
+                        } else {
+                            `in`.shvms.trackme.domain.UnitFormatter.speed(avgMps, imperial)
+                        },
+                    ),
+                ),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            StatGrid(
+                listOf(
+                    Stat(
+                        if (effortIsPace) strings.bestPace else strings.maxSpeed,
+                        if (effortIsPace) {
+                            `in`.shvms.trackme.domain.UnitFormatter.pace(maxMps, imperial)
+                        } else {
+                            `in`.shvms.trackme.domain.UnitFormatter.speed(maxMps, imperial)
+                        },
+                    ),
+                    ride.postRideCalculation?.elevationGainMeters?.let { elevationMeters ->
+                        Stat(
+                            strings.elevationGain,
+                            String.format(
+                                java.util.Locale.getDefault(),
+                                "%.0f %s",
+                                if (imperial) elevationMeters * 3.28084 else elevationMeters,
+                                if (imperial) "ft" else "m",
+                            ),
+                        )
+                    },
+                    Stat(
+                        strings.startTime,
+                        dateFormat.format(java.util.Date(ride.startTime)),
+                    ),
+                ).filterNotNull(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecordingDetailsCard(
+    ride: RideEntity,
+    points: List<GPSPointEntity>,
+    strings: AppStrings,
+) {
+    var showRecordingDetails by rememberSaveable { mutableStateOf(false) }
+    val signalGapCount = points.zipWithNext().count { (previous, current) ->
+        current.timestamp - previous.timestamp > 25_000L
+    }
+
+    Card(
+        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            TextButton(
+                onClick = { showRecordingDetails = !showRecordingDetails },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    imageVector = if (showRecordingDetails) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = null,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(strings.recordingDetails)
+            }
+            if (showRecordingDetails) {
+                StatGrid(
+                    listOf(
+                        Stat(strings.gpsPoints, points.size.toString()),
+                        Stat(
+                            strings.maxGForce,
+                            String.format(
+                                java.util.Locale.getDefault(),
+                                "%.2f G",
+                                (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f,
+                            ),
+                        ),
+                        Stat(strings.gpsSignalGaps, signalGapCount.toString()),
+                    ),
+                )
+                Text(
+                    text = if (ride.isSynced) strings.syncStatusSynced else strings.syncStatusLocal,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
     }

@@ -533,6 +533,9 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val rideRecoveryMixedNotice: String = s("rideRecoveryMixedNotice", "Recovered %d ride(s) and removed %d empty record(s).")
     val savingRide: String = s("savingRide", "Saving ride...")
     val gpsPoints: String = s("gpsPoints", "GPS Points")
+    val gpsSignalGaps: String = s("gpsSignalGaps", "GPS signal gaps")
+    val recordingDetails: String = s("recordingDetails", "Recording details")
+    val startTime: String = s("startTime", "Start time")
     val discardRideTitle: String = s("discardRideTitle", "Discard this ride?")
     val discardRideMessage: String = s("discardRideMessage", "This ride did not record meaningful distance. You can discard it or save it anyway.")
     val discardRide: String = s("discardRide", "Discard")
@@ -975,6 +978,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareButton" to "Compartir",
             "liveShareAuthRequired" to "Inicia sesión para compartir tu ubicación en directo.",
             "gpsPoints" to "Puntos GPS",
+            "gpsSignalGaps" to "Brechas de señal GPS",
+            "recordingDetails" to "Detalles de grabación",
+            "startTime" to "Hora de inicio",
             "discardRideTitle" to "¿Descartar este viaje?",
             "discardRideMessage" to "Este viaje no registró una distancia significativa. Puedes descartarlo o guardarlo de todos modos.",
             "discardRide" to "Descartar",
@@ -1557,6 +1563,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareButton" to "Partage Live",
             "liveShareAuthRequired" to "Connectez-vous pour partager votre position en direct.",
             "gpsPoints" to "Points GPS",
+            "gpsSignalGaps" to "Interruptions du signal GPS",
+            "recordingDetails" to "Détails de l'enregistrement",
+            "startTime" to "Heure de début",
             "discardRideTitle" to "Supprimer ce trajet ?",
             "discardRideMessage" to "Ce trajet n'a pas enregistré de distance significative. Vous pouvez le supprimer ou l'enregistrer quand même.",
             "discardRide" to "Supprimer",
@@ -2139,6 +2148,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareButton" to "Live Teilen",
             "liveShareAuthRequired" to "Melden Sie sich an, um Ihren Live-Standort zu teilen.",
             "gpsPoints" to "GPS-Punkte",
+            "gpsSignalGaps" to "GPS-Signallücken",
+            "recordingDetails" to "Aufnahmedetails",
+            "startTime" to "Startzeit",
             "discardRideTitle" to "Diese Fahrt verwerfen?",
             "discardRideMessage" to "Diese Fahrt hat keine aussagekräftige Distanz aufgezeichnet. Sie können sie verwerfen oder trotzdem speichern.",
             "discardRide" to "Verwerfen",
@@ -2721,6 +2733,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareButton" to "लाइव शेयर",
             "liveShareAuthRequired" to "लाइव लोकेशन शेयर करने के लिए साइन इन करें।",
             "gpsPoints" to "GPS पॉइंट",
+            "gpsSignalGaps" to "GPS सिग्नल अंतराल",
+            "recordingDetails" to "रिकॉर्डिंग विवरण",
+            "startTime" to "प्रारंभ समय",
             "discardRideTitle" to "इस यात्रा को हटाएं?",
             "discardRideMessage" to "इस यात्रा में कोई महत्वपूर्ण दूरी रिकॉर्ड नहीं हुई। आप इसे हटा सकते हैं या फिर भी सहेज सकते हैं।",
             "discardRide" to "हटाएं",
@@ -3303,6 +3318,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareButton" to "ライブ共有",
             "liveShareAuthRequired" to "ライブ位置情報を共有するにはサインインしてください。",
             "gpsPoints" to "GPSポイント",
+            "gpsSignalGaps" to "GPS信号の途切れ",
+            "recordingDetails" to "記録の詳細",
+            "startTime" to "開始時刻",
             "discardRideTitle" to "この記録を破棄しますか？",
             "discardRideMessage" to "この記録には十分な距離がありません。破棄するか、そのまま保存できます。",
             "discardRide" to "破棄",
@@ -3885,6 +3903,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareButton" to "实时位置",
             "liveShareAuthRequired" to "请登录以分享您的实时位置。",
             "gpsPoints" to "GPS 点",
+            "gpsSignalGaps" to "GPS 信号间隔",
+            "recordingDetails" to "记录详情",
+            "startTime" to "开始时间",
             "discardRideTitle" to "丢弃此次行程？",
             "discardRideMessage" to "此次行程没有记录到有效距离。您可以丢弃它，或仍然保存。",
             "discardRide" to "丢弃",
