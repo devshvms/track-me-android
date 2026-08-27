@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
@@ -22,6 +24,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.ui.components.icon
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -51,6 +55,7 @@ import `in`.shvms.trackme.data.local.HOME_DASHBOARD_METADATA_VERSION
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
+import `in`.shvms.trackme.data.local.dao.HistoryRideSummary
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -61,18 +66,23 @@ import java.util.Locale
 fun HistoryScreen(
     onNavigateToDetail: (Long) -> Unit,
     onNavigateToComparison: (List<Long>) -> Unit = {},
+    scrollToTopRequest: Int = 0,
     viewModel: HistoryViewModel = viewModel()
 ) {
     val strings = LocalAppStrings.current
     val groupedRides by viewModel.groupedRides.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
-    val syncFilter by viewModel.syncFilter.collectAsState()
     val distanceFilter by viewModel.distanceFilter.collectAsState()
+    val selectedTimeFrame by viewModel.selectedTimeFrame.collectAsState()
+    val customStartMillis by viewModel.customStartMillis.collectAsState()
+    val customEndMillis by viewModel.customEndMillis.collectAsState()
+    val selectedPersonas by viewModel.selectedPersonas.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
     val collapsedGroups by viewModel.collapsedGroups.collectAsState()
     val selectedRideIds by viewModel.selectedRideIds.collectAsState()
     val selectionMode = selectedRideIds.isNotEmpty()
     val visibleRideIds = remember(groupedRides) {
-        groupedRides.values.flatten().map { it.ride.id }.toSet()
+        groupedRides.values.flatten().map { it.id }.toSet()
     }
     var showDeleteConfirmation by rememberSaveable { mutableStateOf(false) }
 
@@ -85,6 +95,30 @@ fun HistoryScreen(
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
+    fun showCustomDatePicker(selectStart: Boolean) {
+        val initial = java.util.Calendar.getInstance().apply {
+            timeInMillis = if (selectStart) customStartMillis else customEndMillis
+        }
+        android.app.DatePickerDialog(
+            context,
+            { _, year, month, day ->
+                val selected = java.util.Calendar.getInstance().apply {
+                    set(year, month, day, if (selectStart) 0 else 23, if (selectStart) 0 else 59, if (selectStart) 0 else 59)
+                    set(java.util.Calendar.MILLISECOND, if (selectStart) 0 else 999)
+                }.timeInMillis
+                if (selectStart) {
+                    viewModel.setCustomStart(selected)
+                    showCustomDatePicker(selectStart = false)
+                } else {
+                    viewModel.setCustomEnd(selected)
+                }
+            },
+            initial.get(java.util.Calendar.YEAR),
+            initial.get(java.util.Calendar.MONTH),
+            initial.get(java.util.Calendar.DAY_OF_MONTH),
+        ).show()
+    }
+
     LaunchedEffect(listState) {
         snapshotFlow {
             val lastVisibleItemIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -95,6 +129,14 @@ fun HistoryScreen(
                 viewModel.loadMoreRides()
             }
         }
+    }
+
+    LaunchedEffect(selectedTimeFrame, selectedPersonas, searchQuery, distanceFilter, customStartMillis, customEndMillis) {
+        listState.animateScrollToItem(0)
+    }
+
+    LaunchedEffect(scrollToTopRequest) {
+        if (scrollToTopRequest > 0) listState.animateScrollToItem(0)
     }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -206,50 +248,70 @@ fun HistoryScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Compact Inline Filter Bar on page open (No Time strip, No Sort)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Sync Filter Dropdown Chip
-                Box {
-                    var showSyncMenu by remember { mutableStateOf(false) }
-                    val syncLabel = when (syncFilter) {
-                        SyncFilterOption.ALL -> strings.syncStatusAll
-                        SyncFilterOption.SYNCED -> strings.syncStatusSynced
-                        SyncFilterOption.LOCAL_ONLY -> strings.syncStatusLocal
-                    }
-                    FilterChip(
-                        selected = syncFilter != SyncFilterOption.ALL,
-                        onClick = { showSyncMenu = true },
-                        label = { Text(syncLabel, style = MaterialTheme.typography.labelMedium) },
-                        trailingIcon = {
-                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
-                        }
-                    )
-                    DropdownMenu(expanded = showSyncMenu, onDismissRequest = { showSyncMenu = false }) {
-                        SyncFilterOption.values().forEach { opt ->
-                            val label = when (opt) {
-                                SyncFilterOption.ALL -> strings.syncStatusAll
-                                SyncFilterOption.SYNCED -> strings.syncStatusSynced
-                                SyncFilterOption.LOCAL_ONLY -> strings.syncStatusLocal
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = viewModel::setSearchQuery,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    label = { Text(strings.searchRides) },
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box {
+                        var showPersonaMenu by remember { mutableStateOf(false) }
+                        FilterChip(
+                            selected = selectedPersonas.size != RidePersona.entries.size,
+                            onClick = { showPersonaMenu = true },
+                            label = { Text(strings.filterActivity, style = MaterialTheme.typography.labelMedium) },
+                            trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        )
+                        DropdownMenu(expanded = showPersonaMenu, onDismissRequest = { showPersonaMenu = false }) {
+                            RidePersona.entries.forEach { persona ->
+                                DropdownMenuItem(
+                                    text = { Text(strings.personaLabel(persona)) },
+                                    leadingIcon = { Checkbox(checked = persona in selectedPersonas, onCheckedChange = null) },
+                                    onClick = { viewModel.togglePersona(persona) }
+                                )
                             }
-                            DropdownMenuItem(
-                                text = { Text(label) },
-                                onClick = {
-                                    viewModel.setSyncFilter(opt)
-                                    showSyncMenu = false
-                                }
-                            )
                         }
                     }
-                }
+                    Box {
+                        var showDateMenu by remember { mutableStateOf(false) }
+                        val dateLabel = when (selectedTimeFrame) {
+                            TimeFrameOption.ALL_TIME -> strings.dateRangeAny
+                            TimeFrameOption.THIS_MONTH -> strings.dateRangeThisMonth
+                            TimeFrameOption.LAST_3_MONTHS -> strings.dateRangeLast3Months
+                            TimeFrameOption.THIS_YEAR -> strings.dateRangeThisYear
+                            TimeFrameOption.CUSTOM -> strings.dateRangeCustom
+                        }
+                        FilterChip(
+                            selected = selectedTimeFrame != TimeFrameOption.ALL_TIME,
+                            onClick = { showDateMenu = true },
+                            label = { Text(dateLabel, style = MaterialTheme.typography.labelMedium) },
+                            trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        )
+                        DropdownMenu(expanded = showDateMenu, onDismissRequest = { showDateMenu = false }) {
+                            listOf(
+                                TimeFrameOption.ALL_TIME to strings.dateRangeAny,
+                                TimeFrameOption.THIS_MONTH to strings.dateRangeThisMonth,
+                                TimeFrameOption.LAST_3_MONTHS to strings.dateRangeLast3Months,
+                                TimeFrameOption.THIS_YEAR to strings.dateRangeThisYear,
+                                TimeFrameOption.CUSTOM to strings.dateRangeCustom,
+                            ).forEach { (option, label) ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                                    viewModel.setTimeFrame(option)
+                                    showDateMenu = false
+                                    if (option == TimeFrameOption.CUSTOM) showCustomDatePicker(selectStart = true)
+                                })
+                            }
+                        }
+                    }
 
-                // Distance Filter Dropdown Chip
-                Box {
                     var showDistMenu by remember { mutableStateOf(false) }
                     val distLabel = when (distanceFilter) {
                         DistanceFilterOption.ALL -> strings.distanceAll
@@ -284,12 +346,8 @@ fun HistoryScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Reset Button when any filter is active
-                if (syncFilter != SyncFilterOption.ALL || distanceFilter != DistanceFilterOption.ALL) {
-                    TextButton(onClick = { viewModel.resetFilters() }) {
-                        Text(strings.resetFilter, style = MaterialTheme.typography.labelMedium)
+                    if (selectedTimeFrame != TimeFrameOption.ALL_TIME || selectedPersonas.size != RidePersona.entries.size || searchQuery.isNotBlank() || distanceFilter != DistanceFilterOption.ALL) {
+                        TextButton(onClick = { viewModel.resetFilters() }) { Text(strings.resetFilter, style = MaterialTheme.typography.labelMedium) }
                     }
                 }
             }
@@ -302,7 +360,10 @@ fun HistoryScreen(
                         .padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(strings.noRidesRecorded, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        if (selectedTimeFrame != TimeFrameOption.ALL_TIME || selectedPersonas.size != RidePersona.entries.size || searchQuery.isNotBlank() || distanceFilter != DistanceFilterOption.ALL) strings.noRidesMatchFilters else strings.noRidesRecorded,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
                 }
             } else {
                 LazyColumn(
@@ -325,7 +386,7 @@ fun HistoryScreen(
                         }
 
                         if (!isCollapsed) {
-                            items(rideList, key = { it.ride.id }) { rideWithPoints ->
+                            items(rideList, key = { it.id }) { rideSummary ->
                                 Row(
                                     // G4 in the motion audit: the list had stable keys but no
                                     // placement animation, so deleting a ride made the ones below
@@ -335,22 +396,22 @@ fun HistoryScreen(
                                 ) {
                                     RideHistoryCard(
                                         modifier = Modifier.weight(1f),
-                                        rideWithPoints = rideWithPoints,
+                                        rideSummary = rideSummary,
                                         imperial = imperial,
                                         selectionMode = selectionMode,
-                                        selected = selectedRideIds.contains(rideWithPoints.ride.id),
+                                        selected = selectedRideIds.contains(rideSummary.id),
                                         onClick = {
                                             if (selectionMode) {
-                                                viewModel.toggleRideSelection(rideWithPoints.ride.id)
+                                                viewModel.toggleRideSelection(rideSummary.id)
                                             } else {
-                                                onNavigateToDetail(rideWithPoints.ride.id)
+                                                onNavigateToDetail(rideSummary.id)
                                             }
                                         },
-                                        onLongClick = { viewModel.toggleRideSelection(rideWithPoints.ride.id) },
+                                        onLongClick = { viewModel.toggleRideSelection(rideSummary.id) },
                                     )
-                                    if (rideWithPoints.ride.isSample && !selectionMode) {
+                                    if (rideSummary.isSample && !selectionMode) {
                                         IconButton(
-                                            onClick = { viewModel.deleteRide(rideWithPoints.ride.id) },
+                                            onClick = { viewModel.deleteRide(rideSummary.id) },
                                         ) {
                                             Icon(
                                                 Icons.Default.Delete,
@@ -379,7 +440,6 @@ fun HistoryScreen(
                 }
             }
         }
-    }
 
     if (showDeleteConfirmation) {
         AlertDialog(
@@ -412,7 +472,7 @@ fun HistoryScreen(
 @Composable
 fun SectionHeader(
     group: TimeGroup,
-    rideList: List<RideWithPoints>,
+    rideList: List<HistoryRideSummary>,
     isCollapsed: Boolean,
     onToggleCollapse: () -> Unit,
     imperial: Boolean = false
@@ -427,7 +487,7 @@ fun SectionHeader(
         TimeGroup.EARLIER -> strings.groupEarlier
     }
 
-    val totalDistanceMeters = rideList.sumOf { (it.ride.postRideCalculation?.distance ?: 0.0) }
+    val totalDistanceMeters = rideList.sumOf { it.distance ?: 0.0 }
 
     Surface(
         modifier = Modifier
@@ -469,7 +529,7 @@ fun SectionHeader(
 
 @Composable
 fun RideHistoryCard(
-    rideWithPoints: RideWithPoints,
+    rideSummary: HistoryRideSummary,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onLongClick: () -> Unit = {},
@@ -478,8 +538,7 @@ fun RideHistoryCard(
     imperial: Boolean = false
 ) {
     val strings = LocalAppStrings.current
-    val ride = rideWithPoints.ride
-    val points = rideWithPoints.points
+    val ride = rideSummary
     val personaObj = remember(ride.persona) {
         runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
     }
@@ -488,9 +547,9 @@ fun RideHistoryCard(
     // words though — a screen reader can't see the icon — so it's added there explicitly
     // instead of riding along inside rideTitle.
     val rideTitle = ride.title ?: formatDateTime(ride.startTime)
-    val distanceText = `in`.shvms.trackme.domain.UnitFormatter.distance(ride.postRideCalculation?.distance ?: 0.0, imperial, decimals = 1)
-    val durationText = displayActiveDurationMillis(ride)?.let(::formatDuration) ?: strings.unknown
-    val avgSpeedText = `in`.shvms.trackme.domain.UnitFormatter.speed(ride.postRideCalculation?.avgSpeed?.toDouble() ?: 0.0, imperial)
+    val distanceText = `in`.shvms.trackme.domain.UnitFormatter.distance(ride.distance ?: 0.0, imperial, decimals = 1)
+    val durationText = ride.dashboardActiveDurationMillis.takeIf { ride.dashboardMetadataVersion >= HOME_DASHBOARD_METADATA_VERSION }?.let(::formatDuration) ?: strings.unknown
+    val avgSpeedText = `in`.shvms.trackme.domain.UnitFormatter.speed(ride.avgSpeed?.toDouble() ?: 0.0, imperial)
     val cardDescription = String.format(
         Locale.getDefault(),
         strings.rideCardAccessibilityDescription,
@@ -564,7 +623,7 @@ fun RideHistoryCard(
             }
             // Sleek Vector Route Preview Thumbnail (compact 52dp x 52dp)
             RoutePreviewThumbnail(
-                points = points,
+                hasRoute = ride.dashboardPointCount > 0,
                 modifier = Modifier.size(52.dp)
             )
 
@@ -667,9 +726,47 @@ fun RideHistoryCard(
     }
 }
 
+/** Compatibility adapter for the onboarding demo; History itself uses [HistoryRideSummary]. */
+@Composable
+fun RideHistoryCard(
+    rideWithPoints: RideWithPoints,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onLongClick: () -> Unit = {},
+    selectionMode: Boolean = false,
+    selected: Boolean = false,
+    imperial: Boolean = false,
+) {
+    val ride = rideWithPoints.ride
+    RideHistoryCard(
+        rideSummary = HistoryRideSummary(
+            id = ride.id,
+            startTime = ride.startTime,
+            endTime = ride.endTime,
+            isSynced = ride.isSynced,
+            firestoreId = ride.firestoreId,
+            title = ride.title,
+            persona = ride.persona,
+            isSample = ride.isSample,
+            pendingDelete = ride.pendingDelete,
+            distance = ride.postRideCalculation?.distance,
+            avgSpeed = ride.postRideCalculation?.avgSpeed,
+            dashboardActiveDurationMillis = ride.dashboardActiveDurationMillis,
+            dashboardMetadataVersion = ride.dashboardMetadataVersion,
+            dashboardPointCount = rideWithPoints.points.size,
+        ),
+        onClick = onClick,
+        modifier = modifier,
+        onLongClick = onLongClick,
+        selectionMode = selectionMode,
+        selected = selected,
+        imperial = imperial,
+    )
+}
+
 @Composable
 fun RoutePreviewThumbnail(
-    points: List<GPSPointEntity>,
+    hasRoute: Boolean,
     modifier: Modifier = Modifier
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -681,37 +778,8 @@ fun RoutePreviewThumbnail(
             .background(trackBackground),
         contentAlignment = Alignment.Center
     ) {
-        if (points.size >= 2) {
-            Canvas(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(6.dp)
-            ) {
-                val minLat = points.minOf { it.latitude }
-                val maxLat = points.maxOf { it.latitude }
-                val minLng = points.minOf { it.longitude }
-                val maxLng = points.maxOf { it.longitude }
-
-                val latSpan = (maxLat - minLat).takeIf { it > 0.00001 } ?: 0.001
-                val lngSpan = (maxLng - minLng).takeIf { it > 0.00001 } ?: 0.001
-
-                val path = Path()
-                points.forEachIndexed { idx, p ->
-                    val x = ((p.longitude - minLng) / lngSpan).toFloat() * size.width
-                    val y = (1.0 - (p.latitude - minLat) / latSpan).toFloat() * size.height
-                    if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                }
-
-                drawPath(
-                    path = path,
-                    color = primaryColor,
-                    style = Stroke(
-                        width = 2.5.dp.toPx(),
-                        cap = StrokeCap.Round,
-                        join = StrokeJoin.Round
-                    )
-                )
-            }
+        if (hasRoute) {
+            Icon(Icons.Default.Route, contentDescription = null, tint = primaryColor, modifier = Modifier.size(28.dp))
         } else {
             Text(
                 text = "GPS",
@@ -720,6 +788,14 @@ fun RoutePreviewThumbnail(
             )
         }
     }
+}
+
+@Composable
+fun RoutePreviewThumbnail(
+    points: List<GPSPointEntity>,
+    modifier: Modifier = Modifier,
+) {
+    RoutePreviewThumbnail(hasRoute = points.size >= 2, modifier = modifier)
 }
 
 private fun formatDateTime(timestamp: Long): String {

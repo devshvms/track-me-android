@@ -11,6 +11,24 @@ import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import kotlinx.coroutines.flow.Flow
 
+/** History-list projection. Deliberately excludes the relation to gps_points. */
+data class HistoryRideSummary(
+    val id: Long,
+    val startTime: Long,
+    val endTime: Long?,
+    val isSynced: Boolean,
+    val firestoreId: String?,
+    val title: String?,
+    val persona: String,
+    val isSample: Boolean,
+    val pendingDelete: Boolean,
+    val distance: Double?,
+    val avgSpeed: Float?,
+    val dashboardActiveDurationMillis: Long,
+    val dashboardMetadataVersion: Int,
+    val dashboardPointCount: Int,
+)
+
 @Dao
 @JvmSuppressWildcards
 interface RideDao {
@@ -41,6 +59,18 @@ interface RideDao {
     @Transaction
     @Query("SELECT * FROM rides WHERE endTime IS NOT NULL AND endTime > 0 ORDER BY startTime DESC")
     fun getAllCompletedRidesWithPoints(): Flow<List<RideWithPoints>>
+
+    @Query(
+        """
+        SELECT id, startTime, endTime, isSynced, firestoreId, title, persona, isSample,
+               pendingDelete, distance, avgSpeed, dashboardActiveDurationMillis,
+               dashboardMetadataVersion, dashboardPointCount
+        FROM rides
+        WHERE endTime IS NOT NULL AND endTime > 0
+        ORDER BY startTime DESC
+        """
+    )
+    fun getAllCompletedRideSummaries(): Flow<List<HistoryRideSummary>>
 
     @Query("SELECT * FROM rides WHERE endTime IS NULL OR endTime <= 0")
     suspend fun getUncompletedRides(): List<RideEntity>

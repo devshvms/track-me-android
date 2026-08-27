@@ -43,6 +43,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -94,6 +95,7 @@ internal fun HomeDashboardScreen(
     onOpenGroupMap: () -> Unit,
     onOpenSettings: () -> Unit,
     onDismissPermissionNotice: () -> Unit,
+    scrollToTopRequest: Int = 0,
 ) {
     val strings = LocalAppStrings.current
     // A first Room emission can still be an empty projection while legacy metadata is being
@@ -101,7 +103,13 @@ internal fun HomeDashboardScreen(
     // first-run copy flash as though their data vanished.
     val deckResolved = isSummaryResolved && (!isReconciling || summary.lifetimeActivityCount > 0)
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    LaunchedEffect(scrollToTopRequest) {
+        if (scrollToTopRequest > 0) listState.animateScrollToItem(0)
+    }
+
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             start = 16.dp,

@@ -65,6 +65,7 @@ fun MainNavigation() {
     // visible immediately, so it is derived here rather than tracked.
     val currentRoute = navBackStackEntry?.destination?.route
     val selectedItem = routes.indexOf(currentRoute).takeIf { it >= 0 } ?: -1
+    var tabScrollToTopRequest by remember { mutableIntStateOf(0) }
 
     /**
      * The ONE way to move between top-level tabs.
@@ -80,6 +81,9 @@ fun MainNavigation() {
      * Every tab-level navigation goes through here so the two idioms cannot diverge again.
      */
     fun navigateToTab(route: String) {
+        if (currentRoute == route && (route == "home" || route == "history")) {
+            tabScrollToTopRequest++
+        }
         navController.navigate(route) {
             launchSingleTop = true
             restoreState = true
@@ -197,6 +201,7 @@ fun MainNavigation() {
                             onOpenCommunity = { navigateToTab("community") },
                             onOpenHistory = { navigateToTab("history") },
                             onOpenRideDetail = { id -> navController.navigate("ride_detail/$id") },
+                            scrollToTopRequest = tabScrollToTopRequest,
                         )
                     }
                     composable("history") { 
@@ -204,7 +209,8 @@ fun MainNavigation() {
                             onNavigateToDetail = { id -> navController.navigate("ride_detail/$id") },
                             onNavigateToComparison = { ids ->
                                 navController.navigate("ride_compare/${ids.joinToString(",")}")
-                            }
+                            },
+                            scrollToTopRequest = tabScrollToTopRequest,
                         )
                     }
                     composable("ride_compare/{rideIds}") { backStackEntry ->
