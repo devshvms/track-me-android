@@ -393,12 +393,23 @@ fun RadialStartRideButton(
 
                         val launchAtDown = interactionState.pendingLaunch
                         if (launchAtDown != null) {
-                            commitPendingLaunch(launchAtDown.token)
-                            down.consume()
-                            do {
-                                val commitEvent = awaitPointerEvent()
-                                commitEvent.changes.forEach { it.consume() }
-                            } while (commitEvent.changes.any { it.pressed })
+                            if (launchAtDown.awaitsPersonaChoice) {
+                                commitPendingLaunch(launchAtDown.token)
+                                down.consume()
+                                do {
+                                    val commitEvent = awaitPointerEvent()
+                                    commitEvent.changes.forEach { it.consume() }
+                                } while (commitEvent.changes.any { it.pressed })
+                            } else {
+                                triggerHaptic()
+                                onAbortRideStart(RideStartAbortMethod.PRE_COMMIT)
+                                down.consume()
+                                do {
+                                    val abortEvent = awaitPointerEvent()
+                                    abortEvent.changes.forEach { it.consume() }
+                                } while (abortEvent.changes.any { it.pressed })
+                                interactionState = resetRadialInteractionState()
+                            }
                             return@awaitEachGesture
                         }
 
