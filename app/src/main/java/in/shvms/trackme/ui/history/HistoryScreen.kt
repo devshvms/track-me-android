@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import `in`.shvms.trackme.data.local.HOME_DASHBOARD_METADATA_VERSION
+import `in`.shvms.trackme.data.local.routeThumbnailDrawsShape
 import `in`.shvms.trackme.data.local.dashboardRoutePolylineFromPoints
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.RideEntity
@@ -675,7 +676,8 @@ fun RideHistoryCard(
             // Sleek Vector Route Preview Thumbnail (compact 52dp x 52dp)
             RoutePreviewThumbnail(
                 routePolyline = ride.dashboardRoutePolyline,
-                hasRoute = ride.dashboardPointCount > 0,
+                pointCount = ride.dashboardPointCount,
+                distanceMeters = ride.distance ?: 0.0,
                 modifier = Modifier.size(52.dp)
             )
 
@@ -837,14 +839,19 @@ fun RideHistoryCard(
  * as a bounded encoded polyline, so this stays a single-row read -- the projection still never
  * joins gps_points, which is the constraint TASK-216 was right to add.
  *
- * `hasRoute` is kept as the fallback signal: a ride that has points but has not been reconciled
- * yet, or one whose points were pruned, gets the glyph rather than a blank.
+ * TASK-246 adds shvm's threshold: the glyph is for rides with nothing worth drawing -- fewer than
+ * `ROUTE_THUMBNAIL_MIN_POINTS` samples, no distance, or no points at all. See
+ * `routeThumbnailDrawsShape` for why a shape below that is worse than none.
  */
 @Composable
 fun RoutePreviewThumbnail(
     routePolyline: String?,
-    hasRoute: Boolean,
-    modifier: Modifier = Modifier
+    pointCount: Int,
+    distanceMeters: Double,
+    modifier: Modifier = Modifier,
+    // The onboarding demo draws a curated route rather than a history card, so it opts out of the
+    // threshold explicitly instead of the two callers quietly disagreeing about the rule.
+    applyMinimums: Boolean = true,
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val trackBackground = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -863,8 +870,11 @@ fun RoutePreviewThumbnail(
             .background(trackBackground),
         contentAlignment = Alignment.Center
     ) {
+        val drawsShape = route.size >= 2 &&
+            (!applyMinimums || routeThumbnailDrawsShape(pointCount, distanceMeters))
+
         when {
-            route.size >= 2 -> Canvas(
+            drawsShape -> Canvas(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(6.dp)
@@ -896,7 +906,7 @@ fun RoutePreviewThumbnail(
                     )
                 )
             }
-            hasRoute -> Icon(
+            pointCount > 0 -> Icon(
                 Icons.Default.Route,
                 contentDescription = null,
                 tint = primaryColor,
@@ -918,8 +928,12 @@ fun RoutePreviewThumbnail(
 ) {
     RoutePreviewThumbnail(
         routePolyline = remember(points) { dashboardRoutePolylineFromPoints(points) },
-        hasRoute = points.size >= 2,
+        pointCount = points.size,
+        distanceMeters = 0.0,
         modifier = modifier,
+        // A demo route is curated to be worth looking at, and it carries no persisted distance to
+        // test against, so the History threshold does not apply to it.
+        applyMinimums = false,
     )
 }
 
