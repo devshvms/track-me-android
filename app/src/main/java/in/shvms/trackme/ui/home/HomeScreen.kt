@@ -1178,36 +1178,13 @@ fun HomeScreen(
                     onClick = onOpenCommunity,
                 )
 
-                // The compass earns its slot rather than holding one.
+                // No compass control here.
                 //
-                // It was a permanent third button that did nothing on a north-up map, which is
-                // almost always. But deleting it outright would remove the only way back from a
-                // rotated map — and the ride camera now turns the map to the direction of travel,
-                // so "rotated" is the normal state during a ride rather than an accident. Shown
-                // only when there is something to undo, which is what every map app does.
-                val mapIsTurned = kotlin.math.abs(cameraPositionState.position.bearing) > 1f ||
-                    cameraPositionState.position.tilt > 1f
-                if (mapIsTurned) {
-                    MapControlCircleButton(
-                        icon = Icons.Default.Explore,
-                        contentDescription = strings.compassNorth,
-                        onClick = {
-                            // North-up is a deliberate override of the ride camera. Leaving follow
-                            // armed would re-tilt and re-bear on the next GPS fix, so the button
-                            // would appear not to work.
-                            coroutineScope.launch {
-                                cameraPositionState.animateSafely {
-                                    CameraUpdateFactory.newCameraPosition(
-                                        com.google.android.gms.maps.model.CameraPosition.Builder(cameraPositionState.position)
-                                            .bearing(0f)
-                                            .tilt(0f)
-                                            .build()
-                                    )
-                                }
-                            }
-                        }
-                    )
-                }
+                // Google's own compass is already enabled on this map (`compassEnabled` in
+                // MapUiSettings) and is visible whenever the map is turned, which during a ride is
+                // always — the ride camera sets both a heading bearing and a tilt. So this button
+                // was a second compass in the one slot next to layers and recentre, shown exactly
+                // when it duplicated the platform's. Removed on shvm's call 2026-08-27.
             }
             }
 
