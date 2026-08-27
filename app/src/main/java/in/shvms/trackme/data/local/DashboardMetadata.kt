@@ -1,15 +1,49 @@
 package `in`.shvms.trackme.data.local
 
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.PolyUtil
+import `in`.shvms.trackme.data.local.dao.HomeDashboardRoutePoint
 import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 
-const val HOME_DASHBOARD_METADATA_VERSION = 2
+/**
+ * Bumped to 3 by TASK-231, which adds [RideEntity.dashboardRoutePolyline] to the rebuildable
+ * metadata set. The bump is what backfills it: existing rows fall below the version, the bounded
+ * reconciler sweeps them, and every row leaves the candidate set exactly once. A row whose points
+ * were pruned simply reconciles to a null polyline -- it does not stay a candidate forever, which
+ * a "polyline IS NULL" backfill condition would have caused.
+ */
+const val HOME_DASHBOARD_METADATA_VERSION = 3
+
+/**
+ * Point budget for the stored thumbnail shape. 40 vertices is more than a 52dp box can resolve and
+ * holds the encoded string to a few hundred bytes, so the History projection stays a single-row read.
+ */
+const val DASHBOARD_ROUTE_POLYLINE_POINTS = 40
+
+/**
+ * The stored thumbnail shape, in the same encoded-polyline format the export path has used since
+ * 1.8.4 (`ImageExporter` -> `PolyUtil.encode`). Derived from the same point list that produces the
+ * count, so the two facts on the row can never disagree about whether a ride has a route.
+ *
+ * Sampling reuses [HomeDashboardRepository.downsampleRoute] rather than a second thinning rule --
+ * one definition of "which points survive" for both the Home preview and this.
+ */
+fun dashboardRoutePolylineFromPoints(points: List<GPSPointEntity>): String? {
+    if (points.size < 2) return null
+    val sampled = HomeDashboardRepository.downsampleRoute(
+        points.map { HomeDashboardRoutePoint(it.latitude, it.longitude) },
+        DASHBOARD_ROUTE_POLYLINE_POINTS,
+    )
+    return PolyUtil.encode(sampled.map { LatLng(it.latitude, it.longitude) })
+}
 
 /** Applies the one canonical qualification rule after aggregate metadata has been persisted. */
 fun withDashboardMetadata(
     ride: RideEntity,
     activeDurationMillis: Long,
     pointCount: Int = ride.dashboardPointCount,
+    routePolyline: String? = ride.dashboardRoutePolyline,
 ): RideEntity {
     val duration = activeDurationMillis.coerceAtLeast(0L)
     val distance = ride.postRideCalculation?.distance ?: 0.0
@@ -19,15 +53,25 @@ fun withDashboardMetadata(
         qualifiesForStats = complete && !ride.isSample && !ride.pendingDelete && !junk,
         dashboardActiveDurationMillis = duration,
         dashboardPointCount = pointCount.coerceAtLeast(0),
+        dashboardRoutePolyline = routePolyline,
         dashboardMetadataVersion = HOME_DASHBOARD_METADATA_VERSION,
     )
 }
 
-/** Marks a completed row as reconciled without pretending unknown active time is wall time. */
-fun withUnavailableDashboardMetadata(ride: RideEntity, pointCount: Int): RideEntity = ride.copy(
+/**
+ * Marks a completed row as reconciled without pretending unknown active time is wall time. The
+ * route shape is still stored: a ride whose active duration cannot be proven may still have a
+ * perfectly drawable track, and the thumbnail is not gated on qualifying for stats.
+ */
+fun withUnavailableDashboardMetadata(
+    ride: RideEntity,
+    pointCount: Int,
+    routePolyline: String? = ride.dashboardRoutePolyline,
+): RideEntity = ride.copy(
     qualifiesForStats = false,
     dashboardActiveDurationMillis = 0L,
     dashboardPointCount = pointCount.coerceAtLeast(0),
+    dashboardRoutePolyline = routePolyline,
     dashboardMetadataVersion = HOME_DASHBOARD_METADATA_VERSION,
 )
 

@@ -52,10 +52,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import `in`.shvms.trackme.data.local.HOME_DASHBOARD_METADATA_VERSION
+import `in`.shvms.trackme.data.local.dashboardRoutePolylineFromPoints
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import `in`.shvms.trackme.data.local.dao.HistoryRideSummary
+import com.google.maps.android.PolyUtil
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -624,6 +626,7 @@ fun RideHistoryCard(
             }
             // Sleek Vector Route Preview Thumbnail (compact 52dp x 52dp)
             RoutePreviewThumbnail(
+                routePolyline = ride.dashboardRoutePolyline,
                 hasRoute = ride.dashboardPointCount > 0,
                 modifier = Modifier.size(52.dp)
             )
@@ -755,6 +758,9 @@ fun RideHistoryCard(
             dashboardActiveDurationMillis = ride.dashboardActiveDurationMillis,
             dashboardMetadataVersion = ride.dashboardMetadataVersion,
             dashboardPointCount = rideWithPoints.points.size,
+            // The demo holds its points already, so it draws its own shape rather than the
+            // stored one -- a seeded ride is rendered before any reconciler has seen it.
+            dashboardRoutePolyline = dashboardRoutePolylineFromPoints(rideWithPoints.points),
         ),
         onClick = onClick,
         modifier = modifier,
@@ -765,13 +771,33 @@ fun RideHistoryCard(
     )
 }
 
+/**
+ * TASK-231: draws the ride's own route again.
+ *
+ * 1.8.5 briefly passed a `hasRoute` boolean here, so every card drew the same generic glyph and the
+ * list lost the only pixels that told one ride from another. The shape now travels on the ride row
+ * as a bounded encoded polyline, so this stays a single-row read -- the projection still never
+ * joins gps_points, which is the constraint TASK-216 was right to add.
+ *
+ * `hasRoute` is kept as the fallback signal: a ride that has points but has not been reconciled
+ * yet, or one whose points were pruned, gets the glyph rather than a blank.
+ */
 @Composable
 fun RoutePreviewThumbnail(
+    routePolyline: String?,
     hasRoute: Boolean,
     modifier: Modifier = Modifier
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val trackBackground = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    // PolyUtil.decode throws on a truncated string. A ride row is persisted data an older build
+    // could have written, and a thumbnail is not worth taking the list down for -- an unreadable
+    // shape falls through to the glyph below.
+    val route = remember(routePolyline) {
+        routePolyline?.takeIf { it.isNotEmpty() }
+            ?.let { runCatching { PolyUtil.decode(it) }.getOrNull() }
+            .orEmpty()
+    }
 
     Box(
         modifier = modifier
@@ -779,10 +805,46 @@ fun RoutePreviewThumbnail(
             .background(trackBackground),
         contentAlignment = Alignment.Center
     ) {
-        if (hasRoute) {
-            Icon(Icons.Default.Route, contentDescription = null, tint = primaryColor, modifier = Modifier.size(28.dp))
-        } else {
-            Text(
+        when {
+            route.size >= 2 -> Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(6.dp)
+            ) {
+                val minLat = route.minOf { it.latitude }
+                val maxLat = route.maxOf { it.latitude }
+                val minLng = route.minOf { it.longitude }
+                val maxLng = route.maxOf { it.longitude }
+
+                // A ride that never left one spot has no span to normalise against; the floor
+                // keeps it a dot in the middle instead of a divide-by-zero.
+                val latSpan = (maxLat - minLat).takeIf { it > 0.00001 } ?: 0.001
+                val lngSpan = (maxLng - minLng).takeIf { it > 0.00001 } ?: 0.001
+
+                val path = Path()
+                route.forEachIndexed { idx, point ->
+                    val x = ((point.longitude - minLng) / lngSpan).toFloat() * size.width
+                    val y = (1.0 - (point.latitude - minLat) / latSpan).toFloat() * size.height
+                    if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+
+                drawPath(
+                    path = path,
+                    color = primaryColor,
+                    style = Stroke(
+                        width = 2.5.dp.toPx(),
+                        cap = StrokeCap.Round,
+                        join = StrokeJoin.Round
+                    )
+                )
+            }
+            hasRoute -> Icon(
+                Icons.Default.Route,
+                contentDescription = null,
+                tint = primaryColor,
+                modifier = Modifier.size(28.dp)
+            )
+            else -> Text(
                 text = "GPS",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -796,7 +858,11 @@ fun RoutePreviewThumbnail(
     points: List<GPSPointEntity>,
     modifier: Modifier = Modifier,
 ) {
-    RoutePreviewThumbnail(hasRoute = points.size >= 2, modifier = modifier)
+    RoutePreviewThumbnail(
+        routePolyline = remember(points) { dashboardRoutePolylineFromPoints(points) },
+        hasRoute = points.size >= 2,
+        modifier = modifier,
+    )
 }
 
 private fun formatDateTime(timestamp: Long): String {

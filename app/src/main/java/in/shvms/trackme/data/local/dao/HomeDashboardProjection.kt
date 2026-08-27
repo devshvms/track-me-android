@@ -42,7 +42,7 @@ interface HomeDashboardDao {
                rides.dashboardPointCount > 0 AS hasRoute
         FROM rides
         WHERE rides.qualifiesForStats = 1
-          AND rides.dashboardMetadataVersion = 2
+          AND rides.dashboardMetadataVersion = 3
           AND rides.endTime IS NOT NULL
           AND rides.endTime > 0
           AND rides.pendingDelete = 0
@@ -56,7 +56,7 @@ interface HomeDashboardDao {
     @Query(
         """
         SELECT * FROM rides
-        WHERE dashboardMetadataVersion < 2
+        WHERE dashboardMetadataVersion < 3
           AND endTime IS NOT NULL
           AND endTime > 0
         ORDER BY startTime ASC
