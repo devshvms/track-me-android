@@ -76,6 +76,14 @@ data class HomeDashboardSummary(
     val weeklyBuckets: List<WeeklyBucket>,
     val personaCounts: List<PersonaCount>,
     val insight: HomeInsight?,
+    /**
+     * TASK-225: a sibling fact, not an aggregate. SS3.3 keeps sample rides out of every number
+     * above, which is why a rider whose only ride is the sample correctly has zero qualifying
+     * activities -- and why Home then looked like it had lost the ride History plainly shows.
+     * This lets the empty card say which of the two empty states it is in, without the projection
+     * relaxing its filter and letting a seeded ride inflate anyone's totals.
+     */
+    val hasSampleRide: Boolean = false,
 ) {
     val historyBucket: String = when (lifetimeActivityCount) {
         0 -> "empty"

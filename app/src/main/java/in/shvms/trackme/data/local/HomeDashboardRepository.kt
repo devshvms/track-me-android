@@ -43,8 +43,14 @@ class HomeDashboardRepository(
         }
     }
 
-    val summary: Flow<HomeDashboardSummary> = combine(dashboardDao.observeRides(), clock) { rides, now ->
-        HomeDashboardSelector.select(rides, now, zoneId())
+    val summary: Flow<HomeDashboardSummary> = combine(
+        dashboardDao.observeRides(),
+        dashboardDao.observeHasSampleRide(),
+        clock,
+    ) { rides, hasSample, now ->
+        // The selector stays pure over qualifying rides; the sample fact is attached afterwards so
+        // no aggregate can ever be computed from it. TASK-225.
+        HomeDashboardSelector.select(rides, now, zoneId()).copy(hasSampleRide = hasSample)
     }
 
     /**

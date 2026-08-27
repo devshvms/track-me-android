@@ -143,7 +143,7 @@ internal fun HomeDashboardScreen(
             if (summary.lifetimeActivityCount > 0) {
                 item { WeeklySummaryCard(summary, imperial, strings) }
             } else {
-                item { EmptyDashboardCard(strings) }
+                item { EmptyDashboardCard(strings, hasSampleRide = summary.hasSampleRide) }
             }
 
             if (isReconciling && summary.lifetimeActivityCount > 0) {
@@ -251,13 +251,25 @@ private fun WeeklyDistanceChart(summary: HomeDashboardSummary, imperial: Boolean
 }
 
 @Composable
-private fun EmptyDashboardCard(strings: AppStrings) {
+private fun EmptyDashboardCard(strings: AppStrings, hasSampleRide: Boolean) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(10.dp))
                 Text(strings.dashboardPrivateOffline, fontWeight = FontWeight.SemiBold)
+            }
+            // TASK-225: two different empty states used to read as one. A rider whose only ride is
+            // the seeded sample sees a ride in History and nothing here, which looks like data
+            // loss; the card made it worse by describing what the dashboard is for rather than why
+            // it is empty. This says why. The true first-run state -- no rides at all -- is
+            // unchanged and must stay unchanged.
+            if (hasSampleRide) {
+                Text(
+                    strings.dashboardSampleRideOnly,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             listOf(
                 Icons.Default.BarChart to strings.dashboardPreviewWeekly,

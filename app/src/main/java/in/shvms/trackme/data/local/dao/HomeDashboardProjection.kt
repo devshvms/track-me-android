@@ -65,6 +65,13 @@ interface HomeDashboardDao {
     )
     suspend fun getBackfillCandidates(limit: Int): List<RideEntity>
 
+    /**
+     * TASK-225. Deliberately separate from [observeRides]: that projection filters isSample = 0 and
+     * must keep doing so. One indexed existence check, no route points.
+     */
+    @Query("SELECT EXISTS(SELECT 1 FROM rides WHERE isSample = 1 AND pendingDelete = 0)")
+    fun observeHasSampleRide(): Flow<Boolean>
+
     @Query("SELECT COUNT(*) FROM gps_points WHERE rideId = :rideId")
     suspend fun getRoutePointCount(rideId: Long): Int
 

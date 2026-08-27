@@ -54,6 +54,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val dashboardPreviewComparison: String = s("dashboardPreviewComparison", "See how this week compares")
     val dashboardPreviewRoutes: String = s("dashboardPreviewRoutes", "Revisit recent routes")
     val dashboardLocationAfterStart: String = s("dashboardLocationAfterStart", "Location is requested after Start so TrackMe can record your route.")
+    val dashboardSampleRideOnly: String = s("dashboardSampleRideOnly", "The sample ride in History is for exploring. Your own rides fill this in.")
     val dashboardLoadingHistory: String = s("dashboardLoadingHistory", "Preparing your activity history…")
     val dashboardWeeklyChartValues: String = s("dashboardWeeklyChartValues", "Four-week distance: %1\$s, %2\$s, %3\$s, and %4\$s")
     val dashboardGroupActive: String = s("dashboardGroupActive", "Group session active")
@@ -763,6 +764,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardPreviewComparison" to "Compara esta semana",
             "dashboardPreviewRoutes" to "Vuelve a tus rutas recientes",
             "dashboardLocationAfterStart" to "La ubicación se solicita después de Iniciar para que TrackMe pueda registrar tu ruta.",
+            "dashboardSampleRideOnly" to "El viaje de ejemplo en Historial es para explorar. Tus propios viajes completarán esto.",
             "dashboardLoadingHistory" to "Preparando tu historial de actividades…",
             "dashboardWeeklyChartValues" to "Distancia de cuatro semanas: %1\$s, %2\$s, %3\$s y %4\$s",
             "dashboardGroupActive" to "Sesión de grupo activa",
@@ -1353,6 +1355,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardPreviewComparison" to "Comparez cette semaine",
             "dashboardPreviewRoutes" to "Retrouvez vos itinéraires récents",
             "dashboardLocationAfterStart" to "La localisation est demandée après Démarrer afin que TrackMe puisse enregistrer votre itinéraire.",
+            "dashboardSampleRideOnly" to "Le trajet d'exemple dans l'historique sert à explorer. Vos propres trajets rempliront ceci.",
             "dashboardLoadingHistory" to "Préparation de votre historique d’activités…",
             "dashboardWeeklyChartValues" to "Distance sur quatre semaines : %1\$s, %2\$s, %3\$s et %4\$s",
             "dashboardGroupActive" to "Session de groupe active",
@@ -1943,6 +1946,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardPreviewComparison" to "Diese Woche vergleichen",
             "dashboardPreviewRoutes" to "Letzte Routen erneut ansehen",
             "dashboardLocationAfterStart" to "Der Standort wird erst nach Start angefordert, damit TrackMe deine Route aufzeichnen kann.",
+            "dashboardSampleRideOnly" to "Die Beispielfahrt im Verlauf dient zum Ausprobieren. Deine eigenen Fahrten füllen dies.",
             "dashboardLoadingHistory" to "Aktivitätsverlauf wird vorbereitet…",
             "dashboardWeeklyChartValues" to "Distanz über vier Wochen: %1\$s, %2\$s, %3\$s und %4\$s",
             "dashboardGroupActive" to "Gruppensitzung aktiv",
@@ -2533,6 +2537,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardPreviewComparison" to "देखें कि यह सप्ताह कैसा रहा",
             "dashboardPreviewRoutes" to "हाल के मार्ग दोबारा देखें",
             "dashboardLocationAfterStart" to "TrackMe आपके मार्ग को रिकॉर्ड कर सके, इसलिए स्थान की अनुमति शुरू करने के बाद माँगी जाती है।",
+            "dashboardSampleRideOnly" to "इतिहास में नमूना यात्रा केवल आज़माने के लिए है। आपकी अपनी यात्राएँ इसे भरेंगी।",
             "dashboardLoadingHistory" to "आपकी गतिविधि का इतिहास तैयार हो रहा है…",
             "dashboardWeeklyChartValues" to "चार सप्ताह की दूरी: %1\$s, %2\$s, %3\$s और %4\$s",
             "dashboardGroupActive" to "समूह सत्र सक्रिय है",
@@ -3123,6 +3128,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardPreviewComparison" to "今週を比較",
             "dashboardPreviewRoutes" to "最近のルートを振り返る",
             "dashboardLocationAfterStart" to "TrackMeがルートを記録できるよう、位置情報は開始後に求められます。",
+            "dashboardSampleRideOnly" to "履歴のサンプルライドは操作を試すためのものです。ご自身のライドがここに反映されます。",
             "dashboardLoadingHistory" to "アクティビティ履歴を準備しています…",
             "dashboardWeeklyChartValues" to "4週間の距離: %1\$s、%2\$s、%3\$s、%4\$s",
             "dashboardGroupActive" to "グループセッションが進行中",
@@ -3713,6 +3719,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardPreviewComparison" to "比较本周表现",
             "dashboardPreviewRoutes" to "回顾最近路线",
             "dashboardLocationAfterStart" to "点击开始后才会请求位置权限，以便 TrackMe 记录你的路线。",
+            "dashboardSampleRideOnly" to "历史记录中的示例骑行仅供体验。你自己的骑行将填充此处。",
             "dashboardLoadingHistory" to "正在准备你的活动历史…",
             "dashboardWeeklyChartValues" to "四周距离：%1\$s、%2\$s、%3\$s和%4\$s",
             "dashboardGroupActive" to "群组活动进行中",
