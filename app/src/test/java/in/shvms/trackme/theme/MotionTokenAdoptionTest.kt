@@ -38,8 +38,6 @@ class MotionTokenAdoptionTest {
         "ui/home/HomeScreen.kt" to
             "HOME_DASHBOARD_MOTION is a cross-platform timed sequence: deck, scrim, controls and " +
             "opacity must resolve at the specified 420/300 ms boundaries",
-        "Navigation.kt" to
-            "HOME_DASHBOARD_MOTION pins the tab-bar exit to 300 ms in the same start sequence",
     )
 
     private val tweenCall = Regex("""(^|[^A-Za-z])tween\s*\(""")
