@@ -310,12 +310,21 @@ class TrackingService : Service() {
                 if (!restorePersistedRide()) {
                     (application as TrackMeApp).emergencyManager.beginRideSession()
                     val startTime = System.currentTimeMillis()
+                    // TASK-232: was a group live when this ride began? A marker and a count,
+                    // never a group id and never a name -- see RideEntity's note. The roster may
+                    // not have synced yet at start, so an empty one stores no count rather than a
+                    // zero, and finalisation below fills it in if the session is still live.
+                    val groupAtStart = groupSessionManager.state.value
                     val rideId = rideDao.insertRide(
                         RideEntity(
                             startTime = startTime,
                             title = RideUtils.getDefaultTitle(startTime, trackingManager.selectedPersona.value),
                             persona = trackingManager.selectedPersona.value.name,
                             startZoneId = java.time.ZoneId.systemDefault().id,
+                            wasGroupRide = groupAtStart.isActive,
+                            groupRiderCount = groupAtStart.roster.size.takeIf {
+                                groupAtStart.isActive && it > 0
+                            },
                         )
                     )
                     currentRideId = rideId
@@ -1097,10 +1106,22 @@ class TrackingService : Service() {
                 elevationGainMeters = `in`.shvms.trackme.domain.processor.calculateElevationGainMeters(points),
             )
             
+            // TASK-232: the largest roster seen while this ride was being recorded is what a
+            // rider means by "how many of us rode". Only ever grows, and only while the ride was
+            // already marked as a group ride -- joining a group after a solo ride does not
+            // retroactively make it one.
+            val groupAtEnd = groupSessionManager.state.value
+            val groupRiderCount = if (ride.wasGroupRide && groupAtEnd.isActive) {
+                maxOf(ride.groupRiderCount ?: 0, groupAtEnd.roster.size).takeIf { it > 0 }
+            } else {
+                ride.groupRiderCount
+            }
+
             val finishedRide = ride.copy(
                 endTime = finishedAt,
                 title = newTitle,
-                postRideCalculation = calc
+                postRideCalculation = calc,
+                groupRiderCount = groupRiderCount,
             ).let {
                 `in`.shvms.trackme.data.local.withDashboardMetadata(
                     it,

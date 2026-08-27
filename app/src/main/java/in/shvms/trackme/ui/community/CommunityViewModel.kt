@@ -116,7 +116,19 @@ class CommunityViewModel(
     private val currentUid: () -> String?,
     private val displayName: () -> String?,
     private val photoUrl: () -> String?,
+    rideDao: `in`.shvms.trackme.data.local.dao.RideDao,
 ) : ViewModel() {
+
+    /**
+     * TASK-232: the rider's own rides that were recorded while a group was live.
+     *
+     * A read of local ride records and nothing else -- no collection, no sync, no membership
+     * history. What makes the page stop being empty forever is that these rides were always the
+     * rider's own; they simply never knew they were group rides.
+     */
+    val groupRides: StateFlow<List<`in`.shvms.trackme.data.local.dao.HistoryRideSummary>> =
+        rideDao.getGroupRideSummaries()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val local = MutableStateFlow(LocalState())
 
@@ -381,8 +393,9 @@ class CommunityViewModelFactory(
     private val currentUid: () -> String?,
     private val displayName: () -> String?,
     private val photoUrl: () -> String?,
+    private val rideDao: `in`.shvms.trackme.data.local.dao.RideDao,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
-        CommunityViewModel(groupSessionManager, currentUid, displayName, photoUrl) as T
+        CommunityViewModel(groupSessionManager, currentUid, displayName, photoUrl, rideDao) as T
 }

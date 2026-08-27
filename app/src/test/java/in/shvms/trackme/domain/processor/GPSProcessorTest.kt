@@ -112,6 +112,7 @@ class GPSProcessorTest {
         override suspend fun getAllRidesWithPointsSync(): List<RideWithPoints> = emptyList()
         override fun getAllCompletedRidesWithPoints(): Flow<List<RideWithPoints>> = flowOf(emptyList())
         override fun getAllCompletedRideSummaries(): Flow<List<HistoryRideSummary>> = flowOf(emptyList())
+        override fun getGroupRideSummaries(): Flow<List<HistoryRideSummary>> = flowOf(emptyList())
         override suspend fun getUncompletedRides(): List<RideEntity> = emptyList()
         override suspend fun getRideWithPointsById(rideId: Long): RideWithPoints? = rideWithPoints
         override fun getRideFlow(rideId: Long): Flow<RideEntity?> = flowOf(rideWithPoints?.ride)
