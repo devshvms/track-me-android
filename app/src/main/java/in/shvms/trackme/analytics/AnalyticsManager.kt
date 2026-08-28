@@ -33,6 +33,19 @@ object AnalyticsManager {
         _localConsent.value = prefs.getBoolean(PREF_KEY_LOCAL_CONSENT, false)
         recomputeEffective()
 
+        // TASK-250: a build that may not deliver does not start the SDK at all.
+        //
+        // Opting out would already stop capture, and every track function below checks the same
+        // flag -- but "no SDK, no queue, no network" is a guarantee that does not depend on getting
+        // 50 call sites right, and it is the guarantee shvm asked for. The Firestore config
+        // listener is skipped with it: its only job is to feed the remote kill switch, which cannot
+        // change an answer that is already false.
+        if (!TelemetryEnvironment.allowsDelivery) {
+            Log.i(TAG, "Telemetry delivery suppressed: ${'$'}{TelemetryEnvironment.suppressionReason}")
+            isInitialized = true
+            return
+        }
+
         // 1. Setup Firestore Config Listener
         val firestore = FirebaseFirestore.getInstance()
         configListener = firestore.collection("config").document("telemetry_settings")
@@ -76,13 +89,16 @@ object AnalyticsManager {
     private fun recomputeEffective() {
         _isTelemetryEnabled.value = TelemetryConsentState(
             localConsent = _localConsent.value,
-            remoteAllowed = _remoteAllowed.value
+            remoteAllowed = _remoteAllowed.value,
+            environmentAllowsDelivery = TelemetryEnvironment.allowsDelivery,
         ).isEnabled
         applyOptState()
     }
 
     private fun applyOptState() {
         if (!isInitialized) return
+        // TASK-250: nothing to opt in or out of when the SDK was never started.
+        if (!TelemetryEnvironment.allowsDelivery) return
         if (_isTelemetryEnabled.value) PostHog.optIn() else PostHog.optOut()
     }
 
@@ -690,10 +706,17 @@ enum class GroupJoinFailure(val analyticsValue: String) {
     UNKNOWN("unknown"),
 }
 
-/** Pure consent contract used by [AnalyticsManager] and its JVM tests. */
+/**
+ * Pure consent contract used by [AnalyticsManager] and its JVM tests.
+ *
+ * TASK-250 added the third term. It has **no default on purpose**: a default would let a future
+ * call site silently opt back into delivery from a debug build, which is exactly the shape of the
+ * TASK-246 defect — a parameter that reads as harmless and is wrong on the paths that omit it.
+ */
 internal data class TelemetryConsentState(
     val localConsent: Boolean,
-    val remoteAllowed: Boolean
+    val remoteAllowed: Boolean,
+    val environmentAllowsDelivery: Boolean,
 ) {
-    val isEnabled: Boolean get() = localConsent && remoteAllowed
+    val isEnabled: Boolean get() = localConsent && remoteAllowed && environmentAllowsDelivery
 }

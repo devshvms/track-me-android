@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.utils.logger
 
 import com.google.firebase.crashlytics.FirebaseCrashlytics
+import `in`.shvms.trackme.analytics.TelemetryEnvironment
 
 class CrashlyticsErrorLogger : ErrorLogger {
     private val crashlytics: FirebaseCrashlytics
@@ -8,7 +9,12 @@ class CrashlyticsErrorLogger : ErrorLogger {
 
     override fun init() {
         // Crashlytics automatically captures fatal exceptions, but we can configure defaults here.
-        crashlytics.setCrashlyticsCollectionEnabled(true)
+        //
+        // TASK-250: collection follows the same environment gate as analytics. A debug build or an
+        // emulator crashing is a crash someone is already looking at in a debugger; sending it
+        // makes the production crash-free-users rate a number about developers rather than riders,
+        // and a deliberately-crashed test run can bury a real regression under its own noise.
+        crashlytics.setCrashlyticsCollectionEnabled(TelemetryEnvironment.allowsDelivery)
     }
 
     override fun setUserId(userId: String?) {
