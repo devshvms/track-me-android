@@ -99,6 +99,8 @@ import java.util.Date
 import java.util.Locale
 import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.domain.processor.rideTrimWindow
+import `in`.shvms.trackme.domain.config.PersonaAutoPauseConfig
 
 // Currently has no callers. Kept, but pinned to the canonical ride-summary precision so it cannot
 // reintroduce TASK-109's screen-vs-shared-artifact mismatch the moment someone does call it.
@@ -430,8 +432,29 @@ fun RideDetailScreen(
                 }
             }
         } else {
-            val points = rideWithPoints!!.points
+            val allPoints = rideWithPoints!!.points
             val ride = rideWithPoints!!.ride
+
+            // TASK-253, shvm: hide the stationary head and tail a rider did not mean to record.
+            //
+            // A display window, not an edit. Nothing is stored and nothing is deleted, so there is
+            // no undo to build -- `showFullRecording` simply stops applying it. The stats are
+            // deliberately untouched and are already right: `dashboardActiveDurationFromPoints`
+            // excludes paused points, so a forgotten half hour was never in "Duration". It is in
+            // "Total", correctly, because the ride really did span that wall time.
+            val trimPauseSpeedMps = remember(ride.persona) {
+                val persona = runCatching { RidePersona.valueOf(ride.persona) }
+                    .getOrDefault(RidePersona.AUTO)
+                PersonaAutoPauseConfig.getThresholdsForPersona(persona).pauseSpeedMps
+            }
+            val trim = remember(allPoints, trimPauseSpeedMps) {
+                rideTrimWindow(allPoints, trimPauseSpeedMps)
+            }
+            var showFullRecording by rememberSaveable(rideId) { mutableStateOf(false) }
+            val points = remember(allPoints, trim, showFullRecording) {
+                if (showFullRecording || !trim.isTrimmed) allPoints
+                else allPoints.subList(trim.startIndex, trim.endIndex + 1)
+            }
             var scrubIndex by rememberSaveable(rideId) { mutableStateOf<Int?>(null) }
             
             var columnScrollEnabled by remember { mutableStateOf(true) }
@@ -718,6 +741,36 @@ fun RideDetailScreen(
                         distances
                     }
 
+                    // TASK-253: the trim announces itself. Quietly dropping part of someone's own
+                    // recording would be the same class of problem as deleting it -- they would
+                    // have no way to know the chart was not the whole ride, and no way to ask for
+                    // it back. One line and one tap, sitting directly above the chart it explains.
+                    if (trim.isTrimmed) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = String.format(
+                                    Locale.getDefault(),
+                                    strings.inactivityHidden,
+                                    formatDuration(trim.totalTrimmedMillis),
+                                ),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            TextButton(onClick = { showFullRecording = !showFullRecording }) {
+                                Text(
+                                    if (showFullRecording) strings.hideInactivity
+                                    else strings.showFullRecording
+                                )
+                            }
+                        }
+                    }
+
                     CombinedMetricLineChart(
                         points = points,
                         usesPace = chartUsesPace,
@@ -787,7 +840,10 @@ fun RideDetailScreen(
                 
                 RecordingDetailsCard(
                     ride = ride,
-                    points = points,
+                    // TASK-253: the full recording. This card is a diagnostic about what the device
+                    // captured, so trimming its point count would make it lie about the thing it
+                    // exists to report.
+                    points = allPoints,
                     strings = strings,
                 )
                 

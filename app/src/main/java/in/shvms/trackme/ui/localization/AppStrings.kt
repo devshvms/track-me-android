@@ -541,6 +541,11 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val savingRide: String = s("savingRide", "Saving ride...")
     val gpsPoints: String = s("gpsPoints", "GPS Points")
     val gpsSignalGaps: String = s("gpsSignalGaps", "GPS signal gaps")
+    // TASK-253: the trim is never silent. A rider must be able to see that part of their own
+    // recording is not being drawn, and get it back in one tap.
+    val inactivityHidden: String = s("inactivityHidden", "%1${'$'}s of inactivity hidden")
+    val showFullRecording: String = s("showFullRecording", "Show all")
+    val hideInactivity: String = s("hideInactivity", "Hide")
     val recordingDetails: String = s("recordingDetails", "Recording details")
     val startTime: String = s("startTime", "Start time")
     val discardRideTitle: String = s("discardRideTitle", "Discard this ride?")
@@ -988,6 +993,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareAuthRequired" to "Inicia sesión para compartir tu ubicación en directo.",
             "gpsPoints" to "Puntos GPS",
             "gpsSignalGaps" to "Brechas de señal GPS",
+            "inactivityHidden" to "%1${'$'}s de inactividad oculta",
+            "showFullRecording" to "Mostrar todo",
+            "hideInactivity" to "Ocultar",
             "recordingDetails" to "Detalles de grabación",
             "startTime" to "Hora de inicio",
             "discardRideTitle" to "¿Descartar este viaje?",
@@ -1579,6 +1587,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareAuthRequired" to "Connectez-vous pour partager votre position en direct.",
             "gpsPoints" to "Points GPS",
             "gpsSignalGaps" to "Interruptions du signal GPS",
+            "inactivityHidden" to "%1${'$'}s d'inactivité masquée",
+            "showFullRecording" to "Tout afficher",
+            "hideInactivity" to "Masquer",
             "recordingDetails" to "Détails de l'enregistrement",
             "startTime" to "Heure de début",
             "discardRideTitle" to "Supprimer ce trajet ?",
@@ -2170,6 +2181,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareAuthRequired" to "Melden Sie sich an, um Ihren Live-Standort zu teilen.",
             "gpsPoints" to "GPS-Punkte",
             "gpsSignalGaps" to "GPS-Signallücken",
+            "inactivityHidden" to "%1${'$'}s Inaktivität ausgeblendet",
+            "showFullRecording" to "Alle anzeigen",
+            "hideInactivity" to "Ausblenden",
             "recordingDetails" to "Aufnahmedetails",
             "startTime" to "Startzeit",
             "discardRideTitle" to "Diese Fahrt verwerfen?",
@@ -2761,6 +2775,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareAuthRequired" to "लाइव लोकेशन शेयर करने के लिए साइन इन करें।",
             "gpsPoints" to "GPS पॉइंट",
             "gpsSignalGaps" to "GPS सिग्नल अंतराल",
+            "inactivityHidden" to "%1${'$'}s की निष्क्रियता छिपाई गई",
+            "showFullRecording" to "सभी दिखाएं",
+            "hideInactivity" to "छिपाएं",
             "recordingDetails" to "रिकॉर्डिंग विवरण",
             "startTime" to "प्रारंभ समय",
             "discardRideTitle" to "इस यात्रा को हटाएं?",
@@ -3352,6 +3369,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareAuthRequired" to "ライブ位置情報を共有するにはサインインしてください。",
             "gpsPoints" to "GPSポイント",
             "gpsSignalGaps" to "GPS信号の途切れ",
+            "inactivityHidden" to "%1${'$'}s の停止時間を非表示",
+            "showFullRecording" to "すべて表示",
+            "hideInactivity" to "非表示",
             "recordingDetails" to "記録の詳細",
             "startTime" to "開始時刻",
             "discardRideTitle" to "この記録を破棄しますか？",
@@ -3943,6 +3963,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareAuthRequired" to "请登录以分享您的实时位置。",
             "gpsPoints" to "GPS 点",
             "gpsSignalGaps" to "GPS 信号间隔",
+            "inactivityHidden" to "已隐藏 %1${'$'}s 的静止时间",
+            "showFullRecording" to "显示全部",
+            "hideInactivity" to "隐藏",
             "recordingDetails" to "记录详情",
             "startTime" to "开始时间",
             "discardRideTitle" to "丢弃此次行程？",
