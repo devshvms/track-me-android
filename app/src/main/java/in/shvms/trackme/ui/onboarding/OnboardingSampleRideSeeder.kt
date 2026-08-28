@@ -3,6 +3,13 @@ package `in`.shvms.trackme.ui.onboarding
 import android.content.Context
 import androidx.room.withTransaction
 import `in`.shvms.trackme.data.local.AppDatabase
+import `in`.shvms.trackme.data.local.dashboardActiveDurationFromPoints
+import `in`.shvms.trackme.data.local.dashboardRoutePolylineFromPoints
+import `in`.shvms.trackme.data.local.withDashboardMetadata
+import `in`.shvms.trackme.data.local.withUnavailableDashboardMetadata
+import `in`.shvms.trackme.domain.processor.calculateElevationGainMeters
+import `in`.shvms.trackme.data.local.entity.RideEntity
+import `in`.shvms.trackme.data.local.entity.RideWithPoints
 
 /** Durable state machine for the first-run sample. `SEEDED` is terminal even after deletion. */
 internal enum class OnboardingSampleSeedState(val stored: String) {
@@ -85,14 +92,52 @@ internal object OnboardingSampleRideSeeder {
 
         val startTime = (nowMillis - OnboardingDemoFixture.DURATION_MILLIS).coerceAtLeast(1L)
         val fixture = OnboardingDemoFixture.create(startTimeMillis = startTime, title = title)
+        val seedRide = sampleRideWithMetadata(fixture)
+
         database.withTransaction {
             val rideDao = database.rideDao()
             if (rideDao.getSampleRideId() == null) {
-                val rideId = rideDao.insertRide(fixture.ride.copy(id = 0L, isSample = true))
+                val rideId = rideDao.insertRide(seedRide)
                 rideDao.insertGPSPoints(fixture.points.map { it.copy(rideId = rideId) })
             }
         }
         prefs.edit().putString(STATE_KEY, OnboardingSampleSeedState.SEEDED.stored).commit()
         return true
+    }
+}
+
+/**
+ * TASK-248: builds the sample ride with the dashboard metadata every other ride gets.
+ *
+ * It used to be inserted raw, at metadata version 0, and nothing ever reconciled it: the only
+ * backfill sweep runs at application start, and the sample is seeded later, after that sweep has
+ * drained. So the one ride every new rider opens first showed "Unknown" where its duration belongs
+ * and no elevation cell at all — while its average speed, which comes off the aggregate rather than
+ * the metadata, displayed a real number derived from the very duration the grid claimed not to know.
+ *
+ * This was the sixth write path found creating a ride without populating its metadata, after the
+ * five in TASK-246. The compiler could not catch this one, because it never called the helper.
+ *
+ * Extracted from the seeder so the invariant can be tested without a database.
+ */
+internal fun sampleRideWithMetadata(fixture: RideWithPoints): RideEntity {
+    val points = fixture.points
+    val activeDurationMillis = dashboardActiveDurationFromPoints(points)
+    val routePolyline = dashboardRoutePolylineFromPoints(points)
+    // Measured rather than absent: the track carries an altitude on every point, so the answer is a
+    // real 0 m on flat terrain, not the "we never knew" that §5.2 reserves the empty cell for. The
+    // fixture's own header records that the scenario supplies no terrain.
+    val elevationGainMeters = calculateElevationGainMeters(points)
+    val ride = fixture.ride.copy(
+        id = 0L,
+        isSample = true,
+        postRideCalculation = fixture.ride.postRideCalculation?.copy(
+            elevationGainMeters = elevationGainMeters,
+        ),
+    )
+    return if (activeDurationMillis != null) {
+        withDashboardMetadata(ride, activeDurationMillis, points.size, routePolyline)
+    } else {
+        withUnavailableDashboardMetadata(ride, points.size, routePolyline)
     }
 }
