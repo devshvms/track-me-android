@@ -1385,6 +1385,17 @@ fun HomeScreen(
                         AnalyticsManager.trackHomeGroupMapOpened()
                         explicitGroupMap = true
                     },
+                    // TASK-254: record which sheet the rider asked for, then switch to the tab
+                    // that owns it. The sheets are deliberately not rebuilt here -- two
+                    // implementations of a consent-bearing sheet is how the two drift apart.
+                    onCreateGroup = {
+                        app.requestGroupAction(TrackMeApp.GroupEntryAction.CREATE)
+                        onOpenCommunity()
+                    },
+                    onJoinGroup = {
+                        app.requestGroupAction(TrackMeApp.GroupEntryAction.JOIN)
+                        onOpenCommunity()
+                    },
                     onOpenSettings = { openAppSettings(context) },
                     onDismissPermissionNotice = app::dismissLocationPermissionRevokedNoticeForSession,
                     scrollToTopRequest = scrollToTopRequest,

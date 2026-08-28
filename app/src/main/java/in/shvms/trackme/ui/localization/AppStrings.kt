@@ -546,6 +546,14 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val inactivityHidden: String = s("inactivityHidden", "%1${'$'}s of inactivity hidden")
     val showFullRecording: String = s("showFullRecording", "Show all")
     val hideInactivity: String = s("hideInactivity", "Hide")
+    // TASK-254: group rides are entered from Home, not only from a tab most riders never open.
+    val dashboardGroupHeading: String = s("dashboardGroupHeading", "Ride together")
+    val dashboardGroupCreate: String = s("dashboardGroupCreate", "Create a group")
+    val dashboardGroupJoin: String = s("dashboardGroupJoin", "Join with a code")
+    val dashboardGroupHowItWorks: String = s(
+        "dashboardGroupHowItWorks",
+        "Everyone in the group sees everyone else while the group is live. Nobody sees where you have been, and nothing is saved.",
+    )
     val recordingDetails: String = s("recordingDetails", "Recording details")
     val startTime: String = s("startTime", "Start time")
     val discardRideTitle: String = s("discardRideTitle", "Discard this ride?")
@@ -996,6 +1004,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "inactivityHidden" to "%1${'$'}s de inactividad oculta",
             "showFullRecording" to "Mostrar todo",
             "hideInactivity" to "Ocultar",
+            "dashboardGroupHeading" to "Rodar juntos",
+            "dashboardGroupCreate" to "Crear un grupo",
+            "dashboardGroupJoin" to "Unirse con un código",
+            "dashboardGroupHowItWorks" to "Todos en el grupo se ven mientras el grupo está activo. Nadie ve dónde has estado y no se guarda nada.",
             "recordingDetails" to "Detalles de grabación",
             "startTime" to "Hora de inicio",
             "discardRideTitle" to "¿Descartar este viaje?",
@@ -1590,6 +1602,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "inactivityHidden" to "%1${'$'}s d'inactivité masquée",
             "showFullRecording" to "Tout afficher",
             "hideInactivity" to "Masquer",
+            "dashboardGroupHeading" to "Rouler ensemble",
+            "dashboardGroupCreate" to "Créer un groupe",
+            "dashboardGroupJoin" to "Rejoindre avec un code",
+            "dashboardGroupHowItWorks" to "Tous les membres se voient tant que le groupe est actif. Personne ne voit où vous êtes allé, et rien n'est conservé.",
             "recordingDetails" to "Détails de l'enregistrement",
             "startTime" to "Heure de début",
             "discardRideTitle" to "Supprimer ce trajet ?",
@@ -2184,6 +2200,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "inactivityHidden" to "%1${'$'}s Inaktivität ausgeblendet",
             "showFullRecording" to "Alle anzeigen",
             "hideInactivity" to "Ausblenden",
+            "dashboardGroupHeading" to "Gemeinsam fahren",
+            "dashboardGroupCreate" to "Gruppe erstellen",
+            "dashboardGroupJoin" to "Mit Code beitreten",
+            "dashboardGroupHowItWorks" to "Alle in der Gruppe sehen einander, solange die Gruppe aktiv ist. Niemand sieht, wo du warst, und nichts wird gespeichert.",
             "recordingDetails" to "Aufnahmedetails",
             "startTime" to "Startzeit",
             "discardRideTitle" to "Diese Fahrt verwerfen?",
@@ -2778,6 +2798,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "inactivityHidden" to "%1${'$'}s की निष्क्रियता छिपाई गई",
             "showFullRecording" to "सभी दिखाएं",
             "hideInactivity" to "छिपाएं",
+            "dashboardGroupHeading" to "साथ चलें",
+            "dashboardGroupCreate" to "समूह बनाएं",
+            "dashboardGroupJoin" to "कोड से जुड़ें",
+            "dashboardGroupHowItWorks" to "समूह के सक्रिय रहने तक सभी सदस्य एक-दूसरे को देख सकते हैं। आप कहाँ गए थे यह कोई नहीं देखता, और कुछ भी सहेजा नहीं जाता।",
             "recordingDetails" to "रिकॉर्डिंग विवरण",
             "startTime" to "प्रारंभ समय",
             "discardRideTitle" to "इस यात्रा को हटाएं?",
@@ -3372,6 +3396,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "inactivityHidden" to "%1${'$'}s の停止時間を非表示",
             "showFullRecording" to "すべて表示",
             "hideInactivity" to "非表示",
+            "dashboardGroupHeading" to "一緒に走る",
+            "dashboardGroupCreate" to "グループを作成",
+            "dashboardGroupJoin" to "コードで参加",
+            "dashboardGroupHowItWorks" to "グループが有効な間、メンバー同士がお互いを見られます。走った場所は誰にも見られず、何も保存されません。",
             "recordingDetails" to "記録の詳細",
             "startTime" to "開始時刻",
             "discardRideTitle" to "この記録を破棄しますか？",
@@ -3966,6 +3994,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "inactivityHidden" to "已隐藏 %1${'$'}s 的静止时间",
             "showFullRecording" to "显示全部",
             "hideInactivity" to "隐藏",
+            "dashboardGroupHeading" to "一起骑行",
+            "dashboardGroupCreate" to "创建群组",
+            "dashboardGroupJoin" to "用代码加入",
+            "dashboardGroupHowItWorks" to "群组活跃期间，成员之间可以互相看到。没有人能看到你去过哪里，也不会保存任何记录。",
             "recordingDetails" to "记录详情",
             "startTime" to "开始时间",
             "discardRideTitle" to "丢弃此次行程？",
