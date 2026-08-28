@@ -140,8 +140,18 @@ private fun openAppSettings(context: android.content.Context) {
     context.startActivity(intent)
 }
 
-/** TASK-244: how much of the idle backdrop map still shows — ~80% transparent, per shvm. */
-private const val IDLE_MAP_ALPHA = 0.2f
+/**
+ * TASK-249: how much of the idle backdrop map still shows — ~90% transparent, per shvm, raised from
+ * the ~80% TASK-244 shipped. The brief is "glass like": street labels should not be readable, but
+ * the road and route lines should still register as structure behind the deck.
+ *
+ * Alpha alone is what moves here. The 18dp blur above already does the work of destroying small
+ * shapes while leaving long lines legible as shapes — text is fine detail and dies first, roads are
+ * continuous strokes and survive — so fading further trades away brightness without flattening the
+ * structure. Reaching for a heavier scrim instead would grey the whole thing, which is the failure
+ * TASK-221's amendment named and TASK-244 was written to avoid.
+ */
+private const val IDLE_MAP_ALPHA = 0.1f
 
 @Composable
 fun HomeScreen(
@@ -777,7 +787,7 @@ fun HomeScreen(
                         // with the dashboard cards. RenderEffect is Android 12+; older devices
                         // keep the map covered by the heavier fallback scrim below.
                         .graphicsLayer {
-                            // TASK-244, shvm: the idle backdrop is ~80% transparent — the map
+                            // TASK-244/249, shvm: the idle backdrop is ~90% transparent — the map
                             // itself fades toward the app background rather than being buried
                             // under more black. That is deliberate: the spec's own amendment says
                             // "a heavier scrim would flatten it into grey", so the lever is the
