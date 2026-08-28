@@ -120,6 +120,68 @@ internal fun initialRouteCamera(latLngs: List<LatLng>, bounds: LatLngBounds): Ca
     return CameraPosition.fromLatLngZoom(bounds.center, zoom)
 }
 
+/**
+ * TASK-251, shvm: the Ride Detail map let you pan to anywhere on earth, far past any part of the
+ * route, so a small window could end up showing empty ocean with no polyline in it.
+ *
+ * The route bounds were already computed here -- theyframe the map on load -- but nothing kept the
+ * camera inside them afterwards, so the very first drag left the ride behind. This pads those
+ * bounds and hands them to `MapProperties.latLngBoundsForCameraTarget`, which constrains the camera
+ * *target*: the visible area may still overhang the route, which is what makes the edges feel
+ * natural, but the centre can never leave.
+ *
+ * Padding is a fraction of the route's own span rather than a fixed degree amount, because a 300 m
+ * loop and a 300 km tour need very different slack and a constant would be wrong for one of them.
+ */
+internal fun routeCameraBounds(bounds: LatLngBounds, paddingFraction: Double = 0.35): LatLngBounds {
+    val latSpan = bounds.northeast.latitude - bounds.southwest.latitude
+    var lngSpan = bounds.northeast.longitude - bounds.southwest.longitude
+    if (lngSpan < 0) lngSpan += 360.0
+
+    // A stationary ride has no span to pad. The floor gives it a small workable box instead of a
+    // degenerate one the map would reject.
+    val latPad = maxOf(latSpan * paddingFraction, 0.002)
+    val lngPad = maxOf(lngSpan * paddingFraction, 0.002)
+
+    val south = (bounds.southwest.latitude - latPad).coerceAtLeast(-85.0)
+    val north = (bounds.northeast.latitude + latPad).coerceAtMost(85.0)
+    val west = bounds.southwest.longitude - lngPad
+    val east = bounds.northeast.longitude + lngPad
+
+    // A route wide enough that padding would wrap the globe is better left unconstrained in
+    // longitude than given a box that crosses the antimeridian the wrong way.
+    if (east - west >= 360.0) {
+        return LatLngBounds(LatLng(south, -180.0), LatLng(north, 180.0))
+    }
+    return LatLngBounds(
+        LatLng(south, normalizeLongitude(west)),
+        LatLng(north, normalizeLongitude(east)),
+    )
+}
+
+/**
+ * The furthest out the camera may zoom: roughly the whole padded route and no more.
+ *
+ * Without this the bounds alone are not enough -- the camera target stays put while the viewport
+ * zooms out around it, which is exactly how a 5 km ride ends up as a dot on a continent.
+ */
+internal fun minZoomForRoute(bounds: LatLngBounds): Float {
+    val latSpan = bounds.northeast.latitude - bounds.southwest.latitude
+    var lngSpan = bounds.northeast.longitude - bounds.southwest.longitude
+    if (lngSpan < 0) lngSpan += 360.0
+    val span = maxOf(latSpan, lngSpan, 1e-4)
+    // One stop looser than the fit, so the rider keeps a little room to pull back and see the whole
+    // shape with context. Tighter than this reads as the map fighting the gesture.
+    return (log2(360.0 / span) - 1.5).toFloat().coerceIn(2f, 16f)
+}
+
+internal fun normalizeLongitude(degrees: Double): Double {
+    var d = degrees
+    while (d > 180.0) d -= 360.0
+    while (d < -180.0) d += 360.0
+    return d
+}
+
 fun vectorToBitmap(context: android.content.Context, id: Int, color: Int): BitmapDescriptor {
     val vectorDrawable = ContextCompat.getDrawable(context, id)!!
     val bitmap = android.graphics.Bitmap.createBitmap(
@@ -473,7 +535,17 @@ fun RideDetailScreen(
                                 .fillMaxSize()
                                 .alpha(if (isMapLoaded) 1f else 0f),
                             cameraPositionState = cameraPositionState,
-                            properties = MapProperties(mapType = mapType, isTrafficEnabled = isTrafficEnabled, mapStyleOptions = mapStyle),
+                            // TASK-251: fence the camera to the route. The bounds constrain the
+                            // target and the min zoom stops the viewport pulling back around it;
+                            // rotation, tilt and zoom-in are untouched, which is the part shvm
+                            // liked.
+                            properties = MapProperties(
+                                mapType = mapType,
+                                isTrafficEnabled = isTrafficEnabled,
+                                mapStyleOptions = mapStyle,
+                                latLngBoundsForCameraTarget = remember(bounds) { routeCameraBounds(bounds) },
+                                minZoomPreference = remember(bounds) { minZoomForRoute(bounds) },
+                            ),
                             uiSettings = MapUiSettings(zoomControlsEnabled = false),
                             onMapLoaded = {
                                 if (latLngs.size > 1) {
@@ -1335,7 +1407,10 @@ private fun RideSummaryCard(
                     ),
                 ),
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            // TASK-252, shvm: the two grids sit further apart than their cells are tall, so each
+            // row reads as its own group. On iOS the same change had to be paired with pulling the
+            // label onto its value; here the hairline-separated cell already does that grouping.
+            Spacer(modifier = Modifier.height(16.dp))
             StatGrid(
                 listOf(
                     Stat(
