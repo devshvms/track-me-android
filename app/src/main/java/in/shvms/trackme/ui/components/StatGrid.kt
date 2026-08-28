@@ -62,7 +62,10 @@ fun StatGrid(
         modifier = Modifier
           .weight(1f)
           .background(MaterialTheme.colorScheme.surfaceContainerLow)
-          .padding(horizontal = 8.dp, vertical = 10.dp),
+          // TASK-252, shvm: the grid reads more compactly. Only the vertical padding gives way --
+          // the horizontal 8dp is what stops a wrapped two-line label touching the hairline, and
+          // the two-line reservation itself is untouchable for the reason in the KDoc above.
+          .padding(horizontal = 8.dp, vertical = 7.dp),
       ) {
         Text(
           text = stat.label.uppercase(),
