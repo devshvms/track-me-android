@@ -559,6 +559,29 @@ class TrackMeApp : Application() {
         _pendingGroupInvite.value = null
     }
 
+    /**
+     * TASK-254: which group sheet Home asked Community to open.
+     *
+     * Home now carries the entry point for group rides, but the Create and Join sheets stay where
+     * they were built, on Community. Rather than duplicate them, Home records the intent here and
+     * switches tabs; Community opens the sheet and consumes it. Same shape as
+     * [pendingGroupInvite] directly above, and for the same reason — the requesting surface and
+     * the surface that can act are not composed at the same moment.
+     */
+    enum class GroupEntryAction { CREATE, JOIN }
+
+    private val _pendingGroupAction = MutableStateFlow<GroupEntryAction?>(null)
+
+    val pendingGroupAction: StateFlow<GroupEntryAction?> = _pendingGroupAction.asStateFlow()
+
+    fun requestGroupAction(action: GroupEntryAction) {
+        _pendingGroupAction.value = action
+    }
+
+    fun consumePendingGroupAction() {
+        _pendingGroupAction.value = null
+    }
+
     private val _pendingMemberFocus =
         MutableStateFlow<`in`.shvms.trackme.domain.group.MemberFocusPolicy.Focus?>(null)
 

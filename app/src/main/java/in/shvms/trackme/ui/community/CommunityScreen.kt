@@ -173,6 +173,23 @@ fun CommunityScreen(
         app.consumePendingGroupInvite()
     }
 
+    // TASK-254: Home asked for a sheet. Same shape as the pending-invite effect above and for the
+    // same reason -- the surface that asks and the surface that can act are not composed together.
+    //
+    // Guarded on `inGroup` so a stale request cannot open a create sheet over a live group: the
+    // rider could tap Create on Home and be joined by an invite before this composes.
+    val pendingGroupAction by app.pendingGroupAction.collectAsStateCompat()
+    LaunchedEffect(pendingGroupAction, state.inGroup) {
+        val action = pendingGroupAction ?: return@LaunchedEffect
+        if (!state.inGroup) {
+            when (action) {
+                TrackMeApp.GroupEntryAction.CREATE -> showCreate = true
+                TrackMeApp.GroupEntryAction.JOIN -> showJoin = true
+            }
+        }
+        app.consumePendingGroupAction()
+    }
+
     // A group that ends while the tab is open must close its sheets, or the user is left typing
     // into a group that no longer exists.
     LaunchedEffect(state.session.status) {

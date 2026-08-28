@@ -70,6 +70,12 @@ import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
 import kotlin.math.max
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -88,6 +94,9 @@ internal fun HomeDashboardScreen(
     onOpenHistory: () -> Unit,
     onOpenCommunity: () -> Unit,
     onOpenGroupMap: () -> Unit,
+    /** TASK-254: hands Community the sheet to open, then switches to it. The sheets are not duplicated. */
+    onCreateGroup: () -> Unit,
+    onJoinGroup: () -> Unit,
     onOpenSettings: () -> Unit,
     onDismissPermissionNotice: () -> Unit,
     scrollToTopRequest: Int = 0,
@@ -137,6 +146,17 @@ internal fun HomeDashboardScreen(
                     onOpenCommunity = onOpenCommunity,
                     onOpenGroupMap = onOpenGroupMap,
                     onOpenHistory = onOpenHistory,
+                )
+            }
+
+            item {
+                GroupRideCard(
+                    groupActive = groupActive,
+                    groupMemberCount = groupMemberCount,
+                    strings = strings,
+                    onCreate = onCreateGroup,
+                    onJoin = onJoinGroup,
+                    onOpenGroupMap = onOpenGroupMap,
                 )
             }
 
@@ -339,22 +359,6 @@ private fun ContextCard(
     onOpenHistory: () -> Unit,
 ) {
     when {
-        groupActive -> Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Groups, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        "${strings.dashboardGroupActive} • ${String.format(Locale.getDefault(), strings.dashboardGroupMembers, groupMemberCount)}",
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onOpenCommunity) { Text(strings.navCommunity) }
-                    FilledTonalButton(onClick = onOpenGroupMap) { Text(strings.dashboardViewLiveMap) }
-                }
-            }
-        }
         syncNeedsAction -> Card(
             modifier = Modifier.clickable(onClick = onOpenHistory),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
@@ -370,6 +374,88 @@ private fun ContextCard(
             shape = RoundedCornerShape(16.dp),
         ) {
             Text(strings.dashboardOfflineReady, Modifier.fillMaxWidth().padding(14.dp))
+        }
+    }
+}
+
+/**
+ * TASK-254, shvm: group rides are entered from Home, not only from a tab most riders never open.
+ *
+ * The entry point was the whole problem. Creating or joining lived behind the Community tab, which
+ * a rider has no reason to visit until they already know the feature exists — so the feature was
+ * gated on discovering the feature. The card is the fix: it sits where riders already are.
+ *
+ * **The tab stays.** shvm's call, and the right one: TASK-232 gave Community real content — the
+ * rider's own group rides — and removing it would orphan that. The card is the entry point, the tab
+ * is the destination. Whether the tab still earns its place is a question for usage data later, not
+ * a guess now.
+ *
+ * The Create and Join *sheets* are not duplicated here. They stay where they were built, on
+ * Community; this records which one the rider asked for and switches tabs. Two implementations of a
+ * consent-bearing sheet is exactly how the two drift apart.
+ *
+ * The privacy sentence is not decoration. `COMMUNITY_REDESIGN_SPEC.md` §2.3 keeps it at full
+ * prominence on the empty state because it is the reason people trust this feature — so the entry
+ * point carries it too, rather than making the promise only where the rider has already committed.
+ */
+@Composable
+private fun GroupRideCard(
+    groupActive: Boolean,
+    groupMemberCount: Int,
+    strings: AppStrings,
+    onCreate: () -> Unit,
+    onJoin: () -> Unit,
+    onOpenGroupMap: () -> Unit,
+) {
+    var showHowItWorks by rememberSaveable { mutableStateOf(false) }
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (groupActive) MaterialTheme.colorScheme.surfaceContainerHigh
+            else MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Groups, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = if (groupActive) {
+                        "${strings.dashboardGroupActive} • " +
+                            String.format(Locale.getDefault(), strings.dashboardGroupMembers, groupMemberCount)
+                    } else {
+                        strings.dashboardGroupHeading
+                    },
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                if (!groupActive) {
+                    IconButton(onClick = { showHowItWorks = !showHowItWorks }) {
+                        Icon(
+                            Icons.Outlined.Info,
+                            contentDescription = strings.dashboardGroupHowItWorks,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            if (!groupActive && showHowItWorks) {
+                Text(
+                    strings.dashboardGroupHowItWorks,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (groupActive) {
+                    FilledTonalButton(onClick = onOpenGroupMap) { Text(strings.dashboardViewLiveMap) }
+                } else {
+                    FilledTonalButton(onClick = onCreate) { Text(strings.dashboardGroupCreate) }
+                    OutlinedButton(onClick = onJoin) { Text(strings.dashboardGroupJoin) }
+                }
+            }
         }
     }
 }
