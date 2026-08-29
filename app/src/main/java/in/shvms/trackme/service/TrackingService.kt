@@ -516,11 +516,51 @@ class TrackingService : Service() {
     }
 
     private fun pauseTracking() {
+        // TASK-257, shvm: record *that* the pause happened, at the place it happened.
+        //
+        // A manual pause used to leave nothing behind. Recording simply stopped, so the fix before
+        // it and the fix after it ended up adjacent in storage with the pause flag clear on both --
+        // and every consumer then read the jump between them as travel. shvm walked two streets
+        // during a pause and the ride counted the distance and drew a line through the buildings.
+        //
+        // Auto-pause never had this problem because it flags its points. This gives a manual pause
+        // the same evidence, and it is a real position rather than a synthetic one: it is where the
+        // rider was when they pressed pause. `isPaused` then excludes the segment from distance
+        // exactly as it already does for auto-pause, with no new rule and no schema change.
+        markPauseBoundary()
         updateState(TrackingState.PAUSED)
         isTimerEnabled = false
         motionSensorManager.stopListening()
         setPersistedPausedSession(true)
         lastLocation = null // prevent distance jumping when resumed
+    }
+
+    /**
+     * Writes the current position as a paused point, so the pause is visible in the point stream.
+     *
+     * Best-effort: with no last known fix there is nothing truthful to write, and inventing a
+     * position would be worse than leaving the gap — the gap is at least honest, and the renderer's
+     * distance/time rule still dots it.
+     */
+    private fun markPauseBoundary() {
+        val location = lastLocation ?: return
+        val rideId = currentRideId ?: return
+        serviceScope.launch {
+            runCatching {
+                rideDao.insertGPSPoint(
+                    GPSPointEntity(
+                        rideId = rideId,
+                        latitude = location.latitude,
+                        longitude = location.longitude,
+                        altitude = if (location.hasAltitude()) location.altitude else 0.0,
+                        accuracy = if (location.hasAccuracy()) location.accuracy else 0f,
+                        speed = 0f,
+                        timestamp = System.currentTimeMillis(),
+                        isPaused = true,
+                    )
+                )
+            }
+        }
     }
 
     private fun resumeTracking() {
@@ -529,6 +569,11 @@ class TrackingService : Service() {
             return
         }
         storageWarningShown = false
+        // TASK-257: no marker on resume, deliberately. `pauseTracking` clears `lastLocation`, so
+        // there is no truthful position to write here anyway -- and one marker is enough. The
+        // pause marker carries `isPaused`, so *both* segments touching it are excluded: the one
+        // into the pause and the one out of it, which is the stretch the rider covered while not
+        // recording. A second marker would add nothing and could only be a guess.
         updateState(TrackingState.TRACKING)
         motionSensorManager.startListening()
         setPersistedPausedSession(false)
