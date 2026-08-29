@@ -17,65 +17,39 @@ internal data class PausedMarkerLocation(
 )
 
 /**
- * Produces a small, stable set of meaningful stop markers for the ride map.
+ * Produces a set of pause markers for the ride map strictly from recorded auto-pause intervals.
  *
- * GPS jitter and stop-and-go riding can otherwise turn every few slow samples into
- * a separate pin. Clusters are built from consecutive slow/paused samples, nearby
- * clusters are merged, short clusters are ignored, and the most sustained stops
- * are capped so the map stays legible on long rides.
+ * TASK-270: A contiguous interval containing one or more persisted `isPaused == true`
+ * samples is a recorded auto-pause event. Every such interval renders exactly one pause
+ * circle. Marker decluttering must not silently remove an explicit event, and slow speed
+ * alone is never promoted to an event.
  */
-internal fun pausedMarkerLocations(
-    points: List<GPSPointEntity>,
-    minPoints: Int = PAUSED_MARKER_MIN_POINTS,
-    mergeRadiusMeters: Double = PAUSED_MARKER_MERGE_RADIUS_METERS,
-    maxMarkers: Int = PAUSED_MARKER_MAX_COUNT
+internal fun explicitPauseMarkerLocations(
+    points: List<GPSPointEntity>
 ): List<PausedMarkerLocation> {
-    if (points.isEmpty() || maxMarkers <= 0) return emptyList()
+    if (points.isEmpty()) return emptyList()
 
-    val clusters = mutableListOf<MutableList<GPSPointEntity>>()
-    var current = mutableListOf<GPSPointEntity>()
+    val markers = mutableListOf<PausedMarkerLocation>()
+    val currentCluster = mutableListOf<GPSPointEntity>()
 
-    fun finishCurrent() {
-        if (current.isNotEmpty()) clusters += current
-        current = mutableListOf()
+    fun flushCluster() {
+        if (currentCluster.isNotEmpty()) {
+            val center = centroid(currentCluster)
+            markers.add(PausedMarkerLocation(center.latitude, center.longitude))
+            currentCluster.clear()
+        }
     }
 
-    points.forEach { point ->
-        if (!point.isPaused && point.speed > 0.1f) {
-            finishCurrent()
-            return@forEach
-        }
-        val previous = current.lastOrNull()
-        if (previous == null || distanceMeters(previous, point) <= mergeRadiusMeters) {
-            current += point
+    for (point in points) {
+        if (point.isPaused) {
+            currentCluster.add(point)
         } else {
-            finishCurrent()
-            current += point
+            flushCluster()
         }
     }
-    finishCurrent()
+    flushCluster()
 
-    val sustained = clusters.filter { it.size >= minPoints }
-    if (sustained.isEmpty()) return emptyList()
-
-    val merged = mutableListOf<MutableList<GPSPointEntity>>()
-    sustained.forEach { cluster ->
-        val previous = merged.lastOrNull()
-        if (previous != null && distanceMeters(centroid(previous), centroid(cluster)) <= mergeRadiusMeters * 1.5) {
-            previous += cluster
-        } else {
-            merged += cluster.toMutableList()
-        }
-    }
-
-    return merged
-        .sortedWith(compareByDescending<List<GPSPointEntity>> { it.size }.thenBy { it.first().timestamp })
-        .take(maxMarkers)
-        .sortedBy { it.first().timestamp }
-        .map { cluster ->
-            val center = centroid(cluster)
-            PausedMarkerLocation(center.latitude, center.longitude)
-        }
+    return markers
 }
 
 private data class Coordinate(val latitude: Double, val longitude: Double)

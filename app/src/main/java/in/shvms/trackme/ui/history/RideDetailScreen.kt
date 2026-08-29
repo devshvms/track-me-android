@@ -318,7 +318,7 @@ fun RideDetailScreen(
     val finishCircleIcon = remember { ExportMarkers.finish(ExportMarkerStyle.StartFinish, 64) }
 
     val pausedLocations = remember(rideWithPoints?.points) {
-        pausedMarkerLocations(rideWithPoints?.points.orEmpty()).map { marker ->
+        explicitPauseMarkerLocations(rideWithPoints?.points.orEmpty()).map { marker ->
             LatLng(marker.latitude, marker.longitude)
         }
     }
