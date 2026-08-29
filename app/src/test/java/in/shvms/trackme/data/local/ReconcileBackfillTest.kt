@@ -193,6 +193,7 @@ class ReconcileBackfillTest {
         override suspend fun insertGPSPoints(points: List<GPSPointEntity>): List<Long> = points.map { it.id }
         override suspend fun getSampleRideId(): Long? = null
         override fun getAllRidesWithPoints(): Flow<List<RideWithPoints>> = flowOf(emptyList())
+        override fun observeAllRides(): Flow<List<RideEntity>> = flowOf(emptyList())
         override suspend fun getAllRidesWithPointsSync(): List<RideWithPoints> = emptyList()
         override fun getAllCompletedRidesWithPoints(): Flow<List<RideWithPoints>> = flowOf(emptyList())
         override fun getAllCompletedRideSummaries(): Flow<List<HistoryRideSummary>> = flowOf(emptyList())

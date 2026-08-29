@@ -44,6 +44,17 @@ class AppPreferencesManager(private val context: Context) {
     )
     val lastStartedPersona: StateFlow<RidePersona> = _lastStartedPersona.asStateFlow()
 
+    // Gamification Presentation State
+    private val _lastSeenLevel = MutableStateFlow(prefs.getInt("gamification_last_seen_level", 1))
+    val lastSeenLevel: StateFlow<Int> = _lastSeenLevel.asStateFlow()
+
+    private val _lastSeenAchievements = MutableStateFlow(prefs.getStringSet("gamification_last_seen_achievements", emptySet()) ?: emptySet())
+    val lastSeenAchievements: StateFlow<Set<String>> = _lastSeenAchievements.asStateFlow()
+
+    // Maintenance Mode (e.g., "2026-W42")
+    private val _maintenanceEndWeek = MutableStateFlow(prefs.getString("gamification_maintenance_end_week", null))
+    val maintenanceEndWeek: StateFlow<String?> = _maintenanceEndWeek.asStateFlow()
+
     init {
         updateSystemLocale(_appLanguage.value)
     }
@@ -90,6 +101,26 @@ class AppPreferencesManager(private val context: Context) {
     fun setOnboardingPersona(persona: RidePersona) {
         prefs.edit().putString("onboarding_persona", persona.name).apply()
         if (!prefs.contains("last_started_persona")) _lastStartedPersona.value = persona
+    }
+
+    fun setGamificationLastSeenLevel(level: Int) {
+        prefs.edit().putInt("gamification_last_seen_level", level).apply()
+        _lastSeenLevel.value = level
+    }
+
+    fun addGamificationSeenAchievements(achievements: Set<String>) {
+        val updated = _lastSeenAchievements.value + achievements
+        prefs.edit().putStringSet("gamification_last_seen_achievements", updated).apply()
+        _lastSeenAchievements.value = updated
+    }
+
+    fun setGamificationMaintenanceEndWeek(isoWeek: String?) {
+        if (isoWeek == null) {
+            prefs.edit().remove("gamification_maintenance_end_week").apply()
+        } else {
+            prefs.edit().putString("gamification_maintenance_end_week", isoWeek).apply()
+        }
+        _maintenanceEndWeek.value = isoWeek
     }
 
     private fun defaultUnitFromLocale(): String = if (Locale.getDefault().country.uppercase() in setOf("US", "GB", "MM", "LR")) "imperial" else "metric"
