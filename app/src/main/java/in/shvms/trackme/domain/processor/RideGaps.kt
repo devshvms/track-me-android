@@ -98,15 +98,26 @@ object RideGaps {
     ): List<List<GPSPointEntity>> {
         if (points.isEmpty()) return emptyList()
         val runs = mutableListOf<MutableList<GPSPointEntity>>()
-        var run = mutableListOf(points.first())
-        for (index in 1 until points.size) {
-            if (isUnrecordedGap(points[index - 1], points[index], persona)) {
-                runs += run
+        var run = mutableListOf<GPSPointEntity>()
+        var previousRecordedPoint: GPSPointEntity? = null
+
+        points.forEach { point ->
+            if (point.isPaused) {
+                if (run.isNotEmpty()) runs += run
+                run = mutableListOf()
+                previousRecordedPoint = null
+                return@forEach
+            }
+
+            val previous = previousRecordedPoint
+            if (previous != null && isUnrecordedGap(previous, point, persona)) {
+                if (run.isNotEmpty()) runs += run
                 run = mutableListOf()
             }
-            run += points[index]
+            run += point
+            previousRecordedPoint = point
         }
-        runs += run
+        if (run.isNotEmpty()) runs += run
         return runs
     }
 

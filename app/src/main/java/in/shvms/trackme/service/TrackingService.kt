@@ -47,6 +47,32 @@ internal fun shouldEmitGpsPauseTelemetry(state: TrackingState): Boolean = state 
 internal fun shouldEmitGpsResumeTelemetry(state: TrackingState): Boolean =
     state == TrackingState.GPS_LOST || state == TrackingState.GPS_DISABLED
 
+/**
+ * Serializes ride-point writes and lets finalization await the writes that existed when it began.
+ *
+ * Location callbacks, manual pause, and Stop are separate callbacks. Launching their database work
+ * directly on [Dispatchers.IO] gives no ordering guarantee, so Stop could reconstruct a ride before
+ * the pause marker (or the final GPS fix) reached Room. The chain preserves callback order without
+ * blocking the main thread.
+ */
+internal class OrderedWriteChain(private val scope: CoroutineScope) {
+    private val lock = Any()
+    private var tail: Job? = null
+
+    fun enqueue(block: suspend () -> Unit): Job = synchronized(lock) {
+        val previous = tail
+        scope.launch {
+            previous?.join()
+            block()
+        }.also { tail = it }
+    }
+
+    suspend fun awaitPending() {
+        val snapshot = synchronized(lock) { tail }
+        snapshot?.join()
+    }
+}
+
 class TrackingService : Service() {
 
     private lateinit var locationHelper: LocationHelper
@@ -65,6 +91,7 @@ class TrackingService : Service() {
     /** Only registered when no ride stream is open. See [PresenceStreamPolicy]. */
     private var presenceStreamActive = false
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val pointWriteChain = OrderedWriteChain(serviceScope)
     private var currentState = TrackingState.IDLE
     private var currentRideId: Long? = null
     private var lastLocation: Location? = null
@@ -171,7 +198,7 @@ class TrackingService : Service() {
                         enterStorageLowState()
                         return@let
                     }
-                    serviceScope.launch {
+                    pointWriteChain.enqueue {
                         try {
                             rideDao.insertGPSPoint(
                                 GPSPointEntity(
@@ -546,7 +573,7 @@ class TrackingService : Service() {
     private fun markPauseBoundary() {
         val location = lastLocation ?: return
         val rideId = currentRideId ?: return
-        serviceScope.launch {
+        pointWriteChain.enqueue {
             runCatching {
                 rideDao.insertGPSPoint(
                     GPSPointEntity(
@@ -653,6 +680,9 @@ class TrackingService : Service() {
         }
 
         serviceScope.launch {
+            // Location and pause callbacks persist asynchronously. Drain the ordered snapshot from
+            // this ride before reading it back for final metrics, route metadata, and sync.
+            pointWriteChain.awaitPending()
             if (liveShareManager.state.value.status == LiveShareStatus.ACTIVE || liveShareManager.state.value.stopOnRideEnd) {
                 liveShareManager.stopSession("Ride ended by user.")
             }
