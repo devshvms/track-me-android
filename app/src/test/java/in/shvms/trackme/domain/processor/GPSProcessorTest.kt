@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.domain.processor
 
 import `in`.shvms.trackme.data.local.dao.RideDao
+import `in`.shvms.trackme.data.local.dao.HistoryRideSummary
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.PostRideCalculation
 import `in`.shvms.trackme.data.local.entity.RideEntity
@@ -110,6 +111,8 @@ class GPSProcessorTest {
         override fun getAllRidesWithPoints(): Flow<List<RideWithPoints>> = flowOf(emptyList())
         override suspend fun getAllRidesWithPointsSync(): List<RideWithPoints> = emptyList()
         override fun getAllCompletedRidesWithPoints(): Flow<List<RideWithPoints>> = flowOf(emptyList())
+        override fun getAllCompletedRideSummaries(): Flow<List<HistoryRideSummary>> = flowOf(emptyList())
+        override fun getGroupRideSummaries(): Flow<List<HistoryRideSummary>> = flowOf(emptyList())
         override suspend fun getUncompletedRides(): List<RideEntity> = emptyList()
         override suspend fun getRideWithPointsById(rideId: Long): RideWithPoints? = rideWithPoints
         override fun getRideFlow(rideId: Long): Flow<RideEntity?> = flowOf(rideWithPoints?.ride)

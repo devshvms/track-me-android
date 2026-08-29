@@ -2,6 +2,7 @@ package `in`.shvms.trackme.data.remote
 
 import android.util.Log
 import `in`.shvms.trackme.auth.AuthManager
+import `in`.shvms.trackme.data.local.HOME_DASHBOARD_METADATA_VERSION
 import `in`.shvms.trackme.data.local.dao.RideDao
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.PostRideCalculation
@@ -47,31 +48,58 @@ internal fun coerceEpochMillis(value: Any?): Long? = when (value) {
 // Pure. distanceMeters mirrors GPSProcessor's GeoDistanceCalculator seam so tests inject haversine.
 internal fun computeCalcFromPoints(
     points: List<GPSPointEntity>,
+    persona: `in`.shvms.trackme.domain.model.RidePersona,
     distanceMeters: (a: GPSPointEntity, b: GPSPointEntity) -> Float
 ): PostRideCalculation {
-    if (points.size < 2) return PostRideCalculation(0f, 0.0, 0f, 0L)
+    if (points.size < 2) return PostRideCalculation(0f, 0.0, 0f, 0L, rawPointCount = points.size)
     var totalDistance = 0.0
     var activeTimeMs = 0L
     var maxSpeed = 0f
     for (i in 1 until points.size) {
         val prev = points[i - 1]; val cur = points[i]
         if (cur.speed > maxSpeed) maxSpeed = cur.speed
+        // TASK-257 left this policy alone deliberately. This path counts the distance across a gap
+        // and books the time as pause; GPSProcessor drops the distance instead. **The two have
+        // disagreed since before this task** and a ride's distance can therefore change depending on
+        // which path last computed it. That is worth settling, but it is not shvm's reported bug --
+        // a manual pause now leaves a flagged point, so `isPaused` below excludes it on both paths.
+        // Changing the gap policy here as a side effect would be a silent behaviour change.
         if (!prev.isPaused && !cur.isPaused) {
             totalDistance += distanceMeters(prev, cur)
             val gap = cur.timestamp - prev.timestamp
-            if (gap in 1..60_000) activeTimeMs += gap   // ignore gaps > 60s (matches processor intent)
+            // TASK-259: was `gap in 1..60_000`, behind a comment claiming it matched the
+            // processor's intent. It never did -- the processor capped at 15s. Now the shared rule.
+            if (`in`.shvms.trackme.data.local.countsAsMovingTime(prev, cur)) activeTimeMs += gap
         }
     }
     if (points[0].speed > maxSpeed) maxSpeed = points[0].speed
     val avgSpeed = if (activeTimeMs > 0) (totalDistance / (activeTimeMs / 1000f)).toFloat() else 0f
     val total = points.last().timestamp - points.first().timestamp
     val pauseMs = maxOf(0L, total - activeTimeMs)
-    return PostRideCalculation(maxSpeed, totalDistance, avgSpeed, pauseMs)
+    return PostRideCalculation(
+        maxSpeed,
+        totalDistance,
+        avgSpeed,
+        pauseMs,
+        rawPointCount = points.size,
+        elevationGainMeters = `in`.shvms.trackme.domain.processor.calculateElevationGainMeters(points),
+    )
 }
 
 /** Sample rides and local tombstones are never candidates for any bulk upload pass. */
 internal fun isRideEligibleForCloudSync(ride: RideEntity): Boolean =
     !ride.isSample && !ride.pendingDelete
+
+/** Additive cross-device dashboard facts. No user copy or location coordinates are included. */
+internal fun dashboardCloudMetadata(ride: RideEntity, pointCount: Int): Map<String, Any?> = buildMap {
+    put("rawPointCount", pointCount.coerceAtLeast(0))
+    put("startZoneId", ride.startZoneId)
+    // A pre-v2 row's zero is a migration placeholder, not an observed active duration. Omitting the
+    // field lets another client reconstruct it from points instead of freezing that placeholder.
+    if (ride.dashboardMetadataVersion >= HOME_DASHBOARD_METADATA_VERSION) {
+        put("activeDurationMillis", ride.dashboardActiveDurationMillis)
+    }
+}
 
 sealed class SyncResult {
     object Idle : SyncResult()
@@ -427,6 +455,8 @@ class FirestoreSyncManager(
             val distance = doc.getDouble("distance") ?: 0.0
             val avgSpeed = (doc.getDouble("avgSpeed") ?: 0.0).toFloat()
             val pauseDuration = doc.getLong("pauseDuration") ?: 0L
+            val elevationGainMeters = doc.getDouble("elevationGainMeters")
+            val persistedActiveDuration = doc.getLong("activeDurationMillis")
 
             val docHasStats = doc.get("distance") != null
 
@@ -445,19 +475,33 @@ class FirestoreSyncManager(
             }
 
             val calc = if (docHasStats) {
-                PostRideCalculation(maxSpeed, distance, avgSpeed, pauseDuration)
+                PostRideCalculation(
+                    maxSpeed,
+                    distance,
+                    avgSpeed,
+                    pauseDuration,
+                    rawPointCount = gpsPoints.size,
+                    elevationGainMeters = elevationGainMeters,
+                )
             } else if (gpsPoints.isNotEmpty()) {
-                computeCalcFromPoints(gpsPoints) { a, b ->
+                computeCalcFromPoints(
+                    gpsPoints,
+                    runCatching {
+                        `in`.shvms.trackme.domain.model.RidePersona.valueOf(
+                            doc.getString("persona") ?: "AUTO"
+                        )
+                    }.getOrDefault(`in`.shvms.trackme.domain.model.RidePersona.AUTO),
+                ) { a, b ->
                     val r = FloatArray(1)
                     android.location.Location.distanceBetween(a.latitude, a.longitude, b.latitude, b.longitude, r)
                     r[0]
                 }
             } else {
-                PostRideCalculation(0f, 0.0, 0f, 0L)
+                PostRideCalculation(0f, 0.0, 0f, 0L, rawPointCount = gpsPoints.size)
             }
 
             val persona = doc.getString("persona") ?: "AUTO"
-            val newRide = RideEntity(
+            val ride = RideEntity(
                 startTime = startTime,
                 endTime = endTime,
                 sourceInfo = sourceInfo,
@@ -465,8 +509,33 @@ class FirestoreSyncManager(
                 firestoreId = docId,
                 title = title,
                 persona = persona,
+                startZoneId = doc.getString("startZoneId"),
                 postRideCalculation = calc
             )
+            val reconstructedActiveDuration =
+                `in`.shvms.trackme.data.local.dashboardActiveDurationFromPoints(gpsPoints)
+            val activeDuration = persistedActiveDuration ?: reconstructedActiveDuration
+            // TASK-246: the route shape must be built here too. Omitting it let a downloaded ride
+            // land with points, a null polyline and the *current* metadata version, which the
+            // backfill's version gate then skipped forever -- so every cloud ride kept the generic
+            // glyph. `ride` is freshly constructed, so the parameter's default (the existing
+            // polyline) is always null on this path.
+            val downloadedPolyline =
+                `in`.shvms.trackme.data.local.dashboardRoutePolylineFromPoints(gpsPoints)
+            val newRide = if (activeDuration != null) {
+                `in`.shvms.trackme.data.local.withDashboardMetadata(
+                    ride,
+                    activeDuration,
+                    gpsPoints.size,
+                    downloadedPolyline,
+                )
+            } else {
+                `in`.shvms.trackme.data.local.withUnavailableDashboardMetadata(
+                    ride,
+                    gpsPoints.size,
+                    downloadedPolyline,
+                )
+            }
             val rideId = rideDao.insertRide(newRide)
 
             if (gpsPoints.isNotEmpty()) {
@@ -569,7 +638,7 @@ class FirestoreSyncManager(
             }
 
             val calc = rideWithPoints.ride.postRideCalculation
-            val rideData = mapOf(
+            val rideData = mapOf<String, Any?>(
                 "startTime" to rideWithPoints.ride.startTime,
                 "endTime" to rideWithPoints.ride.endTime,
                 "sourceInfo" to rideWithPoints.ride.sourceInfo,
@@ -579,8 +648,9 @@ class FirestoreSyncManager(
                 "distance" to (calc?.distance ?: 0.0),
                 "avgSpeed" to (calc?.avgSpeed ?: 0f),
                 "pauseDuration" to (calc?.pauseDuration ?: 0L),
+                "elevationGainMeters" to calc?.elevationGainMeters,
                 RideChunking.CHUNK_COUNT_FIELD to chunks.size
-            )
+            ) + dashboardCloudMetadata(rideWithPoints.ride, rideWithPoints.points.size)
 
             // LAST. Everything above can be retried; this is what makes the ride real.
             rideDocRef.set(rideData).await()

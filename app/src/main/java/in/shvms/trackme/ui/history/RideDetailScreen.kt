@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.domain.export.GPXExporterImpl
 import `in`.shvms.trackme.domain.export.NativeSnapshotImageExporterImpl
 import `in`.shvms.trackme.domain.export.trimGpsPointsForExport
@@ -96,7 +97,11 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.domain.processor.rideTrimWindow
+import `in`.shvms.trackme.domain.config.PersonaAutoPauseConfig
+import `in`.shvms.trackme.domain.processor.RideGaps
 
 // Currently has no callers. Kept, but pinned to the canonical ride-summary precision so it cannot
 // reintroduce TASK-109's screen-vs-shared-artifact mismatch the moment someone does call it.
@@ -116,6 +121,68 @@ internal fun initialRouteCamera(latLngs: List<LatLng>, bounds: LatLngBounds): Ca
     val span = maxOf(latSpan, lngSpan, 1e-4)
     val zoom = (log2(360.0 / span) - 0.5).toFloat().coerceIn(2f, 17f)
     return CameraPosition.fromLatLngZoom(bounds.center, zoom)
+}
+
+/**
+ * TASK-251, shvm: the Ride Detail map let you pan to anywhere on earth, far past any part of the
+ * route, so a small window could end up showing empty ocean with no polyline in it.
+ *
+ * The route bounds were already computed here -- theyframe the map on load -- but nothing kept the
+ * camera inside them afterwards, so the very first drag left the ride behind. This pads those
+ * bounds and hands them to `MapProperties.latLngBoundsForCameraTarget`, which constrains the camera
+ * *target*: the visible area may still overhang the route, which is what makes the edges feel
+ * natural, but the centre can never leave.
+ *
+ * Padding is a fraction of the route's own span rather than a fixed degree amount, because a 300 m
+ * loop and a 300 km tour need very different slack and a constant would be wrong for one of them.
+ */
+internal fun routeCameraBounds(bounds: LatLngBounds, paddingFraction: Double = 0.35): LatLngBounds {
+    val latSpan = bounds.northeast.latitude - bounds.southwest.latitude
+    var lngSpan = bounds.northeast.longitude - bounds.southwest.longitude
+    if (lngSpan < 0) lngSpan += 360.0
+
+    // A stationary ride has no span to pad. The floor gives it a small workable box instead of a
+    // degenerate one the map would reject.
+    val latPad = maxOf(latSpan * paddingFraction, 0.002)
+    val lngPad = maxOf(lngSpan * paddingFraction, 0.002)
+
+    val south = (bounds.southwest.latitude - latPad).coerceAtLeast(-85.0)
+    val north = (bounds.northeast.latitude + latPad).coerceAtMost(85.0)
+    val west = bounds.southwest.longitude - lngPad
+    val east = bounds.northeast.longitude + lngPad
+
+    // A route wide enough that padding would wrap the globe is better left unconstrained in
+    // longitude than given a box that crosses the antimeridian the wrong way.
+    if (east - west >= 360.0) {
+        return LatLngBounds(LatLng(south, -180.0), LatLng(north, 180.0))
+    }
+    return LatLngBounds(
+        LatLng(south, normalizeLongitude(west)),
+        LatLng(north, normalizeLongitude(east)),
+    )
+}
+
+/**
+ * The furthest out the camera may zoom: roughly the whole padded route and no more.
+ *
+ * Without this the bounds alone are not enough -- the camera target stays put while the viewport
+ * zooms out around it, which is exactly how a 5 km ride ends up as a dot on a continent.
+ */
+internal fun minZoomForRoute(bounds: LatLngBounds): Float {
+    val latSpan = bounds.northeast.latitude - bounds.southwest.latitude
+    var lngSpan = bounds.northeast.longitude - bounds.southwest.longitude
+    if (lngSpan < 0) lngSpan += 360.0
+    val span = maxOf(latSpan, lngSpan, 1e-4)
+    // One stop looser than the fit, so the rider keeps a little room to pull back and see the whole
+    // shape with context. Tighter than this reads as the map fighting the gesture.
+    return (log2(360.0 / span) - 1.5).toFloat().coerceIn(2f, 16f)
+}
+
+internal fun normalizeLongitude(degrees: Double): Double {
+    var d = degrees
+    while (d > 180.0) d -= 360.0
+    while (d < -180.0) d += 360.0
+    return d
 }
 
 fun vectorToBitmap(context: android.content.Context, id: Int, color: Int): BitmapDescriptor {
@@ -366,8 +433,31 @@ fun RideDetailScreen(
                 }
             }
         } else {
-            val points = rideWithPoints!!.points
+            val allPoints = rideWithPoints!!.points
             val ride = rideWithPoints!!.ride
+
+            // TASK-253, shvm: hide the stationary head and tail a rider did not mean to record.
+            //
+            // A display window, not an edit. Nothing is stored and nothing is deleted, so there is
+            // no undo to build -- `showFullRecording` simply stops applying it. The stats are
+            // deliberately untouched and are already right: `dashboardActiveDurationFromPoints`
+            // excludes paused points, so a forgotten half hour was never in "Duration". It is in
+            // "Total", correctly, because the ride really did span that wall time.
+            // TASK-257: the persona drives both the trim's pause speed and the gap rule's ceiling.
+            val ridePersona = remember(ride.persona) {
+                runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
+            }
+            val trimPauseSpeedMps = remember(ridePersona) {
+                PersonaAutoPauseConfig.getThresholdsForPersona(ridePersona).pauseSpeedMps
+            }
+            val trim = remember(allPoints, trimPauseSpeedMps) {
+                rideTrimWindow(allPoints, trimPauseSpeedMps)
+            }
+            var showFullRecording by rememberSaveable(rideId) { mutableStateOf(false) }
+            val points = remember(allPoints, trim, showFullRecording) {
+                if (showFullRecording || !trim.isTrimmed) allPoints
+                else allPoints.subList(trim.startIndex, trim.endIndex + 1)
+            }
             var scrubIndex by rememberSaveable(rideId) { mutableStateOf<Int?>(null) }
             
             var columnScrollEnabled by remember { mutableStateOf(true) }
@@ -379,6 +469,9 @@ fun RideDetailScreen(
                     .padding(padding)
                     .verticalScroll(scrollState, enabled = columnScrollEnabled)
             ) {
+                RideSummaryCard(ride = ride, imperial = imperial, strings = strings)
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -468,7 +561,17 @@ fun RideDetailScreen(
                                 .fillMaxSize()
                                 .alpha(if (isMapLoaded) 1f else 0f),
                             cameraPositionState = cameraPositionState,
-                            properties = MapProperties(mapType = mapType, isTrafficEnabled = isTrafficEnabled, mapStyleOptions = mapStyle),
+                            // TASK-251: fence the camera to the route. The bounds constrain the
+                            // target and the min zoom stops the viewport pulling back around it;
+                            // rotation, tilt and zoom-in are untouched, which is the part shvm
+                            // liked.
+                            properties = MapProperties(
+                                mapType = mapType,
+                                isTrafficEnabled = isTrafficEnabled,
+                                mapStyleOptions = mapStyle,
+                                latLngBoundsForCameraTarget = remember(bounds) { routeCameraBounds(bounds) },
+                                minZoomPreference = remember(bounds) { minZoomForRoute(bounds) },
+                            ),
                             uiSettings = MapUiSettings(zoomControlsEnabled = false),
                             onMapLoaded = {
                                 if (latLngs.size > 1) {
@@ -480,11 +583,38 @@ fun RideDetailScreen(
                             MapEffect { map ->
                                 mapInstance = map
                             }
-                            Polyline(
-                                points = latLngs,
-                                color = TrackMeBlueDark,
-                                width = 10f
-                            )
+                            // TASK-257, shvm: a solid line asserts "this is where you went". Across
+                            // an unrecorded stretch -- a manual pause, a tunnel -- it asserts a route
+                            // nobody rode, straight through buildings. Recorded runs stay solid; the
+                            // joins between them are dotted, which reads as "we do not know" rather
+                            // than as a road.
+                            val recordedRuns = remember(points, ridePersona) {
+                                RideGaps.recordedRuns(points, ridePersona)
+                            }
+                            recordedRuns.forEach { run ->
+                                if (run.size >= 2) {
+                                    Polyline(
+                                        points = run.map { LatLng(it.latitude, it.longitude) },
+                                        color = TrackMeBlueDark,
+                                        width = 10f
+                                    )
+                                }
+                            }
+                            recordedRuns.zipWithNext().forEach { (before, after) ->
+                                val from = before.lastOrNull()
+                                val to = after.firstOrNull()
+                                if (from != null && to != null) {
+                                    Polyline(
+                                        points = listOf(
+                                            LatLng(from.latitude, from.longitude),
+                                            LatLng(to.latitude, to.longitude),
+                                        ),
+                                        color = TrackMeBlueDark.copy(alpha = 0.55f),
+                                        width = 8f,
+                                        pattern = listOf(Dot(), Gap(14f)),
+                                    )
+                                }
+                            }
 
                             pausedLocations.forEach { ll ->
                                 Marker(
@@ -641,6 +771,36 @@ fun RideDetailScreen(
                         distances
                     }
 
+                    // TASK-253: the trim announces itself. Quietly dropping part of someone's own
+                    // recording would be the same class of problem as deleting it -- they would
+                    // have no way to know the chart was not the whole ride, and no way to ask for
+                    // it back. One line and one tap, sitting directly above the chart it explains.
+                    if (trim.isTrimmed) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = String.format(
+                                    Locale.getDefault(),
+                                    strings.inactivityHidden,
+                                    formatDuration(trim.totalTrimmedMillis),
+                                ),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            TextButton(onClick = { showFullRecording = !showFullRecording }) {
+                                Text(
+                                    if (showFullRecording) strings.hideInactivity
+                                    else strings.showFullRecording
+                                )
+                            }
+                        }
+                    }
+
                     CombinedMetricLineChart(
                         points = points,
                         usesPace = chartUsesPace,
@@ -708,96 +868,14 @@ fun RideDetailScreen(
                     )
                 }
                 
-                Card(
-                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        val ridePersona = remember(ride.persona) {
-                            runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(strings.rideStats, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = ridePersona.icon(),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = strings.personaLabel(ridePersona),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                            }
-                        }
-                        val dateFormat = remember {
-                            java.text.SimpleDateFormat("MMM dd, yyyy - HH:mm", java.util.Locale.getDefault())
-                        }
-                        // Start time reads as a caption under the heading rather than as a grid
-                        // cell. In a third of a row it was always truncated to "Aug 17, ..." — the one
-                        // part of a timestamp that carries no information.
-                        Text(
-                            text = dateFormat.format(java.util.Date(ride.startTime)),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        // Hairline-separated cells with tabular figures so the columns stop
-                        // jittering as values change.
-                        //
-                        // The effort column follows the persona: a walk or a run reports pace,
-                        // everything else reports speed. Freeing the start-time cell left room for
-                        // the best/max figure, which was already computed and only ever used to
-                        // name the ride.
-                        val effortIsPace = ridePersona.usesPace
-                        val avgMps = (ride.postRideCalculation?.avgSpeed ?: 0f).toDouble()
-                        val maxMps = (ride.postRideCalculation?.maxSpeed ?: 0f).toDouble()
-                        StatGrid(
-                            listOf(
-                                Stat(strings.distance, `in`.shvms.trackme.domain.UnitFormatter.rideDistance(ride.postRideCalculation?.distance ?: 0.0, imperial)),
-                                Stat(strings.duration, formatDuration((ride.endTime ?: ride.startTime) - ride.startTime)),
-                                Stat(
-                                    if (effortIsPace) strings.avgPace else strings.avgSpeed,
-                                    if (effortIsPace) {
-                                        `in`.shvms.trackme.domain.UnitFormatter.pace(avgMps, imperial)
-                                    } else {
-                                        `in`.shvms.trackme.domain.UnitFormatter.speed(avgMps, imperial)
-                                    }
-                                ),
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        StatGrid(
-                            listOf(
-                                Stat(strings.gpsPoints, points.size.toString()),
-                                Stat(strings.maxGForce, String.format("%.2f G", (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f)),
-                                Stat(
-                                    if (effortIsPace) strings.bestPace else strings.maxSpeed,
-                                    if (effortIsPace) {
-                                        `in`.shvms.trackme.domain.UnitFormatter.pace(maxMps, imperial)
-                                    } else {
-                                        `in`.shvms.trackme.domain.UnitFormatter.speed(maxMps, imperial)
-                                    }
-                                ),
-                            )
-                        )
-                    }
-                }
+                RecordingDetailsCard(
+                    ride = ride,
+                    // TASK-253: the full recording. This card is a diagnostic about what the device
+                    // captured, so trimming its point count would make it lie about the thing it
+                    // exists to report.
+                    points = allPoints,
+                    strings = strings,
+                )
                 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -926,6 +1004,10 @@ fun RideDetailScreen(
             val markerSize = ExportRenderScale.markerSize(exportWidth)
             val markerStyle = settings.markerStyle
             val pausedForExport = pausedOnRoute(routePoints)
+            // TASK-257: `handleExport` has its own `ride`, so the persona is resolved here rather
+            // than captured from the composable scope above.
+            val exportPersona = runCatching { RidePersona.valueOf(ride.ride.persona) }
+                .getOrDefault(RidePersona.AUTO)
             val exportLatLngs = routePoints.map { LatLng(it.latitude, it.longitude) }
 
             captureOffscreenMap(
@@ -935,12 +1017,34 @@ fun RideDetailScreen(
                 mapType = settings.mapType,
                 configure = { map ->
                     settings.mapStyle(context)?.let { map.setMapStyle(it) }
-                    map.addPolyline(
-                        com.google.android.gms.maps.model.PolylineOptions()
-                            .addAll(exportLatLngs)
-                            .color(TrackMeBlueDark.toArgb())
-                            .width(ExportRenderScale.routeStroke(exportWidth))
-                    )
+                    // TASK-257: the shared image is what a rider posts, so it is the last place a
+                    // straight line through buildings should appear. Same rule as the detail map --
+                    // solid for what was recorded, dotted across what was not.
+                    val exportRuns = RideGaps.recordedRuns(routePoints, exportPersona)
+                    exportRuns.forEach { run ->
+                        if (run.size >= 2) {
+                            map.addPolyline(
+                                com.google.android.gms.maps.model.PolylineOptions()
+                                    .addAll(run.map { LatLng(it.latitude, it.longitude) })
+                                    .color(TrackMeBlueDark.toArgb())
+                                    .width(ExportRenderScale.routeStroke(exportWidth))
+                            )
+                        }
+                    }
+                    exportRuns.zipWithNext().forEach { (before, after) ->
+                        val from = before.lastOrNull()
+                        val to = after.firstOrNull()
+                        if (from != null && to != null) {
+                            map.addPolyline(
+                                com.google.android.gms.maps.model.PolylineOptions()
+                                    .add(LatLng(from.latitude, from.longitude))
+                                    .add(LatLng(to.latitude, to.longitude))
+                                    .color(TrackMeBlueDark.copy(alpha = 0.55f).toArgb())
+                                    .width(ExportRenderScale.routeStroke(exportWidth) * 0.8f)
+                                    .pattern(listOf(Dot(), Gap(ExportRenderScale.routeStroke(exportWidth) * 1.6f)))
+                            )
+                        }
+                    }
                     ExportMarkers.pause(markerStyle, markerSize)?.let { icon ->
                         pausedForExport.forEach { location ->
                             map.addMarker(
@@ -978,18 +1082,17 @@ fun RideDetailScreen(
                     runCatching {
                         // Built once, here, and handed to both the panel geometry and the exporter.
                         // Deriving it twice is what let the file and the preview disagree (§8.1).
+                        val exportDuration = displayExportDuration(ride.ride)
                         val exportOverlayContent = buildOverlayContent(
                             date = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
                                 .format(java.util.Date(ride.ride.startTime)),
-                            duration = compactDuration(
-                                (ride.ride.endTime ?: ride.ride.startTime) - ride.ride.startTime
-                            ),
+                            duration = exportDuration ?: strings.unknown,
                             distance = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(
                                 ride.ride.postRideCalculation?.distance ?: 0.0,
                                 imperial
                             ),
                             showDate = settings.showDate,
-                            showDuration = settings.showDuration,
+                            showDuration = settings.showDuration && exportDuration != null,
                             showDistance = settings.showDistance,
                         )
                         NativeSnapshotImageExporterImpl().export(
@@ -1254,14 +1357,14 @@ fun RideDetailScreen(
                     // smear across the map that says less than the map it is covering.
                     val overlayContent = run {
                         val distanceStr = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(rideWithPoints?.ride?.postRideCalculation?.distance ?: 0.0, imperial)
-                        val durationMillis = (rideWithPoints?.ride?.endTime ?: rideWithPoints?.ride?.startTime ?: 0L) - (rideWithPoints?.ride?.startTime ?: 0L)
+                        val exportDuration = rideWithPoints?.ride?.let(::displayExportDuration)
                         val dateStr = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date(rideWithPoints?.ride?.startTime ?: 0L))
                         buildOverlayContent(
                             date = dateStr,
-                            duration = compactDuration(durationMillis),
+                            duration = exportDuration ?: strings.unknown,
                             distance = distanceStr,
                             showDate = settings.showDate,
-                            showDuration = settings.showDuration,
+                            showDuration = settings.showDuration && exportDuration != null,
                             showDistance = settings.showDistance,
                         )
                     }
@@ -1326,6 +1429,182 @@ fun RideDetailScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RideSummaryCard(
+    ride: RideEntity,
+    imperial: Boolean,
+    strings: AppStrings,
+) {
+    Card(
+        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            val ridePersona = remember(ride.persona) {
+                runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(strings.rideStats, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    ) {
+                        Icon(
+                            imageVector = ridePersona.icon(),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = strings.personaLabel(ridePersona),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+            }
+            // TASK-229: start time reads as a caption under the heading, not as a grid cell. In a
+            // third of a row a date plus a time was always truncated to "Aug 23, 2026 - ...", which
+            // drops the one half a rider is actually looking for and says less than 1.8.4 did.
+            // Full width, and formatted by the platform so it stays unabbreviated in all seven
+            // locales rather than in an en-US pattern.
+            val dateFormat = remember {
+                java.text.DateFormat.getDateTimeInstance(
+                    java.text.DateFormat.MEDIUM,
+                    java.text.DateFormat.SHORT,
+                    java.util.Locale.getDefault(),
+                )
+            }
+            Text(
+                text = dateFormat.format(java.util.Date(ride.startTime)),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            val effortIsPace = ridePersona.usesPace
+            val avgMps = (ride.postRideCalculation?.avgSpeed ?: 0f).toDouble()
+            val maxMps = (ride.postRideCalculation?.maxSpeed ?: 0f).toDouble()
+            StatGrid(
+                listOf(
+                    Stat(strings.distance, `in`.shvms.trackme.domain.UnitFormatter.rideDistance(ride.postRideCalculation?.distance ?: 0.0, imperial)),
+                    // TASK-230/235: this value is the pause-excluded one (SS5.1). It keeps the
+                    // label "Duration" and the sixth cell below restores "Total" beside it -- the
+                    // same two words the HUD uses mid-ride, which is where a rider learns the
+                    // distinction. A single unlabelled figure was the defect; the pair is the fix.
+                    Stat(
+                        strings.duration,
+                        displayActiveDurationMillis(ride)?.let(::formatDuration) ?: strings.unknown,
+                    ),
+                    Stat(
+                        if (effortIsPace) strings.avgPace else strings.avgSpeed,
+                        if (effortIsPace) {
+                            `in`.shvms.trackme.domain.UnitFormatter.pace(avgMps, imperial)
+                        } else {
+                            `in`.shvms.trackme.domain.UnitFormatter.speed(avgMps, imperial)
+                        },
+                    ),
+                ),
+            )
+            // TASK-252, shvm: the two grids sit further apart than their cells are tall, so each
+            // row reads as its own group. On iOS the same change had to be paired with pulling the
+            // label onto its value; here the hairline-separated cell already does that grouping.
+            Spacer(modifier = Modifier.height(16.dp))
+            StatGrid(
+                listOf(
+                    Stat(
+                        if (effortIsPace) strings.bestPace else strings.maxSpeed,
+                        if (effortIsPace) {
+                            `in`.shvms.trackme.domain.UnitFormatter.pace(maxMps, imperial)
+                        } else {
+                            `in`.shvms.trackme.domain.UnitFormatter.speed(maxMps, imperial)
+                        },
+                    ),
+                    ride.postRideCalculation?.elevationGainMeters?.let { elevationMeters ->
+                        Stat(
+                            strings.elevationGain,
+                            String.format(
+                                java.util.Locale.getDefault(),
+                                "%.0f %s",
+                                if (imperial) elevationMeters * 3.28084 else elevationMeters,
+                                if (imperial) "ft" else "m",
+                            ),
+                        )
+                    },
+                    // The cell TASK-229 freed. Always rendered, never suppressed when it equals
+                    // moving time: a ride with no pause showing both figures equal is the fact,
+                    // and it is what makes the pair readable without a legend.
+                    Stat(
+                        strings.total,
+                        displayTotalElapsedMillis(ride)?.let(::formatDuration) ?: strings.unknown,
+                    ),
+                ).filterNotNull(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecordingDetailsCard(
+    ride: RideEntity,
+    points: List<GPSPointEntity>,
+    strings: AppStrings,
+) {
+    var showRecordingDetails by rememberSaveable { mutableStateOf(false) }
+    val signalGapCount = points.zipWithNext().count { (previous, current) ->
+        current.timestamp - previous.timestamp > 25_000L
+    }
+
+    Card(
+        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            TextButton(
+                onClick = { showRecordingDetails = !showRecordingDetails },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    imageVector = if (showRecordingDetails) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = null,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(strings.recordingDetails)
+            }
+            if (showRecordingDetails) {
+                StatGrid(
+                    listOf(
+                        Stat(strings.gpsPoints, points.size.toString()),
+                        Stat(
+                            strings.maxGForce,
+                            String.format(
+                                java.util.Locale.getDefault(),
+                                "%.2f G",
+                                (ride.postRideCalculation?.maxAcceleration ?: 0f) / 9.8f,
+                            ),
+                        ),
+                        Stat(strings.gpsSignalGaps, signalGapCount.toString()),
+                    ),
+                )
+                Text(
+                    text = if (ride.isSynced) strings.syncStatusSynced else strings.syncStatusLocal,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
     }
@@ -1591,6 +1870,10 @@ private fun formatDuration(durationMillis: Long): String {
     val seconds = totalSeconds % 60
     return String.format(java.util.Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
 }
+
+/** Uses the same reconciled active duration as the History card; never guesses from wall time. */
+internal fun displayExportDuration(ride: RideEntity): String? =
+    displayActiveDurationMillis(ride)?.let(::compactDuration)
 
 /**
  * One sample of the effort series, in whatever unit the chart is plotting.

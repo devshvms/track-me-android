@@ -35,6 +35,9 @@ class MotionTokenAdoptionTest {
             "stop-slide is one timed sequence with the acknowledgement delay and the commit; a " +
             "spring settles as a function of screen width, so the ride would stop at a different " +
             "moment on a tablet than on a phone",
+        "ui/home/HomeScreen.kt" to
+            "HOME_DASHBOARD_MOTION is a cross-platform timed sequence: deck, scrim, controls and " +
+            "opacity must resolve at the specified 420/300 ms boundaries",
     )
 
     private val tweenCall = Regex("""(^|[^A-Za-z])tween\s*\(""")

@@ -8,6 +8,11 @@ import android.net.Uri
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import `in`.shvms.trackme.data.local.dao.HistoryRideSummary
+import `in`.shvms.trackme.ui.history.RideHistoryCard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -102,6 +107,8 @@ import java.util.concurrent.TimeUnit
 fun CommunityScreen(
     onNavigateToSignIn: () -> Unit,
     onOpenHome: () -> Unit = {},
+    /** TASK-232: a group ride opens the ordinary Ride Detail; there is no separate group screen. */
+    onOpenRideDetail: (Long) -> Unit = {},
     /**
      * SCOPE_1.7.3 §4 — hand Home a member to point at, then switch to it. Distinct from
      * [onOpenHome], which is the group *destination* control and only switches tabs.
@@ -114,16 +121,20 @@ fun CommunityScreen(
                 currentUid = { FirebaseAuth.getInstance().currentUser?.uid },
                 displayName = { FirebaseAuth.getInstance().currentUser?.displayName },
                 photoUrl = { FirebaseAuth.getInstance().currentUser?.photoUrl?.toString() },
+                rideDao = database.rideDao(),
             )
         },
     ),
 ) {
     val state by viewModel.uiState.collectAsStateCompat()
+    val groupRides by viewModel.groupRides.collectAsStateCompat()
     val strings = LocalAppStrings.current
     val context = LocalContext.current
     val messenger = rememberMessenger()
     val app = context.applicationContext as TrackMeApp
     val scope = rememberCoroutineScope()
+    val unitSystem by app.preferencesManager.unitSystem.collectAsStateCompat()
+    val imperial = unitSystem == "imperial"
     // §4/Q4.2 explains an un-focusable row here rather than with a Toast, so it matches the
     // group-end notice and the recovery notice already surfaced through this host.
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
@@ -160,6 +171,32 @@ fun CommunityScreen(
             showJoin = true
         }
         app.consumePendingGroupInvite()
+    }
+
+    // TASK-254/258: Home asked for a sheet. Same shape as the pending-invite effect above and for
+    // the same reason -- the surface that asks and the surface that can act are not composed
+    // together.
+    //
+    // TASK-258, shvm: **signed out, this used to swallow the request.** It consumed the action and
+    // set the sheet flag while the screen was showing `SignedOutState`, so the rider was carried to
+    // Community, shown a sign-in prompt, and their intent was gone -- they had to start again. Now
+    // a signed-out request is left *pending*: the rider signs in, this effect re-runs on
+    // `state.signedIn`, and the sheet they originally asked for opens. The request lives in memory
+    // only, so it does not outlive the process and surprise them on a later launch.
+    //
+    // `inGroup` still consumes without acting: a rider can tap Create on Home and be joined by an
+    // invite before this composes, and opening a create sheet over a live group would be wrong.
+    val pendingGroupAction by app.pendingGroupAction.collectAsStateCompat()
+    LaunchedEffect(pendingGroupAction, state.signedIn, state.inGroup) {
+        val action = pendingGroupAction ?: return@LaunchedEffect
+        if (!state.signedIn) return@LaunchedEffect
+        if (!state.inGroup) {
+            when (action) {
+                TrackMeApp.GroupEntryAction.CREATE -> showCreate = true
+                TrackMeApp.GroupEntryAction.JOIN -> showJoin = true
+            }
+        }
+        app.consumePendingGroupAction()
     }
 
     // A group that ends while the tab is open must close its sheets, or the user is left typing
@@ -295,9 +332,12 @@ fun CommunityScreen(
                 strings = strings,
                 busy = state.busy,
                 error = state.error,
+                groupRides = groupRides,
+                imperial = imperial,
                 onCreate = { showCreate = true },
                 onJoin = { showJoin = true },
                 onDismissError = viewModel::clearError,
+                onOpenRide = onOpenRideDetail,
             )
         }
         }
@@ -358,7 +398,9 @@ fun CommunityScreen(
         )
     }
 
-    if (showCreate) {
+    // TASK-258: never over `SignedOutState` -- the sheets sit outside the sign-in `when`,
+    // so without this guard a create sheet could open on top of a sign-in prompt.
+    if (showCreate && state.signedIn) {
         CreateGroupSheet(
             strings = strings,
             defaultName = defaultGroupName(strings),
@@ -369,7 +411,9 @@ fun CommunityScreen(
             },
         )
     }
-    if (showJoin) {
+    // TASK-258: never over `SignedOutState` -- the sheets sit outside the sign-in `when`,
+    // so without this guard a create sheet could open on top of a sign-in prompt.
+    if (showJoin && state.signedIn) {
         JoinGroupSheet(
             strings = strings,
             initialCode = prefilledCode,
@@ -435,27 +479,32 @@ private fun SignedOutState(strings: AppStrings, onSignIn: () -> Unit) {
 
 // --- Signed in, no group -------------------------------------------------------------------------
 
+/**
+ * TASK-232 / COMMUNITY_REDESIGN_SPEC.
+ *
+ * The tab used to be two full-width buttons and a paragraph, forever, because it was only ever
+ * about the group you are in *right now* -- and almost always you are not in one. The two content
+ * ideas that were proposed for it are both blocked: rides hosted nearby is public discovery, which
+ * GROUP_RIDE_DATA_SAFETY §16.3 declares the product does not do, and a shared history of past
+ * groups contradicts the promise printed a few lines further down this very screen.
+ *
+ * What survives is the honest half, and it is most of what was wanted: a ride the rider recorded
+ * while in a group is **their own ride, already in their own history**. Showing it back to them
+ * saves nothing new and reveals nothing about anyone else.
+ */
 @Composable
 private fun NoGroupState(
     strings: AppStrings,
     busy: Boolean,
     error: String?,
+    groupRides: List<HistoryRideSummary>,
+    imperial: Boolean,
     onCreate: () -> Unit,
     onJoin: () -> Unit,
     onDismissError: () -> Unit,
+    onOpenRide: (Long) -> Unit,
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            strings.groupSignedOutTitle,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.height(24.dp))
-
+    val actions: @Composable ColumnScope.() -> Unit = {
         if (busy) {
             CircularProgressIndicator()
         } else {
@@ -480,9 +529,75 @@ private fun NoGroupState(
             )
             TextButton(onClick = onDismissError) { Text(strings.ok) }
         }
+    }
 
-        Spacer(Modifier.height(32.dp))
-        PrivacyPromise(strings)
+    if (groupRides.isEmpty()) {
+        // §2.1: unchanged, and deliberately. A single centred call to action is right when there
+        // is nothing else on the screen, and the privacy paragraph keeps its full prominence.
+        Column(
+            modifier = Modifier.fillMaxSize().padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                strings.groupSignedOutTitle,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(24.dp))
+            actions()
+            Spacer(Modifier.height(32.dp))
+            PrivacyPromise(strings)
+        }
+        return
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            item {
+                Text(
+                    strings.groupRidesTogetherTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+            items(groupRides, key = { it.id }) { ride ->
+                RideHistoryCard(
+                    rideSummary = ride,
+                    imperial = imperial,
+                    onClick = { onOpenRide(ride.id) },
+                    // §2.2: a count, never names. Names would be a record of other people, which
+                    // is the one thing this page promises it does not keep.
+                    trailingLabel = ride.groupRiderCount
+                        ?.takeIf { it > 0 }
+                        ?.let { String.format(Locale.getDefault(), strings.groupRideRiderCount, it) },
+                )
+            }
+            item {
+                // §2.3: the paragraph moves below the list once there is content. It does not
+                // become a link — it is the reason people trust this feature.
+                Spacer(Modifier.height(16.dp))
+                PrivacyPromise(strings)
+            }
+        }
+        // §3: bottom-anchored, and deliberately NOT a FAB. Bottom-centre is the nav bar and
+        // bottom-right is Home's radial start control — a lookalike one tab over would misfire
+        // the most practised gesture in the app.
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            tonalElevation = 2.dp,
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                content = actions,
+            )
+        }
     }
 }
 

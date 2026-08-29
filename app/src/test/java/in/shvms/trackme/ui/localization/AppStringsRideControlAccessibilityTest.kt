@@ -9,7 +9,6 @@ class AppStringsRideControlAccessibilityTest {
         AppStrings::stopRideAction,
         AppStrings::rideStopped,
         AppStrings::recenterMap,
-        AppStrings::compassNorth,
         AppStrings::send,
         AppStrings::copy,
         AppStrings::sharePin,

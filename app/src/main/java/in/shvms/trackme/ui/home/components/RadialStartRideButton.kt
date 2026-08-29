@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.home.components
 
+import `in`.shvms.trackme.analytics.RideStartAbortMethod
 import `in`.shvms.trackme.ui.components.HapticFeedbackUtils
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -7,6 +8,7 @@ import androidx.compose.animation.core.tween
 import `in`.shvms.trackme.theme.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.TextAutoSize
@@ -26,6 +29,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,7 +65,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import `in`.shvms.trackme.domain.model.RidePersona
-import `in`.shvms.trackme.analytics.RideStartAbortMethod
 import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import java.util.Locale
@@ -88,7 +91,8 @@ internal fun hasExceededTouchSlop(
 
 internal data class PendingRideLaunch(
     val token: Long,
-    val persona: RidePersona
+    val persona: RidePersona,
+    val awaitsPersonaChoice: Boolean = false,
 )
 
 internal data class RadialInteractionState(
@@ -97,28 +101,7 @@ internal data class RadialInteractionState(
     val lastVibratedPersona: RidePersona? = null,
     val didExceedTouchSlop: Boolean = false,
     val pendingLaunch: PendingRideLaunch? = null,
-    val isAbortGestureActive: Boolean = false
 )
-
-internal data class PendingLaunchAbortDecision(
-    val shouldAbort: Boolean,
-    val consumeGesture: Boolean
-)
-
-internal fun pendingLaunchAbortDecision(
-    pendingLaunch: PendingRideLaunch?,
-    observedLaunchToken: Long?,
-    pressedInsideCenter: Boolean
-): PendingLaunchAbortDecision {
-    val shouldAbort = pendingLaunch != null &&
-        observedLaunchToken != null &&
-        pendingLaunch.token == observedLaunchToken &&
-        pressedInsideCenter
-    return PendingLaunchAbortDecision(
-        shouldAbort = shouldAbort,
-        consumeGesture = shouldAbort
-    )
-}
 
 internal fun canCommitPendingLaunch(
     pendingLaunch: PendingRideLaunch?,
@@ -131,6 +114,7 @@ internal fun resetRadialInteractionState(): RadialInteractionState = RadialInter
 fun RadialStartRideButton(
     onStartRide: (RidePersona) -> Unit,
     preselectedPersona: RidePersona = RidePersona.AUTO,
+    onOpenAllPersonas: () -> Unit = {},
     onAbortRideStart: (RideStartAbortMethod) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -167,32 +151,45 @@ fun RadialStartRideButton(
         HapticFeedbackUtils.triggerPhysicalVibrate(context, durationMs = 30L)
     }
 
-    fun beginLaunch(persona: RidePersona) {
+    fun beginLaunch(persona: RidePersona, awaitsPersonaChoice: Boolean = false) {
         nextLaunchToken += 1L
         interactionState = resetRadialInteractionState().copy(
-            pendingLaunch = PendingRideLaunch(nextLaunchToken, persona)
+            pendingLaunch = PendingRideLaunch(
+                token = nextLaunchToken,
+                persona = persona,
+                awaitsPersonaChoice = awaitsPersonaChoice,
+            )
         )
     }
 
-    fun abortLaunch(observedLaunchToken: Long?): Boolean {
-        val decision = pendingLaunchAbortDecision(
-            pendingLaunch = interactionState.pendingLaunch,
-            observedLaunchToken = observedLaunchToken,
-            pressedInsideCenter = true
-        )
-        if (!decision.shouldAbort) return false
-
+    fun commitPendingLaunch(observedLaunchToken: Long?): Boolean {
+        val launch = interactionState.pendingLaunch
+        if (launch == null || observedLaunchToken == null || launch.token != observedLaunchToken) {
+            return false
+        }
         interactionState = resetRadialInteractionState()
         triggerHaptic()
-        onAbortRideStart(RideStartAbortMethod.PRE_COMMIT)
+        onStartRide(launch.persona)
         return true
+    }
+
+    fun startPersonaImmediately(persona: RidePersona) {
+        interactionState = resetRadialInteractionState()
+        triggerHaptic()
+        onStartRide(persona)
     }
 
     LaunchedEffect(interactionState.pendingLaunch?.token) {
         val target = interactionState.pendingLaunch ?: return@LaunchedEffect
         triggerHaptic()
-        delay(420)
+        delay(if (target.awaitsPersonaChoice) 2_500L else 420L)
         if (!canCommitPendingLaunch(interactionState.pendingLaunch, target.token)) {
+            return@LaunchedEffect
+        }
+        if (target.awaitsPersonaChoice) {
+            // A bloom is an invitation, not consent to start. Letting this window lapse only
+            // retracts the petals; it must not emit pre-commit-abort telemetry.
+            interactionState = resetRadialInteractionState()
             return@LaunchedEffect
         }
         interactionState = resetRadialInteractionState()
@@ -212,20 +209,21 @@ fun RadialStartRideButton(
     Box(
         modifier = modifier
             .width(260.dp)
-            .height(180.dp),
+            .height(260.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         // Semicircle Persona options
         personas.forEachIndexed { idx, persona ->
             val isHovered = interactionState.hoveredPersona == persona
             val offsetPx = itemOffsetsPx[idx]
+            val showPersonas = interactionState.isPressed || interactionState.pendingLaunch != null
             val animAlpha by animateFloatAsState(
-                targetValue = if (interactionState.isPressed) (if (isHovered) 1f else 0.65f) else 0f,
+                targetValue = if (showPersonas) (if (isHovered) 1f else 0.65f) else 0f,
                 animationSpec = spring(),
                 label = "alpha_$idx"
             )
             val animScale by animateFloatAsState(
-                targetValue = if (interactionState.isPressed) (if (isHovered) 1.25f else 1f) else 0f,
+                targetValue = if (showPersonas) (if (isHovered) 1.25f else 1f) else 0f,
                 animationSpec = spring(),
                 label = "scale_$idx"
             )
@@ -253,7 +251,18 @@ fun RadialStartRideButton(
                             width = if (isHovered) 2.dp else 0.dp,
                             color = Color.White,
                             shape = CircleShape
-                        ),
+                        )
+                        .clickable(
+                            enabled = showPersonas,
+                            onClick = { startPersonaImmediately(persona) },
+                        )
+                        .semantics {
+                            contentDescription = String.format(
+                                Locale.getDefault(),
+                                strings.startPersona,
+                                strings.personaLabel(persona),
+                            )
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -263,6 +272,20 @@ fun RadialStartRideButton(
                         modifier = Modifier.size(28.dp)
                     )
                 }
+            }
+        }
+
+        if (interactionState.pendingLaunch != null) {
+            TextButton(
+                onClick = {
+                    interactionState = resetRadialInteractionState()
+                    onOpenAllPersonas()
+                },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .heightIn(min = 48.dp),
+            ) {
+                Text(strings.dashboardChangeActivity, maxLines = 1)
             }
         }
 
@@ -329,23 +352,19 @@ fun RadialStartRideButton(
                         interactionState.hoveredPersona == null
                     contentDescription = strings.startRideAccessibility
                     stateDescription = when {
-                        currentLaunch != null -> String.format(
-                            Locale.getDefault(),
-                            strings.startingPersona,
-                            strings.personaLabel(currentLaunch.persona)
-                        )
+                        currentLaunch != null -> strings.activitySelectionAvailable
                         isCancelState -> strings.cancel
                         else -> strings.activitySelectionAvailable
                     }
                     role = Role.Button
                     onClick(
-                        label = if (currentLaunch == null) strings.startRideAction else strings.cancel
+                        label = strings.startRideAction
                     ) {
                         if (currentLaunch == null) {
-                            beginLaunch(preselectedPersona)
+                            beginLaunch(preselectedPersona, awaitsPersonaChoice = true)
                             true
                         } else {
-                            abortLaunch(currentLaunch.token)
+                            commitPendingLaunch(currentLaunch.token)
                         }
                     }
                     customActions = personas.map { persona ->
@@ -356,13 +375,13 @@ fun RadialStartRideButton(
                                 strings.personaLabel(persona)
                             )
                         ) {
-                            if (interactionState.pendingLaunch == null) {
-                                beginLaunch(persona)
-                                true
-                            } else {
-                                false
-                            }
+                            startPersonaImmediately(persona)
+                            true
                         }
+                    } + CustomAccessibilityAction(strings.dashboardChangeActivity) {
+                        interactionState = resetRadialInteractionState()
+                        onOpenAllPersonas()
+                        true
                     }
                 }
                 .pointerInput(touchSlopPx) {
@@ -376,19 +395,17 @@ fun RadialStartRideButton(
 
                         val launchAtDown = interactionState.pendingLaunch
                         if (launchAtDown != null) {
-                            val decision = pendingLaunchAbortDecision(
-                                pendingLaunch = interactionState.pendingLaunch,
-                                observedLaunchToken = launchAtDown.token,
-                                pressedInsideCenter = true
-                            )
-                            if (decision.shouldAbort) {
-                                interactionState = resetRadialInteractionState().copy(
-                                    isPressed = true,
-                                    isAbortGestureActive = true
-                                )
+                            if (launchAtDown.awaitsPersonaChoice) {
+                                commitPendingLaunch(launchAtDown.token)
+                                down.consume()
+                                do {
+                                    val commitEvent = awaitPointerEvent()
+                                    commitEvent.changes.forEach { it.consume() }
+                                } while (commitEvent.changes.any { it.pressed })
+                            } else {
                                 triggerHaptic()
                                 onAbortRideStart(RideStartAbortMethod.PRE_COMMIT)
-                                if (decision.consumeGesture) down.consume()
+                                down.consume()
                                 do {
                                     val abortEvent = awaitPointerEvent()
                                     abortEvent.changes.forEach { it.consume() }
@@ -500,8 +517,7 @@ fun RadialStartRideButton(
                             modifier = Modifier.size(36.dp)
                         )
                     } else if (
-                        interactionState.didExceedTouchSlop ||
-                        interactionState.isAbortGestureActive
+                        interactionState.didExceedTouchSlop
                     ) {
                         // Once the gesture becomes a drag, releasing without a hovered persona
                         // cancels. Keep this state icon-only so the fixed center circle remains

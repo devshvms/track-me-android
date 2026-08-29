@@ -35,6 +35,7 @@ import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
+import `in`.shvms.trackme.data.local.countsAsMovingTime
 
 enum class TrackingState {
     IDLE, TRACKING, PAUSED, GPS_LOST, GPS_DISABLED, STORAGE_LOW
@@ -45,6 +46,32 @@ internal fun shouldEmitGpsPauseTelemetry(state: TrackingState): Boolean = state 
 
 internal fun shouldEmitGpsResumeTelemetry(state: TrackingState): Boolean =
     state == TrackingState.GPS_LOST || state == TrackingState.GPS_DISABLED
+
+/**
+ * Serializes ride-point writes and lets finalization await the writes that existed when it began.
+ *
+ * Location callbacks, manual pause, and Stop are separate callbacks. Launching their database work
+ * directly on [Dispatchers.IO] gives no ordering guarantee, so Stop could reconstruct a ride before
+ * the pause marker (or the final GPS fix) reached Room. The chain preserves callback order without
+ * blocking the main thread.
+ */
+internal class OrderedWriteChain(private val scope: CoroutineScope) {
+    private val lock = Any()
+    private var tail: Job? = null
+
+    fun enqueue(block: suspend () -> Unit): Job = synchronized(lock) {
+        val previous = tail
+        scope.launch {
+            previous?.join()
+            block()
+        }.also { tail = it }
+    }
+
+    suspend fun awaitPending() {
+        val snapshot = synchronized(lock) { tail }
+        snapshot?.join()
+    }
+}
 
 class TrackingService : Service() {
 
@@ -64,6 +91,7 @@ class TrackingService : Service() {
     /** Only registered when no ride stream is open. See [PresenceStreamPolicy]. */
     private var presenceStreamActive = false
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val pointWriteChain = OrderedWriteChain(serviceScope)
     private var currentState = TrackingState.IDLE
     private var currentRideId: Long? = null
     private var lastLocation: Location? = null
@@ -170,7 +198,7 @@ class TrackingService : Service() {
                         enterStorageLowState()
                         return@let
                     }
-                    serviceScope.launch {
+                    pointWriteChain.enqueue {
                         try {
                             rideDao.insertGPSPoint(
                                 GPSPointEntity(
@@ -310,15 +338,28 @@ class TrackingService : Service() {
                 if (!restorePersistedRide()) {
                     (application as TrackMeApp).emergencyManager.beginRideSession()
                     val startTime = System.currentTimeMillis()
+                    // TASK-232: was a group live when this ride began? A marker and a count,
+                    // never a group id and never a name -- see RideEntity's note. The roster may
+                    // not have synced yet at start, so an empty one stores no count rather than a
+                    // zero, and finalisation below fills it in if the session is still live.
+                    val groupAtStart = groupSessionManager.state.value
                     val rideId = rideDao.insertRide(
                         RideEntity(
                             startTime = startTime,
                             title = RideUtils.getDefaultTitle(startTime, trackingManager.selectedPersona.value),
-                            persona = trackingManager.selectedPersona.value.name
+                            persona = trackingManager.selectedPersona.value.name,
+                            startZoneId = java.time.ZoneId.systemDefault().id,
+                            wasGroupRide = groupAtStart.isActive,
+                            groupRiderCount = groupAtStart.roster.size.takeIf {
+                                groupAtStart.isActive && it > 0
+                            },
                         )
                     )
                     currentRideId = rideId
                     activeRideId = rideId
+                    (application as TrackMeApp).preferencesManager.setLastStartedPersona(
+                        trackingManager.selectedPersona.value
+                    )
                     setPersistedActiveSession(true)
                     setPersistedPausedSession(false)
 
@@ -503,11 +544,51 @@ class TrackingService : Service() {
     }
 
     private fun pauseTracking() {
+        // TASK-257, shvm: record *that* the pause happened, at the place it happened.
+        //
+        // A manual pause used to leave nothing behind. Recording simply stopped, so the fix before
+        // it and the fix after it ended up adjacent in storage with the pause flag clear on both --
+        // and every consumer then read the jump between them as travel. shvm walked two streets
+        // during a pause and the ride counted the distance and drew a line through the buildings.
+        //
+        // Auto-pause never had this problem because it flags its points. This gives a manual pause
+        // the same evidence, and it is a real position rather than a synthetic one: it is where the
+        // rider was when they pressed pause. `isPaused` then excludes the segment from distance
+        // exactly as it already does for auto-pause, with no new rule and no schema change.
+        markPauseBoundary()
         updateState(TrackingState.PAUSED)
         isTimerEnabled = false
         motionSensorManager.stopListening()
         setPersistedPausedSession(true)
         lastLocation = null // prevent distance jumping when resumed
+    }
+
+    /**
+     * Writes the current position as a paused point, so the pause is visible in the point stream.
+     *
+     * Best-effort: with no last known fix there is nothing truthful to write, and inventing a
+     * position would be worse than leaving the gap — the gap is at least honest, and the renderer's
+     * distance/time rule still dots it.
+     */
+    private fun markPauseBoundary() {
+        val location = lastLocation ?: return
+        val rideId = currentRideId ?: return
+        pointWriteChain.enqueue {
+            runCatching {
+                rideDao.insertGPSPoint(
+                    GPSPointEntity(
+                        rideId = rideId,
+                        latitude = location.latitude,
+                        longitude = location.longitude,
+                        altitude = if (location.hasAltitude()) location.altitude else 0.0,
+                        accuracy = if (location.hasAccuracy()) location.accuracy else 0f,
+                        speed = 0f,
+                        timestamp = System.currentTimeMillis(),
+                        isPaused = true,
+                    )
+                )
+            }
+        }
     }
 
     private fun resumeTracking() {
@@ -516,6 +597,11 @@ class TrackingService : Service() {
             return
         }
         storageWarningShown = false
+        // TASK-257: no marker on resume, deliberately. `pauseTracking` clears `lastLocation`, so
+        // there is no truthful position to write here anyway -- and one marker is enough. The
+        // pause marker carries `isPaused`, so *both* segments touching it are excluded: the one
+        // into the pause and the one out of it, which is the stretch the rider covered while not
+        // recording. A second marker would add nothing and could only be a guess.
         updateState(TrackingState.TRACKING)
         motionSensorManager.startListening()
         setPersistedPausedSession(false)
@@ -594,6 +680,9 @@ class TrackingService : Service() {
         }
 
         serviceScope.launch {
+            // Location and pause callbacks persist asynchronously. Drain the ordered snapshot from
+            // this ride before reading it back for final metrics, route metadata, and sync.
+            pointWriteChain.awaitPending()
             if (liveShareManager.state.value.status == LiveShareStatus.ACTIVE || liveShareManager.state.value.stopOnRideEnd) {
                 liveShareManager.stopSession("Ride ended by user.")
             }
@@ -1065,9 +1154,10 @@ class TrackingService : Service() {
                         maxSpeed = curr.speed
                     }
 
-                    val timestampDeltaMs = curr.timestamp - prev.timestamp
-                    if (!curr.isPaused && !prev.isPaused && timestampDeltaMs > 0) {
-                        activeTimeMs += timestampDeltaMs
+                    // TASK-259: the one shared rule. This path used to count every positive gap,
+                    // so a ride finalised with a duration that post-processing then disagreed with.
+                    if (countsAsMovingTime(prev, curr)) {
+                        activeTimeMs += curr.timestamp - prev.timestamp
                     }
                 }
             } else if (points.size == 1) {
@@ -1083,18 +1173,40 @@ class TrackingService : Service() {
                 RideUtils.getDefaultTitle(ride.startTime, persona, maxSpeed * 3.6f)
             } else ride.title
 
+            val finishedAt = System.currentTimeMillis()
             val calc = `in`.shvms.trackme.data.local.entity.PostRideCalculation(
                 distance = finalDistance,
                 maxSpeed = maxSpeed,
                 avgSpeed = avgSpeed,
-                pauseDuration = 0L
+                pauseDuration = (finishedAt - ride.startTime - activeTimeMs).coerceAtLeast(0L),
+                rawPointCount = points.size,
+                elevationGainMeters = `in`.shvms.trackme.domain.processor.calculateElevationGainMeters(points),
             )
             
+            // TASK-232: the largest roster seen while this ride was being recorded is what a
+            // rider means by "how many of us rode". Only ever grows, and only while the ride was
+            // already marked as a group ride -- joining a group after a solo ride does not
+            // retroactively make it one.
+            val groupAtEnd = groupSessionManager.state.value
+            val groupRiderCount = if (ride.wasGroupRide && groupAtEnd.isActive) {
+                maxOf(ride.groupRiderCount ?: 0, groupAtEnd.roster.size).takeIf { it > 0 }
+            } else {
+                ride.groupRiderCount
+            }
+
             val finishedRide = ride.copy(
-                endTime = System.currentTimeMillis(), 
+                endTime = finishedAt,
                 title = newTitle,
-                postRideCalculation = calc
-            )
+                postRideCalculation = calc,
+                groupRiderCount = groupRiderCount,
+            ).let {
+                `in`.shvms.trackme.data.local.withDashboardMetadata(
+                    it,
+                    activeTimeMs,
+                    points.size,
+                    `in`.shvms.trackme.data.local.dashboardRoutePolylineFromPoints(points),
+                )
+            }
             rideDao.updateRide(finishedRide)
             
             `in`.shvms.trackme.analytics.AnalyticsManager.trackRideCompleted(
@@ -1111,7 +1223,7 @@ class TrackingService : Service() {
             // retention stats, even when the user chose to keep them (discardNearEmptyRide=false).
             // Mirror iOS's guard so the eligibility rule is identical on both platforms.
             val isJunkRide = finalDistance < JUNK_RIDE_DISTANCE_METERS &&
-                finalDuration < JUNK_RIDE_DURATION_MILLIS
+                activeTimeMs < JUNK_RIDE_DURATION_MILLIS
             if (!isJunkRide) {
                 try {
                     val app = application as? TrackMeApp

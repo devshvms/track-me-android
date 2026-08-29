@@ -29,6 +29,7 @@ import `in`.shvms.trackme.ui.history.MultiRideCompareRoute
 import `in`.shvms.trackme.ui.settings.SettingsScreen
 import `in`.shvms.trackme.ui.community.CommunityScreen
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.ui.navigation.TabDoubleTapDetector
 
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -56,6 +57,16 @@ fun MainNavigation() {
     // visible immediately, so it is derived here rather than tracked.
     val currentRoute = navBackStackEntry?.destination?.route
     val selectedItem = routes.indexOf(currentRoute).takeIf { it >= 0 } ?: -1
+    var tabScrollToTopRequest by remember { mutableIntStateOf(0) }
+    // TASK-226. The platform's own double-tap timeout, so the gesture feels the same here as it
+    // does everywhere else on the device.
+    var tabDoubleTap by remember {
+        mutableStateOf(
+            TabDoubleTapDetector(
+                windowMillis = android.view.ViewConfiguration.getDoubleTapTimeout().toLong()
+            )
+        )
+    }
 
     /**
      * The ONE way to move between top-level tabs.
@@ -71,10 +82,33 @@ fun MainNavigation() {
      * Every tab-level navigation goes through here so the two idioms cannot diverge again.
      */
     fun navigateToTab(route: String) {
+        if (currentRoute == route && (route == "home" || route == "history")) {
+            tabScrollToTopRequest++
+        }
         navController.navigate(route) {
             launchSingleTop = true
             restoreState = true
             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+        }
+    }
+
+    /**
+     * TASK-226: the bottom bar's and rail's own entry point, so a double-tap is only ever a
+     * *rider's* two taps. Programmatic hops -- a deep-linked invite, "show member on map" -- keep
+     * calling [navigateToTab] directly and cannot pair up with a real tap that follows them.
+     *
+     * shvm asked for this three times; the scroll-to-top of SS4.4 stays exactly as it was and this
+     * sits on top of it.
+     */
+    fun onTabItemTapped(route: String) {
+        val outcome = tabDoubleTap.tap(route, android.os.SystemClock.uptimeMillis())
+        tabDoubleTap = outcome.detector
+        navigateToTab(route)
+        if (outcome.isDoubleTap) {
+            // The tab's main page, guaranteed: drop anything still sitting above it, whether it was
+            // pushed just now or restored by `restoreState`. A no-op when the route is already the
+            // top of the stack, which is why the common case costs nothing.
+            navController.popBackStack(route, inclusive = false)
         }
     }
     var currentScreenStartTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -99,6 +133,18 @@ fun MainNavigation() {
     // application and observed here, where the controller already lives. Same outcome, none of the
     // blast radius.
     val app = LocalContext.current.applicationContext as TrackMeApp
+    // TASK-224: the bottom navigation is never hidden, which is what 1.8.4 shipped.
+    //
+    // 1.8.5 gated it on `trackingState == IDLE`, so History, Community and Settings were
+    // unreachable for the whole ride — worst in a group ride, where Community holds the roster and
+    // the live map and a mid-ride rider is exactly who wants them. That gate was never a design
+    // decision: it came out of TASK-209's start choreography, relayed as "the tab bar slides out",
+    // and a transition flourish was written as a permanent state. iOS never had it.
+    //
+    // Leaving Home mid-ride is safe by construction, not by care: recording lives in a
+    // foregroundServiceType="location" Service that the composable does not own, and Home's
+    // presentation mode is derived from tracking state by HomePresentationModePolicy, so coming
+    // back yields the live HUD rather than the idle deck without anything having to remember.
     val pendingInvite by app.pendingGroupInvite.collectAsState()
     LaunchedEffect(pendingInvite) {
         if (pendingInvite != null) navigateToTab("community")
@@ -129,7 +175,7 @@ fun MainNavigation() {
                                 label = { Text(item) },
                                 alwaysShowLabel = true,
                                 selected = selectedItem == index,
-                                onClick = { navigateToTab(routes[index]) }
+                                onClick = { onTabItemTapped(routes[index]) }
                             )
                         }
                     }
@@ -145,7 +191,7 @@ fun MainNavigation() {
                                 label = { Text(item) },
                                 alwaysShowLabel = true,
                                 selected = selectedItem == index,
-                                onClick = { navigateToTab(routes[index]) }
+                                onClick = { onTabItemTapped(routes[index]) }
                             )
                         }
                     }
@@ -159,14 +205,20 @@ fun MainNavigation() {
                         .padding(bottom = innerPadding.calculateBottomPadding())
                 ) {
                     composable("home") {
-                        HomeScreen(onOpenCommunity = { navigateToTab("community") })
+                        HomeScreen(
+                            onOpenCommunity = { navigateToTab("community") },
+                            onOpenHistory = { navigateToTab("history") },
+                            onOpenRideDetail = { id -> navController.navigate("ride_detail/$id") },
+                            scrollToTopRequest = tabScrollToTopRequest,
+                        )
                     }
                     composable("history") { 
                         HistoryScreen(
                             onNavigateToDetail = { id -> navController.navigate("ride_detail/$id") },
                             onNavigateToComparison = { ids ->
                                 navController.navigate("ride_compare/${ids.joinToString(",")}")
-                            }
+                            },
+                            scrollToTopRequest = tabScrollToTopRequest,
                         )
                     }
                     composable("ride_compare/{rideIds}") { backStackEntry ->
@@ -184,6 +236,7 @@ fun MainNavigation() {
                         CommunityScreen(
                             onNavigateToSignIn = { navigateToTab("settings") },
                             onOpenHome = { navigateToTab("home") },
+                            onOpenRideDetail = { id -> navController.navigate("ride_detail/$id") },
                             // 00a74: the focus travels on the application object rather than as a route
                             // argument, for the same reason the pending invite does 2014 a parameterised
                             // `home?uid=2026` route would miss the tab-highlight lookup above and would

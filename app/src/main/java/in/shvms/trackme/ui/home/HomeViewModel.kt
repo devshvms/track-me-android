@@ -9,15 +9,25 @@ import `in`.shvms.trackme.service.TrackingState
 import `in`.shvms.trackme.service.EmergencyManager
 import `in`.shvms.trackme.auth.AuthManager
 import `in`.shvms.trackme.data.local.AppPreferencesManager
+import `in`.shvms.trackme.data.local.HomeDashboardRepository
+import `in`.shvms.trackme.data.local.dao.HomeDashboardRoutePoint
+import `in`.shvms.trackme.data.remote.FirestoreSyncManager
+import `in`.shvms.trackme.data.remote.SyncResult
+import `in`.shvms.trackme.domain.home.HomeDashboardSummary
 import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import java.util.concurrent.TimeUnit
 import java.util.Locale
@@ -43,7 +53,8 @@ data class HomeUiState(
     val distanceText: String = "0.00 km",
     val durationText: String = "00:00:00",
     /** Total wall-clock time since start, including paused segments — see [formatElapsedDuration]. */
-    val elapsedDurationText: String = "Total 00:00:00",
+    /** Bare elapsed figure. The "Total" label is added by the HUD, which has the strings. */
+    val elapsedDurationText: String = "00:00:00",
     val elapsedDurationMillis: Long = 0L,
     val distanceMeters: Float = 0f,
     val durationMillis: Long = 0L,
@@ -56,6 +67,12 @@ data class HomeUiState(
     val isAutoPaused: Boolean = false,
     val inferredActivityType: `in`.shvms.trackme.domain.processor.InferredActivityType = `in`.shvms.trackme.domain.processor.InferredActivityType.RUN_OR_TREK,
     val selectedPersona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO,
+    val selectedDashboardPersona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO,
+    val dashboardSummary: HomeDashboardSummary = HomeDashboardSummary.empty(0L),
+    /** False until Room has emitted at least one authoritative dashboard projection. */
+    val dashboardSummaryResolved: Boolean = false,
+    val isDashboardReconciling: Boolean = true,
+    val dashboardSyncNeedsAction: Boolean = false,
     val isAuthenticated: Boolean = false,
     val userName: String? = null
 )
@@ -65,8 +82,50 @@ class HomeViewModel(
     private val emergencyManager: EmergencyManager,
     private val authManager: AuthManager,
     private val liveShareManager: LiveShareManager,
-    private val preferencesManager: AppPreferencesManager
+    private val preferencesManager: AppPreferencesManager,
+    private val dashboardRepository: HomeDashboardRepository,
+    private val firestoreSyncManager: FirestoreSyncManager,
 ) : ViewModel() {
+
+    private val selectedDashboardPersona = MutableStateFlow(preferencesManager.lastStartedPersona.value)
+    private val _dashboardRoute = MutableStateFlow<List<HomeDashboardRoutePoint>>(emptyList())
+    val dashboardRoute: StateFlow<List<HomeDashboardRoutePoint>> = _dashboardRoute.asStateFlow()
+    private var loadedDashboardRouteId: Long? = null
+
+    private data class DashboardState(
+        val summary: HomeDashboardSummary,
+        val persona: `in`.shvms.trackme.domain.model.RidePersona,
+        val resolved: Boolean,
+        val reconciling: Boolean,
+        val syncNeedsAction: Boolean,
+    )
+
+    private val dashboardSummary = dashboardRepository.summary
+        .map<HomeDashboardSummary, HomeDashboardSummary?> { it }
+        .onStart { emit(null) }
+
+    private val dashboardState = combine(
+        dashboardSummary,
+        selectedDashboardPersona,
+        dashboardRepository.isReconciling,
+        firestoreSyncManager.syncResult,
+    ) { summary, persona, reconciling, syncResult ->
+        DashboardState(
+            summary = summary ?: HomeDashboardSummary.empty(0L),
+            persona = persona,
+            resolved = summary != null,
+            reconciling = reconciling,
+            syncNeedsAction = syncResult is SyncResult.Error,
+        )
+    }
+
+    init {
+        viewModelScope.launch {
+            preferencesManager.lastStartedPersona.collect { committed ->
+                selectedDashboardPersona.value = committed
+            }
+        }
+    }
 
     // One-shot, Context-free UI events (service commands + toast-worthy outcomes). The
     // ViewModel must not hold a Context, so it emits data describing WHAT happened; HomeScreen
@@ -148,13 +207,19 @@ class HomeViewModel(
         trackingStats,
         emergencyManager.isEmergencyActive,
         liveShareManager.state,
-        authManager.currentUser
-    ) { stats, isEmergency, liveShare, user ->
+        authManager.currentUser,
+        dashboardState,
+    ) { stats, isEmergency, liveShare, user, dashboard ->
         stats.copy(
             isEmergencyActive = isEmergency,
             liveShareState = liveShare,
             isAuthenticated = user != null,
-            userName = user?.displayName
+            userName = user?.displayName,
+            selectedDashboardPersona = dashboard.persona,
+            dashboardSummary = dashboard.summary,
+            dashboardSummaryResolved = dashboard.resolved,
+            isDashboardReconciling = dashboard.reconciling,
+            dashboardSyncNeedsAction = dashboard.syncNeedsAction,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
 
@@ -182,7 +247,7 @@ class HomeViewModel(
      * persona. Reuses [formatDuration]'s HH:MM:SS formatting so the two stay visually aligned.
      */
     private fun formatElapsedDuration(millis: Long): String {
-        return "Total ${formatDuration(millis)}"
+        return formatDuration(millis)
     }
 
     /**
@@ -199,6 +264,19 @@ class HomeViewModel(
     fun startTracking(persona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO) {
         trackingManager.setSelectedPersona(persona)
         sendCommandToService(TrackingService.ACTION_START_OR_RESUME_SERVICE)
+    }
+
+    fun selectDashboardPersona(persona: `in`.shvms.trackme.domain.model.RidePersona) {
+        selectedDashboardPersona.value = persona
+    }
+
+    fun loadDashboardRoute(localId: Long) {
+        if (loadedDashboardRouteId == localId) return
+        loadedDashboardRouteId = localId
+        _dashboardRoute.value = emptyList()
+        viewModelScope.launch {
+            _dashboardRoute.value = dashboardRepository.routePreview(localId)
+        }
     }
 
     fun pauseTracking() {
@@ -258,12 +336,22 @@ class HomeViewModelFactory(
     private val emergencyManager: EmergencyManager,
     private val authManager: AuthManager,
     private val liveShareManager: LiveShareManager,
-    private val preferencesManager: AppPreferencesManager
+    private val preferencesManager: AppPreferencesManager,
+    private val dashboardRepository: HomeDashboardRepository,
+    private val firestoreSyncManager: FirestoreSyncManager,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return HomeViewModel(trackingManager, emergencyManager, authManager, liveShareManager, preferencesManager) as T
+            return HomeViewModel(
+                trackingManager,
+                emergencyManager,
+                authManager,
+                liveShareManager,
+                preferencesManager,
+                dashboardRepository,
+                firestoreSyncManager,
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

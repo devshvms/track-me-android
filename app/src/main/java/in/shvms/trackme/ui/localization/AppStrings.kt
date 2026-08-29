@@ -32,6 +32,36 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val startRideAction: String = s("startRideAction", "Start ride")
     val dragToSelect: String = s("dragToSelect", "Drag to select")
     val dismissStartRideHint: String = s("dismissStartRideHint", "Got it")
+    val dashboardStartPersona: String = s("dashboardStartPersona", "Start %1\$s")
+    val dashboardChangeActivity: String = s("dashboardChangeActivity", "Change activity")
+    val dashboardThisWeek: String = s("dashboardThisWeek", "This week")
+    val dashboardActivityCount: String = s("dashboardActivityCount", "%1\$d activities")
+    val dashboardDurationHours: String = s("dashboardDurationHours", "%1\$dh %2\$dm")
+    val dashboardDurationMinutes: String = s("dashboardDurationMinutes", "%1\$dm")
+    val dashboardWeeklyStreak: String = s("dashboardWeeklyStreak", "%1\$d-week streak")
+    val dashboardInsights: String = s("dashboardInsights", "Insights")
+    val dashboardInsightReturn: String = s("dashboardInsightReturn", "Welcome back to %1\$s after %2\$d days.")
+    val dashboardInsightHigher: String = s("dashboardInsightHigher", "You recorded more distance in the recent period.")
+    val dashboardInsightStable: String = s("dashboardInsightStable", "Your recent distance was steady.")
+    val dashboardInsightLower: String = s("dashboardInsightLower", "A lighter recent period.")
+    val dashboardInsightDominant: String = s("dashboardInsightDominant", "%1\$s led your recent activities.")
+    val dashboardInsightBasisHistory: String = s("dashboardInsightBasisHistory", "Based on your qualifying activity history")
+    val dashboardInsightBasisWeeks: String = s("dashboardInsightBasisWeeks", "Based on comparable active weeks")
+    val dashboardRecentActivity: String = s("dashboardRecentActivity", "Recent activity")
+    val dashboardViewAllHistory: String = s("dashboardViewAllHistory", "View all history")
+    val dashboardPrivateOffline: String = s("dashboardPrivateOffline", "Private by default • Works offline")
+    val dashboardPreviewWeekly: String = s("dashboardPreviewWeekly", "See weekly distance")
+    val dashboardPreviewComparison: String = s("dashboardPreviewComparison", "See how this week compares")
+    val dashboardPreviewRoutes: String = s("dashboardPreviewRoutes", "Revisit recent routes")
+    val dashboardLocationAfterStart: String = s("dashboardLocationAfterStart", "Location is requested after Start so TrackMe can record your route.")
+    val dashboardSampleRideOnly: String = s("dashboardSampleRideOnly", "The sample ride in History is for exploring. Your own rides fill this in.")
+    val dashboardLoadingHistory: String = s("dashboardLoadingHistory", "Preparing your activity history…")
+    val dashboardWeeklyChartValues: String = s("dashboardWeeklyChartValues", "Four-week distance: %1\$s, %2\$s, %3\$s, and %4\$s")
+    val dashboardGroupActive: String = s("dashboardGroupActive", "Group session active")
+    val dashboardGroupMembers: String = s("dashboardGroupMembers", "%1\$d members")
+    val dashboardViewLiveMap: String = s("dashboardViewLiveMap", "View live map")
+    val dashboardSyncAction: String = s("dashboardSyncAction", "Some history could not sync. Open History to retry.")
+    val dashboardOfflineReady: String = s("dashboardOfflineReady", "Your dashboard and recording stay available offline.")
     val pauseTracking: String = s("pauseTracking", "Pause Tracking")
     val resumeTracking: String = s("resumeTracking", "Resume Tracking")
     val stopTracking: String = s("stopTracking", "Stop Tracking")
@@ -73,7 +103,6 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val stopRideAction: String = s("stopRideAction", "Stop ride")
     val rideStopped: String = s("rideStopped", "Ride stopped")
     val recenterMap: String = s("recenterMap", "Recenter map")
-    val compassNorth: String = s("compassNorth", "Point north")
     val send: String = s("send", "Send")
     val copy: String = s("copy", "Copy")
     val sharePin: String = s("sharePin", "Share location pin")
@@ -93,9 +122,14 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val statusIdle: String = s("statusIdle", "IDLE")
     val statusRecording: String = s("statusRecording", "RECORDING")
     val statusPaused: String = s("statusPaused", "PAUSED")
+    val hudAutoPausedPill: String = s("hudAutoPausedPill", "Auto paused")
+    val hudLiveSharingPill: String = s("hudLiveSharingPill", "Live sharing")
+    val hudOfflineShieldPill: String = s("hudOfflineShieldPill", "Offline shield active")
     val speed: String = s("speed", "Speed")
     val distance: String = s("distance", "Distance")
     val duration: String = s("duration", "Duration")
+    /** TASK-235: the HUD's own word for elapsed. Shared so Ride Detail and the HUD agree. */
+    val total: String = s("total", "Total")
     val avgSpeed: String = s("avgSpeed", "Avg Speed")
     val maxSpeed: String = s("maxSpeed", "Max Speed")
     val avgPace: String = s("avgPace", "Avg Pace")
@@ -139,6 +173,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupSignIn: String = s("groupSignIn", "Sign in")
     val groupCreate: String = s("groupCreate", "Create a group")
     val groupJoinWithCode: String = s("groupJoinWithCode", "Join with a code")
+    val groupRidesTogetherTitle: String = s("groupRidesTogetherTitle", "Rides you rode together")
+    val groupRideRiderCount: String = s("groupRideRiderCount", "%1\$d riders")
     val groupHowItWorks: String = s("groupHowItWorks", "Everyone in the group sees everyone else, for as long as the group is live. Nobody sees where you've been. Nothing is saved. You can leave at any time and nobody is told.")
     val groupNameLabel: String = s("groupNameLabel", "Group name")
     val groupDefaultName: String = s("groupDefaultName", "%1\$s's ride")
@@ -306,8 +342,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val shareLinkGenerated: String = s("shareLinkGenerated", "Share Link Generated")
     val copyLink: String = s("copyLink", "Copy Link")
     val linkCopied: String = s("linkCopied", "Link copied to clipboard")
-    val liveShareReadyIdle: String = s("liveShareReadyIdle", "Sharing link is ready! Starts once you start the ride.")
-    val liveShareReadyActive: String = s("liveShareReadyActive", "Sharing link is ready! Live sharing is now active.")
+    val liveShareReadyIdle: String = s("liveShareReadyIdle", "Sharing link is ready. Starts once you start the ride.")
+    val liveShareReadyActive: String = s("liveShareReadyActive", "Sharing link is ready. Live sharing is now active.")
     val liveShareStoppedToast: String = s("liveShareStoppedToast", "Live Share stopped.")
     val liveShareStartFailed: String = s("liveShareStartFailed", "Failed to start Live Share: ")
     val liveShareStopFailed: String = s("liveShareStopFailed", "Failed to stop Live Share: ")
@@ -504,6 +540,22 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val rideRecoveryMixedNotice: String = s("rideRecoveryMixedNotice", "Recovered %d ride(s) and removed %d empty record(s).")
     val savingRide: String = s("savingRide", "Saving ride...")
     val gpsPoints: String = s("gpsPoints", "GPS Points")
+    val gpsSignalGaps: String = s("gpsSignalGaps", "GPS signal gaps")
+    // TASK-253: the trim is never silent. A rider must be able to see that part of their own
+    // recording is not being drawn, and get it back in one tap.
+    val inactivityHidden: String = s("inactivityHidden", "%1${'$'}s of inactivity hidden")
+    val showFullRecording: String = s("showFullRecording", "Show all")
+    val hideInactivity: String = s("hideInactivity", "Hide")
+    // TASK-254: group rides are entered from Home, not only from a tab most riders never open.
+    val dashboardGroupHeading: String = s("dashboardGroupHeading", "Ride together")
+    val dashboardGroupCreate: String = s("dashboardGroupCreate", "Create a group")
+    val dashboardGroupJoin: String = s("dashboardGroupJoin", "Join with a code")
+    val dashboardGroupHowItWorks: String = s(
+        "dashboardGroupHowItWorks",
+        "Everyone in the group sees everyone else while the group is live. Nobody sees where you have been, and nothing is saved.",
+    )
+    val recordingDetails: String = s("recordingDetails", "Recording details")
+    val startTime: String = s("startTime", "Start time")
     val discardRideTitle: String = s("discardRideTitle", "Discard this ride?")
     val discardRideMessage: String = s("discardRideMessage", "This ride did not record meaningful distance. You can discard it or save it anyway.")
     val discardRide: String = s("discardRide", "Discard")
@@ -529,6 +581,14 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val timeFrameThisMonth: String = s("timeFrameThisMonth", "This Month")
     val timeFrameThisYear: String = s("timeFrameThisYear", "This Year")
     val filterTitle: String = s("filterTitle", "Filter Rides")
+    val filterActivity: String = s("filterActivity", "Activity")
+    val searchRides: String = s("searchRides", "Search rides")
+    val dateRangeAny: String = s("dateRangeAny", "Any time")
+    val dateRangeThisMonth: String = s("dateRangeThisMonth", "This month")
+    val dateRangeLast3Months: String = s("dateRangeLast3Months", "Last 3 months")
+    val dateRangeThisYear: String = s("dateRangeThisYear", "This year")
+    val dateRangeCustom: String = s("dateRangeCustom", "Custom range…")
+    val noRidesMatchFilters: String = s("noRidesMatchFilters", "No rides match these filters.")
     val sortTitle: String = s("sortTitle", "Sort By")
     val sortNewest: String = s("sortNewest", "Newest First")
     val sortOldest: String = s("sortOldest", "Oldest First")
@@ -696,6 +756,36 @@ val SUPPORTED_LANGUAGE_CODES: List<String> = listOf("en", "es", "fr", "de", "hi"
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
         "es" -> AppStrings(mapOf(
+            "dashboardStartPersona" to "Iniciar %1\$s",
+            "dashboardChangeActivity" to "Cambiar actividad",
+            "dashboardThisWeek" to "Esta semana",
+            "dashboardActivityCount" to "%1\$d actividades",
+            "dashboardDurationHours" to "%1\$d h %2\$d min",
+            "dashboardDurationMinutes" to "%1\$d min",
+            "dashboardWeeklyStreak" to "Racha de %1\$d semanas",
+            "dashboardInsights" to "Datos destacados",
+            "dashboardInsightReturn" to "Qué bueno volver a %1\$s después de %2\$d días.",
+            "dashboardInsightHigher" to "Registraste más distancia en el período reciente.",
+            "dashboardInsightStable" to "Tu distancia reciente se mantuvo estable.",
+            "dashboardInsightLower" to "Un período reciente más ligero.",
+            "dashboardInsightDominant" to "%1\$s fue tu actividad más frecuente recientemente.",
+            "dashboardInsightBasisHistory" to "Basado en tu historial de actividades válidas",
+            "dashboardInsightBasisWeeks" to "Basado en semanas activas comparables",
+            "dashboardRecentActivity" to "Actividad reciente",
+            "dashboardViewAllHistory" to "Ver todo el historial",
+            "dashboardPrivateOffline" to "Privado de forma predeterminada • Funciona sin conexión",
+            "dashboardPreviewWeekly" to "Consulta la distancia semanal",
+            "dashboardPreviewComparison" to "Compara esta semana",
+            "dashboardPreviewRoutes" to "Vuelve a tus rutas recientes",
+            "dashboardLocationAfterStart" to "La ubicación se solicita después de Iniciar para que TrackMe pueda registrar tu ruta.",
+            "dashboardSampleRideOnly" to "El viaje de ejemplo en Historial es para explorar. Tus propios viajes completarán esto.",
+            "dashboardLoadingHistory" to "Preparando tu historial de actividades…",
+            "dashboardWeeklyChartValues" to "Distancia de cuatro semanas: %1\$s, %2\$s, %3\$s y %4\$s",
+            "dashboardGroupActive" to "Sesión de grupo activa",
+            "dashboardGroupMembers" to "%1\$d miembros",
+            "dashboardViewLiveMap" to "Ver mapa en vivo",
+            "dashboardSyncAction" to "Parte del historial no se pudo sincronizar. Abre Historial para reintentar.",
+            "dashboardOfflineReady" to "Tu panel y la grabación siguen disponibles sin conexión.",
             "obHistorySampleDuration" to "48:20",
             "obDemoStepCounter" to "Paso %1\$d de %2\$d",
             "obDemoSkipStep" to "Omitir paso",
@@ -831,6 +921,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSignIn" to "Iniciar sesión",
             "groupCreate" to "Crear un grupo",
             "groupJoinWithCode" to "Unirse con un código",
+            "groupRidesTogetherTitle" to "Viajes que hiciste en grupo",
+            "groupRideRiderCount" to "%1\$d ciclistas",
             "groupHowItWorks" to "Todos en el grupo se ven entre sí mientras el grupo esté activo. Nadie ve dónde has estado. No se guarda nada. Puedes salir cuando quieras y no se avisa a nadie.",
             "groupNameLabel" to "Nombre del grupo",
             "groupDefaultName" to "Ruta de %1\$s",
@@ -894,7 +986,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "stopRideAction" to "Detener viaje",
             "rideStopped" to "Viaje detenido",
             "recenterMap" to "Centrar mapa",
-            "compassNorth" to "Apuntar al norte",
             "send" to "Enviar",
             "copy" to "Copiar",
             "sharePin" to "Compartir ubicación",
@@ -909,6 +1000,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareButton" to "Compartir",
             "liveShareAuthRequired" to "Inicia sesión para compartir tu ubicación en directo.",
             "gpsPoints" to "Puntos GPS",
+            "gpsSignalGaps" to "Brechas de señal GPS",
+            "inactivityHidden" to "%1${'$'}s de inactividad oculta",
+            "showFullRecording" to "Mostrar todo",
+            "hideInactivity" to "Ocultar",
+            "dashboardGroupHeading" to "Rodar juntos",
+            "dashboardGroupCreate" to "Crear un grupo",
+            "dashboardGroupJoin" to "Unirse con un código",
+            "dashboardGroupHowItWorks" to "Todos en el grupo se ven mientras el grupo está activo. Nadie ve dónde has estado y no se guarda nada.",
+            "recordingDetails" to "Detalles de grabación",
+            "startTime" to "Hora de inicio",
             "discardRideTitle" to "¿Descartar este viaje?",
             "discardRideMessage" to "Este viaje no registró una distancia significativa. Puedes descartarlo o guardarlo de todos modos.",
             "discardRide" to "Descartar",
@@ -921,9 +1022,13 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusIdle" to "INACTIVO",
             "statusRecording" to "GRABANDO",
             "statusPaused" to "PAUSADO",
+            "hudAutoPausedPill" to "Pausa automática",
+            "hudLiveSharingPill" to "Compartiendo en vivo",
+            "hudOfflineShieldPill" to "Escudo sin conexión activo",
             "speed" to "Velocidad",
             "distance" to "Distancia",
             "duration" to "Duración",
+            "total" to "Total",
             "avgSpeed" to "Vel. Media",
             "maxSpeed" to "Vel. Máx",
             "avgPace" to "Ritmo medio",
@@ -969,8 +1074,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLinkGenerated" to "Enlace Generado",
             "copyLink" to "Copiar Enlace",
             "linkCopied" to "Enlace copiado al portapapeles",
-            "liveShareReadyIdle" to "¡Enlace de compartir listo! Comienza cuando inicias el viaje.",
-            "liveShareReadyActive" to "¡Enlace de compartir listo! Compartir en tiempo real activo.",
+            "liveShareReadyIdle" to "Enlace de compartir listo. Comienza cuando inicias el viaje.",
+            "liveShareReadyActive" to "Enlace de compartir listo. Compartir en tiempo real activo.",
             "liveShareStoppedToast" to "Compartir en tiempo real detenido.",
             "liveShareStartFailed" to "Error al iniciar Compartir: ",
             "liveShareStopFailed" to "Error al detener Compartir: ",
@@ -1093,6 +1198,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "timeFrameThisMonth" to "Este mes",
             "timeFrameThisYear" to "Este año",
             "filterTitle" to "Filtrar viajes",
+            "filterActivity" to "Actividad",
+            "searchRides" to "Buscar viajes",
+            "dateRangeAny" to "Cualquier momento",
+            "dateRangeThisMonth" to "Este mes",
+            "dateRangeLast3Months" to "Últimos 3 meses",
+            "dateRangeThisYear" to "Este año",
+            "dateRangeCustom" to "Rango personalizado…",
+            "noRidesMatchFilters" to "Ningún viaje coincide con estos filtros.",
             "sortTitle" to "Ordenar por",
             "sortNewest" to "Más recientes",
             "sortOldest" to "Más antiguos",
@@ -1241,6 +1354,36 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
         "fr" -> AppStrings(mapOf(
+            "dashboardStartPersona" to "Démarrer %1\$s",
+            "dashboardChangeActivity" to "Changer d’activité",
+            "dashboardThisWeek" to "Cette semaine",
+            "dashboardActivityCount" to "%1\$d activités",
+            "dashboardDurationHours" to "%1\$d h %2\$d min",
+            "dashboardDurationMinutes" to "%1\$d min",
+            "dashboardWeeklyStreak" to "Série de %1\$d semaines",
+            "dashboardInsights" to "Tendances",
+            "dashboardInsightReturn" to "Heureux de vous revoir en %1\$s après %2\$d jours.",
+            "dashboardInsightHigher" to "Vous avez parcouru plus de distance sur la période récente.",
+            "dashboardInsightStable" to "Votre distance récente est restée stable.",
+            "dashboardInsightLower" to "Une période récente plus légère.",
+            "dashboardInsightDominant" to "%1\$s a dominé vos activités récentes.",
+            "dashboardInsightBasisHistory" to "D’après votre historique d’activités admissibles",
+            "dashboardInsightBasisWeeks" to "D’après des semaines actives comparables",
+            "dashboardRecentActivity" to "Activité récente",
+            "dashboardViewAllHistory" to "Voir tout l’historique",
+            "dashboardPrivateOffline" to "Privé par défaut • Fonctionne hors ligne",
+            "dashboardPreviewWeekly" to "Consultez la distance hebdomadaire",
+            "dashboardPreviewComparison" to "Comparez cette semaine",
+            "dashboardPreviewRoutes" to "Retrouvez vos itinéraires récents",
+            "dashboardLocationAfterStart" to "La localisation est demandée après Démarrer afin que TrackMe puisse enregistrer votre itinéraire.",
+            "dashboardSampleRideOnly" to "Le trajet d'exemple dans l'historique sert à explorer. Vos propres trajets rempliront ceci.",
+            "dashboardLoadingHistory" to "Préparation de votre historique d’activités…",
+            "dashboardWeeklyChartValues" to "Distance sur quatre semaines : %1\$s, %2\$s, %3\$s et %4\$s",
+            "dashboardGroupActive" to "Session de groupe active",
+            "dashboardGroupMembers" to "%1\$d membres",
+            "dashboardViewLiveMap" to "Voir la carte en direct",
+            "dashboardSyncAction" to "Une partie de l’historique n’a pas pu être synchronisée. Ouvrez Historique pour réessayer.",
+            "dashboardOfflineReady" to "Votre tableau de bord et l’enregistrement restent disponibles hors ligne.",
             "obHistorySampleDuration" to "48:20",
             "obDemoStepCounter" to "Étape %1\$d sur %2\$d",
             "obDemoSkipStep" to "Passer l’étape",
@@ -1376,6 +1519,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSignIn" to "Se connecter",
             "groupCreate" to "Créer un groupe",
             "groupJoinWithCode" to "Rejoindre avec un code",
+            "groupRidesTogetherTitle" to "Trajets effectués ensemble",
+            "groupRideRiderCount" to "%1\$d participants",
             "groupHowItWorks" to "Tout le monde dans le groupe se voit, tant que le groupe est actif. Personne ne voit où vous êtes allé. Rien n'est enregistré. Vous pouvez partir à tout moment, sans que personne en soit informé.",
             "groupNameLabel" to "Nom du groupe",
             "groupDefaultName" to "La sortie de %1\$s",
@@ -1439,7 +1584,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "stopRideAction" to "Arrêter le trajet",
             "rideStopped" to "Trajet arrêté",
             "recenterMap" to "Recentrer la carte",
-            "compassNorth" to "Orienter vers le nord",
             "send" to "Envoyer",
             "copy" to "Copier",
             "sharePin" to "Partager la position",
@@ -1454,6 +1598,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareButton" to "Partage Live",
             "liveShareAuthRequired" to "Connectez-vous pour partager votre position en direct.",
             "gpsPoints" to "Points GPS",
+            "gpsSignalGaps" to "Interruptions du signal GPS",
+            "inactivityHidden" to "%1${'$'}s d'inactivité masquée",
+            "showFullRecording" to "Tout afficher",
+            "hideInactivity" to "Masquer",
+            "dashboardGroupHeading" to "Rouler ensemble",
+            "dashboardGroupCreate" to "Créer un groupe",
+            "dashboardGroupJoin" to "Rejoindre avec un code",
+            "dashboardGroupHowItWorks" to "Tous les membres se voient tant que le groupe est actif. Personne ne voit où vous êtes allé, et rien n'est conservé.",
+            "recordingDetails" to "Détails de l'enregistrement",
+            "startTime" to "Heure de début",
             "discardRideTitle" to "Supprimer ce trajet ?",
             "discardRideMessage" to "Ce trajet n'a pas enregistré de distance significative. Vous pouvez le supprimer ou l'enregistrer quand même.",
             "discardRide" to "Supprimer",
@@ -1466,9 +1620,13 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusIdle" to "INACTIF",
             "statusRecording" to "EN COURS",
             "statusPaused" to "EN PAUSE",
+            "hudAutoPausedPill" to "Pause automatique",
+            "hudLiveSharingPill" to "Partage en direct",
+            "hudOfflineShieldPill" to "Bouclier hors ligne actif",
             "speed" to "Vitesse",
             "distance" to "Distance",
             "duration" to "Durée",
+            "total" to "Total",
             "avgSpeed" to "Vit. Moy",
             "maxSpeed" to "Vit. Max",
             "avgPace" to "Allure moy.",
@@ -1514,8 +1672,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLinkGenerated" to "Lien de Partage Généré",
             "copyLink" to "Copier le Lien",
             "linkCopied" to "Lien copié dans le presse-papiers",
-            "liveShareReadyIdle" to "Lien de partage prêt ! Démarre une fois le trajet commencé.",
-            "liveShareReadyActive" to "Lien de partage prêt ! Partage en direct actif.",
+            "liveShareReadyIdle" to "Lien de partage prêt. Démarre une fois le trajet commencé.",
+            "liveShareReadyActive" to "Lien de partage prêt. Partage en direct actif.",
             "liveShareStoppedToast" to "Partage en direct arrêté.",
             "liveShareStartFailed" to "Échec au démarrage du partage : ",
             "liveShareStopFailed" to "Échec à l'arrêt du partage : ",
@@ -1638,6 +1796,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "timeFrameThisMonth" to "Ce mois-ci",
             "timeFrameThisYear" to "Cette année",
             "filterTitle" to "Filtrer les trajets",
+            "filterActivity" to "Activité",
+            "searchRides" to "Rechercher des trajets",
+            "dateRangeAny" to "À tout moment",
+            "dateRangeThisMonth" to "Ce mois-ci",
+            "dateRangeLast3Months" to "Ces 3 derniers mois",
+            "dateRangeThisYear" to "Cette année",
+            "dateRangeCustom" to "Période personnalisée…",
+            "noRidesMatchFilters" to "Aucun trajet ne correspond à ces filtres.",
             "sortTitle" to "Trier par",
             "sortNewest" to "Plus récents",
             "sortOldest" to "Plus anciens",
@@ -1786,6 +1952,36 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Session ouverte",
         ))
         "de" -> AppStrings(mapOf(
+            "dashboardStartPersona" to "%1\$s starten",
+            "dashboardChangeActivity" to "Aktivität ändern",
+            "dashboardThisWeek" to "Diese Woche",
+            "dashboardActivityCount" to "%1\$d Aktivitäten",
+            "dashboardDurationHours" to "%1\$d Std. %2\$d Min.",
+            "dashboardDurationMinutes" to "%1\$d Min.",
+            "dashboardWeeklyStreak" to "%1\$d-Wochen-Serie",
+            "dashboardInsights" to "Einblicke",
+            "dashboardInsightReturn" to "Willkommen zurück bei %1\$s nach %2\$d Tagen.",
+            "dashboardInsightHigher" to "Im letzten Zeitraum hast du mehr Distanz aufgezeichnet.",
+            "dashboardInsightStable" to "Deine letzte Distanz blieb stabil.",
+            "dashboardInsightLower" to "Ein ruhigerer letzter Zeitraum.",
+            "dashboardInsightDominant" to "%1\$s war zuletzt deine häufigste Aktivität.",
+            "dashboardInsightBasisHistory" to "Basierend auf deinem gültigen Aktivitätsverlauf",
+            "dashboardInsightBasisWeeks" to "Basierend auf vergleichbaren aktiven Wochen",
+            "dashboardRecentActivity" to "Letzte Aktivität",
+            "dashboardViewAllHistory" to "Gesamten Verlauf anzeigen",
+            "dashboardPrivateOffline" to "Standardmäßig privat • Funktioniert offline",
+            "dashboardPreviewWeekly" to "Wöchentliche Distanz ansehen",
+            "dashboardPreviewComparison" to "Diese Woche vergleichen",
+            "dashboardPreviewRoutes" to "Letzte Routen erneut ansehen",
+            "dashboardLocationAfterStart" to "Der Standort wird erst nach Start angefordert, damit TrackMe deine Route aufzeichnen kann.",
+            "dashboardSampleRideOnly" to "Die Beispielfahrt im Verlauf dient zum Ausprobieren. Deine eigenen Fahrten füllen dies.",
+            "dashboardLoadingHistory" to "Aktivitätsverlauf wird vorbereitet…",
+            "dashboardWeeklyChartValues" to "Distanz über vier Wochen: %1\$s, %2\$s, %3\$s und %4\$s",
+            "dashboardGroupActive" to "Gruppensitzung aktiv",
+            "dashboardGroupMembers" to "%1\$d Mitglieder",
+            "dashboardViewLiveMap" to "Live-Karte anzeigen",
+            "dashboardSyncAction" to "Ein Teil des Verlaufs konnte nicht synchronisiert werden. Öffne den Verlauf, um es erneut zu versuchen.",
+            "dashboardOfflineReady" to "Dashboard und Aufzeichnung bleiben offline verfügbar.",
             "obHistorySampleDuration" to "48:20",
             "obDemoStepCounter" to "Schritt %1\$d von %2\$d",
             "obDemoSkipStep" to "Schritt überspringen",
@@ -1921,6 +2117,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSignIn" to "Anmelden",
             "groupCreate" to "Gruppe erstellen",
             "groupJoinWithCode" to "Mit Code beitreten",
+            "groupRidesTogetherTitle" to "Fahrten, die ihr zusammen gefahren seid",
+            "groupRideRiderCount" to "%1\$d Fahrer",
             "groupHowItWorks" to "Alle in der Gruppe sehen einander, solange die Gruppe aktiv ist. Niemand sieht, wo du warst. Nichts wird gespeichert. Du kannst jederzeit gehen, ohne dass es jemandem mitgeteilt wird.",
             "groupNameLabel" to "Gruppenname",
             "groupDefaultName" to "%1\$ss Fahrt",
@@ -1984,7 +2182,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "stopRideAction" to "Fahrt beenden",
             "rideStopped" to "Fahrt beendet",
             "recenterMap" to "Karte zentrieren",
-            "compassNorth" to "Nach Norden ausrichten",
             "send" to "Senden",
             "copy" to "Kopieren",
             "sharePin" to "Standort teilen",
@@ -1999,6 +2196,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareButton" to "Live Teilen",
             "liveShareAuthRequired" to "Melden Sie sich an, um Ihren Live-Standort zu teilen.",
             "gpsPoints" to "GPS-Punkte",
+            "gpsSignalGaps" to "GPS-Signallücken",
+            "inactivityHidden" to "%1${'$'}s Inaktivität ausgeblendet",
+            "showFullRecording" to "Alle anzeigen",
+            "hideInactivity" to "Ausblenden",
+            "dashboardGroupHeading" to "Gemeinsam fahren",
+            "dashboardGroupCreate" to "Gruppe erstellen",
+            "dashboardGroupJoin" to "Mit Code beitreten",
+            "dashboardGroupHowItWorks" to "Alle in der Gruppe sehen einander, solange die Gruppe aktiv ist. Niemand sieht, wo du warst, und nichts wird gespeichert.",
+            "recordingDetails" to "Aufnahmedetails",
+            "startTime" to "Startzeit",
             "discardRideTitle" to "Diese Fahrt verwerfen?",
             "discardRideMessage" to "Diese Fahrt hat keine aussagekräftige Distanz aufgezeichnet. Sie können sie verwerfen oder trotzdem speichern.",
             "discardRide" to "Verwerfen",
@@ -2011,9 +2218,13 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusIdle" to "BEREIT",
             "statusRecording" to "AUFNAHME",
             "statusPaused" to "PAUSIERT",
+            "hudAutoPausedPill" to "Automatisch pausiert",
+            "hudLiveSharingPill" to "Live-Freigabe",
+            "hudOfflineShieldPill" to "Offline-Schutz aktiv",
             "speed" to "Geschw.",
             "distance" to "Distanz",
             "duration" to "Dauer",
+            "total" to "Gesamt",
             "avgSpeed" to "Ø Geschw.",
             "maxSpeed" to "Max Geschw.",
             "avgPace" to "Ø Tempo",
@@ -2059,8 +2270,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLinkGenerated" to "Link Erstellt",
             "copyLink" to "Link Kopieren",
             "linkCopied" to "Link in die Zwischenablage kopiert",
-            "liveShareReadyIdle" to "Freigabelink ist bereit! Startet, sobald die Fahrt beginnt.",
-            "liveShareReadyActive" to "Freigabelink ist bereit! Live-Freigabe ist jetzt aktiv.",
+            "liveShareReadyIdle" to "Freigabelink ist bereit. Startet, sobald die Fahrt beginnt.",
+            "liveShareReadyActive" to "Freigabelink ist bereit. Live-Freigabe ist jetzt aktiv.",
             "liveShareStoppedToast" to "Live-Freigabe beendet.",
             "liveShareStartFailed" to "Live-Freigabe konnte nicht gestartet werden: ",
             "liveShareStopFailed" to "Live-Freigabe konnte nicht beendet werden: ",
@@ -2183,6 +2394,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "timeFrameThisMonth" to "Diesen Monat",
             "timeFrameThisYear" to "Dieses Jahr",
             "filterTitle" to "Fahrten filtern",
+            "filterActivity" to "Aktivität",
+            "searchRides" to "Fahrten suchen",
+            "dateRangeAny" to "Jederzeit",
+            "dateRangeThisMonth" to "Diesen Monat",
+            "dateRangeLast3Months" to "Letzte 3 Monate",
+            "dateRangeThisYear" to "Dieses Jahr",
+            "dateRangeCustom" to "Benutzerdefinierter Zeitraum…",
+            "noRidesMatchFilters" to "Keine Fahrten entsprechen diesen Filtern.",
             "sortTitle" to "Sortieren nach",
             "sortNewest" to "Neueste zuerst",
             "sortOldest" to "Älteste zuerst",
@@ -2331,6 +2550,36 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "Angemeldet",
         ))
         "hi" -> AppStrings(mapOf(
+            "dashboardStartPersona" to "%1\$s शुरू करें",
+            "dashboardChangeActivity" to "गतिविधि बदलें",
+            "dashboardThisWeek" to "इस सप्ताह",
+            "dashboardActivityCount" to "%1\$d गतिविधियाँ",
+            "dashboardDurationHours" to "%1\$d घं %2\$d मि",
+            "dashboardDurationMinutes" to "%1\$d मि",
+            "dashboardWeeklyStreak" to "%1\$d सप्ताह की निरंतरता",
+            "dashboardInsights" to "जानकारी",
+            "dashboardInsightReturn" to "%2\$d दिनों बाद %1\$s में आपका फिर स्वागत है।",
+            "dashboardInsightHigher" to "हाल की अवधि में आपने अधिक दूरी रिकॉर्ड की।",
+            "dashboardInsightStable" to "आपकी हाल की दूरी स्थिर रही।",
+            "dashboardInsightLower" to "हाल की अवधि थोड़ी हल्की रही।",
+            "dashboardInsightDominant" to "हाल की गतिविधियों में %1\$s सबसे अधिक रही।",
+            "dashboardInsightBasisHistory" to "आपकी योग्य गतिविधियों के इतिहास पर आधारित",
+            "dashboardInsightBasisWeeks" to "तुलनीय सक्रिय सप्ताहों पर आधारित",
+            "dashboardRecentActivity" to "हाल की गतिविधि",
+            "dashboardViewAllHistory" to "पूरा इतिहास देखें",
+            "dashboardPrivateOffline" to "डिफ़ॉल्ट रूप से निजी • ऑफ़लाइन काम करता है",
+            "dashboardPreviewWeekly" to "साप्ताहिक दूरी देखें",
+            "dashboardPreviewComparison" to "देखें कि यह सप्ताह कैसा रहा",
+            "dashboardPreviewRoutes" to "हाल के मार्ग दोबारा देखें",
+            "dashboardLocationAfterStart" to "TrackMe आपके मार्ग को रिकॉर्ड कर सके, इसलिए स्थान की अनुमति शुरू करने के बाद माँगी जाती है।",
+            "dashboardSampleRideOnly" to "इतिहास में नमूना यात्रा केवल आज़माने के लिए है। आपकी अपनी यात्राएँ इसे भरेंगी।",
+            "dashboardLoadingHistory" to "आपकी गतिविधि का इतिहास तैयार हो रहा है…",
+            "dashboardWeeklyChartValues" to "चार सप्ताह की दूरी: %1\$s, %2\$s, %3\$s और %4\$s",
+            "dashboardGroupActive" to "समूह सत्र सक्रिय है",
+            "dashboardGroupMembers" to "%1\$d सदस्य",
+            "dashboardViewLiveMap" to "लाइव मैप देखें",
+            "dashboardSyncAction" to "कुछ इतिहास सिंक नहीं हो सका। फिर कोशिश करने के लिए इतिहास खोलें।",
+            "dashboardOfflineReady" to "आपका डैशबोर्ड और रिकॉर्डिंग ऑफ़लाइन भी उपलब्ध रहते हैं।",
             "obHistorySampleDuration" to "48:20",
             "obDemoStepCounter" to "चरण %1\$d / %2\$d",
             "obDemoSkipStep" to "चरण छोड़ें",
@@ -2466,6 +2715,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSignIn" to "साइन इन करें",
             "groupCreate" to "ग्रुप बनाएँ",
             "groupJoinWithCode" to "कोड से जुड़ें",
+            "groupRidesTogetherTitle" to "साथ की गई यात्राएँ",
+            "groupRideRiderCount" to "%1\$d सवार",
             "groupHowItWorks" to "जब तक ग्रुप लाइव है, ग्रुप में सभी एक-दूसरे को देखते हैं। कोई नहीं देखता कि आप कहाँ थे। कुछ भी सहेजा नहीं जाता। आप कभी भी छोड़ सकते हैं और किसी को नहीं बताया जाता।",
             "groupNameLabel" to "ग्रुप का नाम",
             "groupDefaultName" to "%1\$s की सवारी",
@@ -2529,7 +2780,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "stopRideAction" to "यात्रा रोकें",
             "rideStopped" to "यात्रा रुक गई",
             "recenterMap" to "मानचित्र को केंद्रित करें",
-            "compassNorth" to "उत्तर दिशा में रखें",
             "send" to "भेजें",
             "copy" to "कॉपी करें",
             "sharePin" to "स्थान साझा करें",
@@ -2544,6 +2794,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareButton" to "लाइव शेयर",
             "liveShareAuthRequired" to "लाइव लोकेशन शेयर करने के लिए साइन इन करें।",
             "gpsPoints" to "GPS पॉइंट",
+            "gpsSignalGaps" to "GPS सिग्नल अंतराल",
+            "inactivityHidden" to "%1${'$'}s की निष्क्रियता छिपाई गई",
+            "showFullRecording" to "सभी दिखाएं",
+            "hideInactivity" to "छिपाएं",
+            "dashboardGroupHeading" to "साथ चलें",
+            "dashboardGroupCreate" to "समूह बनाएं",
+            "dashboardGroupJoin" to "कोड से जुड़ें",
+            "dashboardGroupHowItWorks" to "समूह के सक्रिय रहने तक सभी सदस्य एक-दूसरे को देख सकते हैं। आप कहाँ गए थे यह कोई नहीं देखता, और कुछ भी सहेजा नहीं जाता।",
+            "recordingDetails" to "रिकॉर्डिंग विवरण",
+            "startTime" to "प्रारंभ समय",
             "discardRideTitle" to "इस यात्रा को हटाएं?",
             "discardRideMessage" to "इस यात्रा में कोई महत्वपूर्ण दूरी रिकॉर्ड नहीं हुई। आप इसे हटा सकते हैं या फिर भी सहेज सकते हैं।",
             "discardRide" to "हटाएं",
@@ -2556,9 +2816,13 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusIdle" to "निष्क्रिय",
             "statusRecording" to "रिकॉर्डिंग",
             "statusPaused" to "रुका हुआ",
+            "hudAutoPausedPill" to "स्वतः रुका",
+            "hudLiveSharingPill" to "लाइव साझा",
+            "hudOfflineShieldPill" to "ऑफ़लाइन शील्ड सक्रिय",
             "speed" to "गति",
             "distance" to "दूरी",
             "duration" to "समय",
+            "total" to "कुल",
             "avgSpeed" to "औसत गति",
             "maxSpeed" to "अधिकतम गति",
             "avgPace" to "औसत गति-दर",
@@ -2604,8 +2868,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLinkGenerated" to "शेयर लिंक बन गया है",
             "copyLink" to "लिंक कॉपी करें",
             "linkCopied" to "लिंक क्लिपबोर्ड पर कॉपी किया गया",
-            "liveShareReadyIdle" to "शेयरिंग लिंक तैयार है! यात्रा शुरू होते ही यह शुरू हो जाएगा।",
-            "liveShareReadyActive" to "शेयरिंग लिंक तैयार है! लाइव शेयरिंग सक्रिय है।",
+            "liveShareReadyIdle" to "शेयरिंग लिंक तैयार है। यात्रा शुरू होते ही यह शुरू हो जाएगा।",
+            "liveShareReadyActive" to "शेयरिंग लिंक तैयार है। लाइव शेयरिंग सक्रिय है।",
             "liveShareStoppedToast" to "लाइव शेयर बंद किया गया।",
             "liveShareStartFailed" to "लाइव शेयर शुरू करने में विफल: ",
             "liveShareStopFailed" to "लाइव शेयर रोकने में विफल: ",
@@ -2728,6 +2992,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "timeFrameThisMonth" to "इस महीने",
             "timeFrameThisYear" to "इस वर्ष",
             "filterTitle" to "राइड फ़िल्टर करें",
+            "filterActivity" to "गतिविधि",
+            "searchRides" to "राइड खोजें",
+            "dateRangeAny" to "किसी भी समय",
+            "dateRangeThisMonth" to "इस महीने",
+            "dateRangeLast3Months" to "पिछले 3 महीने",
+            "dateRangeThisYear" to "इस वर्ष",
+            "dateRangeCustom" to "कस्टम अवधि…",
+            "noRidesMatchFilters" to "इन फ़िल्टर से कोई राइड मेल नहीं खाती।",
             "sortTitle" to "क्रमबद्ध करें",
             "sortNewest" to "नवीनतम पहले",
             "sortOldest" to "पुराने पहले",
@@ -2876,6 +3148,36 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "साइन इन",
         ))
         "ja" -> AppStrings(mapOf(
+            "dashboardStartPersona" to "%1\$sを開始",
+            "dashboardChangeActivity" to "アクティビティを変更",
+            "dashboardThisWeek" to "今週",
+            "dashboardActivityCount" to "%1\$d件のアクティビティ",
+            "dashboardDurationHours" to "%1\$d時間%2\$d分",
+            "dashboardDurationMinutes" to "%1\$d分",
+            "dashboardWeeklyStreak" to "%1\$d週間連続",
+            "dashboardInsights" to "インサイト",
+            "dashboardInsightReturn" to "%2\$d日ぶりの%1\$s、おかえりなさい。",
+            "dashboardInsightHigher" to "直近の期間は記録した距離が増えました。",
+            "dashboardInsightStable" to "直近の距離は安定していました。",
+            "dashboardInsightLower" to "直近は軽めの期間でした。",
+            "dashboardInsightDominant" to "最近は%1\$sが最も多いアクティビティでした。",
+            "dashboardInsightBasisHistory" to "対象となるアクティビティ履歴に基づく情報",
+            "dashboardInsightBasisWeeks" to "比較可能なアクティブ週に基づく情報",
+            "dashboardRecentActivity" to "最近のアクティビティ",
+            "dashboardViewAllHistory" to "履歴をすべて表示",
+            "dashboardPrivateOffline" to "初期設定で非公開 • オフライン対応",
+            "dashboardPreviewWeekly" to "週間距離を確認",
+            "dashboardPreviewComparison" to "今週を比較",
+            "dashboardPreviewRoutes" to "最近のルートを振り返る",
+            "dashboardLocationAfterStart" to "TrackMeがルートを記録できるよう、位置情報は開始後に求められます。",
+            "dashboardSampleRideOnly" to "履歴のサンプルライドは操作を試すためのものです。ご自身のライドがここに反映されます。",
+            "dashboardLoadingHistory" to "アクティビティ履歴を準備しています…",
+            "dashboardWeeklyChartValues" to "4週間の距離: %1\$s、%2\$s、%3\$s、%4\$s",
+            "dashboardGroupActive" to "グループセッションが進行中",
+            "dashboardGroupMembers" to "%1\$d人のメンバー",
+            "dashboardViewLiveMap" to "ライブマップを表示",
+            "dashboardSyncAction" to "一部の履歴を同期できませんでした。履歴を開いて再試行してください。",
+            "dashboardOfflineReady" to "ダッシュボードと記録はオフラインでも利用できます。",
             "obHistorySampleDuration" to "48:20",
             "obHistorySampleDistance" to "12.4 km",
             "obDemoStepCounter" to "%2\$d ステップ中 %1\$d",
@@ -3011,6 +3313,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSignIn" to "サインイン",
             "groupCreate" to "グループを作成",
             "groupJoinWithCode" to "コードで参加",
+            "groupRidesTogetherTitle" to "一緒に走ったライド",
+            "groupRideRiderCount" to "%1\$d人",
             "groupHowItWorks" to "グループが有効な間、メンバー全員がお互いを見られます。過去の経路は誰にも見えません。何も保存されません。いつでも退出でき、誰にも通知されません。",
             "groupNameLabel" to "グループ名",
             "groupDefaultName" to "%1\$sのライド",
@@ -3074,7 +3378,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "stopRideAction" to "記録を停止",
             "rideStopped" to "記録を停止しました",
             "recenterMap" to "地図を中央に戻す",
-            "compassNorth" to "北を向く",
             "send" to "送信",
             "copy" to "コピー",
             "sharePin" to "位置情報を共有",
@@ -3089,6 +3392,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareButton" to "ライブ共有",
             "liveShareAuthRequired" to "ライブ位置情報を共有するにはサインインしてください。",
             "gpsPoints" to "GPSポイント",
+            "gpsSignalGaps" to "GPS信号の途切れ",
+            "inactivityHidden" to "%1${'$'}s の停止時間を非表示",
+            "showFullRecording" to "すべて表示",
+            "hideInactivity" to "非表示",
+            "dashboardGroupHeading" to "一緒に走る",
+            "dashboardGroupCreate" to "グループを作成",
+            "dashboardGroupJoin" to "コードで参加",
+            "dashboardGroupHowItWorks" to "グループが有効な間、メンバー同士がお互いを見られます。走った場所は誰にも見られず、何も保存されません。",
+            "recordingDetails" to "記録の詳細",
+            "startTime" to "開始時刻",
             "discardRideTitle" to "この記録を破棄しますか？",
             "discardRideMessage" to "この記録には十分な距離がありません。破棄するか、そのまま保存できます。",
             "discardRide" to "破棄",
@@ -3101,9 +3414,13 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusIdle" to "待機中",
             "statusRecording" to "記録中",
             "statusPaused" to "一時停止中",
+            "hudAutoPausedPill" to "自動停止中",
+            "hudLiveSharingPill" to "ライブ共有中",
+            "hudOfflineShieldPill" to "オフライン保護中",
             "speed" to "速度",
             "distance" to "距離",
             "duration" to "時間",
+            "total" to "合計",
             "avgSpeed" to "平均速度",
             "maxSpeed" to "最高速度",
             "avgPace" to "平均ペース",
@@ -3149,8 +3466,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLinkGenerated" to "共有リンクを作成しました",
             "copyLink" to "リンクをコピー",
             "linkCopied" to "リンクをクリップボードにコピーしました",
-            "liveShareReadyIdle" to "共有リンクの準備ができました！ライドを開始すると開始されます。",
-            "liveShareReadyActive" to "共有リンクの準備ができました！ライブ共有は現在アクティブです。",
+            "liveShareReadyIdle" to "共有リンクの準備ができました。ライドを開始すると開始されます。",
+            "liveShareReadyActive" to "共有リンクの準備ができました。ライブ共有は現在アクティブです。",
             "liveShareStoppedToast" to "ライブ共有を停止しました。",
             "liveShareStartFailed" to "ライブ共有の開始に失敗しました: ",
             "liveShareStopFailed" to "ライブ共有の停止に失敗しました: ",
@@ -3273,6 +3590,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "timeFrameThisMonth" to "今月",
             "timeFrameThisYear" to "今年",
             "filterTitle" to "ライドのフィルタリング",
+            "filterActivity" to "アクティビティ",
+            "searchRides" to "ライドを検索",
+            "dateRangeAny" to "いつでも",
+            "dateRangeThisMonth" to "今月",
+            "dateRangeLast3Months" to "過去3か月",
+            "dateRangeThisYear" to "今年",
+            "dateRangeCustom" to "カスタム期間…",
+            "noRidesMatchFilters" to "これらのフィルターに一致するライドはありません。",
             "sortTitle" to "並び替え",
             "sortNewest" to "新しい順",
             "sortOldest" to "古い順",
@@ -3421,6 +3746,36 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticSignedIn" to "サインイン済み",
         ))
         "zh" -> AppStrings(mapOf(
+            "dashboardStartPersona" to "开始%1\$s",
+            "dashboardChangeActivity" to "更改活动",
+            "dashboardThisWeek" to "本周",
+            "dashboardActivityCount" to "%1\$d 次活动",
+            "dashboardDurationHours" to "%1\$d 小时 %2\$d 分钟",
+            "dashboardDurationMinutes" to "%1\$d 分钟",
+            "dashboardWeeklyStreak" to "连续 %1\$d 周",
+            "dashboardInsights" to "洞察",
+            "dashboardInsightReturn" to "时隔 %2\$d 天，欢迎再次%1\$s。",
+            "dashboardInsightHigher" to "最近一段时间记录的距离更多。",
+            "dashboardInsightStable" to "你最近的距离保持稳定。",
+            "dashboardInsightLower" to "最近是一段较轻松的时期。",
+            "dashboardInsightDominant" to "%1\$s是你近期最多的活动。",
+            "dashboardInsightBasisHistory" to "依据符合条件的活动历史",
+            "dashboardInsightBasisWeeks" to "依据可比较的活跃周",
+            "dashboardRecentActivity" to "最近活动",
+            "dashboardViewAllHistory" to "查看全部历史",
+            "dashboardPrivateOffline" to "默认私密 • 支持离线使用",
+            "dashboardPreviewWeekly" to "查看每周距离",
+            "dashboardPreviewComparison" to "比较本周表现",
+            "dashboardPreviewRoutes" to "回顾最近路线",
+            "dashboardLocationAfterStart" to "点击开始后才会请求位置权限，以便 TrackMe 记录你的路线。",
+            "dashboardSampleRideOnly" to "历史记录中的示例骑行仅供体验。你自己的骑行将填充此处。",
+            "dashboardLoadingHistory" to "正在准备你的活动历史…",
+            "dashboardWeeklyChartValues" to "四周距离：%1\$s、%2\$s、%3\$s和%4\$s",
+            "dashboardGroupActive" to "群组活动进行中",
+            "dashboardGroupMembers" to "%1\$d 位成员",
+            "dashboardViewLiveMap" to "查看实时地图",
+            "dashboardSyncAction" to "部分历史记录无法同步。请打开历史记录重试。",
+            "dashboardOfflineReady" to "仪表盘和记录功能在离线时仍可使用。",
             "obHistorySampleDuration" to "48:20",
             "obDemoStepCounter" to "第 %1\$d 步，共 %2\$d 步",
             "obDemoSkipStep" to "跳过此步骤",
@@ -3556,6 +3911,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupSignIn" to "登录",
             "groupCreate" to "创建群组",
             "groupJoinWithCode" to "用代码加入",
+            "groupRidesTogetherTitle" to "你们一起骑行的记录",
+            "groupRideRiderCount" to "%1\$d 位骑行者",
             "groupHowItWorks" to "只要群组处于活动状态，群内所有人都能看到彼此。没有人能看到你去过哪里。不保存任何内容。你可以随时离开，且不会通知任何人。",
             "groupNameLabel" to "群组名称",
             "groupDefaultName" to "%1\$s 的骑行",
@@ -3619,7 +3976,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "stopRideAction" to "停止行程",
             "rideStopped" to "行程已停止",
             "recenterMap" to "重新居中地图",
-            "compassNorth" to "指向北方",
             "send" to "发送",
             "copy" to "复制",
             "sharePin" to "分享位置",
@@ -3634,6 +3990,16 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveShareButton" to "实时位置",
             "liveShareAuthRequired" to "请登录以分享您的实时位置。",
             "gpsPoints" to "GPS 点",
+            "gpsSignalGaps" to "GPS 信号间隔",
+            "inactivityHidden" to "已隐藏 %1${'$'}s 的静止时间",
+            "showFullRecording" to "显示全部",
+            "hideInactivity" to "隐藏",
+            "dashboardGroupHeading" to "一起骑行",
+            "dashboardGroupCreate" to "创建群组",
+            "dashboardGroupJoin" to "用代码加入",
+            "dashboardGroupHowItWorks" to "群组活跃期间，成员之间可以互相看到。没有人能看到你去过哪里，也不会保存任何记录。",
+            "recordingDetails" to "记录详情",
+            "startTime" to "开始时间",
             "discardRideTitle" to "丢弃此次行程？",
             "discardRideMessage" to "此次行程没有记录到有效距离。您可以丢弃它，或仍然保存。",
             "discardRide" to "丢弃",
@@ -3646,9 +4012,13 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusIdle" to "空闲",
             "statusRecording" to "记录中",
             "statusPaused" to "已暂停",
+            "hudAutoPausedPill" to "已自动暂停",
+            "hudLiveSharingPill" to "实时共享中",
+            "hudOfflineShieldPill" to "离线保护已启用",
             "speed" to "速度",
             "distance" to "距离",
             "duration" to "时长",
+            "total" to "总计",
             "avgSpeed" to "平均速度",
             "maxSpeed" to "最高速度",
             "avgPace" to "平均配速",
@@ -3694,8 +4064,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "shareLinkGenerated" to "共享链接已生成",
             "copyLink" to "复制链接",
             "linkCopied" to "链接已复制到剪贴板",
-            "liveShareReadyIdle" to "共享链接已准备好！开始骑行后即可实时分享。",
-            "liveShareReadyActive" to "共享链接已准备好！实时共享现已开启。",
+            "liveShareReadyIdle" to "共享链接已准备好。开始骑行后即可实时分享。",
+            "liveShareReadyActive" to "共享链接已准备好。实时共享现已开启。",
             "liveShareStoppedToast" to "实时共享已停止。",
             "liveShareStartFailed" to "启动实时共享失败: ",
             "liveShareStopFailed" to "停止实时共享失败: ",
@@ -3818,6 +4188,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "timeFrameThisMonth" to "本月",
             "timeFrameThisYear" to "今年",
             "filterTitle" to "筛选行程",
+            "filterActivity" to "活动",
+            "searchRides" to "搜索行程",
+            "dateRangeAny" to "任何时间",
+            "dateRangeThisMonth" to "本月",
+            "dateRangeLast3Months" to "最近 3 个月",
+            "dateRangeThisYear" to "今年",
+            "dateRangeCustom" to "自定义范围…",
+            "noRidesMatchFilters" to "没有行程符合这些筛选条件。",
             "sortTitle" to "排序方式",
             "sortNewest" to "最新发布",
             "sortOldest" to "最早发布",

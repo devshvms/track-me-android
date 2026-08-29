@@ -30,6 +30,8 @@ import kotlinx.coroutines.launch
 
 class TrackMeApp : Application() {
     lateinit var database: AppDatabase
+    lateinit var homeDashboardRepository: `in`.shvms.trackme.data.local.HomeDashboardRepository
+        private set
     lateinit var trackingManager: TrackingManager
     internal lateinit var pipAlertStore: `in`.shvms.trackme.ui.home.components.PiPAlertStore
         private set
@@ -101,6 +103,7 @@ class TrackMeApp : Application() {
         // The CTA lands on Home rather than starting a permission-gated recording. The chosen
         // persona becomes the idle Start control's explicit default for that first real gesture.
         trackingManager.setSelectedPersona(outcome.selectedPersona)
+        preferencesManager.setOnboardingPersona(outcome.selectedPersona)
 
         applicationScope.launch(Dispatchers.IO) { seedOnboardingSampleRideIfNeeded() }
     }
@@ -214,9 +217,23 @@ class TrackMeApp : Application() {
             AppDatabase::class.java,
             "trackme_db"
         )
-        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11, AppDatabase.MIGRATION_11_12)
+        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11, AppDatabase.MIGRATION_11_12, AppDatabase.MIGRATION_12_13, AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17)
         .fallbackToDestructiveMigration()
         .build()
+
+        homeDashboardRepository = `in`.shvms.trackme.data.local.HomeDashboardRepository(
+            database.homeDashboardDao(),
+            database.rideDao(),
+        )
+        // Upgrade work starts with the application, not with Home. Home only observes the
+        // authoritative aggregate flow and its loading state; it never rebuilds ride metrics.
+        applicationScope.launch(Dispatchers.IO) {
+            try {
+                homeDashboardRepository.reconcileLegacyMetadata()
+            } catch (e: Exception) {
+                errorLogger.recordException(e)
+            }
+        }
         
         trackingManager = TrackingManager()
         pipAlertStore = `in`.shvms.trackme.ui.home.components.PiPAlertStore(applicationScope)
@@ -540,6 +557,29 @@ class TrackMeApp : Application() {
 
     fun consumePendingGroupInvite() {
         _pendingGroupInvite.value = null
+    }
+
+    /**
+     * TASK-254: which group sheet Home asked Community to open.
+     *
+     * Home now carries the entry point for group rides, but the Create and Join sheets stay where
+     * they were built, on Community. Rather than duplicate them, Home records the intent here and
+     * switches tabs; Community opens the sheet and consumes it. Same shape as
+     * [pendingGroupInvite] directly above, and for the same reason — the requesting surface and
+     * the surface that can act are not composed at the same moment.
+     */
+    enum class GroupEntryAction { CREATE, JOIN }
+
+    private val _pendingGroupAction = MutableStateFlow<GroupEntryAction?>(null)
+
+    val pendingGroupAction: StateFlow<GroupEntryAction?> = _pendingGroupAction.asStateFlow()
+
+    fun requestGroupAction(action: GroupEntryAction) {
+        _pendingGroupAction.value = action
+    }
+
+    fun consumePendingGroupAction() {
+        _pendingGroupAction.value = null
     }
 
     private val _pendingMemberFocus =

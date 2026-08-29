@@ -5,7 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.data.local.AppDatabase
+import `in`.shvms.trackme.data.local.dao.HistoryRideSummary
 import `in`.shvms.trackme.domain.sync.RideDeletion
+import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.InputStream
@@ -54,7 +57,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     private val errorLogger = app.errorLogger
     private val actionMutex = Mutex()
 
-    val rides: StateFlow<List<RideWithPoints>> = rideDao.getAllCompletedRidesWithPoints()
+    val rides: StateFlow<List<HistoryRideSummary>> = rideDao.getAllCompletedRideSummaries()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -110,7 +113,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                 // Already holding every cloud ride locally? Skip the reads entirely — otherwise a
                 // fully-synced user re-walks the whole collection just to find nothing.
                 val cloudCount = app.firestoreSyncManager.totalCloudRidesCount.value
-                val localSyncedCount = rides.value.count { it.ride.firestoreId != null }
+                val localSyncedCount = rides.value.count { it.firestoreId != null }
                 if (cloudCount > 0 && localSyncedCount >= cloudCount) {
                     _hasMoreCloudRides.value = false
                     return@launch
@@ -274,31 +277,53 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 
     // Filter & Grouping State
     val selectedTimeFrame = MutableStateFlow(TimeFrameOption.ALL_TIME)
+    val customStartMillis = MutableStateFlow(System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000)
+    val customEndMillis = MutableStateFlow(System.currentTimeMillis())
+    val selectedPersonas = MutableStateFlow(RidePersona.entries.toSet())
+    val searchQuery = MutableStateFlow("")
     val syncFilter = MutableStateFlow(SyncFilterOption.ALL)
     val distanceFilter = MutableStateFlow(DistanceFilterOption.ALL)
     val sortOption = MutableStateFlow(RideSortOption.NEWEST)
     val collapsedGroups = MutableStateFlow<Set<TimeGroup>>(emptySet())
 
+    private val debouncedSearchQuery = searchQuery.debounce(250)
+
     val activeFilterCount: StateFlow<Int> = kotlinx.coroutines.flow.combine(
-        syncFilter, distanceFilter
-    ) { sync, dist ->
+        selectedTimeFrame, selectedPersonas, debouncedSearchQuery, distanceFilter
+    ) { time, personas, query, dist ->
         var count = 0
-        if (sync != SyncFilterOption.ALL) count++
+        if (time != TimeFrameOption.ALL_TIME) count++
+        if (personas.size != RidePersona.entries.size) count++
+        if (query.isNotBlank()) count++
         if (dist != DistanceFilterOption.ALL) count++
         count
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    private val customRange = kotlinx.coroutines.flow.combine(customStartMillis, customEndMillis) { start, end -> start to end }
     private val filterState: StateFlow<FilterState> = kotlinx.coroutines.flow.combine(
-        selectedTimeFrame, syncFilter, distanceFilter, sortOption
-    ) { time, sync, dist, sort ->
-        FilterState(time, sync, dist, sort)
+        kotlinx.coroutines.flow.combine(
+            selectedTimeFrame, selectedPersonas, debouncedSearchQuery, distanceFilter, sortOption
+        ) { time, personas, query, dist, sort ->
+            FilterState(time, personas, query, dist, sort, 0L, 0L)
+        },
+        customRange,
+    ) { base, range ->
+        base.copy(customStartMillis = range.first, customEndMillis = range.second)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
-        FilterState(TimeFrameOption.ALL_TIME, SyncFilterOption.ALL, DistanceFilterOption.ALL, RideSortOption.NEWEST)
+        FilterState(
+            TimeFrameOption.ALL_TIME,
+            RidePersona.entries.toSet(),
+            "",
+            DistanceFilterOption.ALL,
+            RideSortOption.NEWEST,
+            customStartMillis.value,
+            customEndMillis.value,
+        )
     )
 
-    val groupedRides: StateFlow<Map<TimeGroup, List<RideWithPoints>>> = kotlinx.coroutines.flow.combine(
+    val groupedRides: StateFlow<Map<TimeGroup, List<HistoryRideSummary>>> = kotlinx.coroutines.flow.combine(
         rides, filterState
     ) { rawList, state ->
         val nowMillis = System.currentTimeMillis()
@@ -307,7 +332,6 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         val timeFiltered = rawList.filter { item ->
             when (state.timeFrame) {
                 TimeFrameOption.ALL_TIME -> true
-                TimeFrameOption.LAST_7_DAYS -> item.ride.startTime >= (nowMillis - 7L * 24 * 60 * 60 * 1000)
                 TimeFrameOption.THIS_MONTH -> {
                     val cal = java.util.Calendar.getInstance()
                     cal.set(java.util.Calendar.DAY_OF_MONTH, 1)
@@ -315,8 +339,10 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                     cal.set(java.util.Calendar.MINUTE, 0)
                     cal.set(java.util.Calendar.SECOND, 0)
                     cal.set(java.util.Calendar.MILLISECOND, 0)
-                    item.ride.startTime >= cal.timeInMillis
+                    item.startTime >= cal.timeInMillis
                 }
+                TimeFrameOption.LAST_3_MONTHS -> item.startTime >= (nowMillis - 90L * 24 * 60 * 60 * 1000)
+                TimeFrameOption.CUSTOM -> item.startTime in state.customStartMillis..state.customEndMillis
                 TimeFrameOption.THIS_YEAR -> {
                     val cal = java.util.Calendar.getInstance()
                     cal.set(java.util.Calendar.DAY_OF_YEAR, 1)
@@ -324,23 +350,23 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                     cal.set(java.util.Calendar.MINUTE, 0)
                     cal.set(java.util.Calendar.SECOND, 0)
                     cal.set(java.util.Calendar.MILLISECOND, 0)
-                    item.ride.startTime >= cal.timeInMillis
+                    item.startTime >= cal.timeInMillis
                 }
             }
         }
 
-        // 2. Sync Filter
-        val syncFiltered = timeFiltered.filter { item ->
-            when (state.sync) {
-                SyncFilterOption.ALL -> true
-                SyncFilterOption.SYNCED -> item.ride.firestoreId != null
-                SyncFilterOption.LOCAL_ONLY -> item.ride.firestoreId == null
-            }
+        // 2. Persona and title search. Sync remains a quiet per-card affordance.
+        val findableFiltered = timeFiltered.filter { item ->
+            val persona = runCatching { RidePersona.valueOf(item.persona) }.getOrDefault(RidePersona.AUTO)
+            val matchesPersona = persona in state.personas
+            val matchesTitle = state.search.isBlank() ||
+                (item.title ?: "").normalizeForSearch().contains(state.search.normalizeForSearch())
+            matchesPersona && matchesTitle
         }
 
         // 3. Distance Filter (meters)
-        val distFiltered = syncFiltered.filter { item ->
-            val dist = item.ride.postRideCalculation?.distance ?: 0.0
+        val distFiltered = findableFiltered.filter { item ->
+            val dist = item.distance ?: 0.0
             when (state.distance) {
                 DistanceFilterOption.ALL -> true
                 DistanceFilterOption.SHORT -> dist < 5000.0
@@ -351,20 +377,20 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 
         // 4. Sort
         val sorted = when (state.sort) {
-            RideSortOption.NEWEST -> distFiltered.sortedByDescending { it.ride.startTime }
-            RideSortOption.OLDEST -> distFiltered.sortedBy { it.ride.startTime }
-            RideSortOption.LONGEST_DISTANCE -> distFiltered.sortedByDescending { it.ride.postRideCalculation?.distance ?: 0.0 }
-            RideSortOption.FASTEST_SPEED -> distFiltered.sortedByDescending { it.ride.postRideCalculation?.avgSpeed ?: 0f }
+            RideSortOption.NEWEST -> distFiltered.sortedByDescending { it.startTime }
+            RideSortOption.OLDEST -> distFiltered.sortedBy { it.startTime }
+            RideSortOption.LONGEST_DISTANCE -> distFiltered.sortedByDescending { it.distance ?: 0.0 }
+            RideSortOption.FASTEST_SPEED -> distFiltered.sortedByDescending { it.avgSpeed ?: 0f }
         }
 
         // 5. Group into mutually exclusive buckets
-        val groupedMap = java.util.LinkedHashMap<TimeGroup, MutableList<RideWithPoints>>()
+        val groupedMap = java.util.LinkedHashMap<TimeGroup, MutableList<HistoryRideSummary>>()
         TimeGroup.values().forEach { group ->
             groupedMap[group] = mutableListOf()
         }
 
         sorted.forEach { item ->
-            val group = getTimeGroupForRide(item.ride.startTime, nowMillis)
+            val group = getTimeGroupForRide(item.startTime, nowMillis)
             groupedMap[group]?.add(item)
         }
 
@@ -374,6 +400,18 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 
     fun setTimeFrame(option: TimeFrameOption) {
         selectedTimeFrame.value = option
+    }
+
+    fun setCustomStart(millis: Long) { customStartMillis.value = millis }
+
+    fun setCustomEnd(millis: Long) { customEndMillis.value = millis }
+
+    fun setSearchQuery(value: String) { searchQuery.value = value }
+
+    fun togglePersona(persona: RidePersona) {
+        selectedPersonas.update { current ->
+            if (persona in current) current - persona else current + persona
+        }
     }
 
     fun setSyncFilter(option: SyncFilterOption) {
@@ -399,6 +437,11 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun resetFilters() {
+        selectedTimeFrame.value = TimeFrameOption.ALL_TIME
+        customStartMillis.value = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
+        customEndMillis.value = System.currentTimeMillis()
+        selectedPersonas.value = RidePersona.entries.toSet()
+        searchQuery.value = ""
         syncFilter.value = SyncFilterOption.ALL
         distanceFilter.value = DistanceFilterOption.ALL
     }
@@ -464,7 +507,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     }
 }
 
-enum class TimeFrameOption { ALL_TIME, LAST_7_DAYS, THIS_MONTH, THIS_YEAR }
+enum class TimeFrameOption { ALL_TIME, THIS_MONTH, LAST_3_MONTHS, THIS_YEAR, CUSTOM }
 enum class SyncFilterOption { ALL, SYNCED, LOCAL_ONLY }
 enum class DistanceFilterOption { ALL, SHORT, MEDIUM, LONG }
 enum class RideSortOption { NEWEST, OLDEST, LONGEST_DISTANCE, FASTEST_SPEED }
@@ -472,7 +515,15 @@ enum class TimeGroup { TODAY, YESTERDAY, THIS_WEEK, THIS_MONTH, THIS_YEAR, EARLI
 
 data class FilterState(
     val timeFrame: TimeFrameOption,
-    val sync: SyncFilterOption,
+    val personas: Set<RidePersona>,
+    val search: String,
     val distance: DistanceFilterOption,
-    val sort: RideSortOption
+    val sort: RideSortOption,
+    val customStartMillis: Long,
+    val customEndMillis: Long,
 )
+
+private fun String.normalizeForSearch(): String =
+    java.text.Normalizer.normalize(this, java.text.Normalizer.Form.NFD)
+        .replace("\\p{M}+".toRegex(), "")
+        .lowercase(java.util.Locale.ROOT)

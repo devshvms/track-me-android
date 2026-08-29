@@ -33,6 +33,19 @@ object AnalyticsManager {
         _localConsent.value = prefs.getBoolean(PREF_KEY_LOCAL_CONSENT, false)
         recomputeEffective()
 
+        // TASK-250: a build that may not deliver does not start the SDK at all.
+        //
+        // Opting out would already stop capture, and every track function below checks the same
+        // flag -- but "no SDK, no queue, no network" is a guarantee that does not depend on getting
+        // 50 call sites right, and it is the guarantee shvm asked for. The Firestore config
+        // listener is skipped with it: its only job is to feed the remote kill switch, which cannot
+        // change an answer that is already false.
+        if (!TelemetryEnvironment.allowsDelivery) {
+            Log.i(TAG, "Telemetry delivery suppressed: ${'$'}{TelemetryEnvironment.suppressionReason}")
+            isInitialized = true
+            return
+        }
+
         // 1. Setup Firestore Config Listener
         val firestore = FirebaseFirestore.getInstance()
         configListener = firestore.collection("config").document("telemetry_settings")
@@ -76,13 +89,16 @@ object AnalyticsManager {
     private fun recomputeEffective() {
         _isTelemetryEnabled.value = TelemetryConsentState(
             localConsent = _localConsent.value,
-            remoteAllowed = _remoteAllowed.value
+            remoteAllowed = _remoteAllowed.value,
+            environmentAllowsDelivery = TelemetryEnvironment.allowsDelivery,
         ).isEnabled
         applyOptState()
     }
 
     private fun applyOptState() {
         if (!isInitialized) return
+        // TASK-250: nothing to opt in or out of when the SDK was never started.
+        if (!TelemetryEnvironment.allowsDelivery) return
         if (_isTelemetryEnabled.value) PostHog.optIn() else PostHog.optOut()
     }
 
@@ -441,6 +457,41 @@ object AnalyticsManager {
         )
     }
 
+    // TASK-205 dashboard taxonomy. Every value is deliberately coarse and allowlisted here; route,
+    // local ride ID, exact time, title, and raw metric history have no parameter slot.
+    fun trackHomeDashboardViewed(historyBucket: String) {
+        if (!_isTelemetryEnabled.value) return
+        require(historyBucket in setOf("empty", "early", "established"))
+        PostHog.capture("home_dashboard_viewed", properties = mapOf("history_bucket" to historyBucket))
+    }
+
+    fun trackActivityStartCtaTapped(
+        persona: `in`.shvms.trackme.domain.model.RidePersona,
+        method: ActivityStartMethod,
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "activity_start_cta_tapped",
+            properties = mapOf("persona" to persona.name, "method" to method.analyticsValue),
+        )
+    }
+
+    fun trackHomeInsightShown(insightType: String) {
+        if (!_isTelemetryEnabled.value) return
+        require(insightType in setOf("return", "period_comparison", "dominant_persona"))
+        PostHog.capture("home_insight_shown", properties = mapOf("insight_type" to insightType))
+    }
+
+    fun trackHomeRecentActivityOpened(persona: `in`.shvms.trackme.domain.model.RidePersona) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("home_recent_activity_opened", properties = mapOf("persona" to persona.name))
+    }
+
+    fun trackHomeGroupMapOpened() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("home_group_map_opened")
+    }
+
     /** SCOPE_1.8.4 §5.3 — the pure contract admits only method/outcome properties. */
     fun trackVoiceEvent(event: `in`.shvms.trackme.domain.voice.VoiceTelemetryEvent) {
         if (!_isTelemetryEnabled.value) return
@@ -624,6 +675,11 @@ enum class RideStartAbortMethod(val analyticsValue: String) {
     POST_COMMIT_UNDO("post_commit_undo")
 }
 
+enum class ActivityStartMethod(val analyticsValue: String) {
+    PRIMARY("primary"),
+    PERSONA_PICKER("persona_picker"),
+}
+
 /**
  * Why a join attempt failed, as a closed vocabulary.
  *
@@ -650,10 +706,17 @@ enum class GroupJoinFailure(val analyticsValue: String) {
     UNKNOWN("unknown"),
 }
 
-/** Pure consent contract used by [AnalyticsManager] and its JVM tests. */
+/**
+ * Pure consent contract used by [AnalyticsManager] and its JVM tests.
+ *
+ * TASK-250 added the third term. It has **no default on purpose**: a default would let a future
+ * call site silently opt back into delivery from a debug build, which is exactly the shape of the
+ * TASK-246 defect — a parameter that reads as harmless and is wrong on the paths that omit it.
+ */
 internal data class TelemetryConsentState(
     val localConsent: Boolean,
-    val remoteAllowed: Boolean
+    val remoteAllowed: Boolean,
+    val environmentAllowsDelivery: Boolean,
 ) {
-    val isEnabled: Boolean get() = localConsent && remoteAllowed
+    val isEnabled: Boolean get() = localConsent && remoteAllowed && environmentAllowsDelivery
 }

@@ -3,6 +3,7 @@ package `in`.shvms.trackme.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import `in`.shvms.trackme.data.local.dao.RideDao
+import `in`.shvms.trackme.data.local.dao.HomeDashboardDao
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.RideEntity
 
@@ -14,11 +15,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RideEntity::class, 
         GPSPointEntity::class
     ], 
-    version = 12,
+    version = 17,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun rideDao(): RideDao
+    abstract fun homeDashboardDao(): HomeDashboardDao
 
     companion object {
         val MIGRATION_2_3 = object : Migration(2, 3) {
@@ -146,6 +148,69 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL(
                     "ALTER TABLE `rides` ADD COLUMN `isSample` INTEGER NOT NULL DEFAULT 0"
                 )
+            }
+        }
+
+        /** TASK-205A: additive, rebuildable metadata for projection-only Home aggregates. */
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE `rides` ADD COLUMN `qualifiesForStats` INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE `rides` ADD COLUMN `dashboardActiveDurationMillis` INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE `rides` ADD COLUMN `dashboardMetadataVersion` INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_rides_dashboard_summary` " +
+                        "ON `rides` (`qualifiesForStats`, `pendingDelete`, `isSample`, `startTime`)"
+                )
+            }
+        }
+
+        /** TASK-206: route availability and per-ride calendar zone, additive from the WIP v13. */
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE `rides` ADD COLUMN `dashboardPointCount` INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL(
+                    "ALTER TABLE `rides` ADD COLUMN `startZoneId` TEXT"
+                )
+            }
+        }
+
+        /** TASK-215: persisted ascent is nullable until a ride has enough valid altitude data. */
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `rides` ADD COLUMN `elevationGainMeters` REAL")
+            }
+        }
+
+        /**
+         * TASK-231: the History thumbnail's route shape, stored on the ride row. Additive and
+         * nullable, the same pattern as startZoneId -- existing rows are filled in by the bounded
+         * metadata reconciler, not by this migration, so an upgrade never reads gps_points inline.
+         */
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `rides` ADD COLUMN `dashboardRoutePolyline` TEXT")
+            }
+        }
+
+        /**
+         * TASK-232: the group marker and rider count. Additive, and there is deliberately no
+         * backfill -- a ride recorded before this shipped has no record of having been a group
+         * ride, and inventing one is not possible from anything stored.
+         */
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE `rides` ADD COLUMN `wasGroupRide` INTEGER NOT NULL DEFAULT 0"
+                )
+                database.execSQL("ALTER TABLE `rides` ADD COLUMN `groupRiderCount` INTEGER")
             }
         }
     }

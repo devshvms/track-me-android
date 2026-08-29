@@ -136,7 +136,9 @@ class GPXParser {
             maxSpeed = maxSpeed,
             distance = totalDistance,
             avgSpeed = avgSpeed,
-            pauseDuration = 0L
+            pauseDuration = 0L,
+            rawPointCount = points.size,
+            elevationGainMeters = `in`.shvms.trackme.domain.processor.calculateElevationGainMeters(points),
         )
 
         val ride = RideEntity(
@@ -146,7 +148,15 @@ class GPXParser {
             isSynced = false,
             title = rideName ?: "Imported Ride",
             postRideCalculation = calc
-        )
+        ).let {
+            // TASK-246: imported rides get a thumbnail like any other.
+            `in`.shvms.trackme.data.local.withDashboardMetadata(
+                it,
+                durationMillis,
+                points.size,
+                `in`.shvms.trackme.data.local.dashboardRoutePolylineFromPoints(points),
+            )
+        }
 
         val rideWithPoints = RideWithPoints(ride, points)
 

@@ -33,6 +33,16 @@ class DefaultGPSProcessor(
         val rawPoints = rideDao.getPointsForRide(rideId).firstOrNull() ?: return
         if (rawPoints.isEmpty()) return
 
+        // TASK-257: the gap rule is persona-aware, because "a speed this rider could not have
+        // reached" means something different on a walk and in a car. Unparseable falls back to AUTO,
+        // which carries the most permissive ceiling -- an unknown activity must never be the reason
+        // a real segment is discarded.
+        val persona = runCatching {
+            `in`.shvms.trackme.domain.model.RidePersona.valueOf(
+                rideDao.getRideWithPointsById(rideId)?.ride?.persona ?: "AUTO"
+            )
+        }.getOrDefault(`in`.shvms.trackme.domain.model.RidePersona.AUTO)
+
         val rawPointCount = rawPoints.size
 
         // Step A: Outlier Removal & Acceleration Tracking
@@ -145,6 +155,10 @@ class DefaultGPSProcessor(
             }
             
             if (!p.isPaused) {
+                // The 15s guard stays. TASK-257 briefly replaced it with the persona-speed rule and
+                // that was wrong here: across a GPS loss the rider *did* travel, and this codebase
+                // deliberately declines to count a stretch it did not observe. The persona rule
+                // governs how a gap is *drawn*, not whether it is counted.
                 val gapMs = lastUnpausedPoint?.let { p.timestamp - it.timestamp }
                 if (lastUnpausedPoint != null && gapMs != null && gapMs <= maxGapMs) {
                     totalDistance += distanceCalculator.meters(lastUnpausedPoint, p)
@@ -158,8 +172,9 @@ class DefaultGPSProcessor(
         for (i in 1 until autoPausedPoints.size) {
             val curr = autoPausedPoints[i]
             val prev = autoPausedPoints[i-1]
+            // TASK-259: was a local 15s cap, one of three competing rules. Now the shared one.
             val gapMs = curr.timestamp - prev.timestamp
-            if (!curr.isPaused && !prev.isPaused && gapMs <= maxGapMs) {
+            if (`in`.shvms.trackme.data.local.countsAsMovingTime(prev, curr)) {
                 activeTimeMs += gapMs
             }
         }
@@ -177,10 +192,21 @@ class DefaultGPSProcessor(
             avgSpeed = avgSpeed,
             pauseDuration = pauseDurationMs,
             maxAcceleration = maxAcceleration,
-            rawPointCount = rawPointCount
+            rawPointCount = rawPointCount,
+            elevationGainMeters = currentCalc.elevationGainMeters
+                ?: calculateElevationGainMeters(validPoints)
         )
 
-        val updatedRide = ride.copy(postRideCalculation = updatedCalc)
+        val updatedRide = ride.copy(postRideCalculation = updatedCalc).let { updated ->
+            `in`.shvms.trackme.data.local.withDashboardMetadata(
+                updated,
+                activeTimeMs,
+                compressedPoints.size,
+                // TASK-246: rebuilt from the compressed set this function is about to persist, so
+                // the stored shape matches the points actually kept.
+                `in`.shvms.trackme.data.local.dashboardRoutePolylineFromPoints(compressedPoints),
+            )
+        }
         
         // Finalize in DB
         rideDao.deletePointsForRide(rideId)

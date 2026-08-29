@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -34,6 +35,14 @@ data class Stat(val label: String, val value: String)
  *
  * The separator is drawn as a background showing through 1dp gaps rather than as divider
  * composables, so cells stay evenly weighted regardless of how many there are.
+ *
+ * ### Two-line labels
+ * A label gets exactly two lines, always. One line ellipsised "ELEVATION GAIN" to "ELEVATION G..."
+ * on an ordinary phone, and English is not the worst case: `gpsSignalGaps` is 27 characters in
+ * French, `elevationGain` 19 in Spanish, `maxGForce` 16 in Hindi. Shrinking the type or trimming
+ * the padding until English fits would leave four locales still truncating, so the cell is sized
+ * for wrapping instead. Fixed at two lines rather than one-or-two so the values stay on a common
+ * line across cells — a row where one value sits lower than its neighbours reads as misalignment.
  */
 @Composable
 fun StatGrid(
@@ -53,13 +62,20 @@ fun StatGrid(
         modifier = Modifier
           .weight(1f)
           .background(MaterialTheme.colorScheme.surfaceContainerLow)
-          .padding(horizontal = 10.dp, vertical = 10.dp),
+          // TASK-252, shvm: the grid reads more compactly. Only the vertical padding gives way --
+          // the horizontal 8dp is what stops a wrapped two-line label touching the hairline, and
+          // the two-line reservation itself is untouchable for the reason in the KDoc above.
+          .padding(horizontal = 8.dp, vertical = 7.dp),
       ) {
         Text(
           text = stat.label.uppercase(),
-          style = MaterialTheme.typography.labelSmall,
+          // SemiBold rather than smaller: at labelSmall the type is already 11sp, and shrinking a
+          // secondary label further is the wrong lever on a screen that has to survive 200% text.
+          // Weight buys the same separation from the value without costing legibility.
+          style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
-          maxLines = 1,
+          minLines = 2,
+          maxLines = 2,
           overflow = TextOverflow.Ellipsis,
         )
         Text(
