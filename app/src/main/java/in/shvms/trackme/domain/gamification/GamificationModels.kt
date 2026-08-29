@@ -1,4 +1,4 @@
-package in.shvms.trackme.domain.gamification
+package `in`.shvms.trackme.domain.gamification
 
 data class GamificationLevel(
     val level: Int,

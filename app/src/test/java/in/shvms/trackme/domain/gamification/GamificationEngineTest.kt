@@ -1,4 +1,4 @@
-package in.shvms.trackme.domain.gamification
+package `in`.shvms.trackme.domain.gamification
 
 import `in`.shvms.trackme.data.local.entity.PostRideCalculation
 import `in`.shvms.trackme.data.local.entity.RideEntity
