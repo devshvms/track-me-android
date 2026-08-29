@@ -317,37 +317,6 @@ fun RideDetailScreen(
     val startCircleIcon = remember { ExportMarkers.start(ExportMarkerStyle.StartFinish, 64) }
     val finishCircleIcon = remember { ExportMarkers.finish(ExportMarkerStyle.StartFinish, 64) }
 
-    val pausedLocations = remember(rideWithPoints?.points) {
-        explicitPauseMarkerLocations(rideWithPoints?.points.orEmpty()).map { marker ->
-            LatLng(marker.latitude, marker.longitude)
-        }
-    }
-
-    /**
-     * Pause markers that actually sit on the exported route.
-     *
-     * Privacy trim removes the ends of the route, so a pause inside a trimmed section would
-     * otherwise be drawn floating away from the line. The scan is O(pauses × points) — cheap per
-     * call but not free on a long ride — and both the preview and the export need the same answer,
-     * so it is computed once here rather than twice, once of them on the main thread at the moment
-     * the user taps Share.
-     */
-    val pausedOnRoute: (List<GPSPointEntity>) -> List<LatLng> = remember(pausedLocations) {
-        { routePoints ->
-            pausedLocations.filter { location ->
-                routePoints.any { point ->
-                    val distance = FloatArray(1)
-                    android.location.Location.distanceBetween(
-                        point.latitude, point.longitude,
-                        location.latitude, location.longitude,
-                        distance
-                    )
-                    distance[0] <= PAUSE_MARKER_ON_ROUTE_METERS
-                }
-            }
-        }
-    }
-
     Scaffold(
         topBar = {
             var isEditing by remember { mutableStateOf(false) }
@@ -588,10 +557,10 @@ fun RideDetailScreen(
                             // nobody rode, straight through buildings. Recorded runs stay solid; the
                             // joins between them are dotted, which reads as "we do not know" rather
                             // than as a road.
-                            val recordedRuns = remember(points, ridePersona) {
-                                RideGaps.recordedRuns(points, ridePersona)
+                            val renderPlan = remember(points, ridePersona) {
+                                RouteRenderPlan.build(points, ridePersona)
                             }
-                            recordedRuns.forEach { run ->
+                            renderPlan.solidRuns.forEach { run ->
                                 if (run.size >= 2) {
                                     Polyline(
                                         points = run.map { LatLng(it.latitude, it.longitude) },
@@ -600,25 +569,18 @@ fun RideDetailScreen(
                                     )
                                 }
                             }
-                            recordedRuns.zipWithNext().forEach { (before, after) ->
-                                val from = before.lastOrNull()
-                                val to = after.firstOrNull()
-                                if (from != null && to != null) {
-                                    Polyline(
-                                        points = listOf(
-                                            LatLng(from.latitude, from.longitude),
-                                            LatLng(to.latitude, to.longitude),
-                                        ),
-                                        color = TrackMeBlueDark.copy(alpha = 0.55f),
-                                        width = 8f,
-                                        pattern = listOf(Dot(), Gap(14f)),
-                                    )
-                                }
+                            renderPlan.dottedJoins.forEach { join ->
+                                Polyline(
+                                    points = join.map { LatLng(it.latitude, it.longitude) },
+                                    color = TrackMeBlueDark.copy(alpha = 0.55f),
+                                    width = 8f,
+                                    pattern = listOf(Dot(), Gap(14f)),
+                                )
                             }
 
-                            pausedLocations.forEach { ll ->
+                            renderPlan.pauseMarkers.forEach { location ->
                                 Marker(
-                                    state = MarkerState(position = ll),
+                                    state = MarkerState(position = LatLng(location.latitude, location.longitude)),
                                     title = strings.statusPaused,
                                     snippet = "${strings.speed}: ${`in`.shvms.trackme.domain.UnitFormatter.speed(0.0, imperial)}",
                                     icon = pauseCircleIcon,
@@ -1003,12 +965,11 @@ fun RideDetailScreen(
             val (exportWidth, exportHeight) = settings.exportSize
             val markerSize = ExportRenderScale.markerSize(exportWidth)
             val markerStyle = settings.markerStyle
-            val pausedForExport = pausedOnRoute(routePoints)
             // TASK-257: `handleExport` has its own `ride`, so the persona is resolved here rather
             // than captured from the composable scope above.
             val exportPersona = runCatching { RidePersona.valueOf(ride.ride.persona) }
                 .getOrDefault(RidePersona.AUTO)
-            val exportLatLngs = routePoints.map { LatLng(it.latitude, it.longitude) }
+            val renderPlan = RouteRenderPlan.build(routePoints, exportPersona)
 
             captureOffscreenMap(
                 context = context,
@@ -1017,11 +978,8 @@ fun RideDetailScreen(
                 mapType = settings.mapType,
                 configure = { map ->
                     settings.mapStyle(context)?.let { map.setMapStyle(it) }
-                    // TASK-257: the shared image is what a rider posts, so it is the last place a
-                    // straight line through buildings should appear. Same rule as the detail map --
-                    // solid for what was recorded, dotted across what was not.
-                    val exportRuns = RideGaps.recordedRuns(routePoints, exportPersona)
-                    exportRuns.forEach { run ->
+                    // TASK-271: Consume the shared pure route-render plan.
+                    renderPlan.solidRuns.forEach { run ->
                         if (run.size >= 2) {
                             map.addPolyline(
                                 com.google.android.gms.maps.model.PolylineOptions()
@@ -1031,25 +989,20 @@ fun RideDetailScreen(
                             )
                         }
                     }
-                    exportRuns.zipWithNext().forEach { (before, after) ->
-                        val from = before.lastOrNull()
-                        val to = after.firstOrNull()
-                        if (from != null && to != null) {
-                            map.addPolyline(
-                                com.google.android.gms.maps.model.PolylineOptions()
-                                    .add(LatLng(from.latitude, from.longitude))
-                                    .add(LatLng(to.latitude, to.longitude))
-                                    .color(TrackMeBlueDark.copy(alpha = 0.55f).toArgb())
-                                    .width(ExportRenderScale.routeStroke(exportWidth) * 0.8f)
-                                    .pattern(listOf(Dot(), Gap(ExportRenderScale.routeStroke(exportWidth) * 1.6f)))
-                            )
-                        }
+                    renderPlan.dottedJoins.forEach { join ->
+                        map.addPolyline(
+                            com.google.android.gms.maps.model.PolylineOptions()
+                                .addAll(join.map { LatLng(it.latitude, it.longitude) })
+                                .color(TrackMeBlueDark.copy(alpha = 0.55f).toArgb())
+                                .width(ExportRenderScale.routeStroke(exportWidth) * 0.8f)
+                                .pattern(listOf(Dot(), Gap(ExportRenderScale.routeStroke(exportWidth) * 1.6f)))
+                        )
                     }
                     ExportMarkers.pause(markerStyle, markerSize)?.let { icon ->
-                        pausedForExport.forEach { location ->
+                        renderPlan.pauseMarkers.forEach { location ->
                             map.addMarker(
                                 com.google.android.gms.maps.model.MarkerOptions()
-                                    .position(location).icon(icon).anchor(0.5f, 0.5f)
+                                    .position(LatLng(location.latitude, location.longitude)).icon(icon).anchor(0.5f, 0.5f)
                             )
                         }
                     }
@@ -1217,19 +1170,26 @@ fun RideDetailScreen(
                 val points = rideWithPoints?.points.orEmpty()
                 if (settings.privacyTrim) trimGpsPointsForExport(points, AppConfig.PRIVACY_TRIM_METERS) else points
             }
-            if (routePoints.size < 2) {
+            val exportPersona = remember(rideWithPoints?.ride?.persona) {
+                runCatching { RidePersona.valueOf(rideWithPoints?.ride?.persona ?: "") }.getOrDefault(RidePersona.AUTO)
+            }
+            val renderPlan = remember(routePoints, exportPersona) {
+                RouteRenderPlan.build(routePoints, exportPersona)
+            }
+            if (renderPlan.isEmpty) {
                 Box(modifier, contentAlignment = Alignment.Center) {
                     Text(strings.notEnoughGpsDataForExport)
                 }
             } else {
-                val latLngs = remember(routePoints) { routePoints.map { LatLng(it.latitude, it.longitude) } }
-                val bounds = remember(latLngs) {
-                    LatLngBounds.Builder().also { builder -> latLngs.forEach(builder::include) }.build()
+                val boundsLimitsLatLng = remember(renderPlan.boundsLimits) {
+                    renderPlan.boundsLimits.map { LatLng(it.latitude, it.longitude) }
+                }
+                val bounds = remember(boundsLimitsLatLng) {
+                    LatLngBounds.Builder().also { builder -> boundsLimitsLatLng.forEach(builder::include) }.build()
                 }
                 val cameraPositionState = rememberCameraPositionState {
-                    position = initialRouteCamera(latLngs, bounds)
+                    position = initialRouteCamera(boundsLimitsLatLng, bounds)
                 }
-                val pausedForRoute = remember(pausedOnRoute, routePoints) { pausedOnRoute(routePoints) }
                 BoxWithConstraints(modifier) {
                     // The preview's own pixel size. Everything drawn on it is scaled from this so
                     // the preview and the export render the same picture — see ExportRenderScale.
@@ -1237,33 +1197,10 @@ fun RideDetailScreen(
                     val previewWidthPx = with(density) { maxWidth.roundToPx() }
                     val previewHeightPx = with(density) { maxHeight.roundToPx() }
 
-                    // Re-fit on ratio change, not only when the route changes. The viewport changes
-                    // shape when the ratio does, and a fit computed for the previous shape leaves
-                    // the route cropped or stranded in the middle of the new one.
                     var isPreviewMapLoaded by remember { mutableStateOf(false) }
 
-                    // Gated on the map actually being loaded, not on a 200ms guess.
-
-                    //
-
-                    // `newLatLngBounds` throws if the map has no size yet, and `moveSafely` swallows that by
-
-                    // design, so a fit that lost the race left the camera on `initialRouteCamera` -- an estimate
-
-                    // from the bounds span that caps at zoom 17. On a short urban route that is street level, and
-
-                    // the result was a preview showing the middle of the route with both ends running off the
-
-                    // frame, looking as though the polyline had been drawn incompletely.
-
-                    //
-
-                    // The remaining delay is for the resize on a ratio change to settle, not for the map to exist.
-
                     LaunchedEffect(bounds, previewWidthPx, previewHeightPx, isPreviewMapLoaded) {
-
                         if (!isPreviewMapLoaded) return@LaunchedEffect
-
                         if (previewWidthPx <= 0 || previewHeightPx <= 0) return@LaunchedEffect
 
                         kotlinx.coroutines.delay(120)
@@ -1292,36 +1229,47 @@ fun RideDetailScreen(
                             isTrafficEnabled = false,
                             mapStyleOptions = settings.mapStyle(context)
                         ),
-                        // Rotation and tilt are off on purpose. A tilted or rotated export frame is
-                        // not something this screen offers, and every extra gesture the map claims
-                        // is one more way a pan can be misread. It also lets the export reproduce
-                        // the framing from the visible bounds alone.
                         uiSettings = MapUiSettings(
                             zoomControlsEnabled = false,
                             compassEnabled = false,
                             rotationGesturesEnabled = false,
                             tiltGesturesEnabled = false,
                             mapToolbarEnabled = false
-                        )
-                        ,
+                        ),
                         onMapLoaded = { isPreviewMapLoaded = true }
                     ) {
                         MapEffect { map -> previewMapInstance = map }
-                        Polyline(
-                            points = latLngs,
-                            color = TrackMeBlueDark,
-                            width = ExportRenderScale.routeStroke(previewWidthPx)
-                        )
-                        previewMarkerIcons.third?.let { pauseIcon ->
-                            pausedForRoute.forEach { location ->
-                                Marker(state = MarkerState(position = location), icon = pauseIcon, anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f))
+
+                        renderPlan.solidRuns.forEach { run ->
+                            if (run.size >= 2) {
+                                Polyline(
+                                    points = run.map { LatLng(it.latitude, it.longitude) },
+                                    color = TrackMeBlueDark,
+                                    width = ExportRenderScale.routeStroke(previewWidthPx)
+                                )
                             }
                         }
-                        if (settings.markerStyle.marksStart) {
-                            Marker(state = remember(latLngs.first()) { MarkerState(position = latLngs.first()) }, title = strings.mapStart, icon = previewMarkerIcons.first)
+                        renderPlan.dottedJoins.forEach { join ->
+                            Polyline(
+                                points = join.map { LatLng(it.latitude, it.longitude) },
+                                color = TrackMeBlueDark.copy(alpha = 0.55f),
+                                width = ExportRenderScale.routeStroke(previewWidthPx) * 0.8f,
+                                pattern = listOf(Dot(), Gap(ExportRenderScale.routeStroke(previewWidthPx) * 1.6f))
+                            )
                         }
-                        if (settings.markerStyle.marksFinish) {
-                            Marker(state = remember(latLngs.last()) { MarkerState(position = latLngs.last()) }, title = strings.mapFinish, icon = previewMarkerIcons.second)
+
+                        previewMarkerIcons.third?.let { pauseIcon ->
+                            renderPlan.pauseMarkers.forEach { location ->
+                                Marker(state = MarkerState(position = LatLng(location.latitude, location.longitude)), icon = pauseIcon, anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f))
+                            }
+                        }
+                        if (settings.markerStyle.marksStart && routePoints.isNotEmpty()) {
+                            val first = routePoints.first()
+                            Marker(state = remember(first) { MarkerState(position = LatLng(first.latitude, first.longitude)) }, title = strings.mapStart, icon = previewMarkerIcons.first)
+                        }
+                        if (settings.markerStyle.marksFinish && routePoints.isNotEmpty()) {
+                            val last = routePoints.last()
+                            Marker(state = remember(last) { MarkerState(position = LatLng(last.latitude, last.longitude)) }, title = strings.mapFinish, icon = previewMarkerIcons.second)
                         }
                     }
                     // Beside the Google mark the snapshot already carries, never over it.
