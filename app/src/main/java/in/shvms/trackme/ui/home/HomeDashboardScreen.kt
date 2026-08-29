@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -37,6 +38,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -56,6 +58,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import `in`.shvms.trackme.data.local.dao.HomeDashboardRoutePoint
 import `in`.shvms.trackme.domain.UnitFormatter
+import `in`.shvms.trackme.domain.gamification.GamificationEngine
+import `in`.shvms.trackme.domain.gamification.toGamificationFacts
+import `in`.shvms.trackme.domain.gamification.GamificationSnapshot
+import `in`.shvms.trackme.domain.gamification.GamificationFacts
+import `in`.shvms.trackme.ui.gamification.levelName
+import `in`.shvms.trackme.ui.gamification.formatMilestone
 import `in`.shvms.trackme.domain.home.HomeDashboardSummary
 import `in`.shvms.trackme.domain.home.HomeInsight
 import `in`.shvms.trackme.domain.home.InsightDirection
@@ -94,6 +102,7 @@ internal fun HomeDashboardScreen(
     onOpenRecent: (Long, RidePersona) -> Unit,
     onOpenHistory: () -> Unit,
     onOpenCommunity: () -> Unit,
+    onOpenProgress: () -> Unit,
     onOpenGroupMap: () -> Unit,
     /** TASK-254: hands Community the sheet to open, then switches to it. The sheets are not duplicated. */
     onCreateGroup: () -> Unit,
@@ -179,6 +188,12 @@ internal fun HomeDashboardScreen(
 
             summary.insight?.let { insight ->
                 item { InsightCard(insight, imperial, strings) }
+            }
+
+            item {
+                val facts = summary.toGamificationFacts()
+                val snapshot = GamificationEngine.deriveSnapshot(facts)
+                ProgressCard(snapshot = snapshot, facts = facts, strings = strings, onOpenProgress = onOpenProgress)
             }
 
             summary.latestActivity?.let { recent ->
@@ -607,3 +622,40 @@ private fun formatDashboardDuration(millis: Long, strings: AppStrings): String {
         String.format(Locale.getDefault(), strings.dashboardDurationMinutes, minutes)
     }
 }
+
+@Composable
+private fun ProgressCard(snapshot: GamificationSnapshot, facts: GamificationFacts, strings: AppStrings, onOpenProgress: () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(10.dp))
+                Text(strings.gamificationMyProgress, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+            Text(strings.levelName(snapshot.currentLevelId), style = MaterialTheme.typography.titleLarge)
+            val currentMinutes = (facts.lifetimeActiveDurationMillis.coerceAtLeast(0L) / 60_000L).toInt()
+            val nextMinutes = ((snapshot.nextLevelDurationThresholdMillis ?: facts.lifetimeActiveDurationMillis) / 60_000L).toInt()
+            
+            val progressRatio = if (nextMinutes > 0) {
+                (currentMinutes.toFloat() / nextMinutes.toFloat()).coerceIn(0f, 1f)
+            } else 1f
+
+            val progressStr = String.format(java.util.Locale.getDefault(), strings.gamificationProgress, currentMinutes.toString(), nextMinutes.toString())
+            Column(modifier = Modifier.semantics(mergeDescendants = true) { 
+                contentDescription = progressStr 
+            }) {
+                LinearProgressIndicator(progress = progressRatio, modifier = Modifier.fillMaxWidth().height(8.dp), color = MaterialTheme.colorScheme.primary)
+                Text(progressStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            }
+
+            snapshot.unlockedMilestoneIds.lastOrNull()?.let { milestone ->
+                Text(strings.formatMilestone(milestone), style = MaterialTheme.typography.bodyMedium)
+            }
+
+            FilledTonalButton(onClick = onOpenProgress, modifier = Modifier.fillMaxWidth()) {
+                Text(strings.gamificationViewProgress)
+            }
+        }
+    }
+}
+
