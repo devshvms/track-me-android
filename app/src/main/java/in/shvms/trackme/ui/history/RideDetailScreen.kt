@@ -1,4 +1,5 @@
 package `in`.shvms.trackme.ui.history
+import in.shvms.trackme.domain.processor.RouteRenderPlan
 
 import `in`.shvms.trackme.ui.components.TrackMeMapAttribution
 import `in`.shvms.trackme.ui.components.rememberMessenger
@@ -1006,22 +1007,24 @@ fun RideDetailScreen(
                             )
                         }
                     }
-                    if (markerStyle.marksStart) {
+                    if (markerStyle.marksStart && routePoints.isNotEmpty()) {
+                        val first = routePoints.first()
                         map.addMarker(
                             com.google.android.gms.maps.model.MarkerOptions()
-                                .position(exportLatLngs.first())
+                                .position(LatLng(first.latitude, first.longitude))
                                 .icon(ExportMarkers.start(markerStyle, markerSize))
                         )
                     }
-                    if (markerStyle.marksFinish) {
+                    if (markerStyle.marksFinish && routePoints.isNotEmpty()) {
+                        val last = routePoints.last()
                         map.addMarker(
                             com.google.android.gms.maps.model.MarkerOptions()
-                                .position(exportLatLngs.last())
+                                .position(LatLng(last.latitude, last.longitude))
                                 .icon(ExportMarkers.finish(markerStyle, markerSize))
                         )
                     }
                     val target = framing ?: LatLngBounds.Builder()
-                        .also { builder -> exportLatLngs.forEach(builder::include) }
+                        .also { builder -> renderPlan.boundsLimits.forEach { builder.include(LatLng(it.latitude, it.longitude)) } }
                         .build()
                     map.moveCamera(CameraUpdateFactory.newLatLngBounds(target, 0))
                 }
