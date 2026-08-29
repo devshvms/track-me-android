@@ -76,6 +76,8 @@ data class HomeUiState(
     val gamificationLevel: `in`.shvms.trackme.domain.gamification.GamificationLevel = `in`.shvms.trackme.domain.gamification.GamificationDefinitions.LEVELS.first(),
     val gamificationTotalActiveMinutes: Long = 0L,
     val gamificationUnlockedAchievements: List<String> = emptyList(),
+    val gamificationNewLevel: `in`.shvms.trackme.domain.gamification.GamificationLevel? = null,
+    val gamificationNewAchievements: List<String> = emptyList(),
     val isAuthenticated: Boolean = false,
     val userName: String? = null
 )
@@ -104,7 +106,9 @@ class HomeViewModel(
         val syncNeedsAction: Boolean,
         val gamificationLevel: `in`.shvms.trackme.domain.gamification.GamificationLevel,
         val gamificationTotalActiveMinutes: Long,
-        val gamificationUnlockedAchievements: List<String>
+        val gamificationUnlockedAchievements: List<String>,
+        val gamificationNewLevel: `in`.shvms.trackme.domain.gamification.GamificationLevel?,
+        val gamificationNewAchievements: List<String>
     )
 
     private val dashboardSummary = dashboardRepository.summary
@@ -118,7 +122,9 @@ class HomeViewModel(
         firestoreSyncManager.syncResult,
         gamificationRepository.currentLevel,
         gamificationRepository.totalActiveMinutes,
-        gamificationRepository.unlockedAchievements
+        gamificationRepository.unlockedAchievements,
+        gamificationRepository.newLevelReveal,
+        gamificationRepository.newAchievementsReveal
     ) { params ->
         val summary = params[0] as HomeDashboardSummary?
         DashboardState(
@@ -129,7 +135,9 @@ class HomeViewModel(
             syncNeedsAction = params[3] is SyncResult.Error,
             gamificationLevel = params[4] as `in`.shvms.trackme.domain.gamification.GamificationLevel,
             gamificationTotalActiveMinutes = params[5] as Long,
-            gamificationUnlockedAchievements = params[6] as List<String>
+            gamificationUnlockedAchievements = params[6] as List<String>,
+            gamificationNewLevel = params[7] as `in`.shvms.trackme.domain.gamification.GamificationLevel?,
+            gamificationNewAchievements = params[8] as List<String>
         )
     }
 
@@ -236,9 +244,18 @@ class HomeViewModel(
             dashboardSyncNeedsAction = dashboard.syncNeedsAction,
             gamificationLevel = dashboard.gamificationLevel,
             gamificationTotalActiveMinutes = dashboard.gamificationTotalActiveMinutes,
-            gamificationUnlockedAchievements = dashboard.gamificationUnlockedAchievements
+            gamificationUnlockedAchievements = dashboard.gamificationUnlockedAchievements,
+            gamificationNewLevel = dashboard.gamificationNewLevel,
+            gamificationNewAchievements = dashboard.gamificationNewAchievements
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
+
+    fun acknowledgeGamificationReveals(level: `in`.shvms.trackme.domain.gamification.GamificationLevel?, achievements: List<String>) {
+        viewModelScope.launch {
+            if (level != null) gamificationRepository.acknowledgeNewLevel(level)
+            if (achievements.isNotEmpty()) gamificationRepository.acknowledgeAchievements(achievements)
+        }
+    }
 
     private fun formatDistance(distanceMeters: Float, imperial: Boolean): String {
         return LiveRideMetricFormatter.distance(distanceMeters, imperial)

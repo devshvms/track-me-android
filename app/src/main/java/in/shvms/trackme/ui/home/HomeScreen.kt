@@ -1370,6 +1370,8 @@ fun HomeScreen(
                     gamificationLevel = uiState.gamificationLevel,
                     gamificationTotalActiveMinutes = uiState.gamificationTotalActiveMinutes,
                     gamificationUnlockedAchievements = uiState.gamificationUnlockedAchievements,
+                    gamificationNewLevel = uiState.gamificationNewLevel,
+                    gamificationNewAchievements = uiState.gamificationNewAchievements,
                     routePoints = dashboardRoute,
                     isSummaryResolved = uiState.dashboardSummaryResolved,
                     isReconciling = uiState.isDashboardReconciling,
@@ -1402,6 +1404,9 @@ fun HomeScreen(
                     },
                     onOpenSettings = { openAppSettings(context) },
                     onDismissPermissionNotice = app::dismissLocationPermissionRevokedNoticeForSession,
+                    onAcknowledgeGamificationReveals = {
+                        viewModel.acknowledgeGamificationReveals(uiState.gamificationNewLevel, uiState.gamificationNewAchievements)
+                    },
                     scrollToTopRequest = scrollToTopRequest,
                 )
             }

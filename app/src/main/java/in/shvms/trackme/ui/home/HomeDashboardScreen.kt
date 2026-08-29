@@ -84,6 +84,8 @@ internal fun HomeDashboardScreen(
     gamificationLevel: `in`.shvms.trackme.domain.gamification.GamificationLevel,
     gamificationTotalActiveMinutes: Long,
     gamificationUnlockedAchievements: List<String>,
+    gamificationNewLevel: `in`.shvms.trackme.domain.gamification.GamificationLevel?,
+    gamificationNewAchievements: List<String>,
     routePoints: List<HomeDashboardRoutePoint>,
     isSummaryResolved: Boolean,
     isReconciling: Boolean,
@@ -102,8 +104,17 @@ internal fun HomeDashboardScreen(
     onJoinGroup: () -> Unit,
     onOpenSettings: () -> Unit,
     onDismissPermissionNotice: () -> Unit,
+    onAcknowledgeGamificationReveals: () -> Unit,
     scrollToTopRequest: Int = 0,
 ) {
+    if (gamificationNewLevel != null || gamificationNewAchievements.isNotEmpty()) {
+        `in`.shvms.trackme.ui.gamification.GamificationRevealDialog(
+            newLevel = gamificationNewLevel,
+            newAchievements = gamificationNewAchievements,
+            onDismiss = onAcknowledgeGamificationReveals
+        )
+    }
+
     val strings = LocalAppStrings.current
     // A first Room emission can still be an empty projection while legacy metadata is being
     // reconciled. Treat that as unknown, not empty, so a rider with a large history never sees
