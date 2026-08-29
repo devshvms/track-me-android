@@ -218,10 +218,7 @@ fun MainNavigation() {
                         val summary by app.homeDashboardRepository.summary.collectAsState(initial = null)
                         
                         summary?.let { s ->
-                            val facts = with(`in`.shvms.trackme.domain.gamification.HomeDashboardGamificationAdapterKt::class) {
-                                // Fallback if import fails, but since I can't easily add import to the top without breaking things
-                                `in`.shvms.trackme.domain.gamification.GamificationFacts(s.lifetimeActivityCount, s.lifetimeActiveDurationMillis)
-                            }
+                            val facts = `in`.shvms.trackme.domain.gamification.GamificationFacts(s.lifetimeActivityCount, s.lifetimeActiveDurationMillis)
                             val snapshot = `in`.shvms.trackme.domain.gamification.GamificationEngine.deriveSnapshot(facts)
                             `in`.shvms.trackme.ui.gamification.GamificationCollectionScreen(
                                 snapshot = snapshot,
