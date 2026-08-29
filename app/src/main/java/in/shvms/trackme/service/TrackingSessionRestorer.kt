@@ -27,7 +27,9 @@ object TrackingSessionRestorer {
             val current = points[index]
             val distance = distanceCalculator.meters(previous, current)
             val deltaMillis = current.timestamp - previous.timestamp
-            if (!previous.isPaused && !current.isPaused && deltaMillis > 0L) {
+            // TASK-259: the one shared rule. A recovered ride must not get a different duration
+            // from the same points than a normally finalised one.
+            if (`in`.shvms.trackme.data.local.countsAsMovingTime(previous, current)) {
                 activeDurationMillis += deltaMillis
                 if (distance >= 1.5f && current.speed > 0.3f) {
                     distanceMeters += distance

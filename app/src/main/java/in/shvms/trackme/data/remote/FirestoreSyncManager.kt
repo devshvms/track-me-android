@@ -67,7 +67,9 @@ internal fun computeCalcFromPoints(
         if (!prev.isPaused && !cur.isPaused) {
             totalDistance += distanceMeters(prev, cur)
             val gap = cur.timestamp - prev.timestamp
-            if (gap in 1..60_000) activeTimeMs += gap   // ignore gaps > 60s (matches processor intent)
+            // TASK-259: was `gap in 1..60_000`, behind a comment claiming it matched the
+            // processor's intent. It never did -- the processor capped at 15s. Now the shared rule.
+            if (`in`.shvms.trackme.data.local.countsAsMovingTime(prev, cur)) activeTimeMs += gap
         }
     }
     if (points[0].speed > maxSpeed) maxSpeed = points[0].speed
