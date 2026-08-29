@@ -173,14 +173,23 @@ fun CommunityScreen(
         app.consumePendingGroupInvite()
     }
 
-    // TASK-254: Home asked for a sheet. Same shape as the pending-invite effect above and for the
-    // same reason -- the surface that asks and the surface that can act are not composed together.
+    // TASK-254/258: Home asked for a sheet. Same shape as the pending-invite effect above and for
+    // the same reason -- the surface that asks and the surface that can act are not composed
+    // together.
     //
-    // Guarded on `inGroup` so a stale request cannot open a create sheet over a live group: the
-    // rider could tap Create on Home and be joined by an invite before this composes.
+    // TASK-258, shvm: **signed out, this used to swallow the request.** It consumed the action and
+    // set the sheet flag while the screen was showing `SignedOutState`, so the rider was carried to
+    // Community, shown a sign-in prompt, and their intent was gone -- they had to start again. Now
+    // a signed-out request is left *pending*: the rider signs in, this effect re-runs on
+    // `state.signedIn`, and the sheet they originally asked for opens. The request lives in memory
+    // only, so it does not outlive the process and surprise them on a later launch.
+    //
+    // `inGroup` still consumes without acting: a rider can tap Create on Home and be joined by an
+    // invite before this composes, and opening a create sheet over a live group would be wrong.
     val pendingGroupAction by app.pendingGroupAction.collectAsStateCompat()
-    LaunchedEffect(pendingGroupAction, state.inGroup) {
+    LaunchedEffect(pendingGroupAction, state.signedIn, state.inGroup) {
         val action = pendingGroupAction ?: return@LaunchedEffect
+        if (!state.signedIn) return@LaunchedEffect
         if (!state.inGroup) {
             when (action) {
                 TrackMeApp.GroupEntryAction.CREATE -> showCreate = true
@@ -389,7 +398,9 @@ fun CommunityScreen(
         )
     }
 
-    if (showCreate) {
+    // TASK-258: never over `SignedOutState` -- the sheets sit outside the sign-in `when`,
+    // so without this guard a create sheet could open on top of a sign-in prompt.
+    if (showCreate && state.signedIn) {
         CreateGroupSheet(
             strings = strings,
             defaultName = defaultGroupName(strings),
@@ -400,7 +411,9 @@ fun CommunityScreen(
             },
         )
     }
-    if (showJoin) {
+    // TASK-258: never over `SignedOutState` -- the sheets sit outside the sign-in `when`,
+    // so without this guard a create sheet could open on top of a sign-in prompt.
+    if (showJoin && state.signedIn) {
         JoinGroupSheet(
             strings = strings,
             initialCode = prefilledCode,
