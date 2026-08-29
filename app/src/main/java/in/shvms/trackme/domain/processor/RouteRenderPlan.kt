@@ -11,7 +11,7 @@ import `in`.shvms.trackme.ui.history.explicitPauseMarkerLocations
  * TASK-271: Ensures detail map, preview, and export all draw exactly the same
  * geometry and bounds. Privacy trim must be applied to the points BEFORE creating this plan.
  */
-data class RouteRenderPlan(
+internal data class RouteRenderPlan(
     val solidRuns: List<List<Coordinate>>,
     val dottedJoins: List<List<Coordinate>>,
     val pauseMarkers: List<PausedMarkerLocation>,
