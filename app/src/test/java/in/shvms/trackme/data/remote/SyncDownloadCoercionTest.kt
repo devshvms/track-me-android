@@ -8,7 +8,11 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import com.google.firebase.Timestamp
 import java.util.Date
+import `in`.shvms.trackme.domain.model.RidePersona
 
+// TASK-257 gave computeCalcFromPoints a persona, because the gap rule's speed ceiling depends on
+// it. These cases are about coercing cloud field types, not about gaps, so they pass AUTO -- the
+// most permissive ceiling -- to keep testing what they were written to test.
 class SyncDownloadCoercionTest {
 
     @Test
@@ -87,7 +91,7 @@ class SyncDownloadCoercionTest {
             GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 5f, 1000L, false),
             GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 10f, 2000L, false)
         )
-        val calc = computeCalcFromPoints(points) { a, b -> 100f }
+        val calc = computeCalcFromPoints(points, RidePersona.AUTO) { a, b -> 100f }
 
         assertEquals(10f, calc.maxSpeed)
         assertEquals(100.0, calc.distance, 0.001)
@@ -102,7 +106,7 @@ class SyncDownloadCoercionTest {
             GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 0f, 2000L, true),
             GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 8f, 3000L, false)
         )
-        val calc = computeCalcFromPoints(points) { a, b -> 100f }
+        val calc = computeCalcFromPoints(points, RidePersona.AUTO) { a, b -> 100f }
 
         assertEquals(0.0, calc.distance, 0.001)
         assertEquals(0f, calc.avgSpeed)
@@ -113,7 +117,7 @@ class SyncDownloadCoercionTest {
     @Test
     fun testComputeCalcFromPoints_LessThanTwo() {
         val points = listOf(GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 5f, 1000L, false))
-        val calc = computeCalcFromPoints(points) { a, b -> 100f }
+        val calc = computeCalcFromPoints(points, RidePersona.AUTO) { a, b -> 100f }
         assertEquals(0.0, calc.distance, 0.001)
         assertEquals(0f, calc.maxSpeed)
         assertEquals(0f, calc.avgSpeed)
@@ -126,7 +130,7 @@ class SyncDownloadCoercionTest {
             GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 5f, 1000L, false),
             GPSPointEntity(0L, 0L, 0.0, 0.0, 0.0, 0f, 10f, 100_000L, false) // 99s gap
         )
-        val calc = computeCalcFromPoints(points) { a, b -> 100f }
+        val calc = computeCalcFromPoints(points, RidePersona.AUTO) { a, b -> 100f }
         assertEquals(100.0, calc.distance, 0.001)
         assertEquals(0f, calc.avgSpeed)
         assertEquals(10f, calc.maxSpeed)

@@ -101,6 +101,7 @@ import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.domain.processor.rideTrimWindow
 import `in`.shvms.trackme.domain.config.PersonaAutoPauseConfig
+import `in`.shvms.trackme.domain.processor.RideGaps
 
 // Currently has no callers. Kept, but pinned to the canonical ride-summary precision so it cannot
 // reintroduce TASK-109's screen-vs-shared-artifact mismatch the moment someone does call it.
@@ -442,10 +443,12 @@ fun RideDetailScreen(
             // deliberately untouched and are already right: `dashboardActiveDurationFromPoints`
             // excludes paused points, so a forgotten half hour was never in "Duration". It is in
             // "Total", correctly, because the ride really did span that wall time.
-            val trimPauseSpeedMps = remember(ride.persona) {
-                val persona = runCatching { RidePersona.valueOf(ride.persona) }
-                    .getOrDefault(RidePersona.AUTO)
-                PersonaAutoPauseConfig.getThresholdsForPersona(persona).pauseSpeedMps
+            // TASK-257: the persona drives both the trim's pause speed and the gap rule's ceiling.
+            val ridePersona = remember(ride.persona) {
+                runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
+            }
+            val trimPauseSpeedMps = remember(ridePersona) {
+                PersonaAutoPauseConfig.getThresholdsForPersona(ridePersona).pauseSpeedMps
             }
             val trim = remember(allPoints, trimPauseSpeedMps) {
                 rideTrimWindow(allPoints, trimPauseSpeedMps)
@@ -580,11 +583,38 @@ fun RideDetailScreen(
                             MapEffect { map ->
                                 mapInstance = map
                             }
-                            Polyline(
-                                points = latLngs,
-                                color = TrackMeBlueDark,
-                                width = 10f
-                            )
+                            // TASK-257, shvm: a solid line asserts "this is where you went". Across
+                            // an unrecorded stretch -- a manual pause, a tunnel -- it asserts a route
+                            // nobody rode, straight through buildings. Recorded runs stay solid; the
+                            // joins between them are dotted, which reads as "we do not know" rather
+                            // than as a road.
+                            val recordedRuns = remember(points, ridePersona) {
+                                RideGaps.recordedRuns(points, ridePersona)
+                            }
+                            recordedRuns.forEach { run ->
+                                if (run.size >= 2) {
+                                    Polyline(
+                                        points = run.map { LatLng(it.latitude, it.longitude) },
+                                        color = TrackMeBlueDark,
+                                        width = 10f
+                                    )
+                                }
+                            }
+                            recordedRuns.zipWithNext().forEach { (before, after) ->
+                                val from = before.lastOrNull()
+                                val to = after.firstOrNull()
+                                if (from != null && to != null) {
+                                    Polyline(
+                                        points = listOf(
+                                            LatLng(from.latitude, from.longitude),
+                                            LatLng(to.latitude, to.longitude),
+                                        ),
+                                        color = TrackMeBlueDark.copy(alpha = 0.55f),
+                                        width = 8f,
+                                        pattern = listOf(Dot(), Gap(14f)),
+                                    )
+                                }
+                            }
 
                             pausedLocations.forEach { ll ->
                                 Marker(
@@ -974,6 +1004,10 @@ fun RideDetailScreen(
             val markerSize = ExportRenderScale.markerSize(exportWidth)
             val markerStyle = settings.markerStyle
             val pausedForExport = pausedOnRoute(routePoints)
+            // TASK-257: `handleExport` has its own `ride`, so the persona is resolved here rather
+            // than captured from the composable scope above.
+            val exportPersona = runCatching { RidePersona.valueOf(ride.ride.persona) }
+                .getOrDefault(RidePersona.AUTO)
             val exportLatLngs = routePoints.map { LatLng(it.latitude, it.longitude) }
 
             captureOffscreenMap(
@@ -983,12 +1017,34 @@ fun RideDetailScreen(
                 mapType = settings.mapType,
                 configure = { map ->
                     settings.mapStyle(context)?.let { map.setMapStyle(it) }
-                    map.addPolyline(
-                        com.google.android.gms.maps.model.PolylineOptions()
-                            .addAll(exportLatLngs)
-                            .color(TrackMeBlueDark.toArgb())
-                            .width(ExportRenderScale.routeStroke(exportWidth))
-                    )
+                    // TASK-257: the shared image is what a rider posts, so it is the last place a
+                    // straight line through buildings should appear. Same rule as the detail map --
+                    // solid for what was recorded, dotted across what was not.
+                    val exportRuns = RideGaps.recordedRuns(routePoints, exportPersona)
+                    exportRuns.forEach { run ->
+                        if (run.size >= 2) {
+                            map.addPolyline(
+                                com.google.android.gms.maps.model.PolylineOptions()
+                                    .addAll(run.map { LatLng(it.latitude, it.longitude) })
+                                    .color(TrackMeBlueDark.toArgb())
+                                    .width(ExportRenderScale.routeStroke(exportWidth))
+                            )
+                        }
+                    }
+                    exportRuns.zipWithNext().forEach { (before, after) ->
+                        val from = before.lastOrNull()
+                        val to = after.firstOrNull()
+                        if (from != null && to != null) {
+                            map.addPolyline(
+                                com.google.android.gms.maps.model.PolylineOptions()
+                                    .add(LatLng(from.latitude, from.longitude))
+                                    .add(LatLng(to.latitude, to.longitude))
+                                    .color(TrackMeBlueDark.copy(alpha = 0.55f).toArgb())
+                                    .width(ExportRenderScale.routeStroke(exportWidth) * 0.8f)
+                                    .pattern(listOf(Dot(), Gap(ExportRenderScale.routeStroke(exportWidth) * 1.6f)))
+                            )
+                        }
+                    }
                     ExportMarkers.pause(markerStyle, markerSize)?.let { icon ->
                         pausedForExport.forEach { location ->
                             map.addMarker(

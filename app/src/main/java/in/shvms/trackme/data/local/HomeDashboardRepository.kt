@@ -25,6 +25,8 @@ import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
+import `in`.shvms.trackme.domain.processor.RideGaps
+import `in`.shvms.trackme.domain.model.RidePersona
 
 class HomeDashboardRepository(
     private val dashboardDao: HomeDashboardDao,
@@ -102,7 +104,7 @@ class HomeDashboardRepository(
             rideDao.updateRide(withUnavailableDashboardMetadata(ride, points.size, routePolyline))
             return
         }
-        val rebuilt = (existing ?: calculationFrom(points, activeDuration))?.copy(
+        val rebuilt = (existing ?: calculationFrom(points, activeDuration, ridePersonaOf(ride)))?.copy(
             rawPointCount = points.size,
             // TASK-239: recompute ascent only where the stored value is absent or the zero the
             // broken sample-to-sample noise floor produced for every real ride. A real number is
@@ -130,9 +132,14 @@ class HomeDashboardRepository(
         )
     }
 
+    /** A ride's persona, defaulting to the most permissive gap ceiling when unparseable. */
+    private fun ridePersonaOf(ride: RideEntity): RidePersona =
+        runCatching { RidePersona.valueOf(ride.persona) }.getOrDefault(RidePersona.AUTO)
+
     private fun calculationFrom(
         points: List<GPSPointEntity>,
         activeDurationMillis: Long,
+        persona: RidePersona,
     ): PostRideCalculation? {
         if (points.size < 2) return null
         var distance = 0.0
@@ -141,6 +148,9 @@ class HomeDashboardRepository(
             val previous = points[index - 1]
             val current = points[index]
             maxSpeed = maxOf(maxSpeed, current.speed)
+            // TASK-257: the manual pause now writes a flagged point (see TrackingService), so this
+            // existing check catches it exactly, with no new rule. The GPS-loss policy is left as it
+            // was -- see the note in FirestoreSyncManager about the two paths disagreeing.
             if (!previous.isPaused && !current.isPaused) {
                 distance += haversineMeters(previous, current)
             }

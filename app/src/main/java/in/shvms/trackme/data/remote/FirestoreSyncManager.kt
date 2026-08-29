@@ -48,6 +48,7 @@ internal fun coerceEpochMillis(value: Any?): Long? = when (value) {
 // Pure. distanceMeters mirrors GPSProcessor's GeoDistanceCalculator seam so tests inject haversine.
 internal fun computeCalcFromPoints(
     points: List<GPSPointEntity>,
+    persona: `in`.shvms.trackme.domain.model.RidePersona,
     distanceMeters: (a: GPSPointEntity, b: GPSPointEntity) -> Float
 ): PostRideCalculation {
     if (points.size < 2) return PostRideCalculation(0f, 0.0, 0f, 0L, rawPointCount = points.size)
@@ -57,6 +58,12 @@ internal fun computeCalcFromPoints(
     for (i in 1 until points.size) {
         val prev = points[i - 1]; val cur = points[i]
         if (cur.speed > maxSpeed) maxSpeed = cur.speed
+        // TASK-257 left this policy alone deliberately. This path counts the distance across a gap
+        // and books the time as pause; GPSProcessor drops the distance instead. **The two have
+        // disagreed since before this task** and a ride's distance can therefore change depending on
+        // which path last computed it. That is worth settling, but it is not shvm's reported bug --
+        // a manual pause now leaves a flagged point, so `isPaused` below excludes it on both paths.
+        // Changing the gap policy here as a side effect would be a silent behaviour change.
         if (!prev.isPaused && !cur.isPaused) {
             totalDistance += distanceMeters(prev, cur)
             val gap = cur.timestamp - prev.timestamp
@@ -475,7 +482,14 @@ class FirestoreSyncManager(
                     elevationGainMeters = elevationGainMeters,
                 )
             } else if (gpsPoints.isNotEmpty()) {
-                computeCalcFromPoints(gpsPoints) { a, b ->
+                computeCalcFromPoints(
+                    gpsPoints,
+                    runCatching {
+                        `in`.shvms.trackme.domain.model.RidePersona.valueOf(
+                            doc.getString("persona") ?: "AUTO"
+                        )
+                    }.getOrDefault(`in`.shvms.trackme.domain.model.RidePersona.AUTO),
+                ) { a, b ->
                     val r = FloatArray(1)
                     android.location.Location.distanceBetween(a.latitude, a.longitude, b.latitude, b.longitude, r)
                     r[0]
