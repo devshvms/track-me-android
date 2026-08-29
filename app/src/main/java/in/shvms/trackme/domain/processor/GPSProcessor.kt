@@ -172,8 +172,9 @@ class DefaultGPSProcessor(
         for (i in 1 until autoPausedPoints.size) {
             val curr = autoPausedPoints[i]
             val prev = autoPausedPoints[i-1]
+            // TASK-259: was a local 15s cap, one of three competing rules. Now the shared one.
             val gapMs = curr.timestamp - prev.timestamp
-            if (!curr.isPaused && !prev.isPaused && gapMs <= maxGapMs) {
+            if (`in`.shvms.trackme.data.local.countsAsMovingTime(prev, curr)) {
                 activeTimeMs += gapMs
             }
         }

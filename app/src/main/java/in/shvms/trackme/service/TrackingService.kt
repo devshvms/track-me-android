@@ -35,6 +35,7 @@ import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
+import `in`.shvms.trackme.data.local.countsAsMovingTime
 
 enum class TrackingState {
     IDLE, TRACKING, PAUSED, GPS_LOST, GPS_DISABLED, STORAGE_LOW
@@ -1123,9 +1124,10 @@ class TrackingService : Service() {
                         maxSpeed = curr.speed
                     }
 
-                    val timestampDeltaMs = curr.timestamp - prev.timestamp
-                    if (!curr.isPaused && !prev.isPaused && timestampDeltaMs > 0) {
-                        activeTimeMs += timestampDeltaMs
+                    // TASK-259: the one shared rule. This path used to count every positive gap,
+                    // so a ride finalised with a duration that post-processing then disagreed with.
+                    if (countsAsMovingTime(prev, curr)) {
+                        activeTimeMs += curr.timestamp - prev.timestamp
                     }
                 }
             } else if (points.size == 1) {

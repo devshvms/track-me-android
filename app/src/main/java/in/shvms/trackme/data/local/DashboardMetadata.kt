@@ -100,15 +100,37 @@ fun withUnavailableDashboardMetadata(
  * Reconstructs the same pause-excluded interval sum used at recording finalisation. A single point
  * cannot prove a duration, so null means "unknown" and keeps the ride out of dashboard summaries.
  */
+/**
+ * TASK-259: the one rule for whether the interval between two fixes counts as moving time.
+ *
+ * Found by review. Five paths computed active duration and **three of them disagreed**: ride
+ * finalisation, crash recovery and this reconstruction counted every positive gap; `GPSProcessor`
+ * capped at 15 s; the cloud path capped at 60 s behind a comment claiming it matched the processor,
+ * which it never did. A ride's duration -- and therefore its average speed, its dashboard totals and
+ * anything derived from them -- changed depending on which path last touched it.
+ *
+ * That is the same defect shape as TASK-239's elevation and TASK-246's thumbnails: one quantity,
+ * several implementations, silently drifting. The fix is one function, called everywhere.
+ *
+ * **The threshold is [RideGaps.GAP_THRESHOLD_MILLIS], deliberately.** 25 s is already what this app
+ * *calls* a GPS signal gap -- it is the number behind the count shown in Recording details and
+ * behind TASK-257's dotted segments. A stretch the app reports to a rider as a gap is a stretch it
+ * should not also be counting as time they spent moving.
+ */
+fun countsAsMovingTime(previous: GPSPointEntity, current: GPSPointEntity): Boolean {
+    if (previous.isPaused || current.isPaused) return false
+    val gap = current.timestamp - previous.timestamp
+    return gap > 0L && gap <= `in`.shvms.trackme.domain.processor.RideGaps.GAP_THRESHOLD_MILLIS
+}
+
 fun dashboardActiveDurationFromPoints(points: List<GPSPointEntity>): Long? {
     if (points.size < 2) return null
     var activeDurationMillis = 0L
     for (index in 1 until points.size) {
         val previous = points[index - 1]
         val current = points[index]
-        val gap = current.timestamp - previous.timestamp
-        if (!previous.isPaused && !current.isPaused && gap > 0L) {
-            activeDurationMillis += gap
+        if (countsAsMovingTime(previous, current)) {
+            activeDurationMillis += current.timestamp - previous.timestamp
         }
     }
     return activeDurationMillis
