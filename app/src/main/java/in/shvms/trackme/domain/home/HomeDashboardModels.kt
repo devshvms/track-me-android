@@ -7,6 +7,7 @@ data class WeeklyBucket(
     val activityCount: Int,
     val distanceMeters: Double,
     val activeDurationMillis: Long,
+    val distanceByPersona: List<Double>,
 )
 
 data class RecentActivity(
@@ -93,7 +94,7 @@ data class HomeDashboardSummary(
 
     companion object {
         fun empty(currentWeekEpochDay: Long) = HomeDashboardSummary(
-            currentWeek = WeeklyBucket(currentWeekEpochDay, 0, 0.0, 0L),
+            currentWeek = WeeklyBucket(currentWeekEpochDay, 0, 0.0, 0L, RidePersona.entries.map { 0.0 }),
             lifetimeActivityCount = 0,
             lifetimeDistanceMeters = 0.0,
             lifetimeActiveDurationMillis = 0L,
