@@ -39,6 +39,9 @@ class TrackMeApp : Application() {
     lateinit var firestoreSyncManager: FirestoreSyncManager
         private set
 
+    lateinit var gamificationRepository: `in`.shvms.trackme.domain.gamification.GamificationRepository
+        private set
+
     lateinit var liveShareManager: LiveShareManager
 
     /**
@@ -224,6 +227,10 @@ class TrackMeApp : Application() {
         homeDashboardRepository = `in`.shvms.trackme.data.local.HomeDashboardRepository(
             database.homeDashboardDao(),
             database.rideDao(),
+        )
+        gamificationRepository = `in`.shvms.trackme.domain.gamification.GamificationRepository(
+            database.rideDao(),
+            preferencesManager,
         )
         // Upgrade work starts with the application, not with Home. Home only observes the
         // authoritative aggregate flow and its loading state; it never rebuilds ride metrics.

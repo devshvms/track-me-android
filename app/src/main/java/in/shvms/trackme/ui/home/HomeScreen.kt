@@ -168,6 +168,7 @@ fun HomeScreen(
             (LocalContext.current.applicationContext as TrackMeApp).preferencesManager,
             (LocalContext.current.applicationContext as TrackMeApp).homeDashboardRepository,
             (LocalContext.current.applicationContext as TrackMeApp).firestoreSyncManager,
+            (LocalContext.current.applicationContext as TrackMeApp).gamificationRepository,
         )
     )
 ) {
@@ -1366,6 +1367,9 @@ fun HomeScreen(
             ) {
                 HomeDashboardScreen(
                     summary = uiState.dashboardSummary,
+                    gamificationLevel = uiState.gamificationLevel,
+                    gamificationTotalActiveMinutes = uiState.gamificationTotalActiveMinutes,
+                    gamificationUnlockedAchievements = uiState.gamificationUnlockedAchievements,
                     routePoints = dashboardRoute,
                     isSummaryResolved = uiState.dashboardSummaryResolved,
                     isReconciling = uiState.isDashboardReconciling,

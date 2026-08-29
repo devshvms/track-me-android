@@ -480,6 +480,47 @@ fun SettingsScreen(
             }
         }
 
+        var maintenanceWeeks by remember { mutableStateOf(prefs.getInt("maintenance_weeks", 0)) }
+        SettingsGroup(title = "Gamification") {
+            SettingsRow(
+                title = "Maintenance Mode",
+                supportingText = if (maintenanceWeeks > 0) "Active for $maintenanceWeeks weeks" else "Paused consistency pressure",
+                trailingContent = {
+                    Box {
+                        var showMaintenanceDropdown by remember { mutableStateOf(false) }
+                        OutlinedButton(onClick = { showMaintenanceDropdown = true }) {
+                            Text(if (maintenanceWeeks > 0) "$maintenanceWeeks W" else "Off")
+                        }
+                        DropdownMenu(
+                            expanded = showMaintenanceDropdown,
+                            onDismissRequest = { showMaintenanceDropdown = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Off") },
+                                onClick = {
+                                    maintenanceWeeks = 0
+                                    prefs.edit().putInt("maintenance_weeks", 0).apply()
+                                    scope.launch { (context.applicationContext as? TrackMeApp)?.gamificationRepository?.clearMaintenanceMode() }
+                                    showMaintenanceDropdown = false
+                                }
+                            )
+                            (1..8).forEach { weeks ->
+                                DropdownMenuItem(
+                                    text = { Text("$weeks Weeks") },
+                                    onClick = {
+                                        maintenanceWeeks = weeks
+                                        prefs.edit().putInt("maintenance_weeks", weeks).apply()
+                                        scope.launch { (context.applicationContext as? TrackMeApp)?.gamificationRepository?.setMaintenanceMode(weeks) }
+                                        showMaintenanceDropdown = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            )
+        }
+
         if (showLiveShareInfo) {
             AlertDialog(
                 onDismissRequest = { showLiveShareInfo = false },

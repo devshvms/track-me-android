@@ -73,6 +73,9 @@ data class HomeUiState(
     val dashboardSummaryResolved: Boolean = false,
     val isDashboardReconciling: Boolean = true,
     val dashboardSyncNeedsAction: Boolean = false,
+    val gamificationLevel: `in`.shvms.trackme.domain.gamification.GamificationLevel = `in`.shvms.trackme.domain.gamification.GamificationDefinitions.LEVELS.first(),
+    val gamificationTotalActiveMinutes: Long = 0L,
+    val gamificationUnlockedAchievements: List<String> = emptyList(),
     val isAuthenticated: Boolean = false,
     val userName: String? = null
 )
@@ -85,6 +88,7 @@ class HomeViewModel(
     private val preferencesManager: AppPreferencesManager,
     private val dashboardRepository: HomeDashboardRepository,
     private val firestoreSyncManager: FirestoreSyncManager,
+    private val gamificationRepository: `in`.shvms.trackme.domain.gamification.GamificationRepository,
 ) : ViewModel() {
 
     private val selectedDashboardPersona = MutableStateFlow(preferencesManager.lastStartedPersona.value)
@@ -98,6 +102,9 @@ class HomeViewModel(
         val resolved: Boolean,
         val reconciling: Boolean,
         val syncNeedsAction: Boolean,
+        val gamificationLevel: `in`.shvms.trackme.domain.gamification.GamificationLevel,
+        val gamificationTotalActiveMinutes: Long,
+        val gamificationUnlockedAchievements: List<String>
     )
 
     private val dashboardSummary = dashboardRepository.summary
@@ -109,13 +116,20 @@ class HomeViewModel(
         selectedDashboardPersona,
         dashboardRepository.isReconciling,
         firestoreSyncManager.syncResult,
-    ) { summary, persona, reconciling, syncResult ->
+        gamificationRepository.currentLevel,
+        gamificationRepository.totalActiveMinutes,
+        gamificationRepository.unlockedAchievements
+    ) { params ->
+        val summary = params[0] as HomeDashboardSummary?
         DashboardState(
             summary = summary ?: HomeDashboardSummary.empty(0L),
-            persona = persona,
+            persona = params[1] as `in`.shvms.trackme.domain.model.RidePersona,
             resolved = summary != null,
-            reconciling = reconciling,
-            syncNeedsAction = syncResult is SyncResult.Error,
+            reconciling = params[2] as Boolean,
+            syncNeedsAction = params[3] is SyncResult.Error,
+            gamificationLevel = params[4] as `in`.shvms.trackme.domain.gamification.GamificationLevel,
+            gamificationTotalActiveMinutes = params[5] as Long,
+            gamificationUnlockedAchievements = params[6] as List<String>
         )
     }
 
@@ -220,6 +234,9 @@ class HomeViewModel(
             dashboardSummaryResolved = dashboard.resolved,
             isDashboardReconciling = dashboard.reconciling,
             dashboardSyncNeedsAction = dashboard.syncNeedsAction,
+            gamificationLevel = dashboard.gamificationLevel,
+            gamificationTotalActiveMinutes = dashboard.gamificationTotalActiveMinutes,
+            gamificationUnlockedAchievements = dashboard.gamificationUnlockedAchievements
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
 
@@ -339,6 +356,7 @@ class HomeViewModelFactory(
     private val preferencesManager: AppPreferencesManager,
     private val dashboardRepository: HomeDashboardRepository,
     private val firestoreSyncManager: FirestoreSyncManager,
+    private val gamificationRepository: `in`.shvms.trackme.domain.gamification.GamificationRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
@@ -351,6 +369,7 @@ class HomeViewModelFactory(
                 preferencesManager,
                 dashboardRepository,
                 firestoreSyncManager,
+                gamificationRepository
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

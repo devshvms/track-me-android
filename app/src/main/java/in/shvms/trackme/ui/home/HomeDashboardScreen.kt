@@ -81,6 +81,9 @@ import androidx.compose.runtime.setValue
 @Composable
 internal fun HomeDashboardScreen(
     summary: HomeDashboardSummary,
+    gamificationLevel: `in`.shvms.trackme.domain.gamification.GamificationLevel,
+    gamificationTotalActiveMinutes: Long,
+    gamificationUnlockedAchievements: List<String>,
     routePoints: List<HomeDashboardRoutePoint>,
     isSummaryResolved: Boolean,
     isReconciling: Boolean,
@@ -161,6 +164,13 @@ internal fun HomeDashboardScreen(
             }
 
             if (summary.lifetimeActivityCount > 0) {
+                item {
+                    `in`.shvms.trackme.ui.gamification.GamificationProgressCard(
+                        currentLevel = gamificationLevel,
+                        totalActiveMinutes = gamificationTotalActiveMinutes,
+                        unlockedAchievements = gamificationUnlockedAchievements
+                    )
+                }
                 item { WeeklySummaryCard(summary, imperial, strings) }
             } else {
                 item { EmptyDashboardCard(strings, hasSampleRide = summary.hasSampleRide) }
