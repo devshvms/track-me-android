@@ -7,6 +7,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 
@@ -213,6 +216,73 @@ class HomeDashboardSelectorTest {
     }
 
     @Test
+    fun `shared Home vectors freeze typed weekly facts and exact comparison periods`() {
+        val cases = vectors().getJSONArray("home_cases")
+        for (index in 0 until cases.length()) {
+            val vector = cases.getJSONObject(index)
+            val description = vector.getString("description")
+            val summary = HomeDashboardSelector.select(
+                rides = vectorRides(vector.getJSONArray("activities")),
+                nowEpochMillis = vector.getLong("now_epoch_millis"),
+                zoneId = ZoneId.of(vector.getString("fallback_timezone")),
+            )
+            val expectedWeek = vector.getJSONObject("expected_current_week")
+            assertEquals(description, expectedWeek.getLong("week_start_epoch_day"), summary.currentWeek.weekStartEpochDay)
+            assertEquals(description, expectedWeek.getInt("activity_count"), summary.currentWeek.activityCount)
+            assertEquals(description, expectedWeek.getLong("active_duration_millis"), summary.currentWeek.activeDurationMillis)
+            val expectedPersonas = expectedWeek.getJSONArray("distance_by_persona").let { array ->
+                (0 until array.length()).map { personaIndex ->
+                    val item = array.getJSONObject(personaIndex)
+                    PersonaDistance(
+                        RidePersona.valueOf(item.getString("persona")),
+                        item.getDouble("distance_meters"),
+                    )
+                }
+            }
+            assertEquals(description, expectedPersonas, summary.currentWeek.distanceByPersona)
+
+            if (vector.isNull("expected_comparison")) {
+                assertFalse(description, summary.insight is HomeInsight.PeriodComparison)
+            } else {
+                val expected = vector.getJSONObject("expected_comparison")
+                val actual = summary.insight as HomeInsight.PeriodComparison
+                assertEquals(description, expected.getString("metric").uppercase(), actual.metric.name)
+                assertEquals(description, expected.getString("direction").uppercase(), actual.direction.name)
+                assertEquals(description, expected.getLong("current_start_epoch_day"), actual.currentPeriod.startEpochDay)
+                assertEquals(description, expected.getLong("current_end_epoch_day"), actual.currentPeriod.endEpochDay)
+                assertEquals(description, expected.getLong("comparison_start_epoch_day"), actual.comparisonPeriod.startEpochDay)
+                assertEquals(description, expected.getLong("comparison_end_epoch_day"), actual.comparisonPeriod.endEpochDay)
+                assertEquals(description, expected.getDouble("current_value"), actual.currentValue, 0.0)
+                assertEquals(description, expected.getDouble("comparison_value"), actual.comparisonValue, 0.0)
+            }
+        }
+    }
+
+    @Test
+    fun `shared calendar vectors freeze Monday timezone and DST bucketing`() {
+        val cases = vectors().getJSONArray("calendar_cases")
+        for (index in 0 until cases.length()) {
+            val vector = cases.getJSONObject(index)
+            val description = vector.getString("description")
+            val summary = HomeDashboardSelector.select(
+                rides = vectorRides(vector.getJSONArray("activities")),
+                nowEpochMillis = vector.getLong("now_epoch_millis"),
+                zoneId = ZoneId.of(vector.getString("fallback_timezone")),
+            )
+            assertEquals(
+                description,
+                vector.getLong("expected_current_week_start_epoch_day"),
+                summary.currentWeek.weekStartEpochDay,
+            )
+            assertEquals(
+                description,
+                vector.getInt("expected_current_week_activity_count"),
+                summary.currentWeek.activityCount,
+            )
+        }
+    }
+
+    @Test
     fun `streak is omitted once the most recent active week is older than last week`() {
         val summary = select(
             ride(3, "2026-08-11T10:00:00Z"),
@@ -237,4 +307,25 @@ class HomeDashboardSelectorTest {
         assertEquals(750_000.0 + (1L..750L).sum(), summary.lifetimeDistanceMeters, 0.0)
         assertEquals(1L, summary.latestActivity?.localId)
     }
+
+    private fun vectors(): JSONObject = JSONObject(
+        File("src/test/resources/home-gamification-v1.json").readText()
+    )
+
+    private fun vectorRides(array: JSONArray): List<HomeDashboardRideProjection> =
+        (0 until array.length()).map { index ->
+            val item = array.getJSONObject(index)
+            val duration = item.getLong("active_duration_millis")
+            val distance = item.getDouble("distance_meters")
+            HomeDashboardRideProjection(
+                localId = item.getString("id").hashCode().toLong(),
+                startedAtEpochMillis = item.getLong("started_at_epoch_millis"),
+                startZoneId = item.getString("start_timezone"),
+                personaRaw = item.getString("persona"),
+                distanceMeters = distance,
+                activeDurationMillis = duration,
+                avgSpeedMps = if (duration > 0L) distance / (duration / 1_000.0) else 0.0,
+                hasRoute = true,
+            )
+        }
 }
