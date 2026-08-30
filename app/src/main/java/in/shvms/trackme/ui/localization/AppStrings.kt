@@ -41,6 +41,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val gamificationMilestoneLocked: String = s("gamificationMilestoneLocked", "Locked")
     val gamificationMilestoneUnlocked: String = s("gamificationMilestoneUnlocked", "Unlocked")
     val gamificationProgress: String = s("gamificationProgress", "%1\$s active minutes • next level at %2\$s")
+    val gamificationActiveMinutes: String = s("gamificationActiveMinutes", "%1\$s active minutes")
     val gamificationMaxProgress: String = s("gamificationMaxProgress", "%1\$s active minutes • maximum level")
     val gamificationLatestMilestone: String = s("gamificationLatestMilestone", "Latest milestone")
     val gamificationUnlocksAt: String = s("gamificationUnlocksAt", "Unlocks at %1\$s active minutes")
@@ -817,6 +818,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMilestoneLocked" to "Bloqueado",
             "gamificationMilestoneUnlocked" to "Desbloqueado",
             "gamificationProgress" to "%1\$s minutos activos • siguiente nivel en %2\$s",
+            "gamificationActiveMinutes" to "%1\$s minutos activos",
             "gamificationMaxProgress" to "%1\$s minutos activos • nivel máximo",
             "gamificationLatestMilestone" to "Último hito",
             "gamificationUnlocksAt" to "Se desbloquea a los %1\$s minutos activos",
@@ -1433,6 +1435,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMilestoneLocked" to "Verrouillé",
             "gamificationMilestoneUnlocked" to "Déverrouillé",
             "gamificationProgress" to "%1\$s minutes actives • prochain niveau à %2\$s",
+            "gamificationActiveMinutes" to "%1\$s minutes actives",
             "gamificationMaxProgress" to "%1\$s minutes actives • niveau maximal",
             "gamificationLatestMilestone" to "Dernier jalon",
             "gamificationUnlocksAt" to "Se débloque à %1\$s minutes actives",
@@ -2049,6 +2052,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMilestoneLocked" to "Gesperrt",
             "gamificationMilestoneUnlocked" to "Freigeschaltet",
             "gamificationProgress" to "%1\$s aktive Minuten • nächste Stufe bei %2\$s",
+            "gamificationActiveMinutes" to "%1\$s aktive Minuten",
             "gamificationMaxProgress" to "%1\$s aktive Minuten • höchste Stufe",
             "gamificationLatestMilestone" to "Letzter Meilenstein",
             "gamificationUnlocksAt" to "Freischaltung bei %1\$s aktiven Minuten",
@@ -2665,6 +2669,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMilestoneLocked" to "लॉक",
             "gamificationMilestoneUnlocked" to "अनलॉक",
             "gamificationProgress" to "%1\$s सक्रिय मिनट • अगला स्तर %2\$s पर",
+            "gamificationActiveMinutes" to "%1\$s सक्रिय मिनट",
             "gamificationMaxProgress" to "%1\$s सक्रिय मिनट • अधिकतम स्तर",
             "gamificationLatestMilestone" to "नवीनतम उपलब्धि",
             "gamificationUnlocksAt" to "%1\$s सक्रिय मिनट पर अनलॉक",
@@ -3281,6 +3286,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMilestoneLocked" to "ロック中",
             "gamificationMilestoneUnlocked" to "解除済み",
             "gamificationProgress" to "%1\$s分のアクティブ時間 • 次のレベルは%2\$s分",
+            "gamificationActiveMinutes" to "%1\$s分のアクティブ時間",
             "gamificationMaxProgress" to "%1\$s分のアクティブ時間 • 最高レベル",
             "gamificationLatestMilestone" to "最新のマイルストーン",
             "gamificationUnlocksAt" to "%1\$s分のアクティブ時間で解除",
@@ -3897,6 +3903,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMilestoneLocked" to "未解锁",
             "gamificationMilestoneUnlocked" to "已解锁",
             "gamificationProgress" to "%1\$s 分钟活跃时间 • 下一级需 %2\$s 分钟",
+            "gamificationActiveMinutes" to "%1\$s 分钟活跃时间",
             "gamificationMaxProgress" to "%1\$s 分钟活跃时间 • 最高等级",
             "gamificationLatestMilestone" to "最新里程碑",
             "gamificationUnlocksAt" to "%1\$s 分钟活跃时间后解锁",
