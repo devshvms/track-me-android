@@ -208,9 +208,24 @@ fun MainNavigation() {
                         HomeScreen(
                             onOpenCommunity = { navigateToTab("community") },
                             onOpenHistory = { navigateToTab("history") },
+                            onOpenProgress = { navController.navigate("gamification_progress") },
                             onOpenRideDetail = { id -> navController.navigate("ride_detail/$id") },
                             scrollToTopRequest = tabScrollToTopRequest,
                         )
+                    }
+                    composable("gamification_progress") {
+                        val app = LocalContext.current.applicationContext as `in`.shvms.trackme.TrackMeApp
+                        val summary by app.homeDashboardRepository.summary.collectAsState(initial = null)
+                        
+                        summary?.let { s ->
+                            val facts = `in`.shvms.trackme.domain.gamification.GamificationFacts(s.lifetimeActivityCount, s.lifetimeActiveDurationMillis)
+                            val snapshot = `in`.shvms.trackme.domain.gamification.GamificationEngine.deriveSnapshot(facts)
+                            `in`.shvms.trackme.ui.gamification.GamificationCollectionScreen(
+                                snapshot = snapshot,
+                                strings = strings,
+                                onNavigateBack = { navController.navigateUp() }
+                            )
+                        }
                     }
                     composable("history") { 
                         HistoryScreen(

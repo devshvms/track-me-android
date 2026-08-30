@@ -24,6 +24,23 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val navHistory: String = s("navHistory", "History")
     val navSettings: String = s("navSettings", "Settings")
 
+    // Gamification
+    val gamificationLevel1: String = s("gamificationLevel1", "Starter")
+    val gamificationLevel2: String = s("gamificationLevel2", "Moving")
+    val gamificationLevel3: String = s("gamificationLevel3", "Regular")
+    val gamificationLevel4: String = s("gamificationLevel4", "Explorer")
+    val gamificationLevel5: String = s("gamificationLevel5", "Enduring")
+    val gamificationLevel6: String = s("gamificationLevel6", "Pathfinder")
+    
+    val gamificationViewProgress: String = s("gamificationViewProgress", "View progress")
+    val gamificationMyProgress: String = s("gamificationMyProgress", "My Progress")
+    val gamificationLevels: String = s("gamificationLevels", "Levels")
+    val gamificationMilestones: String = s("gamificationMilestones", "Milestones")
+    val gamificationMilestoneTitle: String = s("gamificationMilestoneTitle", "%1\$d Rides")
+    val gamificationMilestoneLocked: String = s("gamificationMilestoneLocked", "Locked")
+    val gamificationMilestoneUnlocked: String = s("gamificationMilestoneUnlocked", "Unlocked")
+    val gamificationProgress: String = s("gamificationProgress", "%1\$s / %2\$s")
+
     // Home / Dashboard
     val startTracking: String = s("startTracking", "Start Tracking")
     val startRideHint: String = s("startRideHint", "Tap and hold Start Ride, then drag to choose an activity.")
