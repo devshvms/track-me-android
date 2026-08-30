@@ -205,9 +205,12 @@ object HomeDashboardSelector {
         activityCount = rides.size,
         distanceMeters = rides.sumOf { it.distanceMeters },
         activeDurationMillis = rides.sumOf { it.activeDurationMillis },
-        distanceByPersona = RidePersona.entries.map { persona ->
-            rides.filter { personaOf(it.personaRaw) == persona }.sumOf { it.distanceMeters }
-        }
+        distanceByPersona = RidePersona.entries.mapNotNull { persona ->
+            val matching = rides.filter { personaOf(it.personaRaw) == persona }
+            matching.takeIf { it.isNotEmpty() }?.let {
+                PersonaDistance(persona, it.sumOf(HomeDashboardRideProjection::distanceMeters))
+            }
+        },
     )
 
     private fun HomeDashboardRideProjection.toRecent() = RecentActivity(

@@ -1,7 +1,6 @@
-TrackMe 1.8.5 — a clearer home, and a history worth scrolling.
+TrackMe 1.8.6 — clearer progress and more truthful route previews.
 
-• Redesigned home: your week, your streak and a fresh insight the moment you open the app.
-• Ride detail rebuilt — the numbers you want first, the recording details tucked below.
-• History gains quick filters and a search that stays out of the way until you need it.
-• Route previews are back on every ride card.
-• Elevation gain now records properly on real rides.
+• Home now shows active duration across four weeks and a typed distance breakdown for every activity used this week.
+• My Progress adds six local-only levels and activity milestones, with no account, cloud or social ranking required.
+• Auto-pauses render as circles while manual or unknown route gaps remain dotted.
+• Ride detail, share preview and exported images now use the same route geometry and framing.

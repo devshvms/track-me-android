@@ -1201,17 +1201,32 @@ fun RideDetailScreen(
                     val previewHeightPx = with(density) { maxHeight.roundToPx() }
 
                     var isPreviewMapLoaded by remember { mutableStateOf(false) }
+                    var cameraFitSucceeded by remember(
+                        bounds,
+                        previewWidthPx,
+                        previewHeightPx,
+                    ) { mutableStateOf(false) }
 
                     LaunchedEffect(bounds, previewWidthPx, previewHeightPx, isPreviewMapLoaded) {
                         if (!isPreviewMapLoaded) return@LaunchedEffect
                         if (previewWidthPx <= 0 || previewHeightPx <= 0) return@LaunchedEffect
+                        if (cameraFitSucceeded) return@LaunchedEffect
 
-                        kotlinx.coroutines.delay(120)
-                        cameraPositionState.moveSafely {
-                            CameraUpdateFactory.newLatLngBounds(
-                                bounds,
-                                ExportRenderScale.fitPadding(previewWidthPx, previewHeightPx)
-                            )
+                        repeat(4) { attempt ->
+                            // First allow the measured resize to settle; later delays are retries
+                            // for the uncommon case where Maps reports loaded before its viewport
+                            // accepts a bounds update.
+                            kotlinx.coroutines.delay(120L + attempt * 80L)
+                            val moved = cameraPositionState.moveSafely {
+                                CameraUpdateFactory.newLatLngBounds(
+                                    bounds,
+                                    ExportRenderScale.fitPadding(previewWidthPx, previewHeightPx)
+                                )
+                            }
+                            if (moved) {
+                                cameraFitSucceeded = true
+                                return@LaunchedEffect
+                            }
                         }
                     }
 

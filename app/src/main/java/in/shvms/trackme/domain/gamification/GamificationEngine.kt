@@ -1,56 +1,44 @@
 package `in`.shvms.trackme.domain.gamification
 
 object GamificationEngine {
-
-    private val LEVEL_THRESHOLDS = listOf(
-        7_200_000L to "level_2",
-        36_000_000L to "level_3",
-        108_000_000L to "level_4",
-        270_000_000L to "level_5",
-        540_000_000L to "level_6",
+    val levels: List<GamificationLevel> = listOf(
+        GamificationLevel("level_1", "Starter", 0L),
+        GamificationLevel("level_2", "Moving", 120L),
+        GamificationLevel("level_3", "Regular", 600L),
+        GamificationLevel("level_4", "Explorer", 1_800L),
+        GamificationLevel("level_5", "Enduring", 4_500L),
+        GamificationLevel("level_6", "Pathfinder", 9_000L),
     )
 
-    private val MILESTONES = listOf(
-        1 to "milestone_1",
-        10 to "milestone_10",
-        25 to "milestone_25",
-        50 to "milestone_50",
-        100 to "milestone_100",
-        250 to "milestone_250",
-        500 to "milestone_500",
-        1000 to "milestone_1000",
-    )
-
-    fun deriveSnapshot(facts: GamificationFacts): GamificationSnapshot {
-        val duration = facts.lifetimeActiveDurationMillis
-        
-        var currentLevelId = "level_1"
-        var nextThreshold: Long? = LEVEL_THRESHOLDS.first().first
-
-        for (threshold in LEVEL_THRESHOLDS) {
-            if (duration >= threshold.first) {
-                currentLevelId = threshold.second
-                // Find next threshold if available
-                val nextIndex = LEVEL_THRESHOLDS.indexOf(threshold) + 1
-                nextThreshold = if (nextIndex < LEVEL_THRESHOLDS.size) {
-                    LEVEL_THRESHOLDS[nextIndex].first
-                } else {
-                    null
-                }
-            } else {
-                break
-            }
+    val milestones: List<GamificationMilestone> =
+        listOf(1, 10, 25, 50, 100, 250, 500, 1_000).map { count ->
+            GamificationMilestone("milestone_$count", count)
         }
 
-        val unlockedMilestones = MILESTONES
-            .filter { facts.lifetimeActivityCount >= it.first }
-            .map { it.second }
-            .sorted()
+    fun deriveSnapshot(facts: GamificationFacts): GamificationSnapshot {
+        val currentMinutes = facts.lifetimeActiveDurationMillis.coerceAtLeast(0L) / 60_000L
+        val activityCount = facts.lifetimeActivityCount.coerceAtLeast(0)
+        val currentIndex = levels.indexOfLast { currentMinutes >= it.thresholdMinutes }
+            .coerceAtLeast(0)
+        val current = levels[currentIndex]
+        val next = levels.getOrNull(currentIndex + 1)
+        val unlocked = milestones.takeWhile { activityCount >= it.activityCount }
+        val progressDenominator = next?.let { it.thresholdMinutes - current.thresholdMinutes } ?: 0L
+        val progressNumerator = next?.let {
+            (currentMinutes - current.thresholdMinutes).coerceIn(0L, progressDenominator)
+        } ?: 0L
 
         return GamificationSnapshot(
-            currentLevelId = currentLevelId,
-            nextLevelDurationThresholdMillis = nextThreshold,
-            unlockedMilestoneIds = unlockedMilestones,
+            currentLevelId = current.id,
+            currentLevelNameKey = current.nameKey,
+            currentMinutes = currentMinutes,
+            currentThresholdMinutes = current.thresholdMinutes,
+            nextThresholdMinutes = next?.thresholdMinutes,
+            progressNumeratorMinutes = progressNumerator,
+            progressDenominatorMinutes = progressDenominator,
+            latestUnlockedMilestoneId = unlocked.lastOrNull()?.id,
+            unlockedMilestoneIds = unlocked.map { it.id },
+            unlockedMilestoneCount = unlocked.size,
         )
     }
 }

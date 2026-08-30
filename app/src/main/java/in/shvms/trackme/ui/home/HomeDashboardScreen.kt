@@ -61,7 +61,6 @@ import `in`.shvms.trackme.domain.UnitFormatter
 import `in`.shvms.trackme.domain.gamification.GamificationEngine
 import `in`.shvms.trackme.domain.gamification.toGamificationFacts
 import `in`.shvms.trackme.domain.gamification.GamificationSnapshot
-import `in`.shvms.trackme.domain.gamification.GamificationFacts
 import `in`.shvms.trackme.ui.gamification.levelName
 import `in`.shvms.trackme.ui.gamification.formatMilestone
 import `in`.shvms.trackme.domain.home.HomeDashboardSummary
@@ -193,7 +192,7 @@ internal fun HomeDashboardScreen(
             item {
                 val facts = summary.toGamificationFacts()
                 val snapshot = GamificationEngine.deriveSnapshot(facts)
-                ProgressCard(snapshot = snapshot, facts = facts, strings = strings, onOpenProgress = onOpenProgress)
+                ProgressCard(snapshot = snapshot, strings = strings, onOpenProgress = onOpenProgress)
             }
 
             summary.latestActivity?.let { recent ->
@@ -230,13 +229,12 @@ private fun WeeklySummaryCard(summary: HomeDashboardSummary, imperial: Boolean, 
                 Metric(strings.dashboardActivityCount.format(summary.currentWeek.activityCount), strings.dashboardThisWeek)
                 Metric(formatDashboardDuration(summary.currentWeek.activeDurationMillis, strings), strings.duration)
                 
-                val hasAnyDistance = summary.currentWeek.distanceByPersona.any { it > 0.0 }
-                if (hasAnyDistance) {
-                    `in`.shvms.trackme.domain.model.RidePersona.entries.forEachIndexed { i, persona ->
-                        val distance = summary.currentWeek.distanceByPersona.getOrNull(i) ?: 0.0
-                        if (distance > 0.0) {
-                            Metric(`in`.shvms.trackme.domain.UnitFormatter.rideDistance(distance, imperial), strings.personaLabel(persona))
-                        }
+                if (summary.currentWeek.distanceByPersona.isNotEmpty()) {
+                    summary.currentWeek.distanceByPersona.forEach { personaDistance ->
+                        Metric(
+                            `in`.shvms.trackme.domain.UnitFormatter.rideDistance(personaDistance.distanceMeters, imperial),
+                            strings.personaLabel(personaDistance.persona),
+                        )
                     }
                 } else {
                     Metric(`in`.shvms.trackme.domain.UnitFormatter.rideDistance(0.0, imperial), strings.distance)
@@ -624,7 +622,7 @@ private fun formatDashboardDuration(millis: Long, strings: AppStrings): String {
 }
 
 @Composable
-private fun ProgressCard(snapshot: GamificationSnapshot, facts: GamificationFacts, strings: AppStrings, onOpenProgress: () -> Unit) {
+private fun ProgressCard(snapshot: GamificationSnapshot, strings: AppStrings, onOpenProgress: () -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -633,23 +631,38 @@ private fun ProgressCard(snapshot: GamificationSnapshot, facts: GamificationFact
                 Text(strings.gamificationMyProgress, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             Text(strings.levelName(snapshot.currentLevelId), style = MaterialTheme.typography.titleLarge)
-            val currentMinutes = (facts.lifetimeActiveDurationMillis.coerceAtLeast(0L) / 60_000L).toInt()
-            val nextMinutes = ((snapshot.nextLevelDurationThresholdMillis ?: facts.lifetimeActiveDurationMillis) / 60_000L).toInt()
-            
-            val progressRatio = if (nextMinutes > 0) {
-                (currentMinutes.toFloat() / nextMinutes.toFloat()).coerceIn(0f, 1f)
+            val progressRatio = if (snapshot.progressDenominatorMinutes > 0L) {
+                (snapshot.progressNumeratorMinutes.toFloat() / snapshot.progressDenominatorMinutes.toFloat())
+                    .coerceIn(0f, 1f)
             } else 1f
-
-            val progressStr = String.format(java.util.Locale.getDefault(), strings.gamificationProgress, currentMinutes.toString(), nextMinutes.toString())
+            val progressStr = snapshot.nextThresholdMinutes?.let { nextMinutes ->
+                String.format(
+                    Locale.getDefault(),
+                    strings.gamificationProgress,
+                    snapshot.currentMinutes.toString(),
+                    nextMinutes.toString(),
+                )
+            } ?: String.format(
+                Locale.getDefault(),
+                strings.gamificationMaxProgress,
+                snapshot.currentMinutes.toString(),
+            )
             Column(modifier = Modifier.semantics(mergeDescendants = true) { 
                 contentDescription = progressStr 
             }) {
-                LinearProgressIndicator(progress = progressRatio, modifier = Modifier.fillMaxWidth().height(8.dp), color = MaterialTheme.colorScheme.primary)
+                LinearProgressIndicator(progress = { progressRatio }, modifier = Modifier.fillMaxWidth().height(8.dp), color = MaterialTheme.colorScheme.primary)
                 Text(progressStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             }
 
-            snapshot.unlockedMilestoneIds.lastOrNull()?.let { milestone ->
-                Text(strings.formatMilestone(milestone), style = MaterialTheme.typography.bodyMedium)
+            snapshot.latestUnlockedMilestoneId?.let { milestone ->
+                Column {
+                    Text(
+                        strings.gamificationLatestMilestone,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(strings.formatMilestone(milestone), style = MaterialTheme.typography.bodyMedium)
+                }
             }
 
             FilledTonalButton(onClick = onOpenProgress, modifier = Modifier.fillMaxWidth()) {
@@ -658,4 +671,3 @@ private fun ProgressCard(snapshot: GamificationSnapshot, facts: GamificationFact
         }
     }
 }
-

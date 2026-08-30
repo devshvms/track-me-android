@@ -180,6 +180,21 @@ class HomeDashboardSelectorTest {
     }
 
     @Test
+    fun `weekly persona distances are typed ordered and retain zero-distance activity`() {
+        val summary = select(
+            ride(1, "2026-08-25T10:00:00Z", RidePersona.WALK, distance = 0.0),
+            ride(2, "2026-08-25T11:00:00Z", RidePersona.CYCLING, distance = 2_000.0),
+        )
+        assertEquals(
+            listOf(
+                PersonaDistance(RidePersona.WALK, 0.0),
+                PersonaDistance(RidePersona.CYCLING, 2_000.0),
+            ),
+            summary.currentWeek.distanceByPersona,
+        )
+    }
+
+    @Test
     fun `persisted ride timezone survives a different current device timezone`() {
         val sundayUtc = ride(
             1,

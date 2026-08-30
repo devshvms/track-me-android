@@ -14,5 +14,6 @@ fun AppStrings.levelName(levelId: String): String = when (levelId) {
 
 fun AppStrings.formatMilestone(milestoneId: String): String {
     val count = milestoneId.removePrefix("milestone_").toIntOrNull() ?: return milestoneId
+    if (count == 1) return gamificationFirstMilestone
     return String.format(java.util.Locale.getDefault(), this.gamificationMilestoneTitle, count)
 }

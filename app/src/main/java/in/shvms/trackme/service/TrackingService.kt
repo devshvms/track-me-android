@@ -20,6 +20,7 @@ import `in`.shvms.trackme.R
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.dao.RideDao
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.PauseOrigin
 import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.data.remote.LiveShareStatus
@@ -209,7 +210,8 @@ class TrackingService : Service() {
                                     accuracy = location.accuracy,
                                     speed = effectiveSpeed,
                                     timestamp = location.time,
-                                    isPaused = isPointPaused
+                                    isPaused = isPointPaused,
+                                    pauseOrigin = if (isPointPaused) PauseOrigin.AUTO else null,
                                 )
                             )
                             // SCOPE_1.7.3 §2(a): the 8,000-point warning and the 9,000-point
@@ -585,6 +587,7 @@ class TrackingService : Service() {
                         speed = 0f,
                         timestamp = System.currentTimeMillis(),
                         isPaused = true,
+                        pauseOrigin = PauseOrigin.MANUAL,
                     )
                 )
             }

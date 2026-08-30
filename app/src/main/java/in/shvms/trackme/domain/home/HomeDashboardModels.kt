@@ -7,7 +7,13 @@ data class WeeklyBucket(
     val activityCount: Int,
     val distanceMeters: Double,
     val activeDurationMillis: Long,
-    val distanceByPersona: List<Double>,
+    val distanceByPersona: List<PersonaDistance>,
+)
+
+/** A typed persona/distance fact; ordering is presentation policy, never an enum-index contract. */
+data class PersonaDistance(
+    val persona: RidePersona,
+    val distanceMeters: Double,
 )
 
 data class RecentActivity(
@@ -94,7 +100,7 @@ data class HomeDashboardSummary(
 
     companion object {
         fun empty(currentWeekEpochDay: Long) = HomeDashboardSummary(
-            currentWeek = WeeklyBucket(currentWeekEpochDay, 0, 0.0, 0L, RidePersona.entries.map { 0.0 }),
+            currentWeek = WeeklyBucket(currentWeekEpochDay, 0, 0.0, 0L, emptyList()),
             lifetimeActivityCount = 0,
             lifetimeDistanceMeters = 0.0,
             lifetimeActiveDurationMillis = 0L,

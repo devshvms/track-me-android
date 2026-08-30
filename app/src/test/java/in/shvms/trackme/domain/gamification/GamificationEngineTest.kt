@@ -87,7 +87,7 @@ class GamificationEngineTest {
         val facts = GamificationFacts(lifetimeActivityCount = 100, lifetimeActiveDurationMillis = 540_000_000L)
         val snapshot = GamificationEngine.deriveSnapshot(facts)
         assertEquals("level_6", snapshot.currentLevelId)
-        assertNull(snapshot.nextLevelDurationThresholdMillis)
+        assertNull(snapshot.nextThresholdMinutes)
     }
 
     @Test
@@ -95,7 +95,7 @@ class GamificationEngineTest {
         val hugeFacts = GamificationFacts(lifetimeActivityCount = Int.MAX_VALUE, lifetimeActiveDurationMillis = Long.MAX_VALUE)
         val snapshot = GamificationEngine.deriveSnapshot(hugeFacts)
         assertEquals("level_6", snapshot.currentLevelId)
-        assertNull(snapshot.nextLevelDurationThresholdMillis)
+        assertNull(snapshot.nextThresholdMinutes)
         assertTrue(snapshot.unlockedMilestoneIds.contains("milestone_1000"))
     }
     
@@ -104,9 +104,19 @@ class GamificationEngineTest {
         val facts = GamificationFacts(lifetimeActivityCount = 2000, lifetimeActiveDurationMillis = 0L)
         val snapshot = GamificationEngine.deriveSnapshot(facts)
         
-        // Should be sorted
-        val expected = listOf("milestone_1", "milestone_10", "milestone_100", "milestone_1000", "milestone_25", "milestone_250", "milestone_50", "milestone_500").sorted()
+        val expected = listOf("milestone_1", "milestone_10", "milestone_25", "milestone_50", "milestone_100", "milestone_250", "milestone_500", "milestone_1000")
         assertEquals(expected, snapshot.unlockedMilestoneIds)
+        assertEquals("milestone_1000", snapshot.latestUnlockedMilestoneId)
+    }
+
+    @Test
+    fun `progress is relative to current level instead of lifetime ratio`() {
+        val snapshot = GamificationEngine.deriveSnapshot(
+            GamificationFacts(lifetimeActivityCount = 3, lifetimeActiveDurationMillis = 360L * 60_000L)
+        )
+        assertEquals("level_2", snapshot.currentLevelId)
+        assertEquals(240L, snapshot.progressNumeratorMinutes)
+        assertEquals(480L, snapshot.progressDenominatorMinutes)
     }
     
     @Test
