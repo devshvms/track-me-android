@@ -102,13 +102,6 @@ object RideGaps {
         var previousRecordedPoint: GPSPointEntity? = null
 
         points.forEach { point ->
-            if (point.isPaused) {
-                if (run.isNotEmpty()) runs += run
-                run = mutableListOf()
-                previousRecordedPoint = null
-                return@forEach
-            }
-
             val previous = previousRecordedPoint
             if (previous != null && isUnrecordedGap(previous, point, persona)) {
                 if (run.isNotEmpty()) runs += run
