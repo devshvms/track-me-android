@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -89,16 +90,12 @@ fun GamificationCollectionScreen(
                 .fillMaxSize(),
         ) {
             val fontScale = LocalDensity.current.fontScale
+            val landscape = maxWidth > maxHeight
             val compact = maxHeight < 620.dp || fontScale >= 1.6f
             val horizontalPadding = if (compact) 8.dp else 14.dp
             val verticalPadding = if (compact) 4.dp else 10.dp
             val contentHeight = (maxHeight - verticalPadding * 2).coerceAtLeast(1.dp)
             val contentWidth = (maxWidth - horizontalPadding * 2).coerceAtLeast(1.dp)
-            val levelsHeight = contentHeight * 0.08f
-            val orbitHeight = contentHeight * 0.59f
-            val summaryHeight = contentHeight * 0.11f
-            val milestonesHeight = contentHeight * 0.22f
-            val orbitSize = minOf(contentWidth, orbitHeight)
             val darkTheme = isSystemInDarkTheme()
             val levelIndex = gamificationOrbitLevelIndex(snapshot)
             val currentTone = progressLevelTone(levelIndex, darkTheme)
@@ -116,97 +113,193 @@ fun GamificationCollectionScreen(
                     snapshot.currentMinutes.toString(),
                 )
             }
+            val background = Brush.verticalGradient(
+                listOf(
+                    currentTone.accent.copy(alpha = if (darkTheme) 0.18f else 0.12f),
+                    MaterialTheme.colorScheme.background,
+                    MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.78f),
+                ),
+            )
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                currentTone.accent.copy(alpha = if (darkTheme) 0.18f else 0.12f),
-                                MaterialTheme.colorScheme.background,
-                                MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.78f),
-                            ),
-                        ),
-                    )
-                    .padding(
-                        horizontal = horizontalPadding,
-                        vertical = verticalPadding,
-                    ),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Top,
-            ) {
-                Box(
+            if (landscape) {
+                Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(levelsHeight),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        strings.gamificationLevels,
-                        fontWeight = FontWeight.SemiBold,
-                        autoSize = TextAutoSize.StepBased(
-                            minFontSize = 7.sp,
-                            maxFontSize = 18.sp,
-                            stepSize = 0.5.sp,
+                        .fillMaxSize()
+                        .background(background)
+                        .padding(
+                            horizontal = horizontalPadding,
+                            vertical = verticalPadding,
                         ),
-                        maxLines = 1,
-                        softWrap = false,
-                        modifier = Modifier.semantics { heading() },
-                    )
-                }
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BoxWithConstraints(
+                        modifier = Modifier
+                            .weight(0.58f)
+                            .fillMaxHeight(),
+                    ) {
+                        val levelsHeight = maxHeight * 0.11f
+                        val summaryHeight = maxHeight * 0.13f
+                        val orbitHeight = (maxHeight - levelsHeight - summaryHeight).coerceAtLeast(1.dp)
+                        val orbitSize = minOf(maxWidth, orbitHeight)
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(orbitHeight),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    ProgressOrbit(
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Top,
+                        ) {
+                            LevelsHeading(
+                                text = strings.gamificationLevels,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(levelsHeight),
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(orbitHeight),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                ProgressOrbit(
+                                    snapshot = snapshot,
+                                    strings = strings,
+                                    levelIndex = levelIndex,
+                                    currentTone = currentTone,
+                                    compact = true,
+                                    orbitSize = orbitSize,
+                                )
+                            }
+                            ProgressSummary(
+                                text = progressSummary,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(summaryHeight),
+                            )
+                        }
+                    }
+
+                    MilestoneConstellation(
                         snapshot = snapshot,
                         strings = strings,
-                        levelIndex = levelIndex,
-                        currentTone = currentTone,
-                        compact = compact,
-                        orbitSize = orbitSize,
+                        tone = currentTone,
+                        compact = true,
+                        titleFraction = 0.16f,
+                        modifier = Modifier
+                            .weight(0.42f)
+                            .fillMaxHeight()
+                            .padding(start = 8.dp),
                     )
                 }
+            } else {
+                val levelsHeight = contentHeight * 0.08f
+                val orbitHeight = contentHeight * 0.59f
+                val summaryHeight = contentHeight * 0.11f
+                val milestonesHeight = contentHeight * 0.22f
+                val orbitSize = minOf(contentWidth, orbitHeight)
 
-                Box(
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(summaryHeight)
-                        .padding(horizontal = 4.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        progressSummary,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        autoSize = TextAutoSize.StepBased(
-                            minFontSize = 6.sp,
-                            maxFontSize = 12.sp,
-                            stepSize = 0.5.sp,
+                        .fillMaxSize()
+                        .background(background)
+                        .padding(
+                            horizontal = horizontalPadding,
+                            vertical = verticalPadding,
                         ),
-                        maxLines = 2,
-                        modifier = Modifier.semantics {
-                            contentDescription = progressSummary
-                        },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Top,
+                ) {
+                    LevelsHeading(
+                        text = strings.gamificationLevels,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(levelsHeight),
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(orbitHeight),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        ProgressOrbit(
+                            snapshot = snapshot,
+                            strings = strings,
+                            levelIndex = levelIndex,
+                            currentTone = currentTone,
+                            compact = compact,
+                            orbitSize = orbitSize,
+                        )
+                    }
+
+                    ProgressSummary(
+                        text = progressSummary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(summaryHeight),
+                    )
+
+                    MilestoneConstellation(
+                        snapshot = snapshot,
+                        strings = strings,
+                        tone = currentTone,
+                        compact = compact,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(milestonesHeight),
                     )
                 }
-
-                MilestoneConstellation(
-                    snapshot = snapshot,
-                    strings = strings,
-                    tone = currentTone,
-                    compact = compact,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(milestonesHeight),
-                )
             }
         }
+    }
+}
+
+@Composable
+private fun LevelsHeading(
+    text: String,
+    modifier: Modifier,
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text,
+            fontWeight = FontWeight.SemiBold,
+            autoSize = TextAutoSize.StepBased(
+                minFontSize = 7.sp,
+                maxFontSize = 18.sp,
+                stepSize = 0.5.sp,
+            ),
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.semantics { heading() },
+        )
+    }
+}
+
+@Composable
+private fun ProgressSummary(
+    text: String,
+    modifier: Modifier,
+) {
+    Box(
+        modifier = modifier.padding(horizontal = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            autoSize = TextAutoSize.StepBased(
+                minFontSize = 6.sp,
+                maxFontSize = 12.sp,
+                stepSize = 0.5.sp,
+            ),
+            maxLines = 2,
+            modifier = Modifier.semantics {
+                contentDescription = text
+            },
+        )
     }
 }
 
@@ -237,6 +330,13 @@ private fun ProgressOrbit(
     val nodeSize = (orbitSize * 0.145f).coerceIn(20.dp, if (compact) 42.dp else 48.dp)
     val progress = gamificationOrbitProgress(snapshot)
     val darkTheme = isSystemInDarkTheme()
+    val density = LocalDensity.current
+    val centerTitleMinSize = with(density) { 5.dp.toSp() }
+    val centerTitleMaxSize = with(density) { (if (compact) 18.dp else 22.dp).toSp() }
+    val centerTitleLineHeight = with(density) { (if (compact) 20.dp else 24.dp).toSp() }
+    val centerDetailMinSize = with(density) { 4.dp.toSp() }
+    val centerDetailMaxSize = with(density) { (if (compact) 10.dp else 12.dp).toSp() }
+    val centerDetailLineHeight = with(density) { (if (compact) 11.dp else 14.dp).toSp() }
     val dialTrackColor = MaterialTheme.colorScheme.outlineVariant.copy(
         alpha = if (darkTheme) 0.48f else 0.72f,
     )
@@ -277,23 +377,27 @@ private fun ProgressOrbit(
 
         Column(
             modifier = Modifier
-                .fillMaxWidth(0.38f)
+                .size(dialSize * 0.72f)
                 .semantics(mergeDescendants = true) {
                     progressBarRangeInfo = ProgressBarRangeInfo(progress, 0f..1f)
                     traversalIndex = 0f
                 },
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(if (compact) 1.dp else 3.dp),
+            verticalArrangement = Arrangement.spacedBy(
+                if (compact) 1.dp else 3.dp,
+                Alignment.CenterVertically,
+            ),
         ) {
             Text(
                 strings.levelName(snapshot.currentLevelId),
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 autoSize = TextAutoSize.StepBased(
-                    minFontSize = 5.sp,
-                    maxFontSize = if (compact) 18.sp else 22.sp,
+                    minFontSize = centerTitleMinSize,
+                    maxFontSize = centerTitleMaxSize,
                     stepSize = 0.5.sp,
                 ),
+                lineHeight = centerTitleLineHeight,
                 maxLines = 1,
                 softWrap = false,
             )
@@ -303,10 +407,11 @@ private fun ProgressOrbit(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 autoSize = TextAutoSize.StepBased(
-                    minFontSize = 4.sp,
-                    maxFontSize = if (compact) 10.sp else 12.sp,
+                    minFontSize = centerDetailMinSize,
+                    maxFontSize = centerDetailMaxSize,
                     stepSize = 0.5.sp,
                 ),
+                lineHeight = centerDetailLineHeight,
                 maxLines = 2,
             )
         }
@@ -354,6 +459,10 @@ private fun LevelOrbitNode(
     modifier: Modifier = Modifier,
 ) {
     val locked = state == OrbitNodeState.Locked
+    val density = LocalDensity.current
+    val numberMinSize = with(density) { 4.dp.toSp() }
+    val numberMaxSize = with(density) { (if (compact) 10.dp else 13.dp).toSp() }
+    val numberLineHeight = with(density) { (if (compact) 10.dp else 13.dp).toSp() }
     val status = if (locked) strings.gamificationMilestoneLocked else strings.gamificationMilestoneUnlocked
     val description = buildString {
         append(strings.levelName(level.id))
@@ -387,26 +496,29 @@ private fun LevelOrbitNode(
         color = if (locked) MaterialTheme.colorScheme.surfaceContainerHighest else tone.accent,
         contentColor = if (locked) MaterialTheme.colorScheme.onSurfaceVariant else tone.onAccent,
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(1.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
             Text(
                 number.toString(),
                 fontWeight = FontWeight.Bold,
                 autoSize = TextAutoSize.StepBased(
-                    minFontSize = 4.sp,
-                    maxFontSize = if (compact) 12.sp else 14.sp,
+                    minFontSize = numberMinSize,
+                    maxFontSize = numberMaxSize,
                     stepSize = 0.5.sp,
                 ),
+                lineHeight = numberLineHeight,
                 maxLines = 1,
                 softWrap = false,
-                modifier = Modifier.padding(2.dp),
             )
             Icon(
                 imageVector = if (locked) Icons.Filled.Lock else Icons.Filled.Check,
                 contentDescription = null,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(if (compact) 3.dp else 4.dp)
-                    .size(if (compact) 8.dp else 9.dp),
+                modifier = Modifier.size(if (compact) 7.dp else 8.dp),
             )
         }
     }
@@ -418,11 +530,12 @@ private fun MilestoneConstellation(
     strings: AppStrings,
     tone: ProgressLevelTone,
     compact: Boolean,
+    titleFraction: Float = 0.26f,
     modifier: Modifier = Modifier,
 ) {
     val unlocked = snapshot.unlockedMilestoneIds.toSet()
     BoxWithConstraints(modifier = modifier) {
-        val titleHeight = maxHeight * 0.26f
+        val titleHeight = maxHeight * titleFraction
         val rowHeight = (maxHeight - titleHeight) / 2
         val horizontalGap = if (compact) 12.dp else 18.dp
         val nodeSize = minOf(
@@ -497,6 +610,10 @@ private fun MilestoneNode(
 ) {
     val status = if (unlocked) strings.gamificationMilestoneUnlocked else strings.gamificationMilestoneLocked
     val description = "${strings.formatMilestone(milestone.id)}, $status"
+    val density = LocalDensity.current
+    val numberMinSize = with(density) { 5.dp.toSp() }
+    val numberMaxSize = with(density) { (if (compact) 10.dp else 11.dp).toSp() }
+    val numberLineHeight = with(density) { (if (compact) 10.dp else 11.dp).toSp() }
     Surface(
         modifier = Modifier
             .size(nodeSize)
@@ -512,26 +629,29 @@ private fun MilestoneNode(
         color = if (unlocked) tone.accent else MaterialTheme.colorScheme.surfaceContainerHighest,
         contentColor = if (unlocked) tone.onAccent else MaterialTheme.colorScheme.onSurfaceVariant,
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(1.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
             Text(
                 milestone.activityCount.toString(),
                 fontWeight = FontWeight.Bold,
                 autoSize = TextAutoSize.StepBased(
-                    minFontSize = 5.sp,
-                    maxFontSize = if (compact) 10.sp else 11.sp,
+                    minFontSize = numberMinSize,
+                    maxFontSize = numberMaxSize,
                     stepSize = 0.5.sp,
                 ),
+                lineHeight = numberLineHeight,
                 maxLines = 1,
                 softWrap = false,
-                modifier = Modifier.padding(horizontal = 4.dp),
             )
             Icon(
                 imageVector = if (unlocked) Icons.Filled.Check else Icons.Filled.Lock,
                 contentDescription = null,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(3.dp)
-                    .size(7.dp),
+                modifier = Modifier.size(if (compact) 6.dp else 7.dp),
             )
         }
     }
