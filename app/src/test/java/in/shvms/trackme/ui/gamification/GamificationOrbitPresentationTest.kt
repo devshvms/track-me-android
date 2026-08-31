@@ -49,5 +49,15 @@ class GamificationOrbitPresentationTest {
         )
 
         assertEquals(1f, gamificationOrbitProgress(snapshot), 0.0001f)
+        assertEquals(
+            0f,
+            gamificationOrbitProgress(snapshot.copy(progressDenominatorMinutes = 0)),
+            0.0001f,
+        )
+        assertEquals(
+            0f,
+            gamificationOrbitProgress(snapshot.copy(progressDenominatorMinutes = -1)),
+            0.0001f,
+        )
     }
 }

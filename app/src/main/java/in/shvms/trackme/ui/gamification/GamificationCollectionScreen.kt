@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -89,11 +90,15 @@ fun GamificationCollectionScreen(
         ) {
             val fontScale = LocalDensity.current.fontScale
             val compact = maxHeight < 620.dp || fontScale >= 1.6f
-            val reservedHeight = if (compact) 244.dp else 196.dp
-            val orbitSize = minOf(
-                maxWidth - if (compact) 16.dp else 28.dp,
-                maxOf(184.dp, maxHeight - reservedHeight),
-            )
+            val horizontalPadding = if (compact) 8.dp else 14.dp
+            val verticalPadding = if (compact) 4.dp else 10.dp
+            val contentHeight = (maxHeight - verticalPadding * 2).coerceAtLeast(1.dp)
+            val contentWidth = (maxWidth - horizontalPadding * 2).coerceAtLeast(1.dp)
+            val levelsHeight = contentHeight * 0.08f
+            val orbitHeight = contentHeight * 0.59f
+            val summaryHeight = contentHeight * 0.11f
+            val milestonesHeight = contentHeight * 0.22f
+            val orbitSize = minOf(contentWidth, orbitHeight)
             val darkTheme = isSystemInDarkTheme()
             val levelIndex = gamificationOrbitLevelIndex(snapshot)
             val currentTone = progressLevelTone(levelIndex, darkTheme)
@@ -125,45 +130,80 @@ fun GamificationCollectionScreen(
                         ),
                     )
                     .padding(
-                        horizontal = if (compact) 8.dp else 14.dp,
-                        vertical = if (compact) 4.dp else 10.dp,
+                        horizontal = horizontalPadding,
+                        vertical = verticalPadding,
                     ),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(if (compact) 7.dp else 12.dp),
+                verticalArrangement = Arrangement.Top,
             ) {
-                Text(
-                    strings.gamificationLevels,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.semantics { heading() },
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(levelsHeight),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        strings.gamificationLevels,
+                        fontWeight = FontWeight.SemiBold,
+                        autoSize = TextAutoSize.StepBased(
+                            minFontSize = 7.sp,
+                            maxFontSize = 18.sp,
+                            stepSize = 0.5.sp,
+                        ),
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.semantics { heading() },
+                    )
+                }
 
-                ProgressOrbit(
-                    snapshot = snapshot,
-                    strings = strings,
-                    levelIndex = levelIndex,
-                    currentTone = currentTone,
-                    compact = compact,
-                    orbitSize = orbitSize,
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(orbitHeight),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    ProgressOrbit(
+                        snapshot = snapshot,
+                        strings = strings,
+                        levelIndex = levelIndex,
+                        currentTone = currentTone,
+                        compact = compact,
+                        orbitSize = orbitSize,
+                    )
+                }
 
-                Text(
-                    progressSummary,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    modifier = Modifier.semantics {
-                        contentDescription = progressSummary
-                    },
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(summaryHeight)
+                        .padding(horizontal = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        progressSummary,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        autoSize = TextAutoSize.StepBased(
+                            minFontSize = 6.sp,
+                            maxFontSize = 12.sp,
+                            stepSize = 0.5.sp,
+                        ),
+                        maxLines = 2,
+                        modifier = Modifier.semantics {
+                            contentDescription = progressSummary
+                        },
+                    )
+                }
 
                 MilestoneConstellation(
                     snapshot = snapshot,
                     strings = strings,
                     tone = currentTone,
                     compact = compact,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(milestonesHeight),
                 )
             }
         }
@@ -174,7 +214,9 @@ internal fun gamificationOrbitLevelIndex(snapshot: GamificationSnapshot): Int =
     GamificationEngine.levels.indexOfFirst { it.id == snapshot.currentLevelId }.coerceAtLeast(0)
 
 internal fun gamificationOrbitProgress(snapshot: GamificationSnapshot): Float {
-    if (snapshot.progressDenominatorMinutes <= 0L) return 1f
+    if (snapshot.progressDenominatorMinutes <= 0L) {
+        return if (gamificationOrbitLevelIndex(snapshot) == GamificationEngine.levels.lastIndex) 1f else 0f
+    }
     return (
         snapshot.progressNumeratorMinutes.toDouble() /
             snapshot.progressDenominatorMinutes.toDouble()
@@ -192,9 +234,12 @@ private fun ProgressOrbit(
 ) {
     val dialSize = orbitSize * if (compact) 0.47f else 0.50f
     val radius = orbitSize * if (compact) 0.385f else 0.39f
-    val nodeSize = (orbitSize * 0.145f).coerceIn(34.dp, if (compact) 42.dp else 48.dp)
+    val nodeSize = (orbitSize * 0.145f).coerceIn(20.dp, if (compact) 42.dp else 48.dp)
     val progress = gamificationOrbitProgress(snapshot)
     val darkTheme = isSystemInDarkTheme()
+    val dialTrackColor = MaterialTheme.colorScheme.outlineVariant.copy(
+        alpha = if (darkTheme) 0.48f else 0.72f,
+    )
     val activeMinutes = String.format(
         Locale.getDefault(),
         strings.gamificationActiveMinutes,
@@ -218,7 +263,7 @@ private fun ProgressOrbit(
         ) {
             val strokeWidth = if (compact) 11.dp.toPx() else 14.dp.toPx()
             drawCircle(
-                color = Color.Gray.copy(alpha = if (darkTheme) 0.25f else 0.16f),
+                color = dialTrackColor,
                 style = Stroke(width = strokeWidth),
             )
             drawArc(
@@ -242,17 +287,26 @@ private fun ProgressOrbit(
         ) {
             Text(
                 strings.levelName(snapshot.currentLevelId),
-                style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
+                autoSize = TextAutoSize.StepBased(
+                    minFontSize = 5.sp,
+                    maxFontSize = if (compact) 18.sp else 22.sp,
+                    stepSize = 0.5.sp,
+                ),
                 maxLines = 1,
+                softWrap = false,
             )
             Text(
                 activeMinutes,
-                style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
+                autoSize = TextAutoSize.StepBased(
+                    minFontSize = 4.sp,
+                    maxFontSize = if (compact) 10.sp else 12.sp,
+                    stepSize = 0.5.sp,
+                ),
                 maxLines = 2,
             )
         }
@@ -336,8 +390,15 @@ private fun LevelOrbitNode(
         Box(contentAlignment = Alignment.Center) {
             Text(
                 number.toString(),
-                fontSize = if (compact) 12.sp else 14.sp,
                 fontWeight = FontWeight.Bold,
+                autoSize = TextAutoSize.StepBased(
+                    minFontSize = 4.sp,
+                    maxFontSize = if (compact) 12.sp else 14.sp,
+                    stepSize = 0.5.sp,
+                ),
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.padding(2.dp),
             )
             Icon(
                 imageVector = if (locked) Icons.Filled.Lock else Icons.Filled.Check,
@@ -357,38 +418,68 @@ private fun MilestoneConstellation(
     strings: AppStrings,
     tone: ProgressLevelTone,
     compact: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     val unlocked = snapshot.unlockedMilestoneIds.toSet()
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(if (compact) 5.dp else 8.dp),
-    ) {
-        Text(
-            strings.gamificationMilestones,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.semantics { heading() },
-        )
-        repeat(2) { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(
-                    if (compact) 12.dp else 18.dp,
-                    Alignment.CenterHorizontally,
-                ),
+    BoxWithConstraints(modifier = modifier) {
+        val titleHeight = maxHeight * 0.26f
+        val rowHeight = (maxHeight - titleHeight) / 2
+        val horizontalGap = if (compact) 12.dp else 18.dp
+        val nodeSize = minOf(
+            (maxWidth - horizontalGap * 3) / 4,
+            rowHeight * 0.86f,
+            if (compact) 36.dp else 42.dp,
+        ).coerceAtLeast(12.dp)
+
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Top,
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(titleHeight),
+                contentAlignment = Alignment.Center,
             ) {
-                GamificationEngine.milestones
-                    .subList(row * 4, row * 4 + 4)
-                    .forEach { milestone ->
-                        MilestoneNode(
-                            milestone = milestone,
-                            unlocked = milestone.id in unlocked,
-                            latest = snapshot.latestUnlockedMilestoneId == milestone.id,
-                            tone = tone,
-                            strings = strings,
-                            compact = compact,
-                        )
-                    }
+                Text(
+                    strings.gamificationMilestones,
+                    fontWeight = FontWeight.SemiBold,
+                    autoSize = TextAutoSize.StepBased(
+                        minFontSize = 6.sp,
+                        maxFontSize = 18.sp,
+                        stepSize = 0.5.sp,
+                    ),
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.semantics { heading() },
+                )
+            }
+            repeat(2) { row ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(rowHeight),
+                    horizontalArrangement = Arrangement.spacedBy(
+                        horizontalGap,
+                        Alignment.CenterHorizontally,
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    GamificationEngine.milestones
+                        .subList(row * 4, row * 4 + 4)
+                        .forEach { milestone ->
+                            MilestoneNode(
+                                milestone = milestone,
+                                unlocked = milestone.id in unlocked,
+                                latest = snapshot.latestUnlockedMilestoneId == milestone.id,
+                                tone = tone,
+                                strings = strings,
+                                compact = compact,
+                                nodeSize = nodeSize,
+                            )
+                        }
+                }
             }
         }
     }
@@ -402,12 +493,13 @@ private fun MilestoneNode(
     tone: ProgressLevelTone,
     strings: AppStrings,
     compact: Boolean,
+    nodeSize: Dp,
 ) {
     val status = if (unlocked) strings.gamificationMilestoneUnlocked else strings.gamificationMilestoneLocked
     val description = "${strings.formatMilestone(milestone.id)}, $status"
     Surface(
         modifier = Modifier
-            .size(if (compact) 36.dp else 42.dp)
+            .size(nodeSize)
             .then(
                 if (latest) Modifier.border(3.dp, tone.onAccent.copy(alpha = 0.72f), CircleShape)
                 else Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), CircleShape)
@@ -450,26 +542,28 @@ private data class ProgressLevelTone(
     val onAccent: Color,
 )
 
+private val ProgressLevelLightPalette = listOf(
+    Color(0xFF475569),
+    Color(0xFF0277B6),
+    Color(0xFF0F766E),
+    Color(0xFFB45309),
+    Color(0xFFC2410C),
+    Color(0xFF7E22CE),
+)
+
+private val ProgressLevelDarkPalette = listOf(
+    Color(0xFFCBD5E1),
+    Color(0xFF29B6F6),
+    Color(0xFF5EEAD4),
+    Color(0xFFFBBF24),
+    Color(0xFFFB923C),
+    Color(0xFFD8B4FE),
+)
+
 private fun progressLevelTone(levelIndex: Int, dark: Boolean): ProgressLevelTone {
-    val light = listOf(
-        Color(0xFF475569),
-        Color(0xFF0277B6),
-        Color(0xFF0F766E),
-        Color(0xFFB45309),
-        Color(0xFFC2410C),
-        Color(0xFF7E22CE),
-    )
-    val darkPalette = listOf(
-        Color(0xFFCBD5E1),
-        Color(0xFF29B6F6),
-        Color(0xFF5EEAD4),
-        Color(0xFFFBBF24),
-        Color(0xFFFB923C),
-        Color(0xFFD8B4FE),
-    )
-    val safeIndex = levelIndex.coerceIn(light.indices)
+    val safeIndex = levelIndex.coerceIn(ProgressLevelLightPalette.indices)
     return ProgressLevelTone(
-        accent = if (dark) darkPalette[safeIndex] else light[safeIndex],
+        accent = if (dark) ProgressLevelDarkPalette[safeIndex] else ProgressLevelLightPalette[safeIndex],
         onAccent = if (dark) Color(0xFF12161C) else Color.White,
     )
 }
