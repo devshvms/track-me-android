@@ -8,12 +8,19 @@ import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 
 /**
  * Bumped to 3 by TASK-231, which adds [RideEntity.dashboardRoutePolyline] to the rebuildable
- * metadata set. The bump is what backfills it: existing rows fall below the version, the bounded
- * reconciler sweeps them, and every row leaves the candidate set exactly once. A row whose points
- * were pruned simply reconciles to a null polyline -- it does not stay a candidate forever, which
- * a "polyline IS NULL" backfill condition would have caused.
+ * metadata set, and to 4 by TASK-275, which adds [RideEntity.contentHash].
+ *
+ * The bump is the mechanism, not an accident of editing. Existing rows fall below the version, the
+ * bounded reconciler sweeps them, and every row leaves the candidate set exactly once. A row whose
+ * points were pruned simply reconciles to a null polyline -- it does not stay a candidate forever,
+ * which a "polyline IS NULL" backfill condition would have caused.
+ *
+ * TASK-275 needed it for the same reason and nearly missed it: `contentHash` is written by
+ * [withDashboardMetadata], which the backfill only calls for rows *below* the current version. Left
+ * at 3, every ride that already existed would have kept a null hash forever, and the
+ * re-import-your-own-export case would have stayed open for precisely the users who have history.
  */
-const val HOME_DASHBOARD_METADATA_VERSION = 3
+const val HOME_DASHBOARD_METADATA_VERSION = 4
 
 /**
  * TASK-246, shvm: "default thumbnail only for less than 50 points or distance is 0 or no points".

@@ -45,7 +45,7 @@ interface HomeDashboardDao {
                rides.source AS sourceRaw
         FROM rides
         WHERE rides.qualifiesForStats = 1
-          AND rides.dashboardMetadataVersion = 3
+          AND rides.dashboardMetadataVersion = 4
           AND rides.endTime IS NOT NULL
           AND rides.endTime > 0
           AND rides.pendingDelete = 0
@@ -77,7 +77,7 @@ interface HomeDashboardDao {
         WHERE endTime IS NOT NULL
           AND endTime > 0
           AND (
-            dashboardMetadataVersion < 3
+            dashboardMetadataVersion < 4
             OR (dashboardRoutePolyline IS NULL AND dashboardPointCount >= 2)
           )
         ORDER BY startTime ASC

@@ -121,6 +121,14 @@ fun GamificationCollectionScreen(
                         Modifier.weight(1f).fillMaxHeight().padding(start = 8.dp),
                         verticalArrangement = Arrangement.Center,
                     ) {
+                        // Also in landscape: without it the waypoints are tappable and undiscoverable,
+                        // which is a feature nobody finds.
+                        Text(
+                            strings.gamificationTapHint,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
                         Readout(snapshot, strings)
                         Spacer(Modifier.height(12.dp))
                         MilestoneRail(snapshot, strings)
@@ -131,6 +139,13 @@ fun GamificationCollectionScreen(
                     Box(Modifier.fillMaxWidth().weight(1f), Alignment.Center) {
                         TrailPanel(snapshot, achievements, strings, imperial, Modifier.fillMaxSize())
                     }
+                    Text(
+                        strings.gamificationTapHint,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                    )
                     Readout(snapshot, strings)
                     Spacer(Modifier.height(12.dp))
                     MilestoneRail(snapshot, strings)
@@ -204,7 +219,12 @@ private fun TrailPanel(
                 ) { selected = -1 }
         ) {
             Canvas(Modifier.fillMaxSize()) {
-                scale(scale, scale, pivot = Offset.Zero) {
+                // DrawScope is in pixels, not dp. Deriving the factor from the canvas's own width
+                // keeps the drawn trail and the dp-positioned waypoints in the same coordinate
+                // system -- the first version scaled by a dp number here and drew the path at 1/3
+                // size on a density-3 screen while every node sat correctly.
+                val pxScale = size.width / GamificationTrail.WIDTH
+                scale(pxScale, pxScale, pivot = Offset.Zero) {
                     drawPath(
                         path = trailPath(1f),
                         color = ahead,
@@ -257,16 +277,6 @@ private fun TrailPanel(
                     imperial = imperial,
                     scale = scale,
                     boardWidth = boardW,
-                )
-            } else if (!hintSeen) {
-                // Teach once. A tap target with no affordance is a feature nobody finds, and a hint
-                // that never leaves is clutter charged to every future visit.
-                Text(
-                    strings.gamificationTapHint,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 2.dp),
                 )
             }
         }

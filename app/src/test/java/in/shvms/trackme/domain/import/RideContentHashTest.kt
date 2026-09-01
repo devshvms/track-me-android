@@ -33,9 +33,20 @@ class RideContentHashTest {
     }
 
     @Test
-    fun `a different track hashes differently`() {
-        val moved = track.toMutableList().also { it[1] = it[1].copy(latitude = 12.98000) }
-        assertNotEquals(RideContentHash.of(track), RideContentHash.of(moved))
+    fun `a different ride hashes differently`() {
+        val later = track.map { it.copy(timestamp = it.timestamp + 3_600_000L) }
+        assertNotEquals(RideContentHash.of(track), RideContentHash.of(later))
+    }
+
+    @Test
+    fun `a mid-track deviation is NOT distinguished, and that is the trade`() {
+        // Honest about the limit. Identity is sample count, instants and endpoints, so two rides
+        // that start and finish in the same 110 m, take the same number of samples, and record every
+        // one at the same millisecond, are treated as the same ride even if the middle differs.
+        // Reaching that state by accident is not plausible; hashing every coordinate to rule it out
+        // is what broke the export-and-reimport case this class exists to catch.
+        val detour = track.toMutableList().also { it[1] = it[1].copy(latitude = 12.99000) }
+        assertEquals(RideContentHash.of(track), RideContentHash.of(detour))
     }
 
     @Test
@@ -52,16 +63,26 @@ class RideContentHashTest {
     }
 
     @Test
-    fun `sub-metre formatting noise does not change identity`() {
-        // A re-export that differs in the sixth decimal is the same track; five decimals is ~1.1 m.
-        val jittered = track.map { it.copy(latitude = it.latitude + 0.000001) }
-        assertEquals(RideContentHash.of(track), RideContentHash.of(jittered))
+    fun `a lossy GPX round-trip does not change identity`() {
+        // The case that failed on a device: exporting to six-decimal GPX and importing back tips
+        // points that sit near a rounding boundary. Hashing every coordinate made one flipped point
+        // change the whole digest; 18 of 361 flipped, so the re-import was not recognised.
+        val roundTripped = track.mapIndexed { index, point ->
+            val nudge = if (index % 3 == 0) 0.0000006 else -0.0000004
+            point.copy(latitude = point.latitude + nudge, longitude = point.longitude - nudge)
+        }
+        assertEquals(RideContentHash.of(track), RideContentHash.of(roundTripped))
     }
 
     @Test
-    fun `a real move does change identity`() {
-        val moved = track.map { it.copy(latitude = it.latitude + 0.001) }
-        assertNotEquals(RideContentHash.of(track), RideContentHash.of(moved))
+    fun `a ride in another place at the same instants is not the same ride`() {
+        val elsewhere = track.map { it.copy(latitude = it.latitude + 0.5, longitude = it.longitude + 0.5) }
+        assertNotEquals(RideContentHash.of(track), RideContentHash.of(elsewhere))
+    }
+
+    @Test
+    fun `a different number of samples is a different track`() {
+        assertNotEquals(RideContentHash.of(track), RideContentHash.of(track.dropLast(1)))
     }
 
     @Test
