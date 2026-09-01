@@ -41,6 +41,10 @@ import `in`.shvms.trackme.ui.components.SettingsGroup
 import `in`.shvms.trackme.ui.components.SettingsDivider
 import `in`.shvms.trackme.ui.components.SettingsRow
 import `in`.shvms.trackme.ui.components.SettingsSwitchRow
+import `in`.shvms.trackme.ui.gamification.LevelAvatar
+import `in`.shvms.trackme.ui.gamification.GamificationTrail
+import `in`.shvms.trackme.domain.gamification.GamificationEngine
+import `in`.shvms.trackme.domain.gamification.toGamificationFacts
 
 private val languageDisplayNames = mapOf(
     "en" to "English",
@@ -61,6 +65,12 @@ fun SettingsScreen(
 ) {
     val strings = LocalAppStrings.current
     val user by viewModel.currentUser.collectAsState()
+    // TASK-277: one derivation for both the signed-in and signed-out cards below.
+    val gamificationSummary by (LocalContext.current.applicationContext as TrackMeApp)
+        .homeDashboardRepository.summary.collectAsState(initial = null)
+    val levelIndex = gamificationSummary?.let {
+        GamificationTrail.levelIndexOf(GamificationEngine.deriveSnapshot(it.toGamificationFacts()))
+    } ?: 0
     val syncResult by viewModel.syncResult.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -91,12 +101,18 @@ fun SettingsScreen(
                     modifier = Modifier.padding(16.dp).fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Surface(
-                        shape = androidx.compose.foundation.shape.CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(80.dp)
-                    ) {
-                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.padding(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    // TASK-277: the ring shows signed out too. Levels derive from local rides,
+                    // which need no account -- this card's own subtitle says the history is local
+                    // only. Gating an earned, offline fact behind sign-in would invent a
+                    // relationship between them that the product does not have.
+                    LevelAvatar(levelIndex = levelIndex, strings = strings, diameter = 80.dp) {
+                        Surface(
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(80.dp)
+                        ) {
+                            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.padding(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(strings.guest, style = MaterialTheme.typography.titleLarge)
@@ -142,22 +158,24 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (user?.photoUrl != null) {
-                            coil.compose.AsyncImage(
-                                model = user?.photoUrl,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp).clip(androidx.compose.foundation.shape.CircleShape)
-                            )
-                        } else {
-                            Surface(
-                                shape = androidx.compose.foundation.shape.CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                modifier = Modifier.size(64.dp)
-                            ) {
-                                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.padding(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        LevelAvatar(levelIndex = levelIndex, strings = strings, diameter = 64.dp) {
+                            if (user?.photoUrl != null) {
+                                coil.compose.AsyncImage(
+                                    model = user?.photoUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                                )
+                            } else {
+                                Surface(
+                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.size(64.dp)
+                                ) {
+                                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.padding(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(user?.displayName?.takeIf { it.isNotBlank() } ?: strings.explorer, style = MaterialTheme.typography.titleMedium)
                             Text(user?.email ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
