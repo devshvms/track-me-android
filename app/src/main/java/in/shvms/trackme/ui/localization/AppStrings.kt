@@ -46,7 +46,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val gamificationLatestMilestone: String = s("gamificationLatestMilestone", "Latest milestone")
     val gamificationUnlocksAt: String = s("gamificationUnlocksAt", "Unlocks at %1\$s active minutes")
     // TASK-276: the trail
-    val gamificationToNextLevel: String = s("gamificationToNextLevel", "%1\$s min of tracking to %2\$s")
+    val gamificationToNextLevel: String = s("gamificationToNextLevel", "%1\$s min of tracking to go")
     val gamificationTapHint: String = s("gamificationTapHint", "Tap a level for details")
     val gamificationReachedOn: String = s("gamificationReachedOn", "Reached %1\$s")
     val gamificationJoinedOn: String = s("gamificationJoinedOn", "Joined %1\$s")
@@ -832,7 +832,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMaxProgress" to "%1\$s minutos activos • nivel máximo",
             "gamificationLatestMilestone" to "Último hito",
             "gamificationUnlocksAt" to "Se desbloquea a los %1\$s minutos activos",
-            "gamificationToNextLevel" to "%1\$s min de seguimiento hasta %2\$s",
+            "gamificationToNextLevel" to "%1\$s min de seguimiento restantes",
             "gamificationTapHint" to "Toca un nivel para ver detalles",
             "gamificationReachedOn" to "Alcanzado el %1\$s",
             "gamificationJoinedOn" to "Te uniste el %1\$s",
@@ -1458,7 +1458,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMaxProgress" to "%1\$s minutes actives • niveau maximal",
             "gamificationLatestMilestone" to "Dernier jalon",
             "gamificationUnlocksAt" to "Se débloque à %1\$s minutes actives",
-            "gamificationToNextLevel" to "%1\$s min de suivi jusqu'à %2\$s",
+            "gamificationToNextLevel" to "%1\$s min de suivi restantes",
             "gamificationTapHint" to "Touchez un niveau pour les détails",
             "gamificationReachedOn" to "Atteint le %1\$s",
             "gamificationJoinedOn" to "Inscrit le %1\$s",
@@ -2084,7 +2084,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMaxProgress" to "%1\$s aktive Minuten • höchste Stufe",
             "gamificationLatestMilestone" to "Letzter Meilenstein",
             "gamificationUnlocksAt" to "Freischaltung bei %1\$s aktiven Minuten",
-            "gamificationToNextLevel" to "%1\$s Min. Aufzeichnung bis %2\$s",
+            "gamificationToNextLevel" to "%1\$s Min. Aufzeichnung übrig",
             "gamificationTapHint" to "Tippe auf eine Stufe für Details",
             "gamificationReachedOn" to "Erreicht am %1\$s",
             "gamificationJoinedOn" to "Dabei seit %1\$s",
@@ -2710,7 +2710,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMaxProgress" to "%1\$s सक्रिय मिनट • अधिकतम स्तर",
             "gamificationLatestMilestone" to "नवीनतम उपलब्धि",
             "gamificationUnlocksAt" to "%1\$s सक्रिय मिनट पर अनलॉक",
-            "gamificationToNextLevel" to "%2\$s तक %1\$s मिनट की ट्रैकिंग",
+            "gamificationToNextLevel" to "%1\$s मिनट की ट्रैकिंग शेष",
             "gamificationTapHint" to "विवरण के लिए किसी स्तर पर टैप करें",
             "gamificationReachedOn" to "%1\$s को प्राप्त",
             "gamificationJoinedOn" to "%1\$s को शामिल हुए",
@@ -3336,7 +3336,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMaxProgress" to "%1\$s分のアクティブ時間 • 最高レベル",
             "gamificationLatestMilestone" to "最新のマイルストーン",
             "gamificationUnlocksAt" to "%1\$s分のアクティブ時間で解除",
-            "gamificationToNextLevel" to "%2\$sまで残り%1\$s分の記録",
+            "gamificationToNextLevel" to "残り%1\$s分の記録",
             "gamificationTapHint" to "レベルをタップすると詳細が表示されます",
             "gamificationReachedOn" to "%1\$sに到達",
             "gamificationJoinedOn" to "%1\$sに開始",
@@ -3962,7 +3962,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMaxProgress" to "%1\$s 分钟活跃时间 • 最高等级",
             "gamificationLatestMilestone" to "最新里程碑",
             "gamificationUnlocksAt" to "%1\$s 分钟活跃时间后解锁",
-            "gamificationToNextLevel" to "距离%2\$s还需%1\$s分钟记录",
+            "gamificationToNextLevel" to "还需%1\$s分钟记录",
             "gamificationTapHint" to "点按等级查看详情",
             "gamificationReachedOn" to "%1\$s达成",
             "gamificationJoinedOn" to "%1\$s加入",

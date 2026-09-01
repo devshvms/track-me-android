@@ -59,6 +59,8 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.traversalIndex
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -517,6 +519,7 @@ private fun androidx.compose.foundation.layout.BoxScope.LevelCard(
 @Composable
 private fun Readout(snapshot: GamificationSnapshot, strings: AppStrings) {
     val index = GamificationTrail.levelIndexOf(snapshot)
+    val darkTheme = androidx.compose.foundation.isSystemInDarkTheme()
     val next = GamificationEngine.levels.getOrNull(index + 1)
     Column(Modifier.fillMaxWidth()) {
         Text(
@@ -543,13 +546,28 @@ private fun Readout(snapshot: GamificationSnapshot, strings: AppStrings) {
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    // The number is tinted with the accent of the level being chased, so the figure
+                    // and the colour it buys are the same fact. Located by searching for the
+                    // substring that was substituted rather than by a fixed offset: every locale
+                    // puts the number somewhere different, and Japanese puts it last.
+                    val remaining = (next.thresholdMinutes - snapshot.currentMinutes)
+                        .coerceAtLeast(0L).toString()
+                    val sentence = String.format(
+                        Locale.getDefault(), strings.gamificationToNextLevel, remaining,
+                    )
+                    val highlight = GamificationPalette.accent(index + 1, darkTheme)
                     Text(
-                        String.format(
-                            Locale.getDefault(),
-                            strings.gamificationToNextLevel,
-                            (next.thresholdMinutes - snapshot.currentMinutes).coerceAtLeast(0L).toString(),
-                            strings.levelName(next.id),
-                        ),
+                        buildAnnotatedString {
+                            append(sentence)
+                            val at = sentence.indexOf(remaining)
+                            if (at >= 0) {
+                                addStyle(
+                                    SpanStyle(color = highlight, fontWeight = FontWeight.Bold),
+                                    at,
+                                    at + remaining.length,
+                                )
+                            }
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
