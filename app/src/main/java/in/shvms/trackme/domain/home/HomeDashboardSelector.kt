@@ -9,6 +9,7 @@ import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 import kotlin.math.abs
 import `in`.shvms.trackme.data.local.entity.RideSource
+import `in`.shvms.trackme.domain.gamification.GamificationLedger
 
 object HomeDashboardSelector {
     private const val CHART_WEEKS = 8
@@ -53,6 +54,16 @@ object HomeDashboardSelector {
             lifetimeActiveDurationMillis = sorted.sumOf { it.activeDurationMillis },
             gamificationActivityCount = earned.size,
             gamificationActiveDurationMillis = earned.sumOf { it.activeDurationMillis },
+            levelAchievements = GamificationLedger.derive(
+                earned.map {
+                    GamificationLedger.RideFact(
+                        atEpochMillis = it.startedAtEpochMillis,
+                        personaRaw = it.personaRaw,
+                        activeDurationMillis = it.activeDurationMillis,
+                        distanceMeters = it.distanceMeters,
+                    )
+                }
+            ),
             displayStreakWeeks = displayStreak(activeWeekStarts, currentWeekStart),
             latestActivity = latest,
             weeklyBuckets = chartBuckets,

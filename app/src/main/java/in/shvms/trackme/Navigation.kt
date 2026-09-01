@@ -35,6 +35,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import `in`.shvms.trackme.domain.gamification.toGamificationFacts
 
 val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> {
     error("No SnackbarHostState provided")
@@ -218,10 +219,13 @@ fun MainNavigation() {
                         val summary by app.homeDashboardRepository.summary.collectAsState(initial = null)
                         
                         summary?.let { s ->
-                            val facts = `in`.shvms.trackme.domain.gamification.GamificationFacts(s.lifetimeActivityCount, s.lifetimeActiveDurationMillis)
+                            // TASK-275: through the adapter, not by reading the lifetime pair
+                            // directly -- that pair counts imported rides and this screen must not.
+                            val facts = s.toGamificationFacts()
                             val snapshot = `in`.shvms.trackme.domain.gamification.GamificationEngine.deriveSnapshot(facts)
                             `in`.shvms.trackme.ui.gamification.GamificationCollectionScreen(
                                 snapshot = snapshot,
+                                achievements = s.levelAchievements,
                                 strings = strings,
                                 onNavigateBack = { navController.navigateUp() }
                             )

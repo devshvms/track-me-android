@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.domain.home
 
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.domain.gamification.GamificationLedger
 
 data class WeeklyBucket(
     val weekStartEpochDay: Long,
@@ -86,6 +87,8 @@ data class HomeDashboardSummary(
      */
     val gamificationActivityCount: Int,
     val gamificationActiveDurationMillis: Long,
+    /** TASK-276: when each level was reached and what earned it. Derived, never stored. */
+    val levelAchievements: List<GamificationLedger.LevelAchievement>,
     val displayStreakWeeks: Int,
     val latestActivity: RecentActivity?,
     /** Oldest to newest, including zero weeks, so the four-bar chart never shifts meaning. */
@@ -115,6 +118,7 @@ data class HomeDashboardSummary(
             lifetimeActiveDurationMillis = 0L,
             gamificationActivityCount = 0,
             gamificationActiveDurationMillis = 0L,
+            levelAchievements = GamificationLedger.derive(emptyList()),
             displayStreakWeeks = 0,
             latestActivity = null,
             weeklyBuckets = emptyList(),
