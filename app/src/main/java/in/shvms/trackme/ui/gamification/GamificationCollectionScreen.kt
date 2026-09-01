@@ -1,6 +1,9 @@
 package `in`.shvms.trackme.ui.gamification
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -111,11 +114,14 @@ fun GamificationCollectionScreen(
         },
     ) { padding ->
         BoxWithConstraints(Modifier.padding(padding).fillMaxSize()) {
+            var selectedLevel by rememberSaveable { mutableIntStateOf(-1) }
             val landscape = maxWidth > maxHeight
             if (landscape) {
                 Row(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp)) {
                     Box(Modifier.weight(1f).fillMaxHeight(), Alignment.Center) {
-                        TrailPanel(snapshot, achievements, strings, imperial, Modifier.fillMaxHeight())
+                        TrailPanel(snapshot, achievements, strings, imperial, Modifier.fillMaxHeight()) {
+                            selectedLevel = it
+                        }
                     }
                     Column(
                         Modifier.weight(1f).fillMaxHeight().padding(start = 8.dp),
@@ -124,7 +130,7 @@ fun GamificationCollectionScreen(
                         // Also in landscape: without it the waypoints are tappable and undiscoverable,
                         // which is a feature nobody finds.
                         Text(
-                            strings.gamificationTapHint,
+                            if (selectedLevel < 0) strings.gamificationTapHint else "",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 6.dp),
@@ -137,10 +143,14 @@ fun GamificationCollectionScreen(
             } else {
                 Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 6.dp)) {
                     Box(Modifier.fillMaxWidth().weight(1f), Alignment.Center) {
-                        TrailPanel(snapshot, achievements, strings, imperial, Modifier.fillMaxSize())
+                        TrailPanel(snapshot, achievements, strings, imperial, Modifier.fillMaxSize()) {
+                            selectedLevel = it
+                        }
                     }
+                    // Hidden while a card is open: the level-1 card sits at the foot of the trail and
+                    // landed straight on top of this line.
                     Text(
-                        strings.gamificationTapHint,
+                        if (selectedLevel < 0) strings.gamificationTapHint else "",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -164,14 +174,14 @@ private fun TrailPanel(
     strings: AppStrings,
     imperial: Boolean,
     modifier: Modifier = Modifier,
+    onSelectionChanged: (Int) -> Unit = {},
 ) {
-    val density = LocalDensity.current
     val nodes = remember(snapshot) { GamificationTrail.nodes(snapshot) }
     val markerPos = remember(snapshot) { GamificationTrail.markerPosition(snapshot) }
     val markerFraction = remember(snapshot) { GamificationTrail.markerFraction(snapshot) }
 
     var selected by rememberSaveable { mutableIntStateOf(-1) }
-    var hintSeen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(selected) { onSelectionChanged(selected) }
 
     // One entry sequence, played once, then still -- §2.1 bans *ambient* animation, not a response.
     // Reduce Motion is honoured by the animation system, which collapses the duration to zero.
@@ -202,7 +212,8 @@ private fun TrailPanel(
         )
         val boardW = GamificationTrail.WIDTH * scale
         val boardH = GamificationTrail.HEIGHT * scale
-        val accent = MaterialTheme.colorScheme.primary
+        val darkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+        val accent = GamificationPalette.accent(GamificationTrail.levelIndexOf(snapshot), darkTheme)
         val ahead = MaterialTheme.colorScheme.outlineVariant
         val surface = MaterialTheme.colorScheme.surface
 
@@ -218,12 +229,56 @@ private fun TrailPanel(
                     interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                 ) { selected = -1 }
         ) {
+            // Touch-aware bloom: a wash of the tapped level's colour spreading from the point that
+            // was touched, then gone. One response, finite, no idle loop.
+            //
+            // An Animatable rather than animateFloatAsState, because this is a *pulse*, not a state
+            // change. A target-driven animation settles at its end value and holds -- which is why
+            // the first version read as a dim flash that never left rather than a wash that passes.
+            val bloom = remember { Animatable(0f) }
+            LaunchedEffect(selected) {
+                if (selected >= 0) {
+                    bloom.snapTo(0f)
+                    bloom.animateTo(1f, tween(BLOOM_MILLIS, easing = BloomEasing))
+                } else {
+                    bloom.snapTo(0f)
+                }
+            }
+            val bloomProgress = bloom.value
+            // Rise fast, fall slow: the colour arrives with the touch and drains away after it.
+            val bloomAlpha = if (bloomProgress <= BLOOM_PEAK) {
+                BLOOM_MAX_ALPHA * (bloomProgress / BLOOM_PEAK)
+            } else {
+                BLOOM_MAX_ALPHA * (1f - (bloomProgress - BLOOM_PEAK) / (1f - BLOOM_PEAK))
+            }
             Canvas(Modifier.fillMaxSize()) {
                 // DrawScope is in pixels, not dp. Deriving the factor from the canvas's own width
                 // keeps the drawn trail and the dp-positioned waypoints in the same coordinate
                 // system -- the first version scaled by a dp number here and drew the path at 1/3
                 // size on a density-3 screen while every node sat correctly.
                 val pxScale = size.width / GamificationTrail.WIDTH
+                if (bloomAlpha > 0.004f && selected >= 0) {
+                    val origin = nodes[selected].position
+                    val centre = Offset(origin.x * pxScale, origin.y * pxScale)
+                    val reach = (BLOOM_START_RADIUS + BLOOM_GROWTH * bloomProgress) * pxScale
+                    drawCircle(
+                        brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                            // Solid core out to a third of the reach, then a long fade, so it reads
+                            // as a wash spreading rather than a hard disc growing.
+                            colorStops = arrayOf(
+                                0.0f to GamificationPalette.accent(selected, darkTheme)
+                                    .copy(alpha = bloomAlpha),
+                                0.35f to GamificationPalette.accent(selected, darkTheme)
+                                    .copy(alpha = bloomAlpha * 0.55f),
+                                1.0f to Color.Transparent,
+                            ),
+                            center = centre,
+                            radius = reach,
+                        ),
+                        radius = reach,
+                        center = centre,
+                    )
+                }
                 scale(pxScale, pxScale, pivot = Offset.Zero) {
                     drawPath(
                         path = trailPath(1f),
@@ -254,7 +309,7 @@ private fun TrailPanel(
                     scale = scale,
                     strings = strings,
                     selected = selected == node.levelIndex,
-                    onClick = { hintSeen = true; selected = node.levelIndex },
+                    onClick = { selected = node.levelIndex },
                 )
             }
 
@@ -262,10 +317,11 @@ private fun TrailPanel(
                 position = markerPos,
                 scale = scale,
                 label = (GamificationTrail.levelIndexOf(snapshot) + 1).toString(),
+                accent = accent,
                 description = "${strings.gamificationYouAreHere}, " +
                     "${strings.levelName(snapshot.currentLevelId)}, " +
                     String.format(Locale.getDefault(), strings.gamificationActiveMinutes, snapshot.currentMinutes.toString()),
-                onClick = { hintSeen = true; selected = GamificationTrail.levelIndexOf(snapshot) },
+                onClick = { selected = GamificationTrail.levelIndexOf(snapshot) },
             )
 
             if (selected >= 0) {
@@ -295,13 +351,17 @@ private fun androidx.compose.foundation.layout.BoxScope.LevelNode(
     val size = (26f * scale).coerceIn(20f, 34f)
     val level = GamificationEngine.levels[node.levelIndex]
     val status = if (passed) strings.gamificationMilestoneUnlocked else strings.gamificationMilestoneLocked
+    val dark = androidx.compose.foundation.isSystemInDarkTheme()
+    // Each reached level wears its own accent, so the ladder reads as a progression. Levels still
+    // ahead stay neutral -- an unreached colour would advertise itself as already earned.
+    val nodeAccent = GamificationPalette.accent(node.levelIndex, dark)
 
     Surface(
         shape = CircleShape,
-        color = if (passed) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+        color = if (passed) nodeAccent else MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(
             if (selected) 2.dp else 1.5.dp,
-            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+            if (selected) nodeAccent else MaterialTheme.colorScheme.outlineVariant,
         ),
         modifier = Modifier
             .offset(
@@ -325,7 +385,7 @@ private fun androidx.compose.foundation.layout.BoxScope.LevelNode(
                 // radial version's lock and check icons.
                 fontSize = (size * 0.42f).sp,
                 fontWeight = FontWeight.Bold,
-                color = if (passed) MaterialTheme.colorScheme.onSecondaryContainer
+                color = if (passed) GamificationPalette.onAccent(dark)
                 else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -343,12 +403,14 @@ private fun androidx.compose.foundation.layout.BoxScope.RiderMarker(
     scale: Float,
     label: String,
     description: String,
+    accent: Color,
     onClick: () -> Unit,
 ) {
     val size = (38f * scale).coerceIn(30f, 48f)
+    val dark = androidx.compose.foundation.isSystemInDarkTheme()
     Surface(
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.primary,
+        color = accent,
         border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.surface),
         modifier = Modifier
             .offset(x = (position.x * scale - size / 2f).dp, y = (position.y * scale - size / 2f).dp)
@@ -365,7 +427,7 @@ private fun androidx.compose.foundation.layout.BoxScope.RiderMarker(
                 label,
                 fontSize = (size * 0.36f).sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = GamificationPalette.onAccent(dark),
             )
         }
     }
@@ -383,7 +445,7 @@ private fun androidx.compose.foundation.layout.BoxScope.LevelCard(
     boardWidth: Float,
 ) {
     val level = GamificationEngine.levels[node.levelIndex]
-    val cardWidth = (boardWidth * 0.46f).coerceAtLeast(120f)
+    val cardWidth = (boardWidth * 0.58f).coerceAtLeast(150f)
     val x = if (node.cardOnRight) node.position.x * scale + 18f
     else node.position.x * scale - 18f - cardWidth
     val dateFormat = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
@@ -427,21 +489,23 @@ private fun androidx.compose.foundation.layout.BoxScope.LevelCard(
             )
             // How it was earned. Only for levels already behind the rider -- an unreached level has
             // no history to describe, and inventing a projection would be a forecast, not a fact.
-            achievement?.personaSplit?.take(3)?.forEach { part ->
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 3.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
+            // Every persona that contributed, largest first. Two lines rather than one row: the
+            // first version put the name and the figures in a SpaceBetween row inside a narrow card,
+            // and they collided into "Motorbike93.4 km" with no separator at all.
+            achievement?.takeIf { it.achievedAtEpochMillis != null }?.personaSplit?.forEach { part ->
+                Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
                     Text(
                         strings.personaLabel(personaOf(part.personaRaw)),
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
                     )
                     Text(
                         "${UnitFormatter.rideDistance(part.distanceMeters, imperial)} · " +
-                            "${part.activeDurationMillis / 60_000L}m",
+                            formatActiveDuration(part.activeDurationMillis),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
                     )
                 }
             }
@@ -590,3 +654,39 @@ private fun trailPath(fraction: Float): Path {
     }
     return path
 }
+
+/**
+ * "128m" beside "93.4 km" reads as 128 metres. It meant 128 minutes.
+ *
+ * Anything under an hour says "min" in full; past that it splits into hours and minutes, which is
+ * how the rest of the app states a duration and how a rider would say it out loud.
+ */
+private fun formatActiveDuration(millis: Long): String {
+    val totalMinutes = (millis / 60_000L).coerceAtLeast(0L)
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return when {
+        hours <= 0L -> "$totalMinutes min"
+        minutes == 0L -> "${hours}h"
+        else -> "${hours}h ${minutes}m"
+    }
+}
+
+// ---- TASK-276: the tap bloom's envelope ----
+//
+// Held as constants rather than inline numbers because the three are one shape: change the duration
+// without the peak and the colour arrives after the finger has gone.
+
+/** Matches the ~1.5s wash in the design mockup. Slow enough to read as a spread, not a flash. */
+private const val BLOOM_MILLIS = 1500
+
+/** Where the wash is brightest, as a fraction of the envelope. Rises fast, drains slowly. */
+private const val BLOOM_PEAK = 0.22f
+
+/** Peak opacity at the centre. The radial fade takes it to nothing well before the edge. */
+private const val BLOOM_MAX_ALPHA = 0.5f
+
+private const val BLOOM_START_RADIUS = 70f
+private const val BLOOM_GROWTH = 250f
+
+private val BloomEasing = CubicBezierEasing(0.2f, 0.7f, 0.3f, 1f)
