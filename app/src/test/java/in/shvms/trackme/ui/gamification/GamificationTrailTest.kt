@@ -39,6 +39,7 @@ class GamificationTrailTest {
             currentLevelId = "level_2",
             currentLevelNameKey = "Moving",
             currentMinutes = 257,
+            currentActivityCount = 18,
             currentThresholdMinutes = 120,
             nextThresholdMinutes = 600,
             progressNumeratorMinutes = 137,

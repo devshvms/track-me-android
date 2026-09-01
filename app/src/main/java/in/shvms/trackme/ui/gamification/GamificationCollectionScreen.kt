@@ -512,9 +512,7 @@ private fun MilestoneRail(snapshot: GamificationSnapshot, strings: AppStrings) {
                     String.format(
                         Locale.getDefault(),
                         strings.gamificationActivitiesRecorded,
-                        snapshot.unlockedMilestoneIds.size.let {
-                            GamificationEngine.milestones.getOrNull(it - 1)?.activityCount?.toString() ?: "0"
-                        },
+                        snapshot.currentActivityCount.toString(),
                     ),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
