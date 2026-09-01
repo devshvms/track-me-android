@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.res.painterResource
 import `in`.shvms.trackme.R
+import `in`.shvms.trackme.BuildConfig
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -60,6 +61,7 @@ import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.domain.export.GPXExporterImpl
 import `in`.shvms.trackme.domain.export.NativeSnapshotImageExporterImpl
 import `in`.shvms.trackme.domain.export.trimGpsPointsForExport
+import `in`.shvms.trackme.service.TrackingV2DebugComparison
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.config.AppConfig
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -217,6 +219,8 @@ fun RideDetailScreen(
     val messenger = rememberMessenger()
     val mapStyle = rememberMapStyle()
     val app = context.applicationContext as `in`.shvms.trackme.TrackMeApp
+    val trackingV2Comparison by app.trackingManager.trackingV2LastComparison.collectAsState()
+    val rideTrackingV2Comparison = trackingV2Comparison?.takeIf { it.rideId == rideId }
     val unitSystem by app.preferencesManager.unitSystem.collectAsState()
     val imperial = unitSystem == "imperial"
     val coroutineScope = rememberCoroutineScope()
@@ -579,6 +583,22 @@ fun RideDetailScreen(
                                 )
                             }
 
+                            if (BuildConfig.DEBUG) {
+                                rideTrackingV2Comparison?.v2Final?.routeSegments.orEmpty()
+                                    .forEach { segment ->
+                                        if (segment.size >= 2) {
+                                            Polyline(
+                                                points = segment.map { point ->
+                                                    LatLng(point.latitude, point.longitude)
+                                                },
+                                                color = Color.Magenta.copy(alpha = 0.88f),
+                                                width = 6f,
+                                                zIndex = 2f,
+                                            )
+                                        }
+                                    }
+                            }
+
                             renderPlan.pauseMarkers.forEach { location ->
                                 Marker(
                                     state = MarkerState(position = LatLng(location.latitude, location.longitude)),
@@ -831,6 +851,11 @@ fun RideDetailScreen(
                     )
                 }
                 
+                if (BuildConfig.DEBUG && rideTrackingV2Comparison != null) {
+                    TrackingV2ComparisonCard(rideTrackingV2Comparison)
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
                 RecordingDetailsCard(
                     ride = ride,
                     // TASK-253: the full recording. This card is a diagnostic about what the device
@@ -1518,6 +1543,59 @@ private fun RideSummaryCard(
                         displayTotalElapsedMillis(ride)?.let(::formatDuration) ?: strings.unknown,
                     ),
                 ).filterNotNull(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun TrackingV2ComparisonCard(comparison: TrackingV2DebugComparison) {
+    Card(
+        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Text("TASK-274 · V1 / V2 shadow", style = MaterialTheme.typography.titleSmall)
+            Text(
+                String.format(
+                    java.util.Locale.US,
+                    "Live: V1 %.3f km · V2 %.3f km",
+                    comparison.v1LiveDistanceMeters / 1_000.0,
+                    comparison.v2Live.distanceMeters / 1_000.0,
+                )
+            )
+            Text(
+                String.format(
+                    java.util.Locale.US,
+                    "Delta: live %+.1f m · post %+.1f m",
+                    comparison.v2Live.distanceMeters - comparison.v1LiveDistanceMeters,
+                    comparison.v2Final.distanceMeters - comparison.v1FinalDistanceMeters,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                String.format(
+                    java.util.Locale.US,
+                    "Post: V1 %.3f km · V2 %.3f km",
+                    comparison.v1FinalDistanceMeters / 1_000.0,
+                    comparison.v2Final.distanceMeters / 1_000.0,
+                )
+            )
+            Text(
+                "V2 ${comparison.v2Final.movementState} · ${comparison.v2Final.powerMode} · " +
+                    "${comparison.v2Final.sampleCount} fixes · " +
+                    "${comparison.v2Final.rejectedOutlierCount} rejected",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                "Magenta = V2 final route. Process-local debug evidence; not persisted or synced.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
             )
         }
     }

@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.service
 
 import com.google.android.gms.maps.model.LatLng
+import `in`.shvms.trackme.domain.processor.TrackingV2Snapshot
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -26,6 +27,15 @@ enum class RideEndOutcome {
   /** Discarded at the user's request from the near-empty-ride prompt. */
   DISCARDED_BY_USER,
 }
+
+/** Process-local TASK-274 evidence. It is never persisted, synced, or used by release behavior. */
+data class TrackingV2DebugComparison(
+    val rideId: Long,
+    val v1LiveDistanceMeters: Double,
+    val v1FinalDistanceMeters: Double,
+    val v2Live: TrackingV2Snapshot,
+    val v2Final: TrackingV2Snapshot,
+)
 // Deliberately no SAVED case. A saved ride is already announced through the existing
 // RIDE_SAVED broadcast, and adding a second mechanism for the same event is how the
 // contradictory double-message happened in the first place. An enum case nothing emits
@@ -72,6 +82,13 @@ class TrackingManager {
     private val _timeSinceLastGps = MutableStateFlow(0L)
     val timeSinceLastGps: StateFlow<Long> = _timeSinceLastGps.asStateFlow()
 
+    private val _trackingV2Snapshot = MutableStateFlow<TrackingV2Snapshot?>(null)
+    val trackingV2Snapshot: StateFlow<TrackingV2Snapshot?> = _trackingV2Snapshot.asStateFlow()
+
+    private val _trackingV2LastComparison = MutableStateFlow<TrackingV2DebugComparison?>(null)
+    val trackingV2LastComparison: StateFlow<TrackingV2DebugComparison?> =
+        _trackingV2LastComparison.asStateFlow()
+
     fun updateState(state: TrackingState) {
         _trackingState.value = state
     }
@@ -113,6 +130,20 @@ class TrackingManager {
 
     fun updateTimeSinceLastGps(time: Long) {
         _timeSinceLastGps.value = time
+    }
+
+    fun updateTrackingV2(snapshot: TrackingV2Snapshot) {
+        _trackingV2Snapshot.value = snapshot
+    }
+
+    fun resetTrackingV2() {
+        _trackingV2Snapshot.value = null
+        _trackingV2LastComparison.value = null
+    }
+
+    fun completeTrackingV2(comparison: TrackingV2DebugComparison) {
+        _trackingV2Snapshot.value = comparison.v2Final
+        _trackingV2LastComparison.value = comparison
     }
     
     /**

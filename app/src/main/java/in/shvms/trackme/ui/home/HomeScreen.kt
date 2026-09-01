@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.content.ContextCompat
 import `in`.shvms.trackme.TrackMeApp
+import `in`.shvms.trackme.BuildConfig
 import `in`.shvms.trackme.service.TrackingState
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -186,6 +187,8 @@ fun HomeScreen(
     var showDashboardPersonaPicker by rememberSaveable { mutableStateOf(false) }
     var dashboardSelectionCameFromPicker by rememberSaveable { mutableStateOf(false) }
     var hasRequestedStartRideUndo by remember { mutableStateOf(false) }
+    var showV2MotionPermissionPrimer by rememberSaveable { mutableStateOf(false) }
+    var dismissedV2ComparisonRideId by rememberSaveable { mutableStateOf<Long?>(null) }
     var hasLocationPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -195,6 +198,7 @@ fun HomeScreen(
         )
     }
     val uiState by viewModel.uiState.collectAsState()
+    val trackingV2Comparison by viewModel.trackingV2LastComparison.collectAsState()
     val dashboardRoute by viewModel.dashboardRoute.collectAsState()
     val groupSession by app.groupSessionManager.state.collectAsState()
     val isOffline = rememberIsOffline()
@@ -361,6 +365,27 @@ fun HomeScreen(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { /* Notification access is optional; ride tracking still proceeds. */ }
     )
+
+    val activityRecognitionPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { /* V2 remains usable with GPS + motion when pedometer access is declined. */ },
+    )
+
+    LaunchedEffect(uiState.trackingState, uiState.selectedPersona) {
+        if (!BuildConfig.DEBUG || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return@LaunchedEffect
+        val pedestrianRide = uiState.selectedPersona == RidePersona.WALK ||
+            uiState.selectedPersona == RidePersona.RUN
+        val alreadyAsked = uiPreferences.getBoolean("debug_v2_activity_recognition_asked", false)
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACTIVITY_RECOGNITION,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (uiState.trackingState == TrackingState.TRACKING && pedestrianRide &&
+            !alreadyAsked && !granted
+        ) {
+            showV2MotionPermissionPrimer = true
+        }
+    }
 
     var pendingStartPersona by remember { mutableStateOf<RidePersona?>(null) }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -704,6 +729,100 @@ fun HomeScreen(
         )
     }
 
+    if (BuildConfig.DEBUG && showV2MotionPermissionPrimer) {
+        AlertDialog(
+            onDismissRequest = {
+                uiPreferences.edit().putBoolean("debug_v2_activity_recognition_asked", true).apply()
+                showV2MotionPermissionPrimer = false
+            },
+            title = { Text("Tracking V2 walking evidence") },
+            text = {
+                Text(
+                    "Allow physical-activity access so the debug-only V2 comparison can use " +
+                        "step evidence for walking/running. V1 is unchanged if you decline."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    uiPreferences.edit().putBoolean("debug_v2_activity_recognition_asked", true).apply()
+                    showV2MotionPermissionPrimer = false
+                    activityRecognitionPermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                }) { Text("Allow") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    uiPreferences.edit().putBoolean("debug_v2_activity_recognition_asked", true).apply()
+                    showV2MotionPermissionPrimer = false
+                }) { Text("Not now") }
+            },
+        )
+    }
+
+    val comparison = trackingV2Comparison
+    if (BuildConfig.DEBUG && comparison != null &&
+        dismissedV2ComparisonRideId != comparison.rideId &&
+        pendingReveal == null && weeklyRecap == null && !showV2MotionPermissionPrimer
+    ) {
+        AlertDialog(
+            onDismissRequest = { dismissedV2ComparisonRideId = comparison.rideId },
+            title = { Text("TASK-274 · V1 / V2 result") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        String.format(
+                            java.util.Locale.US,
+                            "Live distance   V1 %.3f km  |  V2 %.3f km",
+                            comparison.v1LiveDistanceMeters / 1_000.0,
+                            comparison.v2Live.distanceMeters / 1_000.0,
+                        )
+                    )
+                    Text(
+                        String.format(
+                            java.util.Locale.US,
+                            "Delta   live %+.1f m  |  post %+.1f m",
+                            comparison.v2Live.distanceMeters - comparison.v1LiveDistanceMeters,
+                            comparison.v2Final.distanceMeters - comparison.v1FinalDistanceMeters,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        String.format(
+                            java.util.Locale.US,
+                            "Post distance   V1 %.3f km  |  V2 %.3f km",
+                            comparison.v1FinalDistanceMeters / 1_000.0,
+                            comparison.v2Final.distanceMeters / 1_000.0,
+                        )
+                    )
+                    Text(
+                        "V2 ${comparison.v2Final.movementState} · ${comparison.v2Final.powerMode}\n" +
+                            "${comparison.v2Final.sampleCount} fixes · " +
+                            "${comparison.v2Final.missingSpeedCount} missing speed · " +
+                            "${comparison.v2Final.degradedSampleCount} degraded · " +
+                            "${comparison.v2Final.rejectedOutlierCount} rejected\n" +
+                            String.format(
+                                java.util.Locale.US,
+                                "steps %.1f m · coordinates %.1f m · stride %.2f m",
+                                comparison.v2Final.stepDistanceMeters,
+                                comparison.v2Final.coordinateDistanceMeters,
+                                comparison.v2Final.strideLengthMeters,
+                            ),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        "Debug process-local evidence only; physical ground truth is still required.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { dismissedV2ComparisonRideId = comparison.rideId }) {
+                    Text("Dismiss")
+                }
+            },
+        )
+    }
+
     if (showDashboardPersonaPicker) {
         AlertDialog(
             onDismissRequest = { showDashboardPersonaPicker = false },
@@ -835,6 +954,23 @@ fun HomeScreen(
                             color = MaterialTheme.colorScheme.primary,
                             width = 10f
                         )
+                    }
+                    if (BuildConfig.DEBUG) {
+                        uiState.debugTrackingV2?.routeSegments.orEmpty().forEach { segment ->
+                            if (segment.size >= 2) {
+                                Polyline(
+                                    points = segment.map { point ->
+                                        com.google.android.gms.maps.model.LatLng(
+                                            point.latitude,
+                                            point.longitude,
+                                        )
+                                    },
+                                    color = Color.Magenta.copy(alpha = 0.88f),
+                                    width = 6f,
+                                    zIndex = 2f,
+                                )
+                            }
+                        }
                     }
 
                     // --- Destination pin (§2.9) ---
@@ -1274,6 +1410,9 @@ fun HomeScreen(
                     elapsedDurationText = uiState.elapsedDurationText,
                     speedText = uiState.speedText,
                     paceText = uiState.paceText,
+                    v1DistanceMeters = uiState.distanceMeters,
+                    v1SpeedMetersPerSecond = uiState.speedMetersPerSecond,
+                    debugV2Snapshot = uiState.debugTrackingV2,
                     selectedPersona = uiState.selectedPersona,
                     isAutoPaused = uiState.isAutoPaused,
                     timeSinceLastGps = uiState.timeSinceLastGps,

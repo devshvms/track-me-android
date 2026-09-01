@@ -14,6 +14,7 @@ import `in`.shvms.trackme.data.local.dao.HomeDashboardRoutePoint
 import `in`.shvms.trackme.data.remote.FirestoreSyncManager
 import `in`.shvms.trackme.data.remote.SyncResult
 import `in`.shvms.trackme.domain.home.HomeDashboardSummary
+import `in`.shvms.trackme.domain.processor.TrackingV2Snapshot
 import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
@@ -57,6 +58,7 @@ data class HomeUiState(
     val elapsedDurationText: String = "00:00:00",
     val elapsedDurationMillis: Long = 0L,
     val distanceMeters: Float = 0f,
+    val speedMetersPerSecond: Float = 0f,
     val durationMillis: Long = 0L,
     val speedText: String = "0.0 km/h",
     /** Meaningful only for personas where `usesPace` holds — walk and run. See [formatPace]. */
@@ -67,6 +69,8 @@ data class HomeUiState(
     val isAutoPaused: Boolean = false,
     val inferredActivityType: `in`.shvms.trackme.domain.processor.InferredActivityType = `in`.shvms.trackme.domain.processor.InferredActivityType.RUN_OR_TREK,
     val selectedPersona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO,
+    /** TASK-274 process-local debug shadow. Null in release builds and before the first V2 fix. */
+    val debugTrackingV2: TrackingV2Snapshot? = null,
     val selectedDashboardPersona: `in`.shvms.trackme.domain.model.RidePersona = `in`.shvms.trackme.domain.model.RidePersona.AUTO,
     val dashboardSummary: HomeDashboardSummary = HomeDashboardSummary.empty(0L),
     /** False until Room has emitted at least one authoritative dashboard projection. */
@@ -142,12 +146,20 @@ class HomeViewModel(
     private val _uiEvent = MutableSharedFlow<UiEvent>()
     val uiEvent: SharedFlow<UiEvent> = _uiEvent
 
+    private data class TrackingPositionTuple(
+        val state: TrackingState,
+        val points: List<LatLng>,
+        val distanceMeters: Float,
+        val debugV2: TrackingV2Snapshot?,
+    )
+
     private val trackingStatsGroup1 = combine(
         trackingManager.trackingState,
         trackingManager.pathPoints,
-        trackingManager.totalDistance
-    ) { state, points, distance ->
-        Triple(state, points, distance)
+        trackingManager.totalDistance,
+        trackingManager.trackingV2Snapshot,
+    ) { state, points, distance, debugV2 ->
+        TrackingPositionTuple(state, points, distance, debugV2)
     }
 
     /** [Triple] can't hold 4 values, so duration/speed/GPS-age/elapsed share one small tuple. */
@@ -183,22 +195,26 @@ class HomeViewModel(
     ) { g1, g2, g3, unitSystem ->
         val imperial = unitSystem == "imperial"
         HomeUiState(
-            trackingState = g1.first,
-            pathPoints = g1.second,
-            distanceText = formatDistance(g1.third, imperial),
+            trackingState = g1.state,
+            pathPoints = g1.points,
+            distanceText = formatDistance(g1.distanceMeters, imperial),
             durationText = formatDuration(g2.durationMillis),
             elapsedDurationText = formatElapsedDuration(g2.elapsedMillis),
             elapsedDurationMillis = g2.elapsedMillis,
-            distanceMeters = g1.third,
+            distanceMeters = g1.distanceMeters,
+            speedMetersPerSecond = g2.speedMps,
             durationMillis = g2.durationMillis,
             speedText = formatSpeed(g2.speedMps, imperial),
             paceText = formatPace(g2.speedMps),
             timeSinceLastGps = g2.timeSinceLastGps,
             isAutoPaused = g3.first,
             inferredActivityType = g3.second,
-            selectedPersona = g3.third
+            selectedPersona = g3.third,
+            debugTrackingV2 = g1.debugV2,
         )
     }
+
+    val trackingV2LastComparison = trackingManager.trackingV2LastComparison
 
     // isEmergencyActive is retained solely for CalmMomentGate: a stranded pre-1.6.4 SOS
     // state (cleared by SosStateCleanup, but belt-and-braces) must never be covered by a

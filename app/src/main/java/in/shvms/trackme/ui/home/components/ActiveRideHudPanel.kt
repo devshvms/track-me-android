@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.ui.home.components
 
 import `in`.shvms.trackme.theme.LocalTrackMeElevation
+import `in`.shvms.trackme.BuildConfig
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.domain.model.usesPace
+import `in`.shvms.trackme.domain.processor.TrackingV2Snapshot
 import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
@@ -162,6 +164,9 @@ fun ActiveRideHudPanel(
     speedText: String,
     /** Shown instead of [speedText] for personas where [usesPace] holds — walk and run. */
     paceText: String,
+    v1DistanceMeters: Float = 0f,
+    v1SpeedMetersPerSecond: Float = 0f,
+    debugV2Snapshot: TrackingV2Snapshot? = null,
     selectedPersona: RidePersona,
     isAutoPaused: Boolean,
     timeSinceLastGps: Long,
@@ -346,6 +351,47 @@ fun ActiveRideHudPanel(
                         StatItem(label = strings.pace, value = paceText)
                     } else {
                         StatItem(label = strings.speed, value = speedText)
+                    }
+                }
+
+                if (BuildConfig.DEBUG && debugV2Snapshot != null) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 10.dp),
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.82f),
+                    ) {
+                        Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
+                            Text(
+                                text = "TASK-274 · process-local shadow",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            )
+                            Text(
+                                text = String.format(
+                                    java.util.Locale.US,
+                                    "V1 %.3f km · %.2f m/s   |   V2 %.3f km · %.2f m/s",
+                                    v1DistanceMeters / 1_000f,
+                                    v1SpeedMetersPerSecond,
+                                    debugV2Snapshot.distanceMeters / 1_000.0,
+                                    debugV2Snapshot.currentSpeedMetersPerSecond,
+                                ),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            )
+                            Text(
+                                text = "${debugV2Snapshot.movementState} · ${debugV2Snapshot.powerMode}" +
+                                    " · ${debugV2Snapshot.sampleCount} fixes",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            )
+                            Text(
+                                text = "Blue route = V1 · Magenta route = V2",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            )
+                        }
                     }
                 }
 
