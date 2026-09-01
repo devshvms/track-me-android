@@ -15,6 +15,8 @@ data class HomeDashboardRideProjection(
     val activeDurationMillis: Long,
     val avgSpeedMps: Double,
     val hasRoute: Boolean,
+    /** TASK-275: RECORDED or IMPORTED; only the former earns levels and milestones. */
+    val sourceRaw: String,
 )
 
 /** The thumbnail's deliberately narrow second lookup. */
@@ -39,7 +41,8 @@ interface HomeDashboardDao {
                COALESCE(rides.distance, 0.0) AS distanceMeters,
                rides.dashboardActiveDurationMillis AS activeDurationMillis,
                COALESCE(rides.avgSpeed, 0.0) AS avgSpeedMps,
-               rides.dashboardPointCount > 0 AS hasRoute
+               rides.dashboardPointCount > 0 AS hasRoute,
+               rides.source AS sourceRaw
         FROM rides
         WHERE rides.qualifiesForStats = 1
           AND rides.dashboardMetadataVersion = 3

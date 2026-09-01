@@ -174,6 +174,9 @@ class ReconcileBackfillTest {
     private inner class FakeRideDao(
         private val pointsByRide: Map<Long, List<GPSPointEntity>>,
     ) : RideDao {
+        /** TASK-275: unused here — neither the reconciler nor the processor imports. */
+        override suspend fun countByContentHash(hash: String): Int = 0
+
         val updated = linkedMapOf<Long, RideEntity>()
         private var dashboardDao: FakeDashboardDao? = null
 

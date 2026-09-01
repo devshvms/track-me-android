@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RideEntity::class, 
         GPSPointEntity::class
     ], 
-    version = 18,
+    version = 19,
     exportSchema = false
 )
 @TypeConverters(PauseOriginConverters::class)
@@ -225,6 +225,26 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_17_18 = object : Migration(17, 18) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE `gps_points` ADD COLUMN `pauseOrigin` TEXT")
+            }
+        }
+
+        /**
+         * TASK-275: ride provenance.
+         *
+         * `source` defaults to RECORDED for every existing row, which is the honest answer rather
+         * than a convenient one: before this column existed the import path wrote rows the recorder
+         * could not be distinguished from, so there is no evidence on which to call any of them
+         * imported. New imports are marked going forward; history keeps the benefit of the doubt.
+         *
+         * `contentHash` is left null and filled by the metadata reconciler, so the migration stays
+         * a schema change and does not read the whole gps_points table on the upgrade path.
+         */
+        val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE `rides` ADD COLUMN `source` TEXT NOT NULL DEFAULT 'RECORDED'"
+                )
+                database.execSQL("ALTER TABLE `rides` ADD COLUMN `contentHash` TEXT")
             }
         }
     }

@@ -53,6 +53,16 @@ interface RideDao {
     @Query("SELECT id FROM rides WHERE isSample = 1 LIMIT 1")
     suspend fun getSampleRideId(): Long?
 
+    /**
+     * TASK-275: the import duplicate check, by track identity rather than by file identity.
+     *
+     * Excludes rows on their way out, so re-importing a ride you have just deleted is allowed --
+     * `pendingDelete` means the user asked for it gone, and refusing the re-import would strand
+     * them until the cloud batch commits.
+     */
+    @Query("SELECT COUNT(*) FROM rides WHERE contentHash = :hash AND pendingDelete = 0")
+    suspend fun countByContentHash(hash: String): Int
+
     @Transaction
     @Query("SELECT * FROM rides ORDER BY startTime DESC")
     fun getAllRidesWithPoints(): Flow<List<RideWithPoints>>

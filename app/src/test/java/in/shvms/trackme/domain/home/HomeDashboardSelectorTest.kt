@@ -12,6 +12,7 @@ import org.json.JSONObject
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
+import `in`.shvms.trackme.data.local.entity.RideSource
 
 class HomeDashboardSelectorTest {
     private val utc = ZoneId.of("UTC")
@@ -24,6 +25,7 @@ class HomeDashboardSelectorTest {
         distance: Double = 1_000.0,
         duration: Long = 600_000L,
         startZoneId: String? = null,
+        source: String = RideSource.RECORDED,
     ) = HomeDashboardRideProjection(
         localId = id,
         startedAtEpochMillis = Instant.parse(at).toEpochMilli(),
@@ -33,6 +35,7 @@ class HomeDashboardSelectorTest {
         activeDurationMillis = duration,
         avgSpeedMps = if (duration > 0) distance / (duration / 1_000.0) else 0.0,
         hasRoute = true,
+        sourceRaw = source,
     )
 
     private fun select(vararg rides: HomeDashboardRideProjection) =
@@ -326,6 +329,43 @@ class HomeDashboardSelectorTest {
                 activeDurationMillis = duration,
                 avgSpeedMps = if (duration > 0L) distance / (duration / 1_000.0) else 0.0,
                 hasRoute = true,
+                sourceRaw = RideSource.RECORDED,
             )
         }
+
+    // ---- TASK-275: imported rides earn no progress, but stay in every other total ----
+
+    @Test
+    fun `imported rides count for the dashboard and not for gamification`() {
+        val summary = select(
+            ride(1, "2026-08-24T08:00:00Z", duration = 600_000L),
+            ride(2, "2026-08-25T08:00:00Z", duration = 600_000L, source = RideSource.IMPORTED),
+        )
+
+        // The rider's own totals still show both — an imported ride is still their ride.
+        assertEquals(2, summary.lifetimeActivityCount)
+        assertEquals(1_200_000L, summary.lifetimeActiveDurationMillis)
+
+        // Levels and milestones see only what this app recorded.
+        assertEquals(1, summary.gamificationActivityCount)
+        assertEquals(600_000L, summary.gamificationActiveDurationMillis)
+    }
+
+    @Test
+    fun `a history of only imports earns nothing`() {
+        val summary = select(
+            ride(1, "2026-08-24T08:00:00Z", source = RideSource.IMPORTED),
+            ride(2, "2026-08-25T08:00:00Z", source = RideSource.IMPORTED),
+        )
+        assertEquals(2, summary.lifetimeActivityCount)
+        assertEquals(0, summary.gamificationActivityCount)
+        assertEquals(0L, summary.gamificationActiveDurationMillis)
+    }
+
+    @Test
+    fun `an unknown future source value earns nothing rather than crashing`() {
+        val summary = select(ride(1, "2026-08-24T08:00:00Z", source = "SOMETHING_NEW"))
+        assertEquals(1, summary.lifetimeActivityCount)
+        assertEquals(0, summary.gamificationActivityCount)
+    }
 }

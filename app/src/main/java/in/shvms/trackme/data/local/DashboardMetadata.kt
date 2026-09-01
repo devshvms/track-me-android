@@ -64,6 +64,11 @@ fun withDashboardMetadata(
     // kept the generic glyph. Requiring the argument makes the compiler ask the question at every
     // call site, which is the only reason all five of them are now correct.
     routePolyline: String?,
+    // TASK-275: no default either, and for the same reason TASK-246 gave. A default would silently
+    // preserve null on exactly the paths that construct a fresh entity -- import, cloud download,
+    // orphan recovery -- which are the paths whose rides most need an identity. Compute it from the
+    // same point list that produced the count and the polyline, so all three facts agree.
+    contentHash: String?,
 ): RideEntity {
     val duration = activeDurationMillis.coerceAtLeast(0L)
     val distance = ride.postRideCalculation?.distance ?: 0.0
@@ -75,6 +80,7 @@ fun withDashboardMetadata(
         dashboardPointCount = pointCount.coerceAtLeast(0),
         dashboardRoutePolyline = routePolyline,
         dashboardMetadataVersion = HOME_DASHBOARD_METADATA_VERSION,
+        contentHash = contentHash ?: ride.contentHash,
     )
 }
 

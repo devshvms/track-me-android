@@ -8,6 +8,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 import kotlin.math.abs
+import `in`.shvms.trackme.data.local.entity.RideSource
 
 object HomeDashboardSelector {
     private const val CHART_WEEKS = 8
@@ -43,12 +44,15 @@ object HomeDashboardSelector {
             compareByDescending<PersonaCount> { it.count }
                 .thenBy { RidePersona.entries.indexOf(it.persona) }
         )
+        val earned = sorted.filter { RideSource.earnsProgress(it.sourceRaw) }
         val latest = sorted.firstOrNull()?.toRecent()
         return HomeDashboardSummary(
             currentWeek = currentWeek,
             lifetimeActivityCount = sorted.size,
             lifetimeDistanceMeters = sorted.sumOf { it.distanceMeters },
             lifetimeActiveDurationMillis = sorted.sumOf { it.activeDurationMillis },
+            gamificationActivityCount = earned.size,
+            gamificationActiveDurationMillis = earned.sumOf { it.activeDurationMillis },
             displayStreakWeeks = displayStreak(activeWeekStarts, currentWeekStart),
             latestActivity = latest,
             weeklyBuckets = chartBuckets,

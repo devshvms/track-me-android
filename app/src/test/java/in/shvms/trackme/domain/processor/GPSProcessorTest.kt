@@ -93,6 +93,9 @@ class GPSProcessorTest {
     private class FakeRideDao(
         private val rideWithPoints: RideWithPoints? = null
     ) : RideDao {
+        /** TASK-275: unused here — neither the reconciler nor the processor imports. */
+        override suspend fun countByContentHash(hash: String): Int = 0
+
         var getPointsCalls = 0
         var insertedPoints: List<GPSPointEntity> = emptyList()
         var updatedRide: RideEntity? = null
