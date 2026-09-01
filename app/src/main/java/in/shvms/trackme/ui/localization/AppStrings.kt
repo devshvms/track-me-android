@@ -45,6 +45,16 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val gamificationMaxProgress: String = s("gamificationMaxProgress", "%1\$s active minutes • maximum level")
     val gamificationLatestMilestone: String = s("gamificationLatestMilestone", "Latest milestone")
     val gamificationUnlocksAt: String = s("gamificationUnlocksAt", "Unlocks at %1\$s active minutes")
+    // TASK-276: the trail
+    val gamificationToNextLevel: String = s("gamificationToNextLevel", "%1\$s min of tracking to go")
+    val gamificationTapHint: String = s("gamificationTapHint", "Tap a level for details")
+    val gamificationReachedOn: String = s("gamificationReachedOn", "Reached %1\$s")
+    val gamificationJoinedOn: String = s("gamificationJoinedOn", "Joined %1\$s")
+    val gamificationMinutesToGo: String = s("gamificationMinutesToGo", "%1\$s min · %2\$s to go")
+    val gamificationYouAreHere: String = s("gamificationYouAreHere", "You are here")
+    val gamificationActivities: String = s("gamificationActivities", "Activities")
+    val gamificationActivitiesRecorded: String = s("gamificationActivitiesRecorded", "%1\$s recorded")
+    val gamificationNextLabel: String = s("gamificationNextLabel", "Next")
 
     // Home / Dashboard
     val startTracking: String = s("startTracking", "Start Tracking")
@@ -822,6 +832,15 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMaxProgress" to "%1\$s minutos activos • nivel máximo",
             "gamificationLatestMilestone" to "Último hito",
             "gamificationUnlocksAt" to "Se desbloquea a los %1\$s minutos activos",
+            "gamificationToNextLevel" to "%1\$s min de seguimiento restantes",
+            "gamificationTapHint" to "Toca un nivel para ver detalles",
+            "gamificationReachedOn" to "Alcanzado el %1\$s",
+            "gamificationJoinedOn" to "Te uniste el %1\$s",
+            "gamificationMinutesToGo" to "%1\$s min · faltan %2\$s",
+            "gamificationYouAreHere" to "Estás aquí",
+            "gamificationActivities" to "Actividades",
+            "gamificationActivitiesRecorded" to "%1\$s registradas",
+            "gamificationNextLabel" to "Siguiente",
             "dashboardGroupActive" to "Sesión de grupo activa",
             "dashboardGroupMembers" to "%1\$d miembros",
             "dashboardViewLiveMap" to "Ver mapa en vivo",
@@ -1439,6 +1458,15 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMaxProgress" to "%1\$s minutes actives • niveau maximal",
             "gamificationLatestMilestone" to "Dernier jalon",
             "gamificationUnlocksAt" to "Se débloque à %1\$s minutes actives",
+            "gamificationToNextLevel" to "%1\$s min de suivi restantes",
+            "gamificationTapHint" to "Touchez un niveau pour les détails",
+            "gamificationReachedOn" to "Atteint le %1\$s",
+            "gamificationJoinedOn" to "Inscrit le %1\$s",
+            "gamificationMinutesToGo" to "%1\$s min · %2\$s restantes",
+            "gamificationYouAreHere" to "Vous êtes ici",
+            "gamificationActivities" to "Activités",
+            "gamificationActivitiesRecorded" to "%1\$s enregistrées",
+            "gamificationNextLabel" to "Suivant",
             "dashboardGroupActive" to "Session de groupe active",
             "dashboardGroupMembers" to "%1\$d membres",
             "dashboardViewLiveMap" to "Voir la carte en direct",
@@ -2056,6 +2084,15 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMaxProgress" to "%1\$s aktive Minuten • höchste Stufe",
             "gamificationLatestMilestone" to "Letzter Meilenstein",
             "gamificationUnlocksAt" to "Freischaltung bei %1\$s aktiven Minuten",
+            "gamificationToNextLevel" to "%1\$s Min. Aufzeichnung übrig",
+            "gamificationTapHint" to "Tippe auf eine Stufe für Details",
+            "gamificationReachedOn" to "Erreicht am %1\$s",
+            "gamificationJoinedOn" to "Dabei seit %1\$s",
+            "gamificationMinutesToGo" to "%1\$s Min. · noch %2\$s",
+            "gamificationYouAreHere" to "Du bist hier",
+            "gamificationActivities" to "Aktivitäten",
+            "gamificationActivitiesRecorded" to "%1\$s aufgezeichnet",
+            "gamificationNextLabel" to "Weiter",
             "dashboardGroupActive" to "Gruppensitzung aktiv",
             "dashboardGroupMembers" to "%1\$d Mitglieder",
             "dashboardViewLiveMap" to "Live-Karte anzeigen",
@@ -2673,6 +2710,15 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMaxProgress" to "%1\$s सक्रिय मिनट • अधिकतम स्तर",
             "gamificationLatestMilestone" to "नवीनतम उपलब्धि",
             "gamificationUnlocksAt" to "%1\$s सक्रिय मिनट पर अनलॉक",
+            "gamificationToNextLevel" to "%1\$s मिनट की ट्रैकिंग शेष",
+            "gamificationTapHint" to "विवरण के लिए किसी स्तर पर टैप करें",
+            "gamificationReachedOn" to "%1\$s को प्राप्त",
+            "gamificationJoinedOn" to "%1\$s को शामिल हुए",
+            "gamificationMinutesToGo" to "%1\$s मिनट · %2\$s शेष",
+            "gamificationYouAreHere" to "आप यहाँ हैं",
+            "gamificationActivities" to "गतिविधियाँ",
+            "gamificationActivitiesRecorded" to "%1\$s दर्ज",
+            "gamificationNextLabel" to "अगला",
             "dashboardGroupActive" to "समूह सत्र सक्रिय है",
             "dashboardGroupMembers" to "%1\$d सदस्य",
             "dashboardViewLiveMap" to "लाइव मैप देखें",
@@ -3290,6 +3336,15 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMaxProgress" to "%1\$s分のアクティブ時間 • 最高レベル",
             "gamificationLatestMilestone" to "最新のマイルストーン",
             "gamificationUnlocksAt" to "%1\$s分のアクティブ時間で解除",
+            "gamificationToNextLevel" to "残り%1\$s分の記録",
+            "gamificationTapHint" to "レベルをタップすると詳細が表示されます",
+            "gamificationReachedOn" to "%1\$sに到達",
+            "gamificationJoinedOn" to "%1\$sに開始",
+            "gamificationMinutesToGo" to "%1\$s分・残り%2\$s",
+            "gamificationYouAreHere" to "現在地",
+            "gamificationActivities" to "アクティビティ",
+            "gamificationActivitiesRecorded" to "%1\$s件記録",
+            "gamificationNextLabel" to "次へ",
             "dashboardGroupActive" to "グループセッションが進行中",
             "dashboardGroupMembers" to "%1\$d人のメンバー",
             "dashboardViewLiveMap" to "ライブマップを表示",
@@ -3907,6 +3962,15 @@ fun getAppStrings(languageCode: String): AppStrings {
             "gamificationMaxProgress" to "%1\$s 分钟活跃时间 • 最高等级",
             "gamificationLatestMilestone" to "最新里程碑",
             "gamificationUnlocksAt" to "%1\$s 分钟活跃时间后解锁",
+            "gamificationToNextLevel" to "还需%1\$s分钟记录",
+            "gamificationTapHint" to "点按等级查看详情",
+            "gamificationReachedOn" to "%1\$s达成",
+            "gamificationJoinedOn" to "%1\$s加入",
+            "gamificationMinutesToGo" to "%1\$s分钟 · 还差%2\$s",
+            "gamificationYouAreHere" to "当前位置",
+            "gamificationActivities" to "活动",
+            "gamificationActivitiesRecorded" to "已记录%1\$s",
+            "gamificationNextLabel" to "下一级",
             "dashboardGroupActive" to "群组活动进行中",
             "dashboardGroupMembers" to "%1\$d 位成员",
             "dashboardViewLiveMap" to "查看实时地图",

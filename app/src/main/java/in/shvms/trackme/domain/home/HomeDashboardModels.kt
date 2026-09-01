@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.domain.home
 
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.domain.gamification.GamificationLedger
 
 data class WeeklyBucket(
     val weekStartEpochDay: Long,
@@ -77,6 +78,17 @@ data class HomeDashboardSummary(
     val lifetimeActivityCount: Int,
     val lifetimeDistanceMeters: Double,
     val lifetimeActiveDurationMillis: Long,
+    /**
+     * TASK-275: the same two lifetime facts, counting recorded rides only.
+     *
+     * Levels and activity milestones read these; every dashboard surface keeps reading the
+     * unfiltered pair above, because an imported ride is still the rider's ride and still belongs in
+     * their totals, their history and their week. What it does not do is earn progress.
+     */
+    val gamificationActivityCount: Int,
+    val gamificationActiveDurationMillis: Long,
+    /** TASK-276: when each level was reached and what earned it. Derived, never stored. */
+    val levelAchievements: List<GamificationLedger.LevelAchievement>,
     val displayStreakWeeks: Int,
     val latestActivity: RecentActivity?,
     /** Oldest to newest, including zero weeks, so the four-bar chart never shifts meaning. */
@@ -104,6 +116,9 @@ data class HomeDashboardSummary(
             lifetimeActivityCount = 0,
             lifetimeDistanceMeters = 0.0,
             lifetimeActiveDurationMillis = 0L,
+            gamificationActivityCount = 0,
+            gamificationActiveDurationMillis = 0L,
+            levelAchievements = GamificationLedger.derive(emptyList()),
             displayStreakWeeks = 0,
             latestActivity = null,
             weeklyBuckets = emptyList(),

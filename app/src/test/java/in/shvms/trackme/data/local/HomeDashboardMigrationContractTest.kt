@@ -8,7 +8,7 @@ class HomeDashboardMigrationContractTest {
     @Test fun `database upgrades add and register all dashboard metadata`() {
         val database = read("data/local/AppDatabase.kt")
         val app = read("TrackMeApp.kt")
-        assertTrue(database.contains("version = 18"))
+        assertTrue(database.contains("version = 19"))
         assertTrue(database.contains("MIGRATION_12_13"))
         assertTrue(database.contains("MIGRATION_13_14"))
         assertTrue(database.contains("`qualifiesForStats` INTEGER NOT NULL DEFAULT 0"))
@@ -23,6 +23,11 @@ class HomeDashboardMigrationContractTest {
         assertTrue(database.contains("MIGRATION_16_17"))
         assertTrue(database.contains("MIGRATION_17_18"))
         assertTrue(database.contains("ADD COLUMN `pauseOrigin` TEXT"))
+        // TASK-275: ride provenance. RECORDED is the default because every row that predates
+        // the column was written by a path the recorder could not be told apart from.
+        assertTrue(database.contains("MIGRATION_18_19"))
+        assertTrue(database.contains("`source` TEXT NOT NULL DEFAULT 'RECORDED'"))
+        assertTrue(database.contains("ADD COLUMN `contentHash` TEXT"))
         assertTrue(database.contains("`wasGroupRide` INTEGER NOT NULL DEFAULT 0"))
         assertTrue(database.contains("`groupRiderCount` INTEGER"))
         assertTrue(app.contains("AppDatabase.MIGRATION_12_13"))
@@ -31,6 +36,7 @@ class HomeDashboardMigrationContractTest {
         assertTrue(app.contains("AppDatabase.MIGRATION_15_16"))
         assertTrue(app.contains("AppDatabase.MIGRATION_16_17"))
         assertTrue(app.contains("AppDatabase.MIGRATION_17_18"))
+        assertTrue(app.contains("AppDatabase.MIGRATION_18_19"))
     }
 
     private fun read(relative: String): String {

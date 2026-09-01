@@ -1208,6 +1208,7 @@ class TrackingService : Service() {
                     activeTimeMs,
                     points.size,
                     `in`.shvms.trackme.data.local.dashboardRoutePolylineFromPoints(points),
+                    `in`.shvms.trackme.domain.`import`.RideContentHash.of(points),
                 )
             }
             rideDao.updateRide(finishedRide)

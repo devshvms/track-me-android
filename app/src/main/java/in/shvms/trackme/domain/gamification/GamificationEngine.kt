@@ -32,6 +32,7 @@ object GamificationEngine {
             currentLevelId = current.id,
             currentLevelNameKey = current.nameKey,
             currentMinutes = currentMinutes,
+            currentActivityCount = activityCount,
             currentThresholdMinutes = current.thresholdMinutes,
             nextThresholdMinutes = next?.thresholdMinutes,
             progressNumeratorMinutes = progressNumerator,

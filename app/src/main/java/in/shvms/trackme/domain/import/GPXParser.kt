@@ -3,6 +3,7 @@ package `in`.shvms.trackme.domain.import
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.PostRideCalculation
 import `in`.shvms.trackme.data.local.entity.RideEntity
+import `in`.shvms.trackme.data.local.entity.RideSource
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
@@ -147,7 +148,10 @@ class GPXParser {
             sourceInfo = "Imported GPX",
             isSynced = false,
             title = rideName ?: "Imported Ride",
-            postRideCalculation = calc
+            postRideCalculation = calc,
+            // TASK-275: the typed fact. `sourceInfo` above is free text meant for display and is
+            // not safe to branch on; qualification reads this instead.
+            source = RideSource.IMPORTED,
         ).let {
             // TASK-246: imported rides get a thumbnail like any other.
             `in`.shvms.trackme.data.local.withDashboardMetadata(
@@ -155,6 +159,7 @@ class GPXParser {
                 durationMillis,
                 points.size,
                 `in`.shvms.trackme.data.local.dashboardRoutePolylineFromPoints(points),
+                RideContentHash.of(points),
             )
         }
 

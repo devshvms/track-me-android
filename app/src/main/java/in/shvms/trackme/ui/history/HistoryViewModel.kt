@@ -247,19 +247,32 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                 val parser = GPXParser()
                 val parsed = parser.parse(inputStream)
                 
-                // Check duplicate by TrackMeID
+                // TASK-275: duplicate check by track identity first.
+                //
+                // The old check ran only when the file carried a TrackMe id, which meant a GPX from
+                // any other app was never checked at all -- importing the same Strava export twice
+                // produced two rides and double-counted its minutes everywhere. It was also defeated
+                // by deleting one XML attribute, because the track is unchanged either way.
+                //
+                // Hashing the track closes both. The id check stays as a cheap second pass: it still
+                // catches a re-import of a TrackMe export whose track is too short to hash.
+                val hash = parsed.rideWithPoints.ride.contentHash
+                if (hash != null && rideDao.countByContentHash(hash) > 0) {
+                    _uiEvent.emit(UiEvent.ShowError("This ride is already in your history"))
+                    return@launch
+                }
                 if (parsed.originalTrackMeId != null) {
                     val existingRides = rideDao.getAllRidesWithPoints().first()
-                    val isDuplicate = existingRides.any { 
-                        it.ride.id.toString() == parsed.originalTrackMeId || 
-                        it.ride.firestoreId == parsed.originalTrackMeId 
+                    val isDuplicate = existingRides.any {
+                        it.ride.id.toString() == parsed.originalTrackMeId ||
+                        it.ride.firestoreId == parsed.originalTrackMeId
                     }
                     if (isDuplicate) {
-                        _uiEvent.emit(UiEvent.ShowError("Identical ride already exists"))
+                        _uiEvent.emit(UiEvent.ShowError("This ride is already in your history"))
                         return@launch
                     }
                 }
-                
+
                 val newRideId = rideDao.insertRide(parsed.rideWithPoints.ride)
                 val newPoints = parsed.rideWithPoints.points.map { it.copy(rideId = newRideId) }
                 rideDao.insertGPSPoints(newPoints)
