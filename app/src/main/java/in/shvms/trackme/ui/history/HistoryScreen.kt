@@ -176,6 +176,15 @@ fun HistoryScreen(
             when (event) {
                 is HistoryViewModel.UiEvent.ShowError -> messenger.show(event.message)
                 is HistoryViewModel.UiEvent.Success -> messenger.show(event.message)
+                // TASK-282: the ViewModel reports what happened; the language is chosen here,
+                // where AppStrings is actually reachable.
+                is HistoryViewModel.UiEvent.ImportOutcome -> messenger.show(
+                    when (event.result) {
+                        HistoryViewModel.ImportResult.IMPORTED -> strings.importSucceeded
+                        HistoryViewModel.ImportResult.DUPLICATE -> strings.importDuplicate
+                        HistoryViewModel.ImportResult.UNREADABLE -> strings.importUnreadable
+                    }
+                )
                 is HistoryViewModel.UiEvent.BatchDeleteCompleted -> {
                     val message = if (event.failedCount == 0) {
                         // §0 contract 6: a queued delete is not a plain success. Reporting it as
