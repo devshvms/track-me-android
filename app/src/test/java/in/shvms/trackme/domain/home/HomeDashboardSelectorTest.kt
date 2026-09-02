@@ -7,8 +7,12 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 import java.time.Instant
 import java.time.ZoneId
+import `in`.shvms.trackme.data.local.entity.RideSource
 
 class HomeDashboardSelectorTest {
     private val utc = ZoneId.of("UTC")
@@ -21,6 +25,7 @@ class HomeDashboardSelectorTest {
         distance: Double = 1_000.0,
         duration: Long = 600_000L,
         startZoneId: String? = null,
+        source: String = RideSource.RECORDED,
     ) = HomeDashboardRideProjection(
         localId = id,
         startedAtEpochMillis = Instant.parse(at).toEpochMilli(),
@@ -30,6 +35,7 @@ class HomeDashboardSelectorTest {
         activeDurationMillis = duration,
         avgSpeedMps = if (duration > 0) distance / (duration / 1_000.0) else 0.0,
         hasRoute = true,
+        sourceRaw = source,
     )
 
     private fun select(vararg rides: HomeDashboardRideProjection) =
@@ -180,6 +186,21 @@ class HomeDashboardSelectorTest {
     }
 
     @Test
+    fun `weekly persona distances are typed ordered and retain zero-distance activity`() {
+        val summary = select(
+            ride(1, "2026-08-25T10:00:00Z", RidePersona.WALK, distance = 0.0),
+            ride(2, "2026-08-25T11:00:00Z", RidePersona.CYCLING, distance = 2_000.0),
+        )
+        assertEquals(
+            listOf(
+                PersonaDistance(RidePersona.WALK, 0.0),
+                PersonaDistance(RidePersona.CYCLING, 2_000.0),
+            ),
+            summary.currentWeek.distanceByPersona,
+        )
+    }
+
+    @Test
     fun `persisted ride timezone survives a different current device timezone`() {
         val sundayUtc = ride(
             1,
@@ -195,6 +216,73 @@ class HomeDashboardSelectorTest {
         val sundayUtc = ride(1, "2026-08-23T20:00:00Z", startZoneId = "not-a-zone")
         val summary = HomeDashboardSelector.select(listOf(sundayUtc), now, utc)
         assertEquals(0, summary.currentWeek.activityCount)
+    }
+
+    @Test
+    fun `shared Home vectors freeze typed weekly facts and exact comparison periods`() {
+        val cases = vectors().getJSONArray("home_cases")
+        for (index in 0 until cases.length()) {
+            val vector = cases.getJSONObject(index)
+            val description = vector.getString("description")
+            val summary = HomeDashboardSelector.select(
+                rides = vectorRides(vector.getJSONArray("activities")),
+                nowEpochMillis = vector.getLong("now_epoch_millis"),
+                zoneId = ZoneId.of(vector.getString("fallback_timezone")),
+            )
+            val expectedWeek = vector.getJSONObject("expected_current_week")
+            assertEquals(description, expectedWeek.getLong("week_start_epoch_day"), summary.currentWeek.weekStartEpochDay)
+            assertEquals(description, expectedWeek.getInt("activity_count"), summary.currentWeek.activityCount)
+            assertEquals(description, expectedWeek.getLong("active_duration_millis"), summary.currentWeek.activeDurationMillis)
+            val expectedPersonas = expectedWeek.getJSONArray("distance_by_persona").let { array ->
+                (0 until array.length()).map { personaIndex ->
+                    val item = array.getJSONObject(personaIndex)
+                    PersonaDistance(
+                        RidePersona.valueOf(item.getString("persona")),
+                        item.getDouble("distance_meters"),
+                    )
+                }
+            }
+            assertEquals(description, expectedPersonas, summary.currentWeek.distanceByPersona)
+
+            if (vector.isNull("expected_comparison")) {
+                assertFalse(description, summary.insight is HomeInsight.PeriodComparison)
+            } else {
+                val expected = vector.getJSONObject("expected_comparison")
+                val actual = summary.insight as HomeInsight.PeriodComparison
+                assertEquals(description, expected.getString("metric").uppercase(), actual.metric.name)
+                assertEquals(description, expected.getString("direction").uppercase(), actual.direction.name)
+                assertEquals(description, expected.getLong("current_start_epoch_day"), actual.currentPeriod.startEpochDay)
+                assertEquals(description, expected.getLong("current_end_epoch_day"), actual.currentPeriod.endEpochDay)
+                assertEquals(description, expected.getLong("comparison_start_epoch_day"), actual.comparisonPeriod.startEpochDay)
+                assertEquals(description, expected.getLong("comparison_end_epoch_day"), actual.comparisonPeriod.endEpochDay)
+                assertEquals(description, expected.getDouble("current_value"), actual.currentValue, 0.0)
+                assertEquals(description, expected.getDouble("comparison_value"), actual.comparisonValue, 0.0)
+            }
+        }
+    }
+
+    @Test
+    fun `shared calendar vectors freeze Monday timezone and DST bucketing`() {
+        val cases = vectors().getJSONArray("calendar_cases")
+        for (index in 0 until cases.length()) {
+            val vector = cases.getJSONObject(index)
+            val description = vector.getString("description")
+            val summary = HomeDashboardSelector.select(
+                rides = vectorRides(vector.getJSONArray("activities")),
+                nowEpochMillis = vector.getLong("now_epoch_millis"),
+                zoneId = ZoneId.of(vector.getString("fallback_timezone")),
+            )
+            assertEquals(
+                description,
+                vector.getLong("expected_current_week_start_epoch_day"),
+                summary.currentWeek.weekStartEpochDay,
+            )
+            assertEquals(
+                description,
+                vector.getInt("expected_current_week_activity_count"),
+                summary.currentWeek.activityCount,
+            )
+        }
     }
 
     @Test
@@ -221,5 +309,63 @@ class HomeDashboardSelectorTest {
         assertEquals(750, summary.lifetimeActivityCount)
         assertEquals(750_000.0 + (1L..750L).sum(), summary.lifetimeDistanceMeters, 0.0)
         assertEquals(1L, summary.latestActivity?.localId)
+    }
+
+    private fun vectors(): JSONObject = JSONObject(
+        File("src/test/resources/home-gamification-v1.json").readText()
+    )
+
+    private fun vectorRides(array: JSONArray): List<HomeDashboardRideProjection> =
+        (0 until array.length()).map { index ->
+            val item = array.getJSONObject(index)
+            val duration = item.getLong("active_duration_millis")
+            val distance = item.getDouble("distance_meters")
+            HomeDashboardRideProjection(
+                localId = item.getString("id").hashCode().toLong(),
+                startedAtEpochMillis = item.getLong("started_at_epoch_millis"),
+                startZoneId = item.getString("start_timezone"),
+                personaRaw = item.getString("persona"),
+                distanceMeters = distance,
+                activeDurationMillis = duration,
+                avgSpeedMps = if (duration > 0L) distance / (duration / 1_000.0) else 0.0,
+                hasRoute = true,
+                sourceRaw = RideSource.RECORDED,
+            )
+        }
+
+    // ---- TASK-275: imported rides earn no progress, but stay in every other total ----
+
+    @Test
+    fun `imported rides count for the dashboard and not for gamification`() {
+        val summary = select(
+            ride(1, "2026-08-24T08:00:00Z", duration = 600_000L),
+            ride(2, "2026-08-25T08:00:00Z", duration = 600_000L, source = RideSource.IMPORTED),
+        )
+
+        // The rider's own totals still show both — an imported ride is still their ride.
+        assertEquals(2, summary.lifetimeActivityCount)
+        assertEquals(1_200_000L, summary.lifetimeActiveDurationMillis)
+
+        // Levels and milestones see only what this app recorded.
+        assertEquals(1, summary.gamificationActivityCount)
+        assertEquals(600_000L, summary.gamificationActiveDurationMillis)
+    }
+
+    @Test
+    fun `a history of only imports earns nothing`() {
+        val summary = select(
+            ride(1, "2026-08-24T08:00:00Z", source = RideSource.IMPORTED),
+            ride(2, "2026-08-25T08:00:00Z", source = RideSource.IMPORTED),
+        )
+        assertEquals(2, summary.lifetimeActivityCount)
+        assertEquals(0, summary.gamificationActivityCount)
+        assertEquals(0L, summary.gamificationActiveDurationMillis)
+    }
+
+    @Test
+    fun `an unknown future source value earns nothing rather than crashing`() {
+        val summary = select(ride(1, "2026-08-24T08:00:00Z", source = "SOMETHING_NEW"))
+        assertEquals(1, summary.lifetimeActivityCount)
+        assertEquals(0, summary.gamificationActivityCount)
     }
 }

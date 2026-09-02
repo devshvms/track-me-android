@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.domain.processor
 
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.isManualPauseBoundary
 import `in`.shvms.trackme.domain.model.RidePersona
 
 /**
@@ -99,23 +100,17 @@ object RideGaps {
         if (points.isEmpty()) return emptyList()
         val runs = mutableListOf<MutableList<GPSPointEntity>>()
         var run = mutableListOf<GPSPointEntity>()
-        var previousRecordedPoint: GPSPointEntity? = null
+        var previousPoint: GPSPointEntity? = null
 
         points.forEach { point ->
-            if (point.isPaused) {
-                if (run.isNotEmpty()) runs += run
-                run = mutableListOf()
-                previousRecordedPoint = null
-                return@forEach
-            }
-
-            val previous = previousRecordedPoint
-            if (previous != null && isUnrecordedGap(previous, point, persona)) {
+            val previous = previousPoint
+            val manualBoundaryEndsHere = previous?.isManualPauseBoundary == true
+            if (previous != null && (manualBoundaryEndsHere || isUnrecordedGap(previous, point, persona))) {
                 if (run.isNotEmpty()) runs += run
                 run = mutableListOf()
             }
             run += point
-            previousRecordedPoint = point
+            previousPoint = point
         }
         if (run.isNotEmpty()) runs += run
         return runs

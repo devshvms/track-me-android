@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -37,6 +38,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -56,9 +58,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import `in`.shvms.trackme.data.local.dao.HomeDashboardRoutePoint
 import `in`.shvms.trackme.domain.UnitFormatter
+import `in`.shvms.trackme.domain.gamification.GamificationEngine
+import `in`.shvms.trackme.domain.gamification.toGamificationFacts
+import `in`.shvms.trackme.domain.gamification.GamificationSnapshot
+import `in`.shvms.trackme.ui.gamification.levelName
+import `in`.shvms.trackme.ui.gamification.formatMilestone
 import `in`.shvms.trackme.domain.home.HomeDashboardSummary
 import `in`.shvms.trackme.domain.home.HomeInsight
 import `in`.shvms.trackme.domain.home.InsightDirection
+import `in`.shvms.trackme.domain.home.InsightMetric
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.domain.model.usesPace
 import `in`.shvms.trackme.ui.components.icon
@@ -93,6 +101,7 @@ internal fun HomeDashboardScreen(
     onOpenRecent: (Long, RidePersona) -> Unit,
     onOpenHistory: () -> Unit,
     onOpenCommunity: () -> Unit,
+    onOpenProgress: () -> Unit,
     onOpenGroupMap: () -> Unit,
     /** TASK-254: hands Community the sheet to open, then switches to it. The sheets are not duplicated. */
     onCreateGroup: () -> Unit,
@@ -154,8 +163,7 @@ internal fun HomeDashboardScreen(
                     groupActive = groupActive,
                     groupMemberCount = groupMemberCount,
                     strings = strings,
-                    onCreate = onCreateGroup,
-                    onJoin = onJoinGroup,
+                    onOpenCommunity = onOpenCommunity,
                     onOpenGroupMap = onOpenGroupMap,
                 )
             }
@@ -178,7 +186,13 @@ internal fun HomeDashboardScreen(
             }
 
             summary.insight?.let { insight ->
-                item { InsightCard(insight, strings) }
+                item { InsightCard(insight, imperial, strings) }
+            }
+
+            item {
+                val facts = summary.toGamificationFacts()
+                val snapshot = GamificationEngine.deriveSnapshot(facts)
+                ProgressCard(snapshot = snapshot, strings = strings, onOpenProgress = onOpenProgress)
             }
 
             summary.latestActivity?.let { recent ->
@@ -213,8 +227,18 @@ private fun WeeklySummaryCard(summary: HomeDashboardSummary, imperial: Boolean, 
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Metric(strings.dashboardActivityCount.format(summary.currentWeek.activityCount), strings.dashboardThisWeek)
-                Metric(UnitFormatter.rideDistance(summary.currentWeek.distanceMeters, imperial), strings.distance)
                 Metric(formatDashboardDuration(summary.currentWeek.activeDurationMillis, strings), strings.duration)
+                
+                if (summary.currentWeek.distanceByPersona.isNotEmpty()) {
+                    summary.currentWeek.distanceByPersona.forEach { personaDistance ->
+                        Metric(
+                            `in`.shvms.trackme.domain.UnitFormatter.rideDistance(personaDistance.distanceMeters, imperial),
+                            strings.personaLabel(personaDistance.persona),
+                        )
+                    }
+                } else {
+                    Metric(`in`.shvms.trackme.domain.UnitFormatter.rideDistance(0.0, imperial), strings.distance)
+                }
             }
             if (summary.displayStreakWeeks > 1) {
                 Text(
@@ -223,7 +247,7 @@ private fun WeeklySummaryCard(summary: HomeDashboardSummary, imperial: Boolean, 
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            WeeklyDistanceChart(summary, imperial, strings)
+            WeeklyDurationChart(summary, strings)
         }
     }
 }
@@ -237,18 +261,18 @@ private fun Metric(value: String, label: String) {
 }
 
 @Composable
-private fun WeeklyDistanceChart(summary: HomeDashboardSummary, imperial: Boolean, strings: AppStrings) {
+private fun WeeklyDurationChart(summary: HomeDashboardSummary, strings: AppStrings) {
     val buckets = summary.weeklyBuckets.takeLast(4)
-    val maxDistance = max(1.0, buckets.maxOfOrNull { it.distanceMeters } ?: 1.0)
+    val maxDuration = max(1L, buckets.maxOfOrNull { it.activeDurationMillis } ?: 1L)
     val barColor = MaterialTheme.colorScheme.primary
-    val accessibleValues = buckets.map { UnitFormatter.rideDistance(it.distanceMeters, imperial) }
+    val accessibleValues = buckets.map { formatDashboardDuration(it.activeDurationMillis, strings) }
     val accessibleLabel = String.format(
         Locale.getDefault(),
         strings.dashboardWeeklyChartValues,
-        accessibleValues.getOrElse(0) { UnitFormatter.rideDistance(0.0, imperial) },
-        accessibleValues.getOrElse(1) { UnitFormatter.rideDistance(0.0, imperial) },
-        accessibleValues.getOrElse(2) { UnitFormatter.rideDistance(0.0, imperial) },
-        accessibleValues.getOrElse(3) { UnitFormatter.rideDistance(0.0, imperial) },
+        accessibleValues.getOrElse(0) { formatDashboardDuration(0L, strings) },
+        accessibleValues.getOrElse(1) { formatDashboardDuration(0L, strings) },
+        accessibleValues.getOrElse(2) { formatDashboardDuration(0L, strings) },
+        accessibleValues.getOrElse(3) { formatDashboardDuration(0L, strings) },
     )
     Canvas(
         Modifier.fillMaxWidth().height(64.dp).semantics {
@@ -258,7 +282,7 @@ private fun WeeklyDistanceChart(summary: HomeDashboardSummary, imperial: Boolean
         val gap = 12.dp.toPx()
         val width = (size.width - gap * 3) / 4
         buckets.forEachIndexed { index, bucket ->
-            val ratio = (bucket.distanceMeters / maxDistance).toFloat().coerceIn(0f, 1f)
+            val ratio = (bucket.activeDurationMillis.toDouble() / maxDuration.toDouble()).toFloat().coerceIn(0f, 1f)
             val height = (size.height * ratio).coerceAtLeast(3.dp.toPx())
             drawRoundRect(
                 color = barColor.copy(alpha = if (index == buckets.lastIndex) 1f else 0.45f),
@@ -403,8 +427,7 @@ private fun GroupRideCard(
     groupActive: Boolean,
     groupMemberCount: Int,
     strings: AppStrings,
-    onCreate: () -> Unit,
-    onJoin: () -> Unit,
+    onOpenCommunity: () -> Unit,
     onOpenGroupMap: () -> Unit,
 ) {
     var showHowItWorks by rememberSaveable { mutableStateOf(false) }
@@ -452,8 +475,7 @@ private fun GroupRideCard(
                 if (groupActive) {
                     FilledTonalButton(onClick = onOpenGroupMap) { Text(strings.dashboardViewLiveMap) }
                 } else {
-                    FilledTonalButton(onClick = onCreate) { Text(strings.dashboardGroupCreate) }
-                    OutlinedButton(onClick = onJoin) { Text(strings.dashboardGroupJoin) }
+                    FilledTonalButton(onClick = onOpenCommunity) { Text(strings.dashboardGroupHeading) }
                 }
             }
         }
@@ -461,16 +483,25 @@ private fun GroupRideCard(
 }
 
 @Composable
-private fun InsightCard(insight: HomeInsight, strings: AppStrings) {
+private fun InsightCard(insight: HomeInsight, imperial: Boolean, strings: AppStrings) {
     val text = when (insight) {
         is HomeInsight.Return -> String.format(
             Locale.getDefault(), strings.dashboardInsightReturn,
             strings.personaLabel(insight.persona), insight.inactiveDays,
         )
-        is HomeInsight.PeriodComparison -> when (insight.direction) {
-            InsightDirection.HIGHER -> strings.dashboardInsightHigher
-            InsightDirection.STABLE -> strings.dashboardInsightStable
-            InsightDirection.LOWER -> strings.dashboardInsightLower
+        is HomeInsight.PeriodComparison -> {
+            val currentFormatted = if (insight.metric == InsightMetric.DISTANCE) {
+                `in`.shvms.trackme.domain.UnitFormatter.rideDistance(insight.currentValue, imperial)
+            } else {
+                formatDashboardDuration(insight.currentValue.toLong(), strings)
+            }
+            val comparisonFormatted = if (insight.metric == InsightMetric.DISTANCE) {
+                `in`.shvms.trackme.domain.UnitFormatter.rideDistance(insight.comparisonValue, imperial)
+            } else {
+                formatDashboardDuration(insight.comparisonValue.toLong(), strings)
+            }
+            val metricStr = if (insight.metric == InsightMetric.DISTANCE) strings.distance else strings.duration
+            "$metricStr: $currentFormatted / $comparisonFormatted"
         }
         is HomeInsight.DominantPersona -> String.format(
             Locale.getDefault(), strings.dashboardInsightDominant, strings.personaLabel(insight.persona)
@@ -587,5 +618,56 @@ private fun formatDashboardDuration(millis: Long, strings: AppStrings): String {
         String.format(Locale.getDefault(), strings.dashboardDurationHours, hours, minutes)
     } else {
         String.format(Locale.getDefault(), strings.dashboardDurationMinutes, minutes)
+    }
+}
+
+@Composable
+private fun ProgressCard(snapshot: GamificationSnapshot, strings: AppStrings, onOpenProgress: () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(10.dp))
+                Text(strings.gamificationMyProgress, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+            Text(strings.levelName(snapshot.currentLevelId), style = MaterialTheme.typography.titleLarge)
+            val progressRatio = if (snapshot.progressDenominatorMinutes > 0L) {
+                (snapshot.progressNumeratorMinutes.toFloat() / snapshot.progressDenominatorMinutes.toFloat())
+                    .coerceIn(0f, 1f)
+            } else 1f
+            val progressStr = snapshot.nextThresholdMinutes?.let { nextMinutes ->
+                String.format(
+                    Locale.getDefault(),
+                    strings.gamificationProgress,
+                    snapshot.currentMinutes.toString(),
+                    nextMinutes.toString(),
+                )
+            } ?: String.format(
+                Locale.getDefault(),
+                strings.gamificationMaxProgress,
+                snapshot.currentMinutes.toString(),
+            )
+            Column(modifier = Modifier.semantics(mergeDescendants = true) { 
+                contentDescription = progressStr 
+            }) {
+                LinearProgressIndicator(progress = { progressRatio }, modifier = Modifier.fillMaxWidth().height(8.dp), color = MaterialTheme.colorScheme.primary)
+                Text(progressStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            }
+
+            snapshot.latestUnlockedMilestoneId?.let { milestone ->
+                Column {
+                    Text(
+                        strings.gamificationLatestMilestone,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(strings.formatMilestone(milestone), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+
+            FilledTonalButton(onClick = onOpenProgress, modifier = Modifier.fillMaxWidth()) {
+                Text(strings.gamificationViewProgress)
+            }
+        }
     }
 }

@@ -44,13 +44,20 @@ suspend fun CameraPositionState.animateSafely(durationMs: Int? = null, update: (
     }
 }
 
-/** The non-suspending counterpart, for the fit-to-bounds calls on the history screens. */
-fun CameraPositionState.moveSafely(update: () -> CameraUpdate) {
-    val cameraUpdate = buildUpdate(update) ?: return
-    try {
+/**
+ * The non-suspending counterpart, for fit-to-bounds calls on history screens.
+ *
+ * The result lets measured/map-loaded preview code retry a move that still lost an SDK readiness
+ * race instead of silently accepting the estimated initial camera as the final frame.
+ */
+fun CameraPositionState.moveSafely(update: () -> CameraUpdate): Boolean {
+    val cameraUpdate = buildUpdate(update) ?: return false
+    return try {
         move(cameraUpdate)
+        true
     } catch (e: Exception) {
         Log.w(TAG, "Camera move failed; leaving the camera where it is", e)
+        false
     }
 }
 

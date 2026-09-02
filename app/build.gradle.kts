@@ -48,7 +48,7 @@ android {
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = (System.getenv("VERSION_CODE") ?: "29").toInt()
-        versionName = "1.8.5"
+        versionName = "1.8.6"
         
         resValue("string", "google_maps_key", mapsApiKey)
         buildConfigField("String", "POSTHOG_API_KEY", "\"$posthogApiKey\"")

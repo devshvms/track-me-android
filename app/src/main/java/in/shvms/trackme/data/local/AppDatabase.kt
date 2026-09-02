@@ -5,7 +5,9 @@ import androidx.room.RoomDatabase
 import `in`.shvms.trackme.data.local.dao.RideDao
 import `in`.shvms.trackme.data.local.dao.HomeDashboardDao
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.PauseOriginConverters
 import `in`.shvms.trackme.data.local.entity.RideEntity
+import androidx.room.TypeConverters
 
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
@@ -15,9 +17,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RideEntity::class, 
         GPSPointEntity::class
     ], 
-    version = 17,
+    version = 19,
     exportSchema = false
 )
+@TypeConverters(PauseOriginConverters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun rideDao(): RideDao
     abstract fun homeDashboardDao(): HomeDashboardDao
@@ -211,6 +214,37 @@ abstract class AppDatabase : RoomDatabase() {
                     "ALTER TABLE `rides` ADD COLUMN `wasGroupRide` INTEGER NOT NULL DEFAULT 0"
                 )
                 database.execSQL("ALTER TABLE `rides` ADD COLUMN `groupRiderCount` INTEGER")
+            }
+        }
+
+        /**
+         * TASK-270 repair: preserve whether a new paused point came from automatic sampling or a
+         * manual boundary. Existing rows remain null because their origin cannot be reconstructed
+         * truthfully from GPS values.
+         */
+        val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `gps_points` ADD COLUMN `pauseOrigin` TEXT")
+            }
+        }
+
+        /**
+         * TASK-275: ride provenance.
+         *
+         * `source` defaults to RECORDED for every existing row, which is the honest answer rather
+         * than a convenient one: before this column existed the import path wrote rows the recorder
+         * could not be distinguished from, so there is no evidence on which to call any of them
+         * imported. New imports are marked going forward; history keeps the benefit of the doubt.
+         *
+         * `contentHash` is left null and filled by the metadata reconciler, so the migration stays
+         * a schema change and does not read the whole gps_points table on the upgrade path.
+         */
+        val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE `rides` ADD COLUMN `source` TEXT NOT NULL DEFAULT 'RECORDED'"
+                )
+                database.execSQL("ALTER TABLE `rides` ADD COLUMN `contentHash` TEXT")
             }
         }
     }

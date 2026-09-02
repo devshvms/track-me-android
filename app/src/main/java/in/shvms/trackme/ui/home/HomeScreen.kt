@@ -157,6 +157,7 @@ private const val IDLE_MAP_ALPHA = 0.1f
 fun HomeScreen(
     onOpenCommunity: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
+    onOpenProgress: () -> Unit = {},
     onOpenRideDetail: (Long) -> Unit = {},
     scrollToTopRequest: Int = 0,
     viewModel: HomeViewModel = viewModel(
@@ -1381,6 +1382,7 @@ fun HomeScreen(
                     },
                     onOpenHistory = onOpenHistory,
                     onOpenCommunity = onOpenCommunity,
+                    onOpenProgress = onOpenProgress,
                     onOpenGroupMap = {
                         AnalyticsManager.trackHomeGroupMapOpened()
                         explicitGroupMap = true

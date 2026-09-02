@@ -205,6 +205,7 @@ class DefaultGPSProcessor(
                 // TASK-246: rebuilt from the compressed set this function is about to persist, so
                 // the stored shape matches the points actually kept.
                 `in`.shvms.trackme.data.local.dashboardRoutePolylineFromPoints(compressedPoints),
+                `in`.shvms.trackme.domain.`import`.RideContentHash.of(compressedPoints),
             )
         }
         

@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.domain.processor
 
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.PauseOrigin
 import `in`.shvms.trackme.domain.model.RidePersona
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -17,10 +18,17 @@ import org.junit.Test
  */
 class RideGapsTest {
 
-    private fun point(second: Long, lat: Double, lon: Double, paused: Boolean = false) =
+    private fun point(
+        second: Long,
+        lat: Double,
+        lon: Double,
+        paused: Boolean = false,
+        pauseOrigin: PauseOrigin? = null,
+    ) =
         GPSPointEntity(
             rideId = 1L, latitude = lat, longitude = lon, altitude = 0.0,
             accuracy = 5f, speed = 0f, timestamp = second * 1_000L, isPaused = paused,
+            pauseOrigin = pauseOrigin,
         )
 
     /** ~111 m per 0.001 degree of latitude. */
@@ -112,35 +120,31 @@ class RideGapsTest {
     }
 
     @Test
-    fun `manual pause marker splits runs even when movement speed is plausible`() {
+    fun `auto pause markers do not split solid runs`() {
         val p0 = point(0, 12.9700, 77.5900)
         val p1 = northOf(p0, 20.0, 5)
         val paused = point(10, p1.latitude, p1.longitude, paused = true)
-        // 600 m in four minutes is deliberately below the walking ceiling, so only the explicit
-        // pause marker can prove that this stretch was not recorded.
-        val resumed = northOf(paused, 600.0, 240)
+        val resumed = northOf(paused, 60.0, 240) // within plausible speed
         val p4 = northOf(resumed, 20.0, 5)
 
         val runs = RideGaps.recordedRuns(listOf(p0, p1, paused, resumed, p4), RidePersona.WALK)
 
-        assertEquals(2, runs.size)
-        assertEquals(listOf(p0, p1), runs[0])
-        assertEquals(listOf(resumed, p4), runs[1])
-        assertTrue(runs.flatten().none { it.isPaused })
+        // It should NOT split into two runs. It is one contiguous solid run.
+        assertEquals(1, runs.size)
+        assertEquals(5, runs[0].size)
     }
 
     @Test
-    fun `paused points at the edges never become solid runs`() {
-        val pausedStart = point(0, 12.9700, 77.5900, paused = true)
-        val recorded = point(5, 12.9701, 77.5900)
-        val pausedEnd = point(10, 12.9701, 77.5900, paused = true)
+    fun `manual pause authority splits after its recorded boundary`() {
+        val before = point(0, 12.9700, 77.5900)
+        val boundary = point(1, 12.9701, 77.5900, paused = true, pauseOrigin = PauseOrigin.MANUAL)
+        val resumed = point(240, 12.9755, 77.5900)
 
-        val runs = RideGaps.recordedRuns(
-            listOf(pausedStart, recorded, pausedEnd),
-            RidePersona.WALK,
-        )
+        val runs = RideGaps.recordedRuns(listOf(before, boundary, resumed), RidePersona.WALK)
 
-        assertEquals(listOf(listOf(recorded)), runs)
+        assertEquals(2, runs.size)
+        assertEquals(listOf(before, boundary), runs[0])
+        assertEquals(listOf(resumed), runs[1])
     }
 
     @Test

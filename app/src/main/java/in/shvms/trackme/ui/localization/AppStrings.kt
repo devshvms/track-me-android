@@ -24,6 +24,38 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val navHistory: String = s("navHistory", "History")
     val navSettings: String = s("navSettings", "Settings")
 
+    // Gamification
+    val gamificationLevel1: String = s("gamificationLevel1", "Starter")
+    val gamificationLevel2: String = s("gamificationLevel2", "Moving")
+    val gamificationLevel3: String = s("gamificationLevel3", "Regular")
+    val gamificationLevel4: String = s("gamificationLevel4", "Explorer")
+    val gamificationLevel5: String = s("gamificationLevel5", "Enduring")
+    val gamificationLevel6: String = s("gamificationLevel6", "Pathfinder")
+    
+    val gamificationViewProgress: String = s("gamificationViewProgress", "View progress")
+    val gamificationMyProgress: String = s("gamificationMyProgress", "My Progress")
+    val gamificationLevels: String = s("gamificationLevels", "Levels")
+    val gamificationMilestones: String = s("gamificationMilestones", "Milestones")
+    val gamificationFirstMilestone: String = s("gamificationFirstMilestone", "First Qualifying Activity")
+    val gamificationMilestoneTitle: String = s("gamificationMilestoneTitle", "%1\$d qualifying activities")
+    val gamificationMilestoneLocked: String = s("gamificationMilestoneLocked", "Locked")
+    val gamificationMilestoneUnlocked: String = s("gamificationMilestoneUnlocked", "Unlocked")
+    val gamificationProgress: String = s("gamificationProgress", "%1\$s active minutes • next level at %2\$s")
+    val gamificationActiveMinutes: String = s("gamificationActiveMinutes", "%1\$s active minutes")
+    val gamificationMaxProgress: String = s("gamificationMaxProgress", "%1\$s active minutes • maximum level")
+    val gamificationLatestMilestone: String = s("gamificationLatestMilestone", "Latest milestone")
+    val gamificationUnlocksAt: String = s("gamificationUnlocksAt", "Unlocks at %1\$s active minutes")
+    // TASK-276: the trail
+    val gamificationToNextLevel: String = s("gamificationToNextLevel", "%1\$s min of tracking to go")
+    val gamificationTapHint: String = s("gamificationTapHint", "Tap a level for details")
+    val gamificationReachedOn: String = s("gamificationReachedOn", "Reached %1\$s")
+    val gamificationJoinedOn: String = s("gamificationJoinedOn", "Joined %1\$s")
+    val gamificationMinutesToGo: String = s("gamificationMinutesToGo", "%1\$s min · %2\$s to go")
+    val gamificationYouAreHere: String = s("gamificationYouAreHere", "You are here")
+    val gamificationActivities: String = s("gamificationActivities", "Activities")
+    val gamificationActivitiesRecorded: String = s("gamificationActivitiesRecorded", "%1\$s recorded")
+    val gamificationNextLabel: String = s("gamificationNextLabel", "Next")
+
     // Home / Dashboard
     val startTracking: String = s("startTracking", "Start Tracking")
     val startRideHint: String = s("startRideHint", "Tap and hold Start Ride, then drag to choose an activity.")
@@ -56,7 +88,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val dashboardLocationAfterStart: String = s("dashboardLocationAfterStart", "Location is requested after Start so TrackMe can record your route.")
     val dashboardSampleRideOnly: String = s("dashboardSampleRideOnly", "The sample ride in History is for exploring. Your own rides fill this in.")
     val dashboardLoadingHistory: String = s("dashboardLoadingHistory", "Preparing your activity history…")
-    val dashboardWeeklyChartValues: String = s("dashboardWeeklyChartValues", "Four-week distance: %1\$s, %2\$s, %3\$s, and %4\$s")
+    val dashboardWeeklyChartValues: String = s("dashboardWeeklyChartValues", "Four-week duration: %1\$s, %2\$s, %3\$s, and %4\$s")
     val dashboardGroupActive: String = s("dashboardGroupActive", "Group session active")
     val dashboardGroupMembers: String = s("dashboardGroupMembers", "%1\$d members")
     val dashboardViewLiveMap: String = s("dashboardViewLiveMap", "View live map")
@@ -478,6 +510,10 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val totalDistance: String = s("totalDistance", "Total Distance")
     val elevationGain: String = s("elevationGain", "Elevation Gain")
     val importGpx: String = s("importGpx", "Import GPX")
+    // TASK-282: the three import outcomes. These were raw English literals in HistoryViewModel.
+    val importSucceeded: String = s("importSucceeded", "GPX imported")
+    val importDuplicate: String = s("importDuplicate", "This ride is already in your history")
+    val importUnreadable: String = s("importUnreadable", "That file is not a readable GPX track")
     val noPathData: String = s("noPathData", "No path data")
     val expired: String = s("expired", "Expired")
     val liveLocationActive: String = s("liveLocationActive", "Live Location Active")
@@ -780,7 +816,35 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardLocationAfterStart" to "La ubicación se solicita después de Iniciar para que TrackMe pueda registrar tu ruta.",
             "dashboardSampleRideOnly" to "El viaje de ejemplo en Historial es para explorar. Tus propios viajes completarán esto.",
             "dashboardLoadingHistory" to "Preparando tu historial de actividades…",
-            "dashboardWeeklyChartValues" to "Distancia de cuatro semanas: %1\$s, %2\$s, %3\$s y %4\$s",
+            "dashboardWeeklyChartValues" to "Duración de cuatro semanas: %1\$s, %2\$s, %3\$s y %4\$s",
+            "gamificationLevel1" to "Principiante",
+            "gamificationLevel2" to "En movimiento",
+            "gamificationLevel3" to "Constante",
+            "gamificationLevel4" to "Explorador",
+            "gamificationLevel5" to "Resistente",
+            "gamificationLevel6" to "Pionero",
+            "gamificationViewProgress" to "Ver progreso",
+            "gamificationMyProgress" to "Mi progreso",
+            "gamificationLevels" to "Niveles",
+            "gamificationMilestones" to "Hitos",
+            "gamificationFirstMilestone" to "Primera actividad válida",
+            "gamificationMilestoneTitle" to "%1\$d actividades válidas",
+            "gamificationMilestoneLocked" to "Bloqueado",
+            "gamificationMilestoneUnlocked" to "Desbloqueado",
+            "gamificationProgress" to "%1\$s minutos activos • siguiente nivel en %2\$s",
+            "gamificationActiveMinutes" to "%1\$s minutos activos",
+            "gamificationMaxProgress" to "%1\$s minutos activos • nivel máximo",
+            "gamificationLatestMilestone" to "Último hito",
+            "gamificationUnlocksAt" to "Se desbloquea a los %1\$s minutos activos",
+            "gamificationToNextLevel" to "%1\$s min de seguimiento restantes",
+            "gamificationTapHint" to "Toca un nivel para ver detalles",
+            "gamificationReachedOn" to "Alcanzado el %1\$s",
+            "gamificationJoinedOn" to "Te uniste el %1\$s",
+            "gamificationMinutesToGo" to "%1\$s min · faltan %2\$s",
+            "gamificationYouAreHere" to "Estás aquí",
+            "gamificationActivities" to "Actividades",
+            "gamificationActivitiesRecorded" to "%1\$s registradas",
+            "gamificationNextLabel" to "Siguiente",
             "dashboardGroupActive" to "Sesión de grupo activa",
             "dashboardGroupMembers" to "%1\$d miembros",
             "dashboardViewLiveMap" to "Ver mapa en vivo",
@@ -1284,6 +1348,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "downloadAllMyData" to "Exportar todos los datos",
             "dataExportSuccess" to "¡Archivo creado! Elige dónde guardarlo.",
             "importGpx" to "Importar GPX",
+            "importSucceeded" to "GPX importado",
+            "importDuplicate" to "Esta ruta ya está en tu historial",
+            "importUnreadable" to "Ese archivo no es una ruta GPX legible",
             "noPathData" to "Sin datos de ruta",
             "expired" to "Caducado",
             "liveLocationActive" to "Ubicación en vivo activa",
@@ -1378,7 +1445,35 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardLocationAfterStart" to "La localisation est demandée après Démarrer afin que TrackMe puisse enregistrer votre itinéraire.",
             "dashboardSampleRideOnly" to "Le trajet d'exemple dans l'historique sert à explorer. Vos propres trajets rempliront ceci.",
             "dashboardLoadingHistory" to "Préparation de votre historique d’activités…",
-            "dashboardWeeklyChartValues" to "Distance sur quatre semaines : %1\$s, %2\$s, %3\$s et %4\$s",
+            "dashboardWeeklyChartValues" to "Durée sur quatre semaines : %1\$s, %2\$s, %3\$s et %4\$s",
+            "gamificationLevel1" to "Débutant",
+            "gamificationLevel2" to "En mouvement",
+            "gamificationLevel3" to "Régulier",
+            "gamificationLevel4" to "Explorateur",
+            "gamificationLevel5" to "Endurant",
+            "gamificationLevel6" to "Éclaireur",
+            "gamificationViewProgress" to "Voir la progression",
+            "gamificationMyProgress" to "Ma progression",
+            "gamificationLevels" to "Niveaux",
+            "gamificationMilestones" to "Jalons",
+            "gamificationFirstMilestone" to "Première activité admissible",
+            "gamificationMilestoneTitle" to "%1\$d activités admissibles",
+            "gamificationMilestoneLocked" to "Verrouillé",
+            "gamificationMilestoneUnlocked" to "Déverrouillé",
+            "gamificationProgress" to "%1\$s minutes actives • prochain niveau à %2\$s",
+            "gamificationActiveMinutes" to "%1\$s minutes actives",
+            "gamificationMaxProgress" to "%1\$s minutes actives • niveau maximal",
+            "gamificationLatestMilestone" to "Dernier jalon",
+            "gamificationUnlocksAt" to "Se débloque à %1\$s minutes actives",
+            "gamificationToNextLevel" to "%1\$s min de suivi restantes",
+            "gamificationTapHint" to "Touchez un niveau pour les détails",
+            "gamificationReachedOn" to "Atteint le %1\$s",
+            "gamificationJoinedOn" to "Inscrit le %1\$s",
+            "gamificationMinutesToGo" to "%1\$s min · %2\$s restantes",
+            "gamificationYouAreHere" to "Vous êtes ici",
+            "gamificationActivities" to "Activités",
+            "gamificationActivitiesRecorded" to "%1\$s enregistrées",
+            "gamificationNextLabel" to "Suivant",
             "dashboardGroupActive" to "Session de groupe active",
             "dashboardGroupMembers" to "%1\$d membres",
             "dashboardViewLiveMap" to "Voir la carte en direct",
@@ -1882,6 +1977,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "downloadAllMyData" to "Exporter toutes les données",
             "dataExportSuccess" to "Archive créée ! Choisissez où l'enregistrer.",
             "importGpx" to "Importer un GPX",
+            "importSucceeded" to "GPX importé",
+            "importDuplicate" to "Ce trajet figure déjà dans votre historique",
+            "importUnreadable" to "Ce fichier n’est pas une trace GPX lisible",
             "noPathData" to "Aucune donnée de tracé",
             "expired" to "Expiré",
             "liveLocationActive" to "Position en direct active",
@@ -1976,7 +2074,35 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardLocationAfterStart" to "Der Standort wird erst nach Start angefordert, damit TrackMe deine Route aufzeichnen kann.",
             "dashboardSampleRideOnly" to "Die Beispielfahrt im Verlauf dient zum Ausprobieren. Deine eigenen Fahrten füllen dies.",
             "dashboardLoadingHistory" to "Aktivitätsverlauf wird vorbereitet…",
-            "dashboardWeeklyChartValues" to "Distanz über vier Wochen: %1\$s, %2\$s, %3\$s und %4\$s",
+            "dashboardWeeklyChartValues" to "Dauer über vier Wochen: %1\$s, %2\$s, %3\$s und %4\$s",
+            "gamificationLevel1" to "Anfänger",
+            "gamificationLevel2" to "In Bewegung",
+            "gamificationLevel3" to "Regelmäßig",
+            "gamificationLevel4" to "Entdecker",
+            "gamificationLevel5" to "Ausdauernd",
+            "gamificationLevel6" to "Wegbereiter",
+            "gamificationViewProgress" to "Fortschritt ansehen",
+            "gamificationMyProgress" to "Mein Fortschritt",
+            "gamificationLevels" to "Stufen",
+            "gamificationMilestones" to "Meilensteine",
+            "gamificationFirstMilestone" to "Erste qualifizierende Aktivität",
+            "gamificationMilestoneTitle" to "%1\$d qualifizierende Aktivitäten",
+            "gamificationMilestoneLocked" to "Gesperrt",
+            "gamificationMilestoneUnlocked" to "Freigeschaltet",
+            "gamificationProgress" to "%1\$s aktive Minuten • nächste Stufe bei %2\$s",
+            "gamificationActiveMinutes" to "%1\$s aktive Minuten",
+            "gamificationMaxProgress" to "%1\$s aktive Minuten • höchste Stufe",
+            "gamificationLatestMilestone" to "Letzter Meilenstein",
+            "gamificationUnlocksAt" to "Freischaltung bei %1\$s aktiven Minuten",
+            "gamificationToNextLevel" to "%1\$s Min. Aufzeichnung übrig",
+            "gamificationTapHint" to "Tippe auf eine Stufe für Details",
+            "gamificationReachedOn" to "Erreicht am %1\$s",
+            "gamificationJoinedOn" to "Dabei seit %1\$s",
+            "gamificationMinutesToGo" to "%1\$s Min. · noch %2\$s",
+            "gamificationYouAreHere" to "Du bist hier",
+            "gamificationActivities" to "Aktivitäten",
+            "gamificationActivitiesRecorded" to "%1\$s aufgezeichnet",
+            "gamificationNextLabel" to "Weiter",
             "dashboardGroupActive" to "Gruppensitzung aktiv",
             "dashboardGroupMembers" to "%1\$d Mitglieder",
             "dashboardViewLiveMap" to "Live-Karte anzeigen",
@@ -2480,6 +2606,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "downloadAllMyData" to "Alle Daten exportieren",
             "dataExportSuccess" to "Archiv erstellt! Wählen Sie den Speicherort.",
             "importGpx" to "GPX importieren",
+            "importSucceeded" to "GPX importiert",
+            "importDuplicate" to "Diese Fahrt ist bereits in deinem Verlauf",
+            "importUnreadable" to "Diese Datei ist kein lesbarer GPX-Track",
             "noPathData" to "Keine Streckendaten",
             "expired" to "Abgelaufen",
             "liveLocationActive" to "Live-Standort aktiv",
@@ -2574,7 +2703,35 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardLocationAfterStart" to "TrackMe आपके मार्ग को रिकॉर्ड कर सके, इसलिए स्थान की अनुमति शुरू करने के बाद माँगी जाती है।",
             "dashboardSampleRideOnly" to "इतिहास में नमूना यात्रा केवल आज़माने के लिए है। आपकी अपनी यात्राएँ इसे भरेंगी।",
             "dashboardLoadingHistory" to "आपकी गतिविधि का इतिहास तैयार हो रहा है…",
-            "dashboardWeeklyChartValues" to "चार सप्ताह की दूरी: %1\$s, %2\$s, %3\$s और %4\$s",
+            "dashboardWeeklyChartValues" to "चार सप्ताह की अवधि: %1\$s, %2\$s, %3\$s और %4\$s",
+            "gamificationLevel1" to "शुरुआती",
+            "gamificationLevel2" to "गतिशील",
+            "gamificationLevel3" to "नियमित",
+            "gamificationLevel4" to "खोजकर्ता",
+            "gamificationLevel5" to "सहनशील",
+            "gamificationLevel6" to "पथप्रदर्शक",
+            "gamificationViewProgress" to "प्रगति देखें",
+            "gamificationMyProgress" to "मेरी प्रगति",
+            "gamificationLevels" to "स्तर",
+            "gamificationMilestones" to "उपलब्धियाँ",
+            "gamificationFirstMilestone" to "पहली योग्य गतिविधि",
+            "gamificationMilestoneTitle" to "%1\$d योग्य गतिविधियाँ",
+            "gamificationMilestoneLocked" to "लॉक",
+            "gamificationMilestoneUnlocked" to "अनलॉक",
+            "gamificationProgress" to "%1\$s सक्रिय मिनट • अगला स्तर %2\$s पर",
+            "gamificationActiveMinutes" to "%1\$s सक्रिय मिनट",
+            "gamificationMaxProgress" to "%1\$s सक्रिय मिनट • अधिकतम स्तर",
+            "gamificationLatestMilestone" to "नवीनतम उपलब्धि",
+            "gamificationUnlocksAt" to "%1\$s सक्रिय मिनट पर अनलॉक",
+            "gamificationToNextLevel" to "%1\$s मिनट की ट्रैकिंग शेष",
+            "gamificationTapHint" to "विवरण के लिए किसी स्तर पर टैप करें",
+            "gamificationReachedOn" to "%1\$s को प्राप्त",
+            "gamificationJoinedOn" to "%1\$s को शामिल हुए",
+            "gamificationMinutesToGo" to "%1\$s मिनट · %2\$s शेष",
+            "gamificationYouAreHere" to "आप यहाँ हैं",
+            "gamificationActivities" to "गतिविधियाँ",
+            "gamificationActivitiesRecorded" to "%1\$s दर्ज",
+            "gamificationNextLabel" to "अगला",
             "dashboardGroupActive" to "समूह सत्र सक्रिय है",
             "dashboardGroupMembers" to "%1\$d सदस्य",
             "dashboardViewLiveMap" to "लाइव मैप देखें",
@@ -3078,6 +3235,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "downloadAllMyData" to "सारा डेटा एक्सपोर्ट करें",
             "dataExportSuccess" to "आर्काइव बन गया! सहेजने की जगह चुनें।",
             "importGpx" to "GPX इंपोर्ट करें",
+            "importSucceeded" to "GPX इंपोर्ट हो गया",
+            "importDuplicate" to "यह राइड पहले से आपके इतिहास में है",
+            "importUnreadable" to "वह फ़ाइल पढ़ने योग्य GPX ट्रैक नहीं है",
             "noPathData" to "कोई पथ डेटा नहीं",
             "expired" to "समाप्त",
             "liveLocationActive" to "लाइव लोकेशन सक्रिय",
@@ -3172,7 +3332,35 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardLocationAfterStart" to "TrackMeがルートを記録できるよう、位置情報は開始後に求められます。",
             "dashboardSampleRideOnly" to "履歴のサンプルライドは操作を試すためのものです。ご自身のライドがここに反映されます。",
             "dashboardLoadingHistory" to "アクティビティ履歴を準備しています…",
-            "dashboardWeeklyChartValues" to "4週間の距離: %1\$s、%2\$s、%3\$s、%4\$s",
+            "dashboardWeeklyChartValues" to "4週間の時間: %1\$s、%2\$s、%3\$s、%4\$s",
+            "gamificationLevel1" to "スターター",
+            "gamificationLevel2" to "ムービング",
+            "gamificationLevel3" to "レギュラー",
+            "gamificationLevel4" to "エクスプローラー",
+            "gamificationLevel5" to "エンデュアリング",
+            "gamificationLevel6" to "パスファインダー",
+            "gamificationViewProgress" to "進捗を見る",
+            "gamificationMyProgress" to "マイ進捗",
+            "gamificationLevels" to "レベル",
+            "gamificationMilestones" to "マイルストーン",
+            "gamificationFirstMilestone" to "最初の対象アクティビティ",
+            "gamificationMilestoneTitle" to "%1\$d件の対象アクティビティ",
+            "gamificationMilestoneLocked" to "ロック中",
+            "gamificationMilestoneUnlocked" to "解除済み",
+            "gamificationProgress" to "%1\$s分のアクティブ時間 • 次のレベルは%2\$s分",
+            "gamificationActiveMinutes" to "%1\$s分のアクティブ時間",
+            "gamificationMaxProgress" to "%1\$s分のアクティブ時間 • 最高レベル",
+            "gamificationLatestMilestone" to "最新のマイルストーン",
+            "gamificationUnlocksAt" to "%1\$s分のアクティブ時間で解除",
+            "gamificationToNextLevel" to "残り%1\$s分の記録",
+            "gamificationTapHint" to "レベルをタップすると詳細が表示されます",
+            "gamificationReachedOn" to "%1\$sに到達",
+            "gamificationJoinedOn" to "%1\$sに開始",
+            "gamificationMinutesToGo" to "%1\$s分・残り%2\$s",
+            "gamificationYouAreHere" to "現在地",
+            "gamificationActivities" to "アクティビティ",
+            "gamificationActivitiesRecorded" to "%1\$s件記録",
+            "gamificationNextLabel" to "次へ",
             "dashboardGroupActive" to "グループセッションが進行中",
             "dashboardGroupMembers" to "%1\$d人のメンバー",
             "dashboardViewLiveMap" to "ライブマップを表示",
@@ -3676,6 +3864,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "downloadAllMyData" to "すべてのデータをエクスポート",
             "dataExportSuccess" to "アーカイブを作成しました。保存先を選択してください。",
             "importGpx" to "GPXをインポート",
+            "importSucceeded" to "GPX をインポートしました",
+            "importDuplicate" to "このライドはすでに履歴にあります",
+            "importUnreadable" to "そのファイルは読み取り可能な GPX トラックではありません",
             "noPathData" to "ルートデータがありません",
             "expired" to "期限切れ",
             "liveLocationActive" to "ライブ位置情報が有効",
@@ -3770,7 +3961,35 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardLocationAfterStart" to "点击开始后才会请求位置权限，以便 TrackMe 记录你的路线。",
             "dashboardSampleRideOnly" to "历史记录中的示例骑行仅供体验。你自己的骑行将填充此处。",
             "dashboardLoadingHistory" to "正在准备你的活动历史…",
-            "dashboardWeeklyChartValues" to "四周距离：%1\$s、%2\$s、%3\$s和%4\$s",
+            "dashboardWeeklyChartValues" to "四周时长：%1\$s、%2\$s、%3\$s和%4\$s",
+            "gamificationLevel1" to "起步者",
+            "gamificationLevel2" to "行动者",
+            "gamificationLevel3" to "常行者",
+            "gamificationLevel4" to "探索者",
+            "gamificationLevel5" to "耐力者",
+            "gamificationLevel6" to "开路者",
+            "gamificationViewProgress" to "查看进度",
+            "gamificationMyProgress" to "我的进度",
+            "gamificationLevels" to "等级",
+            "gamificationMilestones" to "里程碑",
+            "gamificationFirstMilestone" to "首次符合条件的活动",
+            "gamificationMilestoneTitle" to "%1\$d 次符合条件的活动",
+            "gamificationMilestoneLocked" to "未解锁",
+            "gamificationMilestoneUnlocked" to "已解锁",
+            "gamificationProgress" to "%1\$s 分钟活跃时间 • 下一级需 %2\$s 分钟",
+            "gamificationActiveMinutes" to "%1\$s 分钟活跃时间",
+            "gamificationMaxProgress" to "%1\$s 分钟活跃时间 • 最高等级",
+            "gamificationLatestMilestone" to "最新里程碑",
+            "gamificationUnlocksAt" to "%1\$s 分钟活跃时间后解锁",
+            "gamificationToNextLevel" to "还需%1\$s分钟记录",
+            "gamificationTapHint" to "点按等级查看详情",
+            "gamificationReachedOn" to "%1\$s达成",
+            "gamificationJoinedOn" to "%1\$s加入",
+            "gamificationMinutesToGo" to "%1\$s分钟 · 还差%2\$s",
+            "gamificationYouAreHere" to "当前位置",
+            "gamificationActivities" to "活动",
+            "gamificationActivitiesRecorded" to "已记录%1\$s",
+            "gamificationNextLabel" to "下一级",
             "dashboardGroupActive" to "群组活动进行中",
             "dashboardGroupMembers" to "%1\$d 位成员",
             "dashboardViewLiveMap" to "查看实时地图",
@@ -4274,6 +4493,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "downloadAllMyData" to "导出全部数据",
             "dataExportSuccess" to "存档已创建！请选择保存位置。",
             "importGpx" to "导入 GPX",
+            "importSucceeded" to "已导入 GPX",
+            "importDuplicate" to "该行程已在您的历史记录中",
+            "importUnreadable" to "该文件不是可读的 GPX 轨迹",
             "noPathData" to "无路径数据",
             "expired" to "已过期",
             "liveLocationActive" to "实时位置已开启",

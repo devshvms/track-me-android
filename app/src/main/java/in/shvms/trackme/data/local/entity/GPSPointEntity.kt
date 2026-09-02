@@ -14,5 +14,6 @@ data class GPSPointEntity(
     val accuracy: Float,
     val speed: Float,
     val timestamp: Long,
-    val isPaused: Boolean
+    val isPaused: Boolean,
+    val pauseOrigin: PauseOrigin? = null,
 )

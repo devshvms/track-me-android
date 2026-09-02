@@ -8,12 +8,19 @@ import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 
 /**
  * Bumped to 3 by TASK-231, which adds [RideEntity.dashboardRoutePolyline] to the rebuildable
- * metadata set. The bump is what backfills it: existing rows fall below the version, the bounded
- * reconciler sweeps them, and every row leaves the candidate set exactly once. A row whose points
- * were pruned simply reconciles to a null polyline -- it does not stay a candidate forever, which
- * a "polyline IS NULL" backfill condition would have caused.
+ * metadata set, and to 4 by TASK-275, which adds [RideEntity.contentHash].
+ *
+ * The bump is the mechanism, not an accident of editing. Existing rows fall below the version, the
+ * bounded reconciler sweeps them, and every row leaves the candidate set exactly once. A row whose
+ * points were pruned simply reconciles to a null polyline -- it does not stay a candidate forever,
+ * which a "polyline IS NULL" backfill condition would have caused.
+ *
+ * TASK-275 needed it for the same reason and nearly missed it: `contentHash` is written by
+ * [withDashboardMetadata], which the backfill only calls for rows *below* the current version. Left
+ * at 3, every ride that already existed would have kept a null hash forever, and the
+ * re-import-your-own-export case would have stayed open for precisely the users who have history.
  */
-const val HOME_DASHBOARD_METADATA_VERSION = 3
+const val HOME_DASHBOARD_METADATA_VERSION = 4
 
 /**
  * TASK-246, shvm: "default thumbnail only for less than 50 points or distance is 0 or no points".
@@ -64,6 +71,11 @@ fun withDashboardMetadata(
     // kept the generic glyph. Requiring the argument makes the compiler ask the question at every
     // call site, which is the only reason all five of them are now correct.
     routePolyline: String?,
+    // TASK-275: no default either, and for the same reason TASK-246 gave. A default would silently
+    // preserve null on exactly the paths that construct a fresh entity -- import, cloud download,
+    // orphan recovery -- which are the paths whose rides most need an identity. Compute it from the
+    // same point list that produced the count and the polyline, so all three facts agree.
+    contentHash: String?,
 ): RideEntity {
     val duration = activeDurationMillis.coerceAtLeast(0L)
     val distance = ride.postRideCalculation?.distance ?: 0.0
@@ -75,6 +87,7 @@ fun withDashboardMetadata(
         dashboardPointCount = pointCount.coerceAtLeast(0),
         dashboardRoutePolyline = routePolyline,
         dashboardMetadataVersion = HOME_DASHBOARD_METADATA_VERSION,
+        contentHash = contentHash ?: ride.contentHash,
     )
 }
 

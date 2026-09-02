@@ -5,6 +5,7 @@ import `in`.shvms.trackme.auth.AuthManager
 import `in`.shvms.trackme.data.local.HOME_DASHBOARD_METADATA_VERSION
 import `in`.shvms.trackme.data.local.dao.RideDao
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.PauseOrigin
 import `in`.shvms.trackme.data.local.entity.PostRideCalculation
 import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.domain.sync.RideChunking
@@ -470,7 +471,8 @@ class FirestoreSyncManager(
                     accuracy = ((map["accuracy"] as? Double) ?: 0.0).toFloat(),
                     speed = ((map["speed"] as? Double) ?: 0.0).toFloat(),
                     timestamp = coerceEpochMillis(map["timestamp"]) ?: (startTime + index * 1000L),
-                    isPaused = (map["isPaused"] as? Boolean) ?: false
+                    isPaused = (map["isPaused"] as? Boolean) ?: false,
+                    pauseOrigin = PauseOrigin.fromStoredValue(map["pauseOrigin"] as? String),
                 )
             }
 
@@ -528,6 +530,7 @@ class FirestoreSyncManager(
                     activeDuration,
                     gpsPoints.size,
                     downloadedPolyline,
+                    `in`.shvms.trackme.domain.`import`.RideContentHash.of(gpsPoints),
                 )
             } else {
                 `in`.shvms.trackme.data.local.withUnavailableDashboardMetadata(
@@ -566,15 +569,16 @@ class FirestoreSyncManager(
      * existing array-shaped ride and a new chunk hold byte-identical point maps and the reader
      * below can take either without a second decoder.
      */
-    private fun pointToMap(point: GPSPointEntity): Map<String, Any> = mapOf(
-        "lat" to point.latitude,
-        "lng" to point.longitude,
-        "altitude" to point.altitude,
-        "accuracy" to point.accuracy,
-        "speed" to point.speed,
-        "timestamp" to point.timestamp,
-        "isPaused" to point.isPaused
-    )
+    private fun pointToMap(point: GPSPointEntity): Map<String, Any> = buildMap {
+        put("lat", point.latitude)
+        put("lng", point.longitude)
+        put("altitude", point.altitude)
+        put("accuracy", point.accuracy)
+        put("speed", point.speed)
+        put("timestamp", point.timestamp)
+        put("isPaused", point.isPaused)
+        point.pauseOrigin?.let { put("pauseOrigin", it.name) }
+    }
 
     /**
      * Uploads a ride as **N chunk documents plus a parent** — SCOPE_1.7.3 §2(a), contracts 3–4.
