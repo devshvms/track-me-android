@@ -6,6 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.ZoneId
+import `in`.shvms.trackme.data.local.entity.RideSource
 
 /**
  * TASK-225. The point of the sibling flag is that it tells the empty card which empty state it is
@@ -26,6 +27,7 @@ class HomeSampleRideStateTest {
         activeDurationMillis = 300_000L,
         avgSpeedMps = 16.6,
         hasRoute = true,
+        sourceRaw = RideSource.RECORDED,
     )
 
     @Test fun `the selector never sets the sample flag itself`() {

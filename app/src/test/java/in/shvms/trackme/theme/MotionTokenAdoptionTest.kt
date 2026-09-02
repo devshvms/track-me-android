@@ -38,6 +38,13 @@ class MotionTokenAdoptionTest {
         "ui/home/HomeScreen.kt" to
             "HOME_DASHBOARD_MOTION is a cross-platform timed sequence: deck, scrim, controls and " +
             "opacity must resolve at the specified 420/300 ms boundaries",
+        "ui/gamification/LevelAvatar.kt" to
+            "infiniteRepeatable: the level ring's energy pulse, which needs a duration-based spec",
+        "ui/gamification/GamificationCollectionScreen.kt" to
+            "duration-coupled tap bloom: the wash's radius and its opacity are one envelope, and " +
+            "the peak sits at a fixed fraction of it. A spring settles as a function of distance, " +
+            "so the brightness would drift away from the growth and the colour would arrive after " +
+            "the finger had gone -- which is what the first, spring-driven version actually did",
     )
 
     private val tweenCall = Regex("""(^|[^A-Za-z])tween\s*\(""")

@@ -43,6 +43,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import `in`.shvms.trackme.utils.containsExportFailureMarker
+import `in`.shvms.trackme.ui.gamification.LevelAvatar
+import `in`.shvms.trackme.ui.gamification.GamificationTrail
+import `in`.shvms.trackme.domain.gamification.GamificationEngine
+import `in`.shvms.trackme.domain.gamification.toGamificationFacts
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,21 +109,29 @@ fun AccountManagementScreen(
             }
 
             if (user != null) {
-                if (user?.photoUrl != null) {
-                    Image(
-                        painter = rememberAsyncImagePainter(user?.photoUrl),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(100.dp)
-                            .clip(CircleShape)
-                    )
-                } else {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(100.dp)
-                    ) {
-                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.padding(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                // TASK-277: the rider's level, worn on their own avatar. The summary can be null on
+                // a cold start before the dashboard has loaded; the ring simply renders at level 1
+                // rather than the avatar popping in late.
+                val trackMeApp = LocalContext.current.applicationContext as TrackMeApp
+                val gamificationSummary by trackMeApp.homeDashboardRepository.summary.collectAsState(initial = null)
+                val levelIndex = gamificationSummary?.let {
+                    GamificationTrail.levelIndexOf(GamificationEngine.deriveSnapshot(it.toGamificationFacts()))
+                } ?: 0
+                LevelAvatar(levelIndex = levelIndex, strings = strings) {
+                    if (user?.photoUrl != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(user?.photoUrl),
+                            contentDescription = null,
+                            modifier = Modifier.size(100.dp).clip(CircleShape)
+                        )
+                    } else {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(100.dp)
+                        ) {
+                            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.padding(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))

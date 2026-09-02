@@ -5,6 +5,21 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+/**
+ * TASK-275: how a ride entered the database. Stored as a String so Room needs no converter and an
+ * unknown future value degrades to "not recorded here" rather than crashing on read.
+ */
+object RideSource {
+    /** Produced by this app's recorder on this device. Earns levels and milestones. */
+    const val RECORDED = "RECORDED"
+
+    /** Parsed from a GPX file. Viewable, exportable and syncable; earns no progress. */
+    const val IMPORTED = "IMPORTED"
+
+    /** True only for the one value that may contribute to gamification. */
+    fun earnsProgress(source: String?): Boolean = source == RECORDED
+}
+
 data class PostRideCalculation(
     val maxSpeed: Float,
     val distance: Double,
@@ -74,6 +89,24 @@ data class RideEntity(
     val dashboardRoutePolyline: String? = null,
     /** Version of the rebuildable dashboard metadata contract; 0 means reconciliation is pending. */
     val dashboardMetadataVersion: Int = 0,
+    /**
+     * TASK-275: whether *this app* recorded the ride, or it arrived from a file.
+     *
+     * Levels and activity milestones count [RideSource.RECORDED] only. That is the whole anti-gaming
+     * mechanism, and deliberately so: proving *who* recorded a ride needs signed exports, key
+     * distribution and a server, while knowing whether *we* recorded it is a boolean written once at
+     * insert. Imported rides remain fully first-class everywhere else -- History, Ride Detail,
+     * export, sync -- because a rider importing their old Strava history still wants to see it.
+     *
+     * Defaulting to RECORDED is correct for the migration: every row that exists before this column
+     * does was produced by the recorder, since import wrote rows indistinguishable from it.
+     */
+    val source: String = RideSource.RECORDED,
+    /**
+     * TASK-275: stable identity of the track itself, from [RideContentHash]. Null for rows the
+     * reconciler has not reached and for tracks too short to identify (< 2 points).
+     */
+    val contentHash: String? = null,
     /**
      * TASK-232: this ride was recorded while a group session was live.
      *

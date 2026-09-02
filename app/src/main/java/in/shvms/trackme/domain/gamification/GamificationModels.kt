@@ -20,6 +20,9 @@ data class GamificationSnapshot(
     val currentLevelId: String,
     val currentLevelNameKey: String,
     val currentMinutes: Long,
+    /** TASK-276: the real qualifying activity count, so the rail can state it rather than
+     *  showing the last milestone's threshold and calling it "recorded". */
+    val currentActivityCount: Int,
     val currentThresholdMinutes: Long,
     val nextThresholdMinutes: Long?,
     val progressNumeratorMinutes: Long,

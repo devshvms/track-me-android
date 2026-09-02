@@ -530,6 +530,7 @@ class FirestoreSyncManager(
                     activeDuration,
                     gpsPoints.size,
                     downloadedPolyline,
+                    `in`.shvms.trackme.domain.`import`.RideContentHash.of(gpsPoints),
                 )
             } else {
                 `in`.shvms.trackme.data.local.withUnavailableDashboardMetadata(

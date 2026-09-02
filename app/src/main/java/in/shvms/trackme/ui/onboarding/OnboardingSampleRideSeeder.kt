@@ -10,6 +10,7 @@ import `in`.shvms.trackme.data.local.withUnavailableDashboardMetadata
 import `in`.shvms.trackme.domain.processor.calculateElevationGainMeters
 import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
+import `in`.shvms.trackme.domain.`import`.RideContentHash
 
 /** Durable state machine for the first-run sample. `SEEDED` is terminal even after deletion. */
 internal enum class OnboardingSampleSeedState(val stored: String) {
@@ -136,7 +137,13 @@ internal fun sampleRideWithMetadata(fixture: RideWithPoints): RideEntity {
         ),
     )
     return if (activeDurationMillis != null) {
-        withDashboardMetadata(ride, activeDurationMillis, points.size, routePolyline)
+        withDashboardMetadata(
+            ride,
+            activeDurationMillis,
+            points.size,
+            routePolyline,
+            RideContentHash.of(points),
+        )
     } else {
         withUnavailableDashboardMetadata(ride, points.size, routePolyline)
     }

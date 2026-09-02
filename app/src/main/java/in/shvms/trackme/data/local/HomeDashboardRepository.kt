@@ -27,6 +27,7 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import `in`.shvms.trackme.domain.processor.RideGaps
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.domain.`import`.RideContentHash
 
 class HomeDashboardRepository(
     private val dashboardDao: HomeDashboardDao,
@@ -128,6 +129,7 @@ class HomeDashboardRepository(
                 activeDuration,
                 points.size,
                 routePolyline,
+                RideContentHash.of(points),
             )
         )
     }

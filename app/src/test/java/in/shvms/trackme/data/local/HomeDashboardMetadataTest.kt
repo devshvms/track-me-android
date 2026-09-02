@@ -26,14 +26,14 @@ class HomeDashboardMetadataTest {
     // TASK-246 made `routePolyline` required. These cases are about the qualification rule, which
     // does not consult the route shape, so null states plainly that the shape is not under test.
     @Test fun `junk uses AND threshold and is excluded`() {
-        assertFalse(withDashboardMetadata(completed(9.0), 119_999L, routePolyline = null).qualifiesForStats)
-        assertTrue(withDashboardMetadata(completed(10.0), 1L, routePolyline = null).qualifiesForStats)
-        assertTrue(withDashboardMetadata(completed(0.0), 120_000L, routePolyline = null).qualifiesForStats)
+        assertFalse(withDashboardMetadata(completed(9.0), 119_999L, routePolyline = null, contentHash = null).qualifiesForStats)
+        assertTrue(withDashboardMetadata(completed(10.0), 1L, routePolyline = null, contentHash = null).qualifiesForStats)
+        assertTrue(withDashboardMetadata(completed(0.0), 120_000L, routePolyline = null, contentHash = null).qualifiesForStats)
     }
 
     @Test fun `sample and pending deletion never qualify`() {
-        assertFalse(withDashboardMetadata(completed(5_000.0, sample = true), 600_000L, routePolyline = null).qualifiesForStats)
-        assertFalse(withDashboardMetadata(completed(5_000.0, pendingDelete = true), 600_000L, routePolyline = null).qualifiesForStats)
+        assertFalse(withDashboardMetadata(completed(5_000.0, sample = true), 600_000L, routePolyline = null, contentHash = null).qualifiesForStats)
+        assertFalse(withDashboardMetadata(completed(5_000.0, pendingDelete = true), 600_000L, routePolyline = null, contentHash = null).qualifiesForStats)
     }
 
     @Test fun `missing aggregate is versioned but omitted rather than guessed`() {
@@ -58,7 +58,7 @@ class HomeDashboardMetadataTest {
     }
 
     @Test fun `canonical metadata persists route availability without a point-table probe`() {
-        val metadata = withDashboardMetadata(completed(5_000.0), 300_000L, pointCount = 42, routePolyline = null)
+        val metadata = withDashboardMetadata(completed(5_000.0), 300_000L, pointCount = 42, routePolyline = null, contentHash = null)
         assertEquals(42, metadata.dashboardPointCount)
         assertTrue(metadata.qualifiesForStats)
     }
