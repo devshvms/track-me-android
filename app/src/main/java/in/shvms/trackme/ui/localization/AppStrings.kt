@@ -510,6 +510,10 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val totalDistance: String = s("totalDistance", "Total Distance")
     val elevationGain: String = s("elevationGain", "Elevation Gain")
     val importGpx: String = s("importGpx", "Import GPX")
+    // TASK-282: the three import outcomes. These were raw English literals in HistoryViewModel.
+    val importSucceeded: String = s("importSucceeded", "GPX imported")
+    val importDuplicate: String = s("importDuplicate", "This ride is already in your history")
+    val importUnreadable: String = s("importUnreadable", "That file is not a readable GPX track")
     val noPathData: String = s("noPathData", "No path data")
     val expired: String = s("expired", "Expired")
     val liveLocationActive: String = s("liveLocationActive", "Live Location Active")
@@ -1344,6 +1348,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "downloadAllMyData" to "Exportar todos los datos",
             "dataExportSuccess" to "¡Archivo creado! Elige dónde guardarlo.",
             "importGpx" to "Importar GPX",
+            "importSucceeded" to "GPX importado",
+            "importDuplicate" to "Esta ruta ya está en tu historial",
+            "importUnreadable" to "Ese archivo no es una ruta GPX legible",
             "noPathData" to "Sin datos de ruta",
             "expired" to "Caducado",
             "liveLocationActive" to "Ubicación en vivo activa",
@@ -1970,6 +1977,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "downloadAllMyData" to "Exporter toutes les données",
             "dataExportSuccess" to "Archive créée ! Choisissez où l'enregistrer.",
             "importGpx" to "Importer un GPX",
+            "importSucceeded" to "GPX importé",
+            "importDuplicate" to "Ce trajet figure déjà dans votre historique",
+            "importUnreadable" to "Ce fichier n’est pas une trace GPX lisible",
             "noPathData" to "Aucune donnée de tracé",
             "expired" to "Expiré",
             "liveLocationActive" to "Position en direct active",
@@ -2596,6 +2606,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "downloadAllMyData" to "Alle Daten exportieren",
             "dataExportSuccess" to "Archiv erstellt! Wählen Sie den Speicherort.",
             "importGpx" to "GPX importieren",
+            "importSucceeded" to "GPX importiert",
+            "importDuplicate" to "Diese Fahrt ist bereits in deinem Verlauf",
+            "importUnreadable" to "Diese Datei ist kein lesbarer GPX-Track",
             "noPathData" to "Keine Streckendaten",
             "expired" to "Abgelaufen",
             "liveLocationActive" to "Live-Standort aktiv",
@@ -3222,6 +3235,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "downloadAllMyData" to "सारा डेटा एक्सपोर्ट करें",
             "dataExportSuccess" to "आर्काइव बन गया! सहेजने की जगह चुनें।",
             "importGpx" to "GPX इंपोर्ट करें",
+            "importSucceeded" to "GPX इंपोर्ट हो गया",
+            "importDuplicate" to "यह राइड पहले से आपके इतिहास में है",
+            "importUnreadable" to "वह फ़ाइल पढ़ने योग्य GPX ट्रैक नहीं है",
             "noPathData" to "कोई पथ डेटा नहीं",
             "expired" to "समाप्त",
             "liveLocationActive" to "लाइव लोकेशन सक्रिय",
@@ -3848,6 +3864,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "downloadAllMyData" to "すべてのデータをエクスポート",
             "dataExportSuccess" to "アーカイブを作成しました。保存先を選択してください。",
             "importGpx" to "GPXをインポート",
+            "importSucceeded" to "GPX をインポートしました",
+            "importDuplicate" to "このライドはすでに履歴にあります",
+            "importUnreadable" to "そのファイルは読み取り可能な GPX トラックではありません",
             "noPathData" to "ルートデータがありません",
             "expired" to "期限切れ",
             "liveLocationActive" to "ライブ位置情報が有効",
@@ -4474,6 +4493,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "downloadAllMyData" to "导出全部数据",
             "dataExportSuccess" to "存档已创建！请选择保存位置。",
             "importGpx" to "导入 GPX",
+            "importSucceeded" to "已导入 GPX",
+            "importDuplicate" to "该行程已在您的历史记录中",
+            "importUnreadable" to "该文件不是可读的 GPX 轨迹",
             "noPathData" to "无路径数据",
             "expired" to "已过期",
             "liveLocationActive" to "实时位置已开启",
