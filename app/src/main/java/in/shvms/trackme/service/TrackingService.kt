@@ -119,6 +119,7 @@ class TrackingService : Service() {
     private lateinit var motionSensorManager: MotionSensorManager
     private val trackingV2Estimator = TrackingV2Estimator()
     private lateinit var trackingV2StepSensor: TrackingV2StepSensor
+    private var trackingV1DebugDiagnostics = TrackingV1DebugDiagnostics()
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -148,6 +149,11 @@ class TrackingService : Service() {
             //    BALANCED_POWER_ACCURACY routinely returns 20-100m and this gate would discard
             //    nearly every presence fix.
             if (location.hasAccuracy() && location.accuracy > PresenceStreamPolicy.RIDE_MAX_ACCURACY_METERS) {
+                if (BuildConfig.DEBUG && currentRideId != null) {
+                    trackingV1DebugDiagnostics = trackingV1DebugDiagnostics.copy(
+                        accuracyRejectedFixCount = trackingV1DebugDiagnostics.accuracyRejectedFixCount + 1,
+                    )
+                }
                 return
             }
 
@@ -166,6 +172,7 @@ class TrackingService : Service() {
                 // 2. Compute true displacement and time delta
                 var distance = 0f
                 var timeDeltaMs = 0L
+                val hasPreviousLocation = lastLocation != null
                 lastLocation?.let { prevLocation ->
                     distance = prevLocation.distanceTo(location)
                     timeDeltaMs = location.time - prevLocation.time
@@ -207,7 +214,47 @@ class TrackingService : Service() {
                 val latLng = LatLng(location.latitude, location.longitude)
                 trackingManager.addPathPoint(latLng)
 
-                if (!isPointPaused && distance >= 1.5f && effectiveSpeed > 0.3f) {
+                val admitsDistance = !isPointPaused && distance >= 1.5f && effectiveSpeed > 0.3f
+                if (BuildConfig.DEBUG) {
+                    if (isPointPaused) {
+                        trackingV1DebugDiagnostics = when {
+                            isHardwareStill -> trackingV1DebugDiagnostics.copy(
+                                hardwareStillPausedFixCount = trackingV1DebugDiagnostics.hardwareStillPausedFixCount + 1,
+                            )
+                            isStationaryDrift -> trackingV1DebugDiagnostics.copy(
+                                stationaryDriftPausedFixCount = trackingV1DebugDiagnostics.stationaryDriftPausedFixCount + 1,
+                            )
+                            else -> trackingV1DebugDiagnostics.copy(
+                                adaptivePausedFixCount = trackingV1DebugDiagnostics.adaptivePausedFixCount + 1,
+                            )
+                        }
+                    }
+                    if (hasPreviousLocation) {
+                        val observed = trackingV1DebugDiagnostics.copy(
+                            observedSegmentDistanceMeters =
+                                trackingV1DebugDiagnostics.observedSegmentDistanceMeters + distance,
+                        )
+                        trackingV1DebugDiagnostics = when {
+                            admitsDistance -> observed.copy(
+                                admittedSegmentCount = observed.admittedSegmentCount + 1,
+                                admittedDistanceMeters = observed.admittedDistanceMeters + distance,
+                            )
+                            isPointPaused -> observed.copy(
+                                pausedRejectedSegmentCount = observed.pausedRejectedSegmentCount + 1,
+                                pausedRejectedDistanceMeters = observed.pausedRejectedDistanceMeters + distance,
+                            )
+                            distance < 1.5f -> observed.copy(
+                                shortRejectedSegmentCount = observed.shortRejectedSegmentCount + 1,
+                                shortRejectedDistanceMeters = observed.shortRejectedDistanceMeters + distance,
+                            )
+                            else -> observed.copy(
+                                speedRejectedSegmentCount = observed.speedRejectedSegmentCount + 1,
+                                speedRejectedDistanceMeters = observed.speedRejectedDistanceMeters + distance,
+                            )
+                        }
+                    }
+                }
+                if (admitsDistance) {
                     trackingManager.addDistance(distance)
                 }
                 lastLocation = location
@@ -280,6 +327,7 @@ class TrackingService : Service() {
         trackingV2StepSensor.stop()
         trackingV2StepSensor.reset()
         trackingV2Estimator.reset(trackingManager.selectedPersona.value)
+        trackingV1DebugDiagnostics = TrackingV1DebugDiagnostics()
         trackingManager.resetTrackingV2()
         if (trackingManager.selectedPersona.value == `in`.shvms.trackme.domain.model.RidePersona.WALK ||
             trackingManager.selectedPersona.value == `in`.shvms.trackme.domain.model.RidePersona.RUN
@@ -763,6 +811,7 @@ class TrackingService : Service() {
         motionSensorManager.stopListening()
         val trackingV2Live = if (BuildConfig.DEBUG) trackingV2Estimator.snapshot() else null
         val trackingV2Final = if (BuildConfig.DEBUG) trackingV2Estimator.finish() else null
+        val trackingV1Diagnostics = trackingV1DebugDiagnostics
         trackingV2StepSensor.stop()
         locationHelper.stopLocationTracking(locationCallback)
 
@@ -812,6 +861,7 @@ class TrackingService : Service() {
                         discardNearEmptyRide = discardNearEmptyRide,
                         trackingV2Live = trackingV2Live,
                         trackingV2Final = trackingV2Final,
+                        trackingV1Diagnostics = trackingV1Diagnostics,
                     )
                 }
             }
@@ -1240,6 +1290,7 @@ class TrackingService : Service() {
         discardNearEmptyRide: Boolean = false,
         trackingV2Live: TrackingV2Snapshot? = null,
         trackingV2Final: TrackingV2Snapshot? = null,
+        trackingV1Diagnostics: TrackingV1DebugDiagnostics = TrackingV1DebugDiagnostics(),
     ) {
         // Consume the single per-ride SOS bit before any early return. History still records a
         // valid ride, while the transition prevents B1 from creating a reveal (and therefore B4
@@ -1407,6 +1458,7 @@ class TrackingService : Service() {
                         v1FinalDistanceMeters = v1FinalDistance,
                         v2Live = trackingV2Live,
                         v2Final = trackingV2Final,
+                        v1Diagnostics = trackingV1Diagnostics,
                     )
                 )
             }

@@ -5,6 +5,7 @@ import java.util.ArrayDeque
 import kotlin.math.abs
 import kotlin.math.asin
 import kotlin.math.atan2
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.max
@@ -64,9 +65,23 @@ data class TrackingV2Snapshot(
     val missingSpeedCount: Int = 0,
     val degradedSampleCount: Int = 0,
     val rejectedOutlierCount: Int = 0,
+    /** Calibrated step-only estimate. Kept beside the new named diagnostics for UI compatibility. */
     val stepDistanceMeters: Double = 0.0,
+    /** GPS-only estimate from admitted coherent coordinate windows, independent of step evidence. */
     val coordinateDistanceMeters: Double = 0.0,
+    /** Fixed persona-default stride multiplied by accepted detector steps. */
+    val rawStepDistanceMeters: Double = 0.0,
+    /** Same accepted detector steps recomputed using the current robust GPS-calibrated stride. */
+    val calibratedStepDistanceMeters: Double = 0.0,
+    val detectedStepCount: Long = 0L,
+    val discardedImplausibleStepCount: Long = 0L,
     val strideLengthMeters: Float = 0.72f,
+    val calibrationAttemptCount: Int = 0,
+    val calibrationAcceptedCount: Int = 0,
+    val calibrationRejectedCount: Int = 0,
+    val calibrationCandidateMinMeters: Float? = null,
+    val calibrationCandidateMedianMeters: Float? = null,
+    val calibrationCandidateMaxMeters: Float? = null,
     val pedometerAvailable: Boolean = false,
     val powerMode: TrackingV2PowerMode = TrackingV2PowerMode.UNKNOWN,
     val isPostProcessed: Boolean = false,
@@ -83,9 +98,12 @@ class TrackingV2Estimator {
     private val window = ArrayDeque<TrackingV2Sample>()
     private val routeSegments = mutableListOf<MutableList<TrackingV2Point>>()
 
-    private var totalDistanceMeters = 0.0
-    private var stepDistanceMeters = 0.0
+    /** GPS-confirmed hybrid distance. Unconfirmed recent steps are projected on top at publish. */
+    private var hybridCommittedDistanceMeters = 0.0
+    private var hybridBridgeStepCount = 0L
     private var coordinateDistanceMeters = 0.0
+    private var detectedStepCount = 0L
+    private var discardedImplausibleStepCount = 0L
     private var sampleCount = 0
     private var missingSpeedCount = 0
     private var degradedSampleCount = 0
@@ -100,16 +118,23 @@ class TrackingV2Estimator {
     private var pendingRouteDistanceMeters = 0.0
     private var stationaryCandidateSinceMillis: Long? = null
     private var strideLengthMeters = DEFAULT_WALK_STRIDE_METERS
-    private var calibrationPoint: TrackingV2Point? = null
     private var calibrationStepCount: Long? = null
+    private var calibrationGpsDistanceMeters: Double? = null
+    private var calibrationAccuracyMeters: Float? = null
+    private val calibrationCandidates = ArrayDeque<Float>()
+    private var calibrationAttemptCount = 0
+    private var calibrationAcceptedCount = 0
+    private var calibrationRejectedCount = 0
     private var lastSnapshot = TrackingV2Snapshot()
 
     fun reset(persona: RidePersona = RidePersona.AUTO) {
         window.clear()
         routeSegments.clear()
-        totalDistanceMeters = 0.0
-        stepDistanceMeters = 0.0
+        hybridCommittedDistanceMeters = 0.0
+        hybridBridgeStepCount = 0L
         coordinateDistanceMeters = 0.0
+        detectedStepCount = 0L
+        discardedImplausibleStepCount = 0L
         sampleCount = 0
         missingSpeedCount = 0
         degradedSampleCount = 0
@@ -123,13 +148,19 @@ class TrackingV2Estimator {
         pendingRouteDistanceMeters = 0.0
         stationaryCandidateSinceMillis = null
         strideLengthMeters = defaultStride(persona)
-        calibrationPoint = null
         calibrationStepCount = null
+        calibrationGpsDistanceMeters = null
+        calibrationAccuracyMeters = null
+        calibrationCandidates.clear()
+        calibrationAttemptCount = 0
+        calibrationAcceptedCount = 0
+        calibrationRejectedCount = 0
         lastSnapshot = TrackingV2Snapshot(strideLengthMeters = strideLengthMeters)
     }
 
     /** Manual pause/resume and an unobserved long gap must start a new route segment. */
     fun markDiscontinuity() {
+        freezeOpenStepBridge()
         window.clear()
         lastSample = null
         lastCoordinatePoint = null
@@ -138,8 +169,9 @@ class TrackingV2Estimator {
         lastRouteTimeMillis = null
         pendingRouteDistanceMeters = 0.0
         stationaryCandidateSinceMillis = null
-        calibrationPoint = null
         calibrationStepCount = null
+        calibrationGpsDistanceMeters = null
+        calibrationAccuracyMeters = null
     }
 
     fun add(sample: TrackingV2Sample): TrackingV2Snapshot {
@@ -158,8 +190,9 @@ class TrackingV2Estimator {
             window.addLast(sample)
             lastSample = sample
             lastStepCount = sample.cumulativeStepCount
-            calibrationPoint = sample.point()
             calibrationStepCount = sample.cumulativeStepCount
+            calibrationGpsDistanceMeters = coordinateDistanceMeters
+            calibrationAccuracyMeters = sample.horizontalAccuracyMeters
             return publish(
                 sample,
                 if (degraded) TrackingV2MovementState.GPS_DEGRADED else TrackingV2MovementState.UNKNOWN,
@@ -174,15 +207,16 @@ class TrackingV2Estimator {
             window.addLast(sample)
             lastSample = sample
             lastStepCount = sample.cumulativeStepCount
-            calibrationPoint = sample.point()
             calibrationStepCount = sample.cumulativeStepCount
+            calibrationGpsDistanceMeters = coordinateDistanceMeters
+            calibrationAccuracyMeters = sample.horizontalAccuracyMeters
             return publish(sample, TrackingV2MovementState.GPS_DEGRADED, sample.gpsSpeedMetersPerSecond ?: 0f)
         }
 
         window.addLast(sample)
         pruneWindow(sample)
         val evidence = movementEvidence(sample)
-        val stepDelta = stepDelta(sample)
+        val stepDelta = stepDelta(previous, sample)
         val movementState = classify(sample, evidence, stepDelta)
         val speed = fusedSpeed(sample, evidence, stepDelta)
 
@@ -190,27 +224,36 @@ class TrackingV2Estimator {
             val smoothedPoint = smoothCurrentPoint(sample, evidence.turnDetected)
             val pedestrian = isPedestrian(sample.persona) ||
                 (sample.persona == RidePersona.AUTO && (stepDelta > 0L || evidence.stepsRecent))
-
-            if (pedestrian && sample.cumulativeStepCount != null) {
-                if (stepDelta > 0L) {
-                    val admitted = stepDelta * strideLengthMeters
-                    totalDistanceMeters += admitted
-                    stepDistanceMeters += admitted
-                }
-                calibrateStride(sample, smoothedPoint)
-                appendRoutePoint(smoothedPoint, sample, evidence.turnDetected)
-            } else if (window.size >= minimumCoordinateWindowSize(sample.powerMode) &&
+            val coordinateReady = window.size >= minimumCoordinateWindowSize(sample.powerMode) &&
                 (evidence.coherentDisplacement || evidence.gpsSaysMoving)
-            ) {
-                // Motion can prove that the phone is moving, but it cannot prove how far a noisy
-                // GPS cloud travelled. Coordinate distance waits for either a coherent window or
-                // reliable Doppler speed; this is the boundary that keeps degraded fixes from
-                // becoming random kilometres.
+            val admittedCoordinateMeters = if (coordinateReady) {
                 admitCoordinateDistance(
                     distancePointFor(sample, smoothedPoint),
                     sample,
                     evidence.turnDetected,
                 )
+            } else {
+                0.0
+            }
+
+            if (pedestrian && sample.cumulativeStepCount != null) {
+                if (stepDelta > 0L) {
+                    hybridBridgeStepCount += stepDelta
+                }
+                if (admittedCoordinateMeters > 0.0) {
+                    // GPS confirms the whole interval since its previous anchor. Replace the open
+                    // step bridge instead of adding both estimates and double-counting the walk.
+                    hybridCommittedDistanceMeters += admittedCoordinateMeters
+                    hybridBridgeStepCount = 0L
+                }
+                calibrateStride(sample)
+                appendRoutePoint(smoothedPoint, sample, evidence.turnDetected)
+            } else if (admittedCoordinateMeters > 0.0) {
+                // Motion can prove that the phone is moving, but it cannot prove how far a noisy
+                // GPS cloud travelled. Coordinate distance waits for either a coherent window or
+                // reliable Doppler speed; this is the boundary that keeps degraded fixes from
+                // becoming random kilometres.
+                hybridCommittedDistanceMeters += admittedCoordinateMeters
                 appendRoutePoint(smoothedPoint, sample, evidence.turnDetected)
             }
         } else if (movementState == TrackingV2MovementState.STATIONARY) {
@@ -218,6 +261,7 @@ class TrackingV2Estimator {
             // position the next distance anchor. This prevents a cloud of stationary GPS fixes
             // from being charged when movement resumes. The route anchor deliberately stays at
             // the last moving point so auto-pauses do not create artificial dotted gaps.
+            freezeOpenStepBridge()
             lastCoordinatePoint = smoothCurrentPoint(sample, turnDetected = false)
             lastCoordinateTimeMillis = sample.elapsedRealtimeMillis
         }
@@ -374,7 +418,7 @@ class TrackingV2Estimator {
         point: TrackingV2Point,
         sample: TrackingV2Sample,
         turnDetected: Boolean,
-    ) {
+    ): Double {
         val previousPoint = lastCoordinatePoint
         val previousTime = lastCoordinateTimeMillis
         if (previousPoint == null || previousTime == null) {
@@ -382,24 +426,26 @@ class TrackingV2Estimator {
             val initialDistance = haversineMeters(origin, point)
             if (isPlausibleSegment(initialDistance, sample, window.firstOrNull()?.elapsedRealtimeMillis)) {
                 val admitted = if (turnDetected) initialDistance else alongWindowAxisMeters(origin, point)
-                totalDistanceMeters += admitted
                 coordinateDistanceMeters += admitted
+                lastCoordinatePoint = point
+                lastCoordinateTimeMillis = sample.elapsedRealtimeMillis
+                return admitted
             }
             lastCoordinatePoint = point
             lastCoordinateTimeMillis = sample.elapsedRealtimeMillis
-            return
+            return 0.0
         }
 
         val segmentDistance = haversineMeters(previousPoint, point)
         if (!isPlausibleSegment(segmentDistance, sample, previousTime)) {
             rejectedOutlierCount++
-            return
+            return 0.0
         }
         val admitted = if (turnDetected) segmentDistance else alongWindowAxisMeters(previousPoint, point)
-        totalDistanceMeters += admitted
         coordinateDistanceMeters += admitted
         lastCoordinatePoint = point
         lastCoordinateTimeMillis = sample.elapsedRealtimeMillis
+        return admitted
     }
 
     private fun appendRoutePoint(
@@ -483,31 +529,71 @@ class TrackingV2Estimator {
     private fun minimumCoordinateWindowSize(powerMode: TrackingV2PowerMode): Int =
         if (powerMode == TrackingV2PowerMode.NORMAL) 5 else 3
 
-    private fun calibrateStride(sample: TrackingV2Sample, point: TrackingV2Point) {
+    private fun calibrateStride(sample: TrackingV2Sample) {
         val steps = sample.cumulativeStepCount ?: return
         val anchorSteps = calibrationStepCount
-        val anchorPoint = calibrationPoint
-        if (anchorSteps == null || anchorPoint == null) {
+        val anchorGpsDistance = calibrationGpsDistanceMeters
+        val anchorAccuracy = calibrationAccuracyMeters
+        if (anchorSteps == null || anchorGpsDistance == null || anchorAccuracy == null) {
             calibrationStepCount = steps
-            calibrationPoint = point
+            calibrationGpsDistanceMeters = coordinateDistanceMeters
+            calibrationAccuracyMeters = sample.horizontalAccuracyMeters
             return
         }
         val deltaSteps = steps - anchorSteps
         if (deltaSteps < MIN_CALIBRATION_STEPS) return
-        val gpsDistance = haversineMeters(anchorPoint, point)
-        val accuracyGoodEnough = sample.horizontalAccuracyMeters <= 12f
+        val gpsDistance = (coordinateDistanceMeters - anchorGpsDistance).coerceAtLeast(0.0)
+        val combinedAccuracy = hypot(anchorAccuracy.coerceAtLeast(1f), sample.horizontalAccuracyMeters.coerceAtLeast(1f))
+        val minimumReliableBaseline = max(
+            MIN_CALIBRATION_DISTANCE_METERS,
+            (combinedAccuracy * CALIBRATION_UNCERTAINTY_MULTIPLIER).toDouble(),
+        )
+        val accuracyGoodEnough = anchorAccuracy <= MAX_CALIBRATION_ACCURACY_METERS &&
+            sample.horizontalAccuracyMeters <= MAX_CALIBRATION_ACCURACY_METERS
+        val baselineGoodEnough = gpsDistance >= minimumReliableBaseline
         val candidate = (gpsDistance / deltaSteps).toFloat()
-        if (accuracyGoodEnough && candidate in MIN_STRIDE_METERS..MAX_STRIDE_METERS) {
-            strideLengthMeters = strideLengthMeters * 0.8f + candidate * 0.2f
+        val hasDefinitiveAttempt = accuracyGoodEnough && baselineGoodEnough
+        if (!hasDefinitiveAttempt && deltaSteps < MAX_CALIBRATION_STEPS) return
+
+        calibrationAttemptCount++
+        if (hasDefinitiveAttempt && candidate in MIN_STRIDE_METERS..MAX_STRIDE_METERS) {
+            calibrationAcceptedCount++
+            calibrationCandidates.addLast(candidate)
+            while (calibrationCandidates.size > MAX_CALIBRATION_CANDIDATES) {
+                calibrationCandidates.removeFirst()
+            }
+            val robustCandidate = calibrationCandidates.sorted()[calibrationCandidates.size / 2]
+            strideLengthMeters = if (calibrationCandidates.size < 3) {
+                strideLengthMeters * 0.8f + robustCandidate * 0.2f
+            } else {
+                robustCandidate
+            }
+        } else {
+            calibrationRejectedCount++
         }
         calibrationStepCount = steps
-        calibrationPoint = point
+        calibrationGpsDistanceMeters = coordinateDistanceMeters
+        calibrationAccuracyMeters = sample.horizontalAccuracyMeters
     }
 
-    private fun stepDelta(sample: TrackingV2Sample): Long {
+    private fun stepDelta(previousSample: TrackingV2Sample, sample: TrackingV2Sample): Long {
         val current = sample.cumulativeStepCount ?: return 0L
         val previous = lastStepCount ?: return 0L
-        return (current - previous).coerceIn(0L, MAX_STEPS_PER_SAMPLE)
+        val rawDelta = current - previous
+        if (rawDelta <= 0L) return 0L
+        val elapsedSeconds = ((sample.elapsedRealtimeMillis - previousSample.elapsedRealtimeMillis) / 1_000.0)
+            .coerceAtLeast(0.001)
+        val plausibleMaximum = ceil(elapsedSeconds * MAX_PLAUSIBLE_STEP_HZ).toLong() + STEP_DELTA_JITTER_ALLOWANCE
+        val admitted = rawDelta.coerceAtMost(plausibleMaximum)
+        detectedStepCount += admitted
+        discardedImplausibleStepCount += rawDelta - admitted
+        return admitted
+    }
+
+    private fun freezeOpenStepBridge() {
+        if (hybridBridgeStepCount <= 0L) return
+        hybridCommittedDistanceMeters += hybridBridgeStepCount * strideLengthMeters.toDouble()
+        hybridBridgeStepCount = 0L
     }
 
     private fun smoothCurrentPoint(sample: TrackingV2Sample, turnDetected: Boolean): TrackingV2Point {
@@ -620,8 +706,17 @@ class TrackingV2Estimator {
         state: TrackingV2MovementState,
         speed: Float,
     ): TrackingV2Snapshot {
+        val rawStepDistance = detectedStepCount * defaultStride(sample.persona).toDouble()
+        val calibratedStepDistance = detectedStepCount * strideLengthMeters.toDouble()
+        val pedestrianWithSteps = isPedestrian(sample.persona) && sample.cumulativeStepCount != null
+        val hybridDistance = if (pedestrianWithSteps) {
+            hybridCommittedDistanceMeters + hybridBridgeStepCount * strideLengthMeters.toDouble()
+        } else {
+            coordinateDistanceMeters
+        }
+        val sortedCandidates = calibrationCandidates.sorted()
         lastSnapshot = TrackingV2Snapshot(
-            distanceMeters = totalDistanceMeters,
+            distanceMeters = hybridDistance,
             currentSpeedMetersPerSecond = speed.coerceAtLeast(0f),
             movementState = state,
             routeSegments = routeSegments.map { it.toList() },
@@ -629,9 +724,20 @@ class TrackingV2Estimator {
             missingSpeedCount = missingSpeedCount,
             degradedSampleCount = degradedSampleCount,
             rejectedOutlierCount = rejectedOutlierCount,
-            stepDistanceMeters = stepDistanceMeters,
+            stepDistanceMeters = calibratedStepDistance,
             coordinateDistanceMeters = coordinateDistanceMeters,
+            rawStepDistanceMeters = rawStepDistance,
+            calibratedStepDistanceMeters = calibratedStepDistance,
+            detectedStepCount = detectedStepCount,
+            discardedImplausibleStepCount = discardedImplausibleStepCount,
             strideLengthMeters = strideLengthMeters,
+            calibrationAttemptCount = calibrationAttemptCount,
+            calibrationAcceptedCount = calibrationAcceptedCount,
+            calibrationRejectedCount = calibrationRejectedCount,
+            calibrationCandidateMinMeters = sortedCandidates.firstOrNull(),
+            calibrationCandidateMedianMeters = sortedCandidates.takeIf { it.isNotEmpty() }
+                ?.get(sortedCandidates.size / 2),
+            calibrationCandidateMaxMeters = sortedCandidates.lastOrNull(),
             pedometerAvailable = sample.cumulativeStepCount != null,
             powerMode = sample.powerMode,
             isPostProcessed = false,
@@ -727,8 +833,14 @@ class TrackingV2Estimator {
         private const val DEFAULT_RUN_STRIDE_METERS = 1.05f
         private const val MIN_STRIDE_METERS = 0.35f
         private const val MAX_STRIDE_METERS = 1.50f
-        private const val MIN_CALIBRATION_STEPS = 8L
-        private const val MAX_STEPS_PER_SAMPLE = 12L
+        private const val MIN_CALIBRATION_STEPS = 50L
+        private const val MAX_CALIBRATION_STEPS = 200L
+        private const val MIN_CALIBRATION_DISTANCE_METERS = 30.0
+        private const val MAX_CALIBRATION_ACCURACY_METERS = 15f
+        private const val CALIBRATION_UNCERTAINTY_MULTIPLIER = 4f
+        private const val MAX_CALIBRATION_CANDIDATES = 7
+        private const val MAX_PLAUSIBLE_STEP_HZ = 4.0
+        private const val STEP_DELTA_JITTER_ALLOWANCE = 2L
 
         fun haversineMeters(a: TrackingV2Point, b: TrackingV2Point): Double {
             val lat1 = Math.toRadians(a.latitude)

@@ -371,7 +371,7 @@ fun ActiveRideHudPanel(
                             Text(
                                 text = String.format(
                                     java.util.Locale.US,
-                                    "V1 %.3f km · %.2f m/s   |   V2 %.3f km · %.2f m/s",
+                                    "V1 %.3f km · %.2f m/s   |   hybrid %.3f km · %.2f m/s",
                                     v1DistanceMeters / 1_000f,
                                     v1SpeedMetersPerSecond,
                                     debugV2Snapshot.distanceMeters / 1_000.0,
@@ -381,8 +381,19 @@ fun ActiveRideHudPanel(
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                             )
                             Text(
+                                text = String.format(
+                                    java.util.Locale.US,
+                                    "GPS %.3f · steps raw %.3f · cal %.3f km",
+                                    debugV2Snapshot.coordinateDistanceMeters / 1_000.0,
+                                    debugV2Snapshot.rawStepDistanceMeters / 1_000.0,
+                                    debugV2Snapshot.calibratedStepDistanceMeters / 1_000.0,
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            )
+                            Text(
                                 text = "${debugV2Snapshot.movementState} · ${debugV2Snapshot.powerMode}" +
-                                    " · ${debugV2Snapshot.sampleCount} fixes",
+                                    " · ${debugV2Snapshot.sampleCount} fixes · ${debugV2Snapshot.detectedStepCount} steps",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                             )

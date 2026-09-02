@@ -29,12 +29,30 @@ enum class RideEndOutcome {
 }
 
 /** Process-local TASK-274 evidence. It is never persisted, synced, or used by release behavior. */
+data class TrackingV1DebugDiagnostics(
+    val accuracyRejectedFixCount: Int = 0,
+    val hardwareStillPausedFixCount: Int = 0,
+    val stationaryDriftPausedFixCount: Int = 0,
+    val adaptivePausedFixCount: Int = 0,
+    val admittedSegmentCount: Int = 0,
+    val pausedRejectedSegmentCount: Int = 0,
+    val shortRejectedSegmentCount: Int = 0,
+    val speedRejectedSegmentCount: Int = 0,
+    val observedSegmentDistanceMeters: Double = 0.0,
+    val admittedDistanceMeters: Double = 0.0,
+    val pausedRejectedDistanceMeters: Double = 0.0,
+    val shortRejectedDistanceMeters: Double = 0.0,
+    val speedRejectedDistanceMeters: Double = 0.0,
+)
+
+/** Process-local TASK-274 evidence. It is never persisted, synced, or used by release behavior. */
 data class TrackingV2DebugComparison(
     val rideId: Long,
     val v1LiveDistanceMeters: Double,
     val v1FinalDistanceMeters: Double,
     val v2Live: TrackingV2Snapshot,
     val v2Final: TrackingV2Snapshot,
+    val v1Diagnostics: TrackingV1DebugDiagnostics = TrackingV1DebugDiagnostics(),
 )
 // Deliberately no SAVED case. A saved ride is already announced through the existing
 // RIDE_SAVED broadcast, and adding a second mechanism for the same event is how the

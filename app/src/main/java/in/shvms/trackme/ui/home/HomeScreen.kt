@@ -11,6 +11,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -765,13 +767,16 @@ fun HomeScreen(
     ) {
         AlertDialog(
             onDismissRequest = { dismissedV2ComparisonRideId = comparison.rideId },
-            title = { Text("TASK-274 · V1 / V2 result") },
+            title = { Text("TASK-274 · V2 diagnostic") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(
+                    modifier = Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     Text(
                         String.format(
                             java.util.Locale.US,
-                            "Live distance   V1 %.3f km  |  V2 %.3f km",
+                            "Live distance   V1 %.3f km  |  hybrid %.3f km",
                             comparison.v1LiveDistanceMeters / 1_000.0,
                             comparison.v2Live.distanceMeters / 1_000.0,
                         )
@@ -779,7 +784,7 @@ fun HomeScreen(
                     Text(
                         String.format(
                             java.util.Locale.US,
-                            "Delta   live %+.1f m  |  post %+.1f m",
+                            "V2−V1 delta   live %+.1f m  |  final %+.1f m",
                             comparison.v2Live.distanceMeters - comparison.v1LiveDistanceMeters,
                             comparison.v2Final.distanceMeters - comparison.v1FinalDistanceMeters,
                         ),
@@ -788,10 +793,20 @@ fun HomeScreen(
                     Text(
                         String.format(
                             java.util.Locale.US,
-                            "Post distance   V1 %.3f km  |  V2 %.3f km",
+                            "Final distance   V1 %.3f km  |  hybrid %.3f km",
                             comparison.v1FinalDistanceMeters / 1_000.0,
                             comparison.v2Final.distanceMeters / 1_000.0,
                         )
+                    )
+                    Text(
+                        String.format(
+                            java.util.Locale.US,
+                            "V2 independent   GPS %.3f km | steps raw %.3f | calibrated %.3f",
+                            comparison.v2Final.coordinateDistanceMeters / 1_000.0,
+                            comparison.v2Final.rawStepDistanceMeters / 1_000.0,
+                            comparison.v2Final.calibratedStepDistanceMeters / 1_000.0,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
                     )
                     Text(
                         "V2 ${comparison.v2Final.movementState} · ${comparison.v2Final.powerMode}\n" +
@@ -801,11 +816,43 @@ fun HomeScreen(
                             "${comparison.v2Final.rejectedOutlierCount} rejected\n" +
                             String.format(
                                 java.util.Locale.US,
-                                "steps %.1f m · coordinates %.1f m · stride %.2f m",
-                                comparison.v2Final.stepDistanceMeters,
-                                comparison.v2Final.coordinateDistanceMeters,
+                                "steps %d (discarded %d) · stride %.2f m",
+                                comparison.v2Final.detectedStepCount,
+                                comparison.v2Final.discardedImplausibleStepCount,
                                 comparison.v2Final.strideLengthMeters,
                             ),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    val calibration = comparison.v2Final
+                    Text(
+                        String.format(
+                            java.util.Locale.US,
+                            "Stride calibration %d/%d accepted · candidates %s / %s / %s m",
+                            calibration.calibrationAcceptedCount,
+                            calibration.calibrationAttemptCount,
+                            calibration.calibrationCandidateMinMeters?.let { "%.2f".format(java.util.Locale.US, it) } ?: "—",
+                            calibration.calibrationCandidateMedianMeters?.let { "%.2f".format(java.util.Locale.US, it) } ?: "—",
+                            calibration.calibrationCandidateMaxMeters?.let { "%.2f".format(java.util.Locale.US, it) } ?: "—",
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    val v1 = comparison.v1Diagnostics
+                    Text(
+                        "V1 fix rejection: accuracy ${v1.accuracyRejectedFixCount}\n" +
+                            "V1 paused fixes: hardware ${v1.hardwareStillPausedFixCount} · " +
+                            "drift ${v1.stationaryDriftPausedFixCount} · adaptive ${v1.adaptivePausedFixCount}",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        String.format(
+                            java.util.Locale.US,
+                            "V1 segment metres: observed %.1f · admitted %.1f\nrejected: pause %.1f · short %.1f · speed %.1f",
+                            v1.observedSegmentDistanceMeters,
+                            v1.admittedDistanceMeters,
+                            v1.pausedRejectedDistanceMeters,
+                            v1.shortRejectedDistanceMeters,
+                            v1.speedRejectedDistanceMeters,
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Text(

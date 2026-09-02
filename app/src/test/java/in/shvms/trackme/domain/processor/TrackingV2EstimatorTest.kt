@@ -351,6 +351,103 @@ class TrackingV2EstimatorTest {
     }
 
     @Test
+    fun `walking publishes independent gps raw step calibrated step and gps anchored hybrid totals`() {
+        val estimator = TrackingV2Estimator()
+        estimator.reset(RidePersona.WALK)
+        var steps = 0L
+
+        for (index in 0..40) {
+            if (index > 0) steps++
+            estimator.add(
+                sample(
+                    eastMeters = index * 5.0,
+                    elapsedMillis = index * 2_000L,
+                    persona = RidePersona.WALK,
+                    accuracyMeters = 4f,
+                    gpsSpeed = 2.5f,
+                    motionEnergy = 0.2f,
+                    cumulativeSteps = steps,
+                    stepAgeMillis = 0L,
+                    cadenceHz = 0.5f,
+                )
+            )
+        }
+
+        val result = estimator.finish()
+        assertTrue("gps=${result.coordinateDistanceMeters}", result.coordinateDistanceMeters in 190.0..205.0)
+        assertEquals(40L, result.detectedStepCount)
+        assertEquals(28.8, result.rawStepDistanceMeters, 0.01)
+        assertEquals(result.coordinateDistanceMeters, result.distanceMeters, 5.0)
+        assertTrue(result.calibratedStepDistanceMeters < result.distanceMeters / 3.0)
+        assertEquals(0, result.calibrationAttemptCount)
+    }
+
+    @Test
+    fun `stride calibration waits for a long accuracy bounded gps baseline`() {
+        val estimator = TrackingV2Estimator()
+        estimator.reset(RidePersona.WALK)
+        var steps = 0L
+
+        for (index in 0..100) {
+            if (index > 0) steps += 2
+            estimator.add(
+                sample(
+                    eastMeters = steps * 0.72,
+                    elapsedMillis = index * 2_000L,
+                    persona = RidePersona.WALK,
+                    accuracyMeters = 3f,
+                    gpsSpeed = 0.72f,
+                    motionEnergy = 0.2f,
+                    cumulativeSteps = steps,
+                    stepAgeMillis = 0L,
+                    cadenceHz = 1f,
+                )
+            )
+        }
+
+        val result = estimator.finish()
+        assertEquals(200L, result.detectedStepCount)
+        assertTrue("accepted=${result.calibrationAcceptedCount}", result.calibrationAcceptedCount >= 2)
+        assertEquals(result.calibrationAcceptedCount, result.calibrationAttemptCount)
+        assertEquals(0, result.calibrationRejectedCount)
+        assertEquals(0.72f, result.strideLengthMeters, 0.08f)
+        assertEquals(result.coordinateDistanceMeters, result.distanceMeters, 3.0)
+    }
+
+    @Test
+    fun `sparse callback does not drop legitimate accumulated step detector events`() {
+        val estimator = TrackingV2Estimator()
+        estimator.reset(RidePersona.WALK)
+        estimator.add(
+            sample(
+                eastMeters = 0.0,
+                elapsedMillis = 0L,
+                persona = RidePersona.WALK,
+                cumulativeSteps = 0L,
+                stepAgeMillis = null,
+            )
+        )
+        estimator.add(
+            sample(
+                eastMeters = 14.4,
+                elapsedMillis = 10_000L,
+                persona = RidePersona.WALK,
+                gpsSpeed = 1.44f,
+                motionEnergy = 0.2f,
+                cumulativeSteps = 20L,
+                stepAgeMillis = 0L,
+                cadenceHz = 2f,
+            )
+        )
+
+        val result = estimator.finish()
+        assertEquals(20L, result.detectedStepCount)
+        assertEquals(0L, result.discardedImplausibleStepCount)
+        assertEquals(14.4, result.rawStepDistanceMeters, 0.01)
+        assertEquals(14.4, result.distanceMeters, 0.01)
+    }
+
+    @Test
     fun `v2 manager updates cannot mutate v1 canonical distance`() {
         val manager = TrackingManager()
         manager.addDistance(123f)

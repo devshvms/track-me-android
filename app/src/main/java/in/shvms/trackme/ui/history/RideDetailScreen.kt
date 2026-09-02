@@ -1560,11 +1560,11 @@ private fun TrackingV2ComparisonCard(comparison: TrackingV2DebugComparison) {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
-            Text("TASK-274 · V1 / V2 shadow", style = MaterialTheme.typography.titleSmall)
+            Text("TASK-274 · V2 diagnostic", style = MaterialTheme.typography.titleSmall)
             Text(
                 String.format(
                     java.util.Locale.US,
-                    "Live: V1 %.3f km · V2 %.3f km",
+                    "Live: V1 %.3f km · hybrid %.3f km",
                     comparison.v1LiveDistanceMeters / 1_000.0,
                     comparison.v2Live.distanceMeters / 1_000.0,
                 )
@@ -1572,7 +1572,7 @@ private fun TrackingV2ComparisonCard(comparison: TrackingV2DebugComparison) {
             Text(
                 String.format(
                     java.util.Locale.US,
-                    "Delta: live %+.1f m · post %+.1f m",
+                    "V2−V1: live %+.1f m · final %+.1f m",
                     comparison.v2Live.distanceMeters - comparison.v1LiveDistanceMeters,
                     comparison.v2Final.distanceMeters - comparison.v1FinalDistanceMeters,
                 ),
@@ -1581,15 +1581,40 @@ private fun TrackingV2ComparisonCard(comparison: TrackingV2DebugComparison) {
             Text(
                 String.format(
                     java.util.Locale.US,
-                    "Post: V1 %.3f km · V2 %.3f km",
+                    "Final: V1 %.3f km · hybrid %.3f km",
                     comparison.v1FinalDistanceMeters / 1_000.0,
                     comparison.v2Final.distanceMeters / 1_000.0,
                 )
             )
             Text(
+                String.format(
+                    java.util.Locale.US,
+                    "V2 GPS %.3f · steps raw %.3f · calibrated %.3f km",
+                    comparison.v2Final.coordinateDistanceMeters / 1_000.0,
+                    comparison.v2Final.rawStepDistanceMeters / 1_000.0,
+                    comparison.v2Final.calibratedStepDistanceMeters / 1_000.0,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
                 "V2 ${comparison.v2Final.movementState} · ${comparison.v2Final.powerMode} · " +
                     "${comparison.v2Final.sampleCount} fixes · " +
-                    "${comparison.v2Final.rejectedOutlierCount} rejected",
+                    "${comparison.v2Final.rejectedOutlierCount} rejected\n" +
+                    "${comparison.v2Final.detectedStepCount} steps · " +
+                    "stride ${"%.2f".format(java.util.Locale.US, comparison.v2Final.strideLengthMeters)} m · " +
+                    "cal ${comparison.v2Final.calibrationAcceptedCount}/${comparison.v2Final.calibrationAttemptCount}",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            val v1 = comparison.v1Diagnostics
+            Text(
+                String.format(
+                    java.util.Locale.US,
+                    "V1 drops: accuracy %d · pause %.1f m · short %.1f m · speed %.1f m",
+                    v1.accuracyRejectedFixCount,
+                    v1.pausedRejectedDistanceMeters,
+                    v1.shortRejectedDistanceMeters,
+                    v1.speedRejectedDistanceMeters,
+                ),
                 style = MaterialTheme.typography.bodySmall,
             )
             Text(
