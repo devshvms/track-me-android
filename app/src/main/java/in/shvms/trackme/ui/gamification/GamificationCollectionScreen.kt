@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -118,6 +120,9 @@ fun GamificationCollectionScreen(
         BoxWithConstraints(Modifier.padding(padding).fillMaxSize()) {
             var selectedLevel by rememberSaveable { mutableIntStateOf(-1) }
             val landscape = maxWidth > maxHeight
+            // Captured out here: inside the Column below the implicit receiver is ColumnScope, and
+            // BoxWithConstraints' own maxHeight is no longer in scope.
+            val availableHeight = maxHeight
             if (landscape) {
                 Row(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp)) {
                     Box(Modifier.weight(1f).fillMaxHeight(), Alignment.Center) {
@@ -143,8 +148,27 @@ fun GamificationCollectionScreen(
                     }
                 }
             } else {
-                Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 6.dp)) {
-                    Box(Modifier.fillMaxWidth().weight(1f), Alignment.Center) {
+                // TASK-282: §2.1 bans scrolling so the milestones cannot be pushed off the bottom
+                // by a tall trail. At accessibility font scales the failure runs the other way --
+                // the readout grows until the trail is a thumbnail and its own sentences truncate,
+                // so the page keeps everything on screen by making all of it unreadable. Scrolling
+                // is the lesser harm, and only here. Matches the iOS branch on `isAccessibilitySize`.
+                val accessibilityText = LocalDensity.current.fontScale >= ACCESSIBILITY_FONT_SCALE
+                val columnModifier = if (accessibilityText) {
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                } else {
+                    Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 6.dp)
+                }
+                Column(columnModifier) {
+                    // A scrolling column has no bounded height to take a weight from, so the trail
+                    // is given one directly rather than shrinking to nothing.
+                    val trailModifier = if (accessibilityText) {
+                        Modifier.fillMaxWidth().height(maxOf(availableHeight * 0.45f, 260.dp))
+                    } else {
+                        Modifier.fillMaxWidth().weight(1f)
+                    }
+                    Box(trailModifier, Alignment.Center) {
                         TrailPanel(snapshot, achievements, strings, imperial, Modifier.fillMaxSize()) {
                             selectedLevel = it
                         }
@@ -385,7 +409,13 @@ private fun androidx.compose.foundation.layout.BoxScope.LevelNode(
                 (node.levelIndex + 1).toString(),
                 // Centred, so a circular surface cannot clip it the way BottomEnd clipped the
                 // radial version's lock and check icons.
-                fontSize = (size * 0.42f).sp,
+                //
+                // TASK-282: dp converted through density rather than `.sp` on a dp figure. `size`
+                // measures a circle that does not grow with the font setting, so an sp numeral
+                // inside it doubled at accessibility scales and was clipped out of existence --
+                // every waypoint went blank at 200%. iOS is right by accident here: `.system(size:)`
+                // ignores Dynamic Type. A number bound to a fixed graphic is a graphic, not copy.
+                fontSize = with(LocalDensity.current) { (size * 0.42f).dp.toSp() },
                 fontWeight = FontWeight.Bold,
                 color = if (passed) GamificationPalette.onAccent(dark)
                 else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -427,7 +457,8 @@ private fun androidx.compose.foundation.layout.BoxScope.RiderMarker(
         Box(contentAlignment = Alignment.Center) {
             Text(
                 label,
-                fontSize = (size * 0.36f).sp,
+                // Same fixed-graphic rule as the waypoints above.
+                fontSize = with(LocalDensity.current) { (size * 0.36f).dp.toSp() },
                 fontWeight = FontWeight.Bold,
                 color = GamificationPalette.onAccent(dark),
             )
@@ -589,17 +620,15 @@ private fun MilestoneRail(snapshot: GamificationSnapshot, strings: AppStrings) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 9.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom,
-            ) {
+            val heading: @Composable () -> Unit = {
                 Text(
                     strings.gamificationActivities,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.semantics { heading() },
                 )
+            }
+            val count: @Composable () -> Unit = {
                 Text(
                     String.format(
                         Locale.getDefault(),
@@ -609,6 +638,25 @@ private fun MilestoneRail(snapshot: GamificationSnapshot, strings: AppStrings) {
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
+            }
+            // TASK-282: side by side while they fit, stacked once the text is large enough that
+            // they would fight for the same line -- SwiftUI gets this from ViewThatFits, which
+            // has no Compose equivalent that does not cost a subcomposition.
+            if (LocalDensity.current.fontScale >= ACCESSIBILITY_FONT_SCALE) {
+                Column(Modifier.fillMaxWidth().padding(bottom = 9.dp)) {
+                    heading()
+                    Spacer(Modifier.height(2.dp))
+                    count()
+                }
+            } else {
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 9.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    heading()
+                    count()
+                }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 GamificationEngine.milestones.forEach { milestone ->
@@ -689,6 +737,15 @@ private fun formatActiveDuration(millis: Long): String {
         else -> "${hours}h ${minutes}m"
     }
 }
+
+/**
+ * TASK-282: where the fixed-proportion column stops working.
+ *
+ * Android has no `isAccessibilitySize`, so the boundary is named rather than inherited. 1.5 is
+ * where the system's own large-text presets stop being a nudge and start reflowing layouts; below
+ * it the trail still has room to be a trail.
+ */
+private const val ACCESSIBILITY_FONT_SCALE = 1.5f
 
 // ---- TASK-276: the tap bloom's envelope ----
 //

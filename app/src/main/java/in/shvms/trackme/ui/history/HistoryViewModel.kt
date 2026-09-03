@@ -258,7 +258,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                 // catches a re-import of a TrackMe export whose track is too short to hash.
                 val hash = parsed.rideWithPoints.ride.contentHash
                 if (hash != null && rideDao.countByContentHash(hash) > 0) {
-                    _uiEvent.emit(UiEvent.ShowError("This ride is already in your history"))
+                    _uiEvent.emit(UiEvent.ImportOutcome(ImportResult.DUPLICATE))
                     return@launch
                 }
                 if (parsed.originalTrackMeId != null) {
@@ -268,7 +268,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                         it.ride.firestoreId == parsed.originalTrackMeId
                     }
                     if (isDuplicate) {
-                        _uiEvent.emit(UiEvent.ShowError("This ride is already in your history"))
+                        _uiEvent.emit(UiEvent.ImportOutcome(ImportResult.DUPLICATE))
                         return@launch
                     }
                 }
@@ -279,11 +279,11 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                 
                 app.firestoreSyncManager.uploadRide(newRideId)
                 
-                _uiEvent.emit(UiEvent.Success("GPX Imported Successfully"))
+                _uiEvent.emit(UiEvent.ImportOutcome(ImportResult.IMPORTED))
             } catch (e: Exception) {
                 errorLogger.log("Failed to parse GPX")
                 errorLogger.recordException(e)
-                _uiEvent.emit(UiEvent.ShowError("Failed to import. Please ensure the file is a valid GPX format."))
+                _uiEvent.emit(UiEvent.ImportOutcome(ImportResult.UNREADABLE))
             }
         }
     }
@@ -503,9 +503,24 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * TASK-282: what an import did, as a fact rather than as English.
+     *
+     * The three import messages were raw string literals, so they reached every rider in English
+     * whatever language the app was set to. The obvious fix -- resolve them here -- has nowhere to
+     * resolve *from*: this app localises through [`in`.shvms.trackme.ui.localization.AppStrings],
+     * which is a composition local, and a ViewModel is not in composition. `getString(R.string...)`
+     * is equally wrong, because `values/strings.xml` carries six strings and none of the UI's.
+     *
+     * So the event carries the outcome and the screen names it. That also keeps the ViewModel
+     * testable without a Compose runtime.
+     */
+    enum class ImportResult { IMPORTED, DUPLICATE, UNREADABLE }
+
     sealed class UiEvent {
         data class ShowError(val message: String) : UiEvent()
         data class Success(val message: String) : UiEvent()
+        data class ImportOutcome(val result: ImportResult) : UiEvent()
 
         /**
          * [queuedOffline] is SCOPE_1.7.3 §0 contract 6's middle state — the deletion is durably
