@@ -1,6 +1,6 @@
-TrackMe 1.8.6 — clearer progress and more truthful route previews.
+TrackMe 1.8.8 — GPS V2 validation build.
 
-• Home now shows active duration across four weeks and a typed distance breakdown for every activity used this week.
-• My Progress adds six local-only levels and activity milestones, with no account, cloud or social ranking required.
-• Auto-pauses render as circles while manual or unknown route gaps remain dotted.
-• Ride detail, share preview and exported images now use the same route geometry and framing.
+• Keeps the shipped V1 tracker authoritative while comparing V2 locally.
+• Separates GPS-only, step-derived, calibrated and hybrid distance evidence.
+• Supports repeat testing for walking, running, pause/resume, GPS loss and power-saving scenarios.
+• Debug comparison evidence stays on the device and is not synced or used for production ride totals.
