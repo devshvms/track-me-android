@@ -6,48 +6,48 @@ import org.junit.Test
 
 class TrackingAlgorithmControlPolicyTest {
     @Test
-    fun `release ignores stale disabled overrides`() {
+    fun `locked mode ignores stale disabled overrides`() {
         assertTrue(
             TrackingAlgorithmControlPolicy.autoPauseEnabled(
-                isDebugBuild = false,
+                debugModeEnabled = false,
                 storedEnabled = false,
             ),
         )
         assertTrue(
             TrackingAlgorithmControlPolicy.postProcessingEnabled(
-                isDebugBuild = false,
+                debugModeEnabled = false,
                 storedDisabled = true,
             ),
         )
     }
 
     @Test
-    fun `debug build honors explicit disabled overrides`() {
+    fun `unlocked mode honors explicit disabled overrides`() {
         assertFalse(
             TrackingAlgorithmControlPolicy.autoPauseEnabled(
-                isDebugBuild = true,
+                debugModeEnabled = true,
                 storedEnabled = false,
             ),
         )
         assertFalse(
             TrackingAlgorithmControlPolicy.postProcessingEnabled(
-                isDebugBuild = true,
+                debugModeEnabled = true,
                 storedDisabled = true,
             ),
         )
     }
 
     @Test
-    fun `debug defaults keep both algorithms enabled`() {
+    fun `unlocked defaults keep both algorithms enabled`() {
         assertTrue(
             TrackingAlgorithmControlPolicy.autoPauseEnabled(
-                isDebugBuild = true,
+                debugModeEnabled = true,
                 storedEnabled = true,
             ),
         )
         assertTrue(
             TrackingAlgorithmControlPolicy.postProcessingEnabled(
-                isDebugBuild = true,
+                debugModeEnabled = true,
                 storedDisabled = false,
             ),
         )

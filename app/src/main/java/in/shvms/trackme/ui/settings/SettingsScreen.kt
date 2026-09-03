@@ -8,7 +8,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -19,10 +18,10 @@ import androidx.navigation.NavController
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Sync
 import `in`.shvms.trackme.TrackMeApp
+import `in`.shvms.trackme.settings.DebugSettings
 import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.data.remote.SyncResult
 import kotlinx.coroutines.launch
@@ -289,6 +288,18 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         val prefs = context.getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
+        var debugModeEnabled by remember(prefs) {
+            mutableStateOf(DebugSettings.isEnabled(prefs))
+        }
+        DisposableEffect(prefs) {
+            val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { shared, key ->
+                if (key == DebugSettings.MODE_ENABLED_KEY) {
+                    debugModeEnabled = DebugSettings.isEnabled(shared)
+                }
+            }
+            prefs.registerOnSharedPreferenceChangeListener(listener)
+            onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+        }
         val preferencesManager = remember(context) {
             (context.applicationContext as TrackMeApp).preferencesManager
         }
@@ -393,7 +404,7 @@ fun SettingsScreen(
         }
 
         // PiP changes presentation, so it remains a normal customer preference. Tracking-algorithm
-        // overrides live in the compile-time debug disclosure below.
+        // overrides live on the separately unlocked Debug Settings page.
         SettingsGroup(title = strings.advancedSettings) {
             SettingsSwitchRow(
                 title = strings.pipDashboardTitle,
@@ -403,77 +414,19 @@ fun SettingsScreen(
             )
         }
 
-        // Compile-time gate: customer builds have no path to these algorithm overrides. The
-        // service independently enforces production defaults, so an old stored choice cannot keep
-        // auto-pause or post-processing disabled after this UI disappears.
-        if (`in`.shvms.trackme.BuildConfig.DEBUG) {
-            var debugControlsExpanded by rememberSaveable { mutableStateOf(false) }
-            var disablePostProcessing by remember {
-                mutableStateOf(prefs.getBoolean("disable_gps_post_processing", false))
-            }
-            var intelligentAutoPause by remember {
-                mutableStateOf(prefs.getBoolean("intelligent_auto_pause", true))
-            }
-            var showGpsInfo by remember { mutableStateOf(false) }
-
-            SettingsGroup(title = "Debug") {
+        if (debugModeEnabled) {
+            SettingsGroup(title = strings.debugSettingsTitle) {
                 SettingsRow(
-                    title = "Debug tracking controls",
-                    supportingText = "Internal overrides for controlled GPS scenario testing",
+                    title = strings.debugSettingsTitle,
+                    supportingText = strings.debugSettingsDescription,
                     trailingContent = {
                         Icon(
-                            imageVector = if (debugControlsExpanded) {
-                                Icons.Default.KeyboardArrowDown
-                            } else {
-                                Icons.AutoMirrored.Filled.KeyboardArrowRight
-                            },
-                            contentDescription = if (debugControlsExpanded) {
-                                "Collapse debug tracking controls"
-                            } else {
-                                "Expand debug tracking controls"
-                            },
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
-                    onClick = { debugControlsExpanded = !debugControlsExpanded },
-                )
-                AnimatedVisibility(visible = debugControlsExpanded) {
-                    Column {
-                        SettingsDivider()
-                        SettingsSwitchRow(
-                            title = "Intelligent Auto-Pause",
-                            supportingText = "Dynamically pauses moving time based on the activity speed profile",
-                            checked = intelligentAutoPause,
-                            onCheckedChange = { checked ->
-                                intelligentAutoPause = checked
-                                prefs.edit().putBoolean("intelligent_auto_pause", checked).apply()
-                            },
-                        )
-                        SettingsDivider()
-                        SettingsSwitchRow(
-                            title = strings.disableGpsPostProcessing,
-                            supportingText = strings.disableGpsDesc,
-                            checked = disablePostProcessing,
-                            onCheckedChange = { checked ->
-                                disablePostProcessing = checked
-                                prefs.edit().putBoolean("disable_gps_post_processing", checked).apply()
-                            },
-                            onInfoClick = { showGpsInfo = true },
-                            infoDescription = strings.info,
-                        )
-                    }
-                }
-            }
-
-            if (showGpsInfo) {
-                AlertDialog(
-                    onDismissRequest = { showGpsInfo = false },
-                    title = { Text(strings.gpsPostProcessingTitle) },
-                    text = { Text(strings.gpsPostProcessingInfo) },
-                    confirmButton = {
-                        TextButton(onClick = { showGpsInfo = false }) {
-                            Text(strings.gotIt)
-                        }
-                    },
+                    onClick = { navController?.navigate("debug_settings") },
                 )
             }
         }

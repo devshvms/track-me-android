@@ -274,6 +274,11 @@ fun MainNavigation() {
                     composable("help_feedback") {
                         `in`.shvms.trackme.ui.settings.HelpFeedbackScreen(navController = navController)
                     }
+                    composable("debug_settings") {
+                        `in`.shvms.trackme.ui.settings.DebugSettingsScreen(
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
                     // 1.8.0 design system: the token gallery and phase-2 screenshot-test surface.
                     // Debug-only — the route does not exist in release builds, so the entry point in
                     // SettingsScreen cannot navigate to a missing destination.

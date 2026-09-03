@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -55,6 +56,8 @@ import com.google.firebase.auth.FirebaseAuth
 import `in`.shvms.trackme.BuildConfig
 import `in`.shvms.trackme.LocalSnackbarHostState
 import `in`.shvms.trackme.analytics.AnalyticsManager
+import `in`.shvms.trackme.settings.ConsecutiveTapUnlock
+import `in`.shvms.trackme.settings.DebugSettings
 import `in`.shvms.trackme.support.SupportContact
 import `in`.shvms.trackme.support.SupportDiagnostics
 import `in`.shvms.trackme.support.SupportDiagnosticsInput
@@ -63,7 +66,12 @@ import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-private data class FaqItem(val question: String, val answer: String, val batterySettings: Boolean = false)
+private data class FaqItem(
+    val question: String,
+    val answer: String,
+    val batterySettings: Boolean = false,
+    val debugUnlock: Boolean = false,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +81,11 @@ fun HelpFeedbackScreen(navController: NavController? = null) {
     val snackbarHostState = LocalSnackbarHostState.current
     val scope = rememberCoroutineScope()
     var expanded by remember { mutableStateOf(setOf<Int>()) }
+    val preferences = remember(context) {
+        context.getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
+    }
+    var debugModeEnabled by remember { mutableStateOf(DebugSettings.isEnabled(preferences)) }
+    val debugUnlock = remember { ConsecutiveTapUnlock() }
 
     val faqs = remember(strings) {
         listOf(
@@ -81,7 +94,12 @@ fun HelpFeedbackScreen(navController: NavController? = null) {
             FaqItem(strings.helpFaqDistanceQuestion, strings.helpFaqDistanceAnswer),
             FaqItem(strings.helpFaqOfflineQuestion, strings.helpFaqOfflineAnswer),
             FaqItem(strings.helpFaqShareQuestion, strings.helpFaqShareAnswer),
-            FaqItem(strings.helpFaqDataQuestion, strings.helpFaqDataAnswer)
+            FaqItem(strings.helpFaqDataQuestion, strings.helpFaqDataAnswer),
+            FaqItem(
+                strings.helpFaqProCustomizationQuestion,
+                strings.helpFaqProCustomizationAnswer,
+                debugUnlock = true,
+            ),
         )
     }
 
@@ -132,6 +150,29 @@ fun HelpFeedbackScreen(navController: NavController? = null) {
                             Spacer(Modifier.height(8.dp))
                             OutlinedButton(onClick = { openBatterySettings(context) }) {
                                 Text(strings.helpOpenBatterySettings)
+                            }
+                        }
+                        if (faq.debugUnlock) {
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(
+                                enabled = !debugModeEnabled,
+                                onClick = {
+                                    if (debugUnlock.registerTap(SystemClock.elapsedRealtime())) {
+                                        DebugSettings.enable(preferences)
+                                        debugModeEnabled = true
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(strings.debugModeEnabledMessage)
+                                        }
+                                    }
+                                },
+                            ) {
+                                Text(
+                                    if (debugModeEnabled) {
+                                        strings.debugModeEnabledMessage
+                                    } else {
+                                        strings.helpEnableDebugMode
+                                    },
+                                )
                             }
                         }
                     }

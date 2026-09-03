@@ -21,6 +21,7 @@ import androidx.core.content.ContextCompat
 import `in`.shvms.trackme.R
 import `in`.shvms.trackme.BuildConfig
 import `in`.shvms.trackme.TrackMeApp
+import `in`.shvms.trackme.settings.DebugSettings
 import `in`.shvms.trackme.data.local.dao.RideDao
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.PauseOrigin
@@ -184,8 +185,8 @@ class TrackingService : Service() {
 
                 val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
                 val autoPauseEnabled = TrackingAlgorithmControlPolicy.autoPauseEnabled(
-                    isDebugBuild = BuildConfig.DEBUG,
-                    storedEnabled = prefs.getBoolean("intelligent_auto_pause", true),
+                    debugModeEnabled = DebugSettings.isEnabled(prefs),
+                    storedEnabled = prefs.getBoolean(DebugSettings.AUTO_PAUSE_KEY, true),
                 )
                 val currentPersona = trackingManager.selectedPersona.value
                 val thresholds = adaptiveAutoPauseEngine.getThresholdsForPersona(currentPersona)
@@ -1444,8 +1445,8 @@ class TrackingService : Service() {
 
             val prefs = getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
             val postProcessingEnabled = TrackingAlgorithmControlPolicy.postProcessingEnabled(
-                isDebugBuild = BuildConfig.DEBUG,
-                storedDisabled = prefs.getBoolean("disable_gps_post_processing", false),
+                debugModeEnabled = DebugSettings.isEnabled(prefs),
+                storedDisabled = prefs.getBoolean(DebugSettings.DISABLE_POST_PROCESSING_KEY, false),
             )
             
             val gpsProcessor = `in`.shvms.trackme.domain.processor.DefaultGPSProcessor()
