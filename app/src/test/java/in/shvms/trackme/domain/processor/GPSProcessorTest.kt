@@ -72,11 +72,119 @@ class GPSProcessorTest {
         assertEquals(2.0, dao.updatedRide?.postRideCalculation?.distance ?: 0.0, 0.001)
     }
 
+    @Test
+    fun processingDerivesPeakFromTheSameObservedMovementAsAverage() = runTest {
+        val ride = RideEntity(id = 10L, startTime = 1_000L)
+        val points = listOf(
+            point(id = 1L, rideId = 10L, longitude = 0.0000, timestamp = 1_000L),
+            point(id = 2L, rideId = 10L, longitude = 0.0014, timestamp = 2_000L),
+            point(id = 3L, rideId = 10L, longitude = 0.0028, timestamp = 3_000L),
+            point(id = 4L, rideId = 10L, longitude = 0.0042, timestamp = 4_000L),
+        )
+        val dao = FakeRideDao(RideWithPoints(ride, points))
+
+        DefaultGPSProcessor(testDistance).processRide(10L, dao, isEnabled = true)
+
+        val calculation = dao.updatedRide?.postRideCalculation
+        assertNotNull(calculation)
+        assertEquals(1.4f, calculation?.avgSpeed ?: 0f, 0.001f)
+        assertEquals(1.4f, calculation?.maxSpeed ?: 0f, 0.001f)
+    }
+
+    @Test
+    fun routeCompressionDoesNotDiscardPeakSpeedEvidence() = runTest {
+        val ride = RideEntity(id = 11L, startTime = 1_000L)
+        val points = (0..8).map { index ->
+            point(
+                id = index.toLong() + 1L,
+                rideId = 11L,
+                longitude = index * 0.001,
+                speed = if (index == 4) 5f else 1f,
+                timestamp = 1_000L + index * 1_000L,
+            )
+        }
+        val dao = FakeRideDao(RideWithPoints(ride, points))
+
+        DefaultGPSProcessor(testDistance).processRide(11L, dao, isEnabled = true)
+
+        assertEquals(2, dao.insertedPoints.size)
+        assertEquals(1.8f, dao.updatedRide?.postRideCalculation?.maxSpeed ?: 0f, 0.001f)
+    }
+
+    @Test
+    fun pauseAndGpsGapEvidenceCannotBecomePeakSpeed() = runTest {
+        val pausedRide = RideEntity(id = 12L, startTime = 1_000L)
+        val pausedPoints = listOf(
+            point(id = 1L, rideId = 12L, longitude = 0.000, timestamp = 1_000L),
+            point(
+                id = 2L,
+                rideId = 12L,
+                longitude = 0.001,
+                speed = 8f,
+                timestamp = 2_000L,
+                isPaused = true,
+            ),
+            point(id = 3L, rideId = 12L, longitude = 0.002, timestamp = 3_000L),
+        )
+        val pausedDao = FakeRideDao(RideWithPoints(pausedRide, pausedPoints))
+
+        DefaultGPSProcessor(testDistance).processRide(12L, pausedDao, isEnabled = true)
+
+        assertEquals(0f, pausedDao.updatedRide?.postRideCalculation?.maxSpeed ?: -1f, 0.001f)
+
+        val gapRide = RideEntity(id = 13L, startTime = 1_000L)
+        val gapPoints = listOf(
+            point(id = 1L, rideId = 13L, longitude = 0.000, speed = 12f, timestamp = 1_000L),
+            point(id = 2L, rideId = 13L, longitude = 0.100, speed = 12f, timestamp = 31_000L),
+        )
+        val gapDao = FakeRideDao(RideWithPoints(gapRide, gapPoints))
+
+        DefaultGPSProcessor(testDistance).processRide(13L, gapDao, isEnabled = true)
+
+        assertEquals(0f, gapDao.updatedRide?.postRideCalculation?.maxSpeed ?: -1f, 0.001f)
+    }
+
+    @Test
+    fun invalidReportedSpeedsDoNotCorruptObservedPeakSpeed() = runTest {
+        val ride = RideEntity(id = 14L, startTime = 1_000L)
+        val points = listOf(
+            point(
+                id = 1L,
+                rideId = 14L,
+                longitude = 0.000,
+                speed = Float.NaN,
+                timestamp = 1_000L,
+            ),
+            point(
+                id = 2L,
+                rideId = 14L,
+                longitude = 0.001,
+                speed = -2f,
+                timestamp = 2_000L,
+            ),
+            point(
+                id = 3L,
+                rideId = 14L,
+                longitude = 0.002,
+                speed = Float.POSITIVE_INFINITY,
+                timestamp = 3_000L,
+            ),
+        )
+        val dao = FakeRideDao(RideWithPoints(ride, points))
+
+        DefaultGPSProcessor(testDistance).processRide(14L, dao, isEnabled = true)
+
+        assertEquals(1f, dao.updatedRide?.postRideCalculation?.avgSpeed ?: 0f, 0.001f)
+        assertEquals(1f, dao.updatedRide?.postRideCalculation?.maxSpeed ?: 0f, 0.001f)
+    }
+
     private fun point(
         id: Long,
         rideId: Long,
         longitude: Double,
         altitude: Double = 0.0,
+        speed: Float = 1f,
+        isPaused: Boolean = false,
         timestamp: Long
     ) = GPSPointEntity(
         id = id,
@@ -85,9 +193,9 @@ class GPSProcessorTest {
         longitude = longitude,
         altitude = altitude,
         accuracy = 5f,
-        speed = 1f,
+        speed = speed,
         timestamp = timestamp,
-        isPaused = false
+        isPaused = isPaused,
     )
 
     private class FakeRideDao(

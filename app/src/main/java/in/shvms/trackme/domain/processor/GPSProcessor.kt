@@ -144,12 +144,20 @@ class DefaultGPSProcessor(
         
         // Recalculate stats
         var totalDistance = 0.0
-        var finalMaxSpeed = 0f
+        // TASK-285: distance/average and peak speed must describe the same admitted movement.
+        // Reading max speed from `compressedPoints` made route presentation density change the
+        // statistic: RDP can correctly remove a geometrically redundant point that still carries
+        // the ride's fastest speed sample. Device-reported speed can also understate the geometry
+        // used by the final average. Derive peak before route compression from intervals that the
+        // shared moving-time rule admits, retaining the smoothed Doppler peak plus each contiguous
+        // moving run's geometry/time average. Using a run average rather than one raw segment keeps
+        // a single jittering fix from being promoted to "best pace". A pause boundary or GPS-loss
+        // chord therefore cannot become a peak.
+        val finalMaxSpeed = peakObservedMovementSpeed(autoPausedPoints, distanceCalculator)
         var pauseDurationMs = 0L
         var lastUnpausedPoint: GPSPointEntity? = null
         
         for (p in compressedPoints) {
-            finalMaxSpeed = max(finalMaxSpeed, p.speed)
             if (p.isPaused) {
                 // Approximate pause duration by adding gap from previous point
             }
@@ -213,6 +221,59 @@ class DefaultGPSProcessor(
         rideDao.deletePointsForRide(rideId)
         rideDao.insertGPSPoints(compressedPoints)
         rideDao.updateRide(updatedRide)
+    }
+
+    /**
+     * Conservative peak evidence before display-route compression.
+     *
+     * A contiguous run's geometry/time average is a lower bound on that run's real peak, not a
+     * clamp to the ride's finalized average: some instant in an admitted run must be at least as
+     * fast as its own average. Taking the stronger of that bound and smoothed reported speed keeps
+     * the result evidence-backed when Doppler speed under-reports, while gaps and pauses split runs.
+     */
+    private fun peakObservedMovementSpeed(
+        points: List<GPSPointEntity>,
+        distanceCalculator: GeoDistanceCalculator,
+    ): Float {
+        var peakSpeedMetersPerSecond = 0f
+        var runDistanceMeters = 0.0
+        var runDurationMillis = 0L
+
+        fun finishRun() {
+            if (runDurationMillis > 0L && runDistanceMeters.isFinite() && runDistanceMeters >= 0.0) {
+                val runAverage = (runDistanceMeters / (runDurationMillis / 1_000.0)).toFloat()
+                if (runAverage.isFinite() && runAverage >= 0f) {
+                    peakSpeedMetersPerSecond = max(peakSpeedMetersPerSecond, runAverage)
+                }
+            }
+            runDistanceMeters = 0.0
+            runDurationMillis = 0L
+        }
+
+        for (index in 1 until points.size) {
+            val previous = points[index - 1]
+            val current = points[index]
+            if (!`in`.shvms.trackme.data.local.countsAsMovingTime(previous, current)) {
+                finishRun()
+                continue
+            }
+
+            val reportedPeak = max(
+                previous.speed.takeIf { it.isFinite() && it >= 0f } ?: 0f,
+                current.speed.takeIf { it.isFinite() && it >= 0f } ?: 0f,
+            )
+            peakSpeedMetersPerSecond = max(peakSpeedMetersPerSecond, reportedPeak)
+
+            val observedDistance = distanceCalculator.meters(previous, current)
+            if (!observedDistance.isFinite() || observedDistance < 0f) {
+                finishRun()
+                continue
+            }
+            runDistanceMeters += observedDistance.toDouble()
+            runDurationMillis += current.timestamp - previous.timestamp
+        }
+        finishRun()
+        return peakSpeedMetersPerSecond
     }
 
     private fun douglasPeucker(points: List<GPSPointEntity>, epsilon: Double, maxSpanMs: Long = 15_000L): List<GPSPointEntity> {
