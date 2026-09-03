@@ -183,7 +183,10 @@ class TrackingService : Service() {
                 val currentlyPaused = trackingManager.isAutoPaused.value
 
                 val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
-                val autoPauseEnabled = prefs.getBoolean("intelligent_auto_pause", true)
+                val autoPauseEnabled = TrackingAlgorithmControlPolicy.autoPauseEnabled(
+                    isDebugBuild = BuildConfig.DEBUG,
+                    storedEnabled = prefs.getBoolean("intelligent_auto_pause", true),
+                )
                 val currentPersona = trackingManager.selectedPersona.value
                 val thresholds = adaptiveAutoPauseEngine.getThresholdsForPersona(currentPersona)
 
@@ -1440,10 +1443,13 @@ class TrackingService : Service() {
             }
 
             val prefs = getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
-            val disablePostProcessing = prefs.getBoolean("disable_gps_post_processing", false)
+            val postProcessingEnabled = TrackingAlgorithmControlPolicy.postProcessingEnabled(
+                isDebugBuild = BuildConfig.DEBUG,
+                storedDisabled = prefs.getBoolean("disable_gps_post_processing", false),
+            )
             
             val gpsProcessor = `in`.shvms.trackme.domain.processor.DefaultGPSProcessor()
-            gpsProcessor.processRide(rideId, rideDao, !disablePostProcessing)
+            gpsProcessor.processRide(rideId, rideDao, postProcessingEnabled)
 
             if (BuildConfig.DEBUG && trackingV2Live != null && trackingV2Final != null) {
                 val v1FinalDistance = rideDao.getRideWithPointsById(rideId)

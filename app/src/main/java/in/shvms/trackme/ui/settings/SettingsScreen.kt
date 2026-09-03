@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -391,59 +392,90 @@ fun SettingsScreen(
             )
         }
 
-        // Advanced Settings
-        var disablePostProcessing by remember { 
-            mutableStateOf(prefs.getBoolean("disable_gps_post_processing", false)) 
-        }
-        var intelligentAutoPause by remember {
-            mutableStateOf(prefs.getBoolean("intelligent_auto_pause", true))
-        }
-        var showGpsInfo by remember { mutableStateOf(false) }
-
+        // PiP changes presentation, so it remains a normal customer preference. Tracking-algorithm
+        // overrides live in the compile-time debug disclosure below.
         SettingsGroup(title = strings.advancedSettings) {
-            SettingsSwitchRow(
-                title = "Intelligent Auto-Pause",
-                supportingText = "Dynamically pauses moving timer at traffic signals or stops based on vehicle/activity speed profile",
-                checked = intelligentAutoPause,
-                onCheckedChange = { checked ->
-                    intelligentAutoPause = checked
-                    prefs.edit().putBoolean("intelligent_auto_pause", checked).apply()
-                },
-            )
-            SettingsDivider()
             SettingsSwitchRow(
                 title = strings.pipDashboardTitle,
                 supportingText = strings.pipDashboardDescription,
                 checked = pipDashboardEnabled,
                 onCheckedChange = preferencesManager::setPiPDashboardEnabled,
             )
-            SettingsDivider()
-            SettingsSwitchRow(
-                title = strings.disableGpsPostProcessing,
-                supportingText = strings.disableGpsDesc,
-                checked = disablePostProcessing,
-                onCheckedChange = { checked ->
-                    disablePostProcessing = checked
-                    prefs.edit().putBoolean("disable_gps_post_processing", checked).apply()
-                },
-                onInfoClick = { showGpsInfo = true },
-                infoDescription = strings.info,
-            )
         }
 
-        if (showGpsInfo) {
-            AlertDialog(
-                onDismissRequest = { showGpsInfo = false },
-                title = { Text(strings.gpsPostProcessingTitle) },
-                text = { 
-                    Text(strings.gpsPostProcessingInfo) 
-                },
-                confirmButton = {
-                    TextButton(onClick = { showGpsInfo = false }) {
-                        Text(strings.gotIt)
+        // Compile-time gate: customer builds have no path to these algorithm overrides. The
+        // service independently enforces production defaults, so an old stored choice cannot keep
+        // auto-pause or post-processing disabled after this UI disappears.
+        if (`in`.shvms.trackme.BuildConfig.DEBUG) {
+            var debugControlsExpanded by rememberSaveable { mutableStateOf(false) }
+            var disablePostProcessing by remember {
+                mutableStateOf(prefs.getBoolean("disable_gps_post_processing", false))
+            }
+            var intelligentAutoPause by remember {
+                mutableStateOf(prefs.getBoolean("intelligent_auto_pause", true))
+            }
+            var showGpsInfo by remember { mutableStateOf(false) }
+
+            SettingsGroup(title = "Debug") {
+                SettingsRow(
+                    title = "Debug tracking controls",
+                    supportingText = "Internal overrides for controlled GPS scenario testing",
+                    trailingContent = {
+                        Icon(
+                            imageVector = if (debugControlsExpanded) {
+                                Icons.Default.KeyboardArrowDown
+                            } else {
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight
+                            },
+                            contentDescription = if (debugControlsExpanded) {
+                                "Collapse debug tracking controls"
+                            } else {
+                                "Expand debug tracking controls"
+                            },
+                        )
+                    },
+                    onClick = { debugControlsExpanded = !debugControlsExpanded },
+                )
+                AnimatedVisibility(visible = debugControlsExpanded) {
+                    Column {
+                        SettingsDivider()
+                        SettingsSwitchRow(
+                            title = "Intelligent Auto-Pause",
+                            supportingText = "Dynamically pauses moving time based on the activity speed profile",
+                            checked = intelligentAutoPause,
+                            onCheckedChange = { checked ->
+                                intelligentAutoPause = checked
+                                prefs.edit().putBoolean("intelligent_auto_pause", checked).apply()
+                            },
+                        )
+                        SettingsDivider()
+                        SettingsSwitchRow(
+                            title = strings.disableGpsPostProcessing,
+                            supportingText = strings.disableGpsDesc,
+                            checked = disablePostProcessing,
+                            onCheckedChange = { checked ->
+                                disablePostProcessing = checked
+                                prefs.edit().putBoolean("disable_gps_post_processing", checked).apply()
+                            },
+                            onInfoClick = { showGpsInfo = true },
+                            infoDescription = strings.info,
+                        )
                     }
                 }
-            )
+            }
+
+            if (showGpsInfo) {
+                AlertDialog(
+                    onDismissRequest = { showGpsInfo = false },
+                    title = { Text(strings.gpsPostProcessingTitle) },
+                    text = { Text(strings.gpsPostProcessingInfo) },
+                    confirmButton = {
+                        TextButton(onClick = { showGpsInfo = false }) {
+                            Text(strings.gotIt)
+                        }
+                    },
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(16.dp))
