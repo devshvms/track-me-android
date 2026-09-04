@@ -1597,12 +1597,27 @@ private fun TrackingV2ComparisonCard(comparison: TrackingV2DebugComparison) {
                 style = MaterialTheme.typography.bodySmall,
             )
             Text(
-                "V2 ${comparison.v2Final.movementState} · ${comparison.v2Final.powerMode} · " +
-                    "${comparison.v2Final.sampleCount} fixes · " +
-                    "${comparison.v2Final.rejectedOutlierCount} rejected\n" +
-                    "${comparison.v2Final.detectedStepCount} steps · " +
-                    "stride ${"%.2f".format(java.util.Locale.US, comparison.v2Final.strideLengthMeters)} m · " +
-                    "cal ${comparison.v2Final.calibrationAcceptedCount}/${comparison.v2Final.calibrationAttemptCount}",
+                String.format(
+                    java.util.Locale.US,
+                    "V2 %s · %s\n" +
+                        "%d fixes · %d missing speed\n" +
+                        "%d power-restricted · %d accuracy >25 m\n" +
+                        "%d unobserved gaps · max interval %.1f s · %d outliers\n" +
+                        "%d steps · stride %.2f m · cal %d/%d",
+                    comparison.v2Final.movementState,
+                    comparison.v2Final.powerMode,
+                    comparison.v2Final.sampleCount,
+                    comparison.v2Final.missingSpeedCount,
+                    comparison.v2Final.powerRestrictedSampleCount,
+                    comparison.v2Final.poorAccuracySampleCount,
+                    comparison.v2Final.unobservedGapCount,
+                    comparison.v2Final.maximumSampleIntervalMillis / 1_000.0,
+                    comparison.v2Final.rejectedOutlierCount,
+                    comparison.v2Final.detectedStepCount,
+                    comparison.v2Final.strideLengthMeters,
+                    comparison.v2Final.calibrationAcceptedCount,
+                    comparison.v2Final.calibrationAttemptCount,
+                ),
                 style = MaterialTheme.typography.bodySmall,
             )
             val v1 = comparison.v1Diagnostics

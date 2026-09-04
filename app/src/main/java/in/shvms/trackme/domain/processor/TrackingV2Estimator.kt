@@ -63,6 +63,15 @@ data class TrackingV2Snapshot(
     val routeSegments: List<List<TrackingV2Point>> = emptyList(),
     val sampleCount: Int = 0,
     val missingSpeedCount: Int = 0,
+    /** Samples observed while Android reported a non-normal location/power mode. */
+    val powerRestrictedSampleCount: Int = 0,
+    /** Samples whose horizontal accuracy was worse than the diagnostic threshold. */
+    val poorAccuracySampleCount: Int = 0,
+    /** Callback intervals too long to infer the path travelled between their endpoints. */
+    val unobservedGapCount: Int = 0,
+    /** Largest positive interval between consecutive observed callbacks. */
+    val maximumSampleIntervalMillis: Long = 0L,
+    /** Compatibility aggregate: power-restricted or poor-accuracy samples. */
     val degradedSampleCount: Int = 0,
     val rejectedOutlierCount: Int = 0,
     /** Calibrated step-only estimate. Kept beside the new named diagnostics for UI compatibility. */
@@ -106,6 +115,10 @@ class TrackingV2Estimator {
     private var discardedImplausibleStepCount = 0L
     private var sampleCount = 0
     private var missingSpeedCount = 0
+    private var powerRestrictedSampleCount = 0
+    private var poorAccuracySampleCount = 0
+    private var unobservedGapCount = 0
+    private var maximumSampleIntervalMillis = 0L
     private var degradedSampleCount = 0
     private var rejectedOutlierCount = 0
 
@@ -137,6 +150,10 @@ class TrackingV2Estimator {
         discardedImplausibleStepCount = 0L
         sampleCount = 0
         missingSpeedCount = 0
+        powerRestrictedSampleCount = 0
+        poorAccuracySampleCount = 0
+        unobservedGapCount = 0
+        maximumSampleIntervalMillis = 0L
         degradedSampleCount = 0
         rejectedOutlierCount = 0
         lastSample = null
@@ -183,7 +200,11 @@ class TrackingV2Estimator {
 
         sampleCount++
         if (sample.gpsSpeedMetersPerSecond == null) missingSpeedCount++
-        val degraded = isDegraded(sample)
+        val powerRestricted = sample.powerMode != TrackingV2PowerMode.NORMAL
+        if (powerRestricted) powerRestrictedSampleCount++
+        val poorAccuracy = hasPoorAccuracy(sample)
+        if (poorAccuracy) poorAccuracySampleCount++
+        val degraded = powerRestricted || poorAccuracy
         if (degraded) degradedSampleCount++
 
         if (previous == null) {
@@ -201,8 +222,10 @@ class TrackingV2Estimator {
         }
 
         val deltaMillis = sample.elapsedRealtimeMillis - previous.elapsedRealtimeMillis
+        maximumSampleIntervalMillis = max(maximumSampleIntervalMillis, deltaMillis)
         val maxGapMillis = MAX_OBSERVED_GAP_MILLIS
         if (deltaMillis > maxGapMillis) {
+            unobservedGapCount++
             markDiscontinuity()
             window.addLast(sample)
             lastSample = sample
@@ -722,6 +745,10 @@ class TrackingV2Estimator {
             routeSegments = routeSegments.map { it.toList() },
             sampleCount = sampleCount,
             missingSpeedCount = missingSpeedCount,
+            powerRestrictedSampleCount = powerRestrictedSampleCount,
+            poorAccuracySampleCount = poorAccuracySampleCount,
+            unobservedGapCount = unobservedGapCount,
+            maximumSampleIntervalMillis = maximumSampleIntervalMillis,
             degradedSampleCount = degradedSampleCount,
             rejectedOutlierCount = rejectedOutlierCount,
             stepDistanceMeters = calibratedStepDistance,
@@ -746,7 +773,10 @@ class TrackingV2Estimator {
     }
 
     private fun isDegraded(sample: TrackingV2Sample): Boolean =
-        sample.powerMode != TrackingV2PowerMode.NORMAL || sample.horizontalAccuracyMeters > 25f
+        sample.powerMode != TrackingV2PowerMode.NORMAL || hasPoorAccuracy(sample)
+
+    private fun hasPoorAccuracy(sample: TrackingV2Sample): Boolean =
+        sample.horizontalAccuracyMeters > POOR_ACCURACY_METERS
 
     private fun stationaryDwellMillis(persona: RidePersona, powerMode: TrackingV2PowerMode): Long {
         val base = when (persona) {
@@ -820,6 +850,7 @@ class TrackingV2Estimator {
         private const val DEGRADED_WINDOW_MILLIS = 24_000L
         private const val MAX_WINDOW_SAMPLES = 16
         private const val MAX_OBSERVED_GAP_MILLIS = 15_000L
+        private const val POOR_ACCURACY_METERS = 25f
         private const val MIN_COHERENT_DISPLACEMENT_METERS = 4f
         private const val MIN_PATH_STRAIGHTNESS = 0.55f
         private const val MIN_COORDINATE_EVIDENCE_SAMPLES = 3

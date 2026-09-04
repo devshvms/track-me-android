@@ -144,6 +144,39 @@ class TrackingV2EstimatorTest {
         assertEquals(TrackingV2MovementState.MOVING, result.movementState)
         assertTrue("distance=${result.distanceMeters}", result.distanceMeters in 285.0..315.0)
         assertEquals(result.sampleCount, result.degradedSampleCount)
+        assertEquals(result.sampleCount, result.powerRestrictedSampleCount)
+        assertEquals(result.sampleCount, result.poorAccuracySampleCount)
+        assertEquals(0, result.unobservedGapCount)
+        assertEquals(10_000L, result.maximumSampleIntervalMillis)
+    }
+
+    @Test
+    fun `screen off power mode separates power restriction from poor accuracy`() {
+        val estimator = TrackingV2Estimator()
+        estimator.reset(RidePersona.BIKE_DRIVE)
+
+        for (index in 0..10) {
+            estimator.add(
+                sample(
+                    eastMeters = index * 30.0,
+                    elapsedMillis = index * 10_000L,
+                    persona = RidePersona.BIKE_DRIVE,
+                    accuracyMeters = if (index % 3 == 0) 32f else 18f,
+                    gpsSpeed = null,
+                    motionEnergy = 0.28f,
+                    powerMode = TrackingV2PowerMode.GPS_DISABLED_WHEN_SCREEN_OFF,
+                )
+            )
+        }
+
+        val result = estimator.finish()
+        assertEquals(TrackingV2MovementState.MOVING, result.movementState)
+        assertTrue("distance=${result.distanceMeters}", result.distanceMeters in 285.0..315.0)
+        assertEquals(11, result.powerRestrictedSampleCount)
+        assertEquals(4, result.poorAccuracySampleCount)
+        assertEquals(11, result.degradedSampleCount)
+        assertEquals(0, result.unobservedGapCount)
+        assertEquals(10_000L, result.maximumSampleIntervalMillis)
     }
 
     @Test
@@ -348,6 +381,8 @@ class TrackingV2EstimatorTest {
         val result = estimator.finish()
         assertTrue(result.routeSegments.size >= 2)
         assertTrue("distance=${result.distanceMeters}", result.distanceMeters < 90.0)
+        assertEquals(1, result.unobservedGapCount)
+        assertEquals(22_000L, result.maximumSampleIntervalMillis)
     }
 
     @Test

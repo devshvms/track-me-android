@@ -27,7 +27,7 @@ class TrackingV2ReplayFixtureTest {
         assertEquals("synthetic_local_metres", root.getString("coordinateSpace"))
 
         val scenarios = root.getJSONArray("scenarios")
-        assertTrue(scenarios.length() >= 6)
+        assertTrue(scenarios.length() >= 7)
         repeat(scenarios.length()) { index ->
             val encoded = scenarios.getJSONObject(index)
             val scenario = encoded.toScenario()
@@ -41,6 +41,10 @@ class TrackingV2ReplayFixtureTest {
             assertTrue("${scenario.id} segments=${result.routeSegments.size}", result.routeSegments.size <= expected.getInt("routeSegmentsMax"))
             assertEquals(scenario.id, expected.getInt("sampleCount"), result.sampleCount)
             assertEquals(scenario.id, expected.getInt("missingSpeedCount"), result.missingSpeedCount)
+            assertEquals(scenario.id, expected.getInt("powerRestrictedSampleCount"), result.powerRestrictedSampleCount)
+            assertEquals(scenario.id, expected.getInt("poorAccuracySampleCount"), result.poorAccuracySampleCount)
+            assertEquals(scenario.id, expected.getInt("unobservedGapCount"), result.unobservedGapCount)
+            assertEquals(scenario.id, expected.getLong("maximumSampleIntervalMillis"), result.maximumSampleIntervalMillis)
             assertEquals(scenario.id, expected.getInt("degradedSampleCount"), result.degradedSampleCount)
             assertEquals(scenario.id, expected.getInt("rejectedOutlierCount"), result.rejectedOutlierCount)
             assertEquals(scenario.id, expected.getLong("detectedStepCount"), result.detectedStepCount)
@@ -99,7 +103,7 @@ class TrackingV2ReplayFixtureTest {
 
     companion object {
         private const val FIXTURE_NAME = "tracking-v2-replay-v1.json"
-        private const val FIXTURE_SHA256 = "bf135313375b5e499faa0be543d6181ac13216a5d375cd7dc021c86f5ea2b082"
+        private const val FIXTURE_SHA256 = "c42dc64345cca38385194bbc59abdda81832acb07aadfb2ab7240961a1f47a53"
         private const val BASE_LATITUDE = 0.0
         private const val BASE_LONGITUDE = 0.0
         private const val METERS_PER_DEGREE = 111_320.0
