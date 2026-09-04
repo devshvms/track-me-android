@@ -77,6 +77,7 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberMarkerState
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.analytics.AnalyticsManager
+import `in`.shvms.trackme.domain.permissions.NotificationPermissionPolicy
 import `in`.shvms.trackme.analytics.RideStartAbortMethod
 import `in`.shvms.trackme.analytics.ActivityStartMethod
 import `in`.shvms.trackme.domain.home.HomePresentationMode
@@ -362,6 +363,28 @@ fun HomeScreen(
         onResult = { /* Notification access is optional; ride tracking still proceeds. */ }
     )
 
+    // TASK-284. Both ride-start paths used to ask whenever the permission was not granted, i.e.
+    // on every single ride. Android 13+ makes the second denial permanent, so that nagged a rider
+    // twice and then silently stopped working. One decision function, consulted by both paths, and
+    // the ask is recorded the moment it is made — before the result comes back, because the rider
+    // has been interrupted either way and a dismissed dialog is still an ask they had to deal with.
+    //
+    // Ride start never waits on this: the caller launches and proceeds, exactly as before.
+    fun requestNotificationPermissionIfNeeded(): Boolean {
+        val prefs = (context.applicationContext as? TrackMeApp)?.preferencesManager
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val should = NotificationPermissionPolicy.shouldRequest(
+            sdkInt = Build.VERSION.SDK_INT,
+            isGranted = granted,
+            hasAskedBefore = prefs?.hasAskedNotificationPermission() ?: false,
+        )
+        if (should) prefs?.markNotificationPermissionAsked()
+        return should
+    }
+
     var pendingStartPersona by remember { mutableStateOf<RidePersona?>(null) }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -371,12 +394,7 @@ fun HomeScreen(
             val persona = pendingStartPersona
             pendingStartPersona = null
             if (granted && persona != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                    ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.POST_NOTIFICATIONS,
-                    ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-                ) {
+                if (requestNotificationPermissionIfNeeded()) {
                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 viewModel.startTracking(persona)
@@ -666,12 +684,7 @@ fun HomeScreen(
             pendingStartPersona = persona
             return
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) {
+        if (requestNotificationPermissionIfNeeded()) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         viewModel.startTracking(persona)
