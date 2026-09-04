@@ -205,22 +205,40 @@ fun defaultGroupName(strings: AppStrings): String {
 fun shareInvite(context: Context, state: CommunityUiState, strings: AppStrings) {
     // §9's funnel: group_created -> invite_sent -> member_joined. invite_sent feeds the
     // north-star k-factor, so without it the growth loop is unmeasurable at exactly the step
-    // that defines it. Records that a share sheet opened, never to whom.
+    // that defines it.
+    //
+    // TASK-289: the event no longer fires here. It used to fire the moment this function ran,
+    // which counted share-sheet *presentations* — so `group_invite_sent ÷ group_created` could not
+    // separate "nobody shared" from "everybody opened the sheet and backed out", two opposite
+    // problems with opposite fixes. It now fires from GroupInviteChosenReceiver, once the user has
+    // actually chosen a destination. Dismissing the sheet reports nothing.
     //
     // No channel is reported: the message below carries the code *and* the link, so which one the
     // recipient uses is not decided here. That distinction is recorded at join time instead.
-    `in`.shvms.trackme.analytics.AnalyticsManager.trackGroupInviteSent()
     val code = state.session.joinCode ?: return
     val link = AppConfig.GROUP_BASE_URL + AppConfig.GROUP_INVITE_LINK_PREFIX + (state.session.inviteToken ?: "")
     val message = String.format(Locale.getDefault(), strings.groupShareMessage, code, link)
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, message)
+    }
+    // MUTABLE is required: the system fills in EXTRA_CHOSEN_COMPONENT on this PendingIntent. It is
+    // safe here because the receiver is not exported and ignores the extras entirely.
+    val callback = android.app.PendingIntent.getBroadcast(
+        context,
+        0,
+        Intent(context, GroupInviteChosenReceiver::class.java)
+            .setAction(GroupInviteChosenReceiver.ACTION),
+        android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+            (if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                android.app.PendingIntent.FLAG_MUTABLE
+            } else {
+                0
+            }),
+    )
     context.startActivity(
-        Intent.createChooser(
-            Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, message)
-            },
-            strings.groupShare,
-        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        Intent.createChooser(send, strings.groupShare, callback.intentSender)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     )
 }
 

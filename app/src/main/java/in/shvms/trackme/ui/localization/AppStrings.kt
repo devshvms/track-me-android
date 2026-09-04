@@ -229,6 +229,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupStatusNoLocation: String = s("groupStatusNoLocation", "No recent location")
     val groupLeaderBadge: String = s("groupLeaderBadge", "Leader")
     val groupOnlyOne: String = s("groupOnlyOne", "You're the only one here.")
+    /** TASK-289: the empty-member state is the invite prompt, not a neutral label. */
+    val groupInvitePrompt: String = s("groupInvitePrompt", "A group of one is just you. Invite someone and you'll see each other on the map.")
     val groupDegraded: String = s("groupDegraded", "Group sharing is temporarily unavailable — retrying.")
     val groupEnded: String = s("groupEnded", "This group has ended.")
     val groupExpired: String = s("groupExpired", "This invite has expired.")
@@ -1009,6 +1011,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStatusNoLocation" to "Sin ubicación reciente",
             "groupLeaderBadge" to "Organizador",
             "groupOnlyOne" to "Eres el único aquí.",
+            "groupInvitePrompt" to "Un grupo de uno eres solo tú. Invita a alguien y os veréis en el mapa.",
             "groupDegraded" to "El uso compartido del grupo no está disponible temporalmente: reintentando.",
             "groupEnded" to "Este grupo ha terminado.",
             "groupExpired" to "Esta invitación ha caducado.",
@@ -1638,6 +1641,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStatusNoLocation" to "Aucune position récente",
             "groupLeaderBadge" to "Organisateur",
             "groupOnlyOne" to "Vous êtes seul ici.",
+            "groupInvitePrompt" to "Un groupe d'une personne, c'est juste vous. Invitez quelqu'un et vous vous verrez sur la carte.",
             "groupDegraded" to "Le partage de groupe est temporairement indisponible — nouvelle tentative.",
             "groupEnded" to "Ce groupe est terminé.",
             "groupExpired" to "Cette invitation a expiré.",
@@ -2267,6 +2271,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStatusNoLocation" to "Kein aktueller Standort",
             "groupLeaderBadge" to "Leitung",
             "groupOnlyOne" to "Du bist allein hier.",
+            "groupInvitePrompt" to "Eine Gruppe aus einer Person bist nur du. Lade jemanden ein und ihr seht euch auf der Karte.",
             "groupDegraded" to "Gruppen-Sharing ist vorübergehend nicht verfügbar – wird erneut versucht.",
             "groupEnded" to "Diese Gruppe ist beendet.",
             "groupExpired" to "Diese Einladung ist abgelaufen.",
@@ -2896,6 +2901,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStatusNoLocation" to "हाल का स्थान नहीं",
             "groupLeaderBadge" to "लीडर",
             "groupOnlyOne" to "यहाँ सिर्फ़ आप हैं।",
+            "groupInvitePrompt" to "एक व्यक्ति का समूह सिर्फ़ आप हैं। किसी को आमंत्रित करें और आप एक-दूसरे को मानचित्र पर देखेंगे।",
             "groupDegraded" to "ग्रुप शेयरिंग अस्थायी रूप से अनुपलब्ध है — फिर से कोशिश की जा रही है।",
             "groupEnded" to "यह ग्रुप समाप्त हो गया है।",
             "groupExpired" to "यह आमंत्रण समाप्त हो गया है।",
@@ -3525,6 +3531,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStatusNoLocation" to "最近の位置情報なし",
             "groupLeaderBadge" to "リーダー",
             "groupOnlyOne" to "まだあなただけです。",
+            "groupInvitePrompt" to "1人のグループはあなただけです。誰かを招待すると、地図でお互いが見えます。",
             "groupDegraded" to "グループ共有は一時的に利用できません。再試行中です。",
             "groupEnded" to "このグループは終了しました。",
             "groupExpired" to "この招待は期限切れです。",
@@ -4154,6 +4161,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStatusNoLocation" to "没有最近的位置",
             "groupLeaderBadge" to "组织者",
             "groupOnlyOne" to "目前只有你一个人。",
+            "groupInvitePrompt" to "只有一个人的群组就只有你。邀请别人，你们就能在地图上看到彼此。",
             "groupDegraded" to "群组共享暂时不可用——正在重试。",
             "groupEnded" to "该群组已结束。",
             "groupExpired" to "该邀请已过期。",

@@ -96,6 +96,14 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-    </application>
+    
+        <!-- TASK-289: receives the chooser's EXTRA_CHOSEN_COMPONENT so group_invite_sent counts
+             actual sends rather than share-sheet presentations. Not exported: only the system
+             delivers to it, via the PendingIntent handed to createChooser. -->
+        <receiver
+            android:name=".ui.community.GroupInviteChosenReceiver"
+            android:exported="false" />
+
+</application>
 
 </manifest>
