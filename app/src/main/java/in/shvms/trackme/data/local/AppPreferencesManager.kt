@@ -58,6 +58,22 @@ class AppPreferencesManager(private val context: Context) {
         _dynamicColor.value = enabled
     }
 
+    /**
+     * TASK-284 — whether TrackMe has ever asked for POST_NOTIFICATIONS on this install.
+     *
+     * Not a StateFlow: nothing renders from it, it is read once at the moment of asking, and a
+     * flow would invite someone to observe it and re-ask on change. Defaults false so an existing
+     * install that was already nagged gets exactly one more ask and then stops — which is the
+     * kindest available migration, since we cannot tell from here whether the system has already
+     * taken their answer permanently.
+     */
+    fun hasAskedNotificationPermission(): Boolean =
+        prefs.getBoolean("notification_permission_asked", false)
+
+    fun markNotificationPermissionAsked() {
+        prefs.edit().putBoolean("notification_permission_asked", true).apply()
+    }
+
     fun setTelemetryEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("telemetry_enabled", enabled).apply()
         _telemetryEnabled.value = enabled
