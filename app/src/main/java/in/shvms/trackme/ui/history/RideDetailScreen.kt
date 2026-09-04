@@ -1448,7 +1448,10 @@ private fun RideSummaryCard(
             // drops the one half a rider is actually looking for and says less than 1.8.4 did.
             // Full width, and formatted by the platform so it stays unabbreviated in all seven
             // locales rather than in an en-US pattern.
-            val dateFormat = remember {
+            // TASK-283: keyed on the locale. Reading Locale.getDefault() inside an unkeyed
+            // remember pinned the formatter to whatever the locale was when this card first
+            // composed, so an in-session language change left the date in the old locale.
+            val dateFormat = remember(java.util.Locale.getDefault()) {
                 java.text.DateFormat.getDateTimeInstance(
                     java.text.DateFormat.MEDIUM,
                     java.text.DateFormat.SHORT,
