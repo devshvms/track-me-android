@@ -239,16 +239,19 @@ object AnalyticsManager {
     }
 
     /**
-     * The growth loop's first step (§2.5). Records that a share sheet opened, never to whom.
+     * Android Sharesheet proxy for the growth loop's first step (§2.5).
      *
-     * Carries no `via_code`: §2.3's share message contains the code *and* the link together, so at
-     * send time the channel is genuinely unknowable — the recipient picks it. The property was
-     * previously passed a hardcoded `true`, which implied a distinction the data could not make.
-     * The channel is recorded where it is actually known, on [trackGroupMemberJoined].
+     * Android reports that the rider selected a destination; it cannot report whether they then
+     * pressed Send inside that other app. Calling this `group_invite_sent` made a stronger claim
+     * than the platform can prove, so Android records the observable boundary explicitly. iOS can
+     * keep `group_invite_sent` because UIActivityViewController reports completed activity.
+     *
+     * No destination/component is collected, so this still reveals nothing about whom the rider
+     * invited or which app they chose.
      */
-    fun trackGroupInviteSent() {
+    fun trackGroupInviteDestinationChosen() {
         if (!_isTelemetryEnabled.value) return
-        PostHog.capture("group_invite_sent")
+        PostHog.capture("group_invite_destination_chosen")
     }
 
     /**
