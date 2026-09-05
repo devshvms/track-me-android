@@ -126,6 +126,16 @@ class GroupTelemetryPrivacyTest {
         assertTrue(groupEventBlock.contains("fun trackGroupDegraded"))
     }
 
+    @Test
+    fun `Android names the chooser signal honestly`() {
+        assertTrue(groupEventBlock.contains("group_invite_destination_chosen"))
+        assertTrue(groupEventBlock.contains("fun trackGroupInviteDestinationChosen"))
+        assertFalse(
+            "Android cannot observe Send inside the destination app",
+            groupEventBlock.contains("group_invite_sent"),
+        )
+    }
+
     private fun sourcePath(): String {
         var dir: File? = File("").absoluteFile
         val rel = "app/src/main/java/in/shvms/trackme/analytics/AnalyticsManager.kt"

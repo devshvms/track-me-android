@@ -208,10 +208,11 @@ fun shareInvite(context: Context, state: CommunityUiState, strings: AppStrings) 
     // that defines it.
     //
     // TASK-289: the event no longer fires here. It used to fire the moment this function ran,
-    // which counted share-sheet *presentations* — so `group_invite_sent ÷ group_created` could not
+    // which counted share-sheet *presentations* — so the invite conversion could not
     // separate "nobody shared" from "everybody opened the sheet and backed out", two opposite
-    // problems with opposite fixes. It now fires from GroupInviteChosenReceiver, once the user has
-    // actually chosen a destination. Dismissing the sheet reports nothing.
+    // problems with opposite fixes. `group_invite_destination_chosen` now fires from
+    // GroupInviteChosenReceiver once the user chooses a destination. Dismissing reports nothing;
+    // Android cannot observe the eventual Send action inside the destination app.
     //
     // No channel is reported: the message below carries the code *and* the link, so which one the
     // recipient uses is not decided here. That distinction is recorded at join time instead.
