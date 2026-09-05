@@ -338,7 +338,6 @@ class TrackingService : Service() {
         serviceScope.launch {
             try {
                 if (!restorePersistedRide()) {
-                    (application as TrackMeApp).emergencyManager.beginRideSession()
                     val startTime = System.currentTimeMillis()
                     // TASK-232: was a group live when this ride began? A marker and a count,
                     // never a group id and never a name -- see RideEntity's note. The roster may
@@ -1117,11 +1116,6 @@ class TrackingService : Service() {
         finalDuration: Long,
         discardNearEmptyRide: Boolean = false
     ) {
-        // Consume the single per-ride SOS bit before any early return. History still records a
-        // valid ride, while the transition prevents B1 from creating a reveal (and therefore B4
-        // from chaining a review request) after an emergency flow.
-        val suppressPostRideCelebrations = (application as TrackMeApp).emergencyManager
-            .consumeRideSuppression()
         val rideWithPoints = rideDao.getRideWithPointsById(rideId)
         if (rideWithPoints != null) {
             val ride = rideWithPoints.ride
@@ -1236,8 +1230,7 @@ class TrackingService : Service() {
                             rideId = rideId,
                             finishedAtMillis = finishedRide.endTime ?: System.currentTimeMillis(),
                             durationMillis = activeTimeMs,
-                            distanceMeters = finalDistance,
-                            suppressPostRideCelebrations = suppressPostRideCelebrations
+                            distanceMeters = finalDistance
                         )
                     )
                     // B1: pick the bounded reveal from the transition and persist it as a durable

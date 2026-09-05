@@ -20,8 +20,7 @@ class RevealSelectorTest {
         milestoneRideCount: Int? = null,
         totalRides: Int = 5,
         distanceMeters: Double = 3200.0,
-        durationMillis: Long = 900_000L,
-        suppressPostRideCelebrations: Boolean = false
+        durationMillis: Long = 900_000L
     ) = RideStatsTransition(
         rideId = rideId,
         alreadyProcessed = alreadyProcessed,
@@ -38,18 +37,12 @@ class RevealSelectorTest {
         streakWeeks = 1,
         isFirstRideOfWeek = true,
         streakAdvanced = true,
-        streakFroze = false,
-        suppressPostRideCelebrations = suppressPostRideCelebrations
+        streakFroze = false
     )
 
     @Test
     fun alreadyProcessed_selectsNothing() {
         assertNull(RevealSelector.select(transition(alreadyProcessed = true)))
-    }
-
-    @Test
-    fun emergencyRide_selectsNothing_soReviewPromptCannotChain() {
-        assertNull(RevealSelector.select(transition(suppressPostRideCelebrations = true)))
     }
 
     @Test

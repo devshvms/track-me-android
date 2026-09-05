@@ -81,9 +81,7 @@ data class RideStatsTransition(
     /** True when this ride advanced the streak counter above its previous value. */
     val streakAdvanced: Boolean,
     /** True when this ride's week-rollover forgave a single missed week (B3 auto-freeze). */
-    val streakFroze: Boolean,
-    /** True when B1/B4 post-ride celebrations must not be presented for this ride. */
-    val suppressPostRideCelebrations: Boolean = false
+    val streakFroze: Boolean
 )
 
 /**

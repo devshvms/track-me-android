@@ -86,31 +86,30 @@ class OnboardingStateTest {
 
     @Test
     fun `the gate resolves before anything else writes to preferences`() {
-        // The one failure that cannot be caught by testing the pure function. SosStateCleanup
-        // commits a flag into trackme_prefs near the top of onCreate, so if resolution ever moves
-        // below it, `hasExistingPreferences` is true on every install, every install resolves to
-        // LEGACY, and the walkthrough silently ships to nobody. Read from source because the
-        // symptom is an absence — nothing crashes, nothing logs, a screen just never appears.
+        // The one failure that cannot be caught by testing the pure function. onCreate opens
+        // preference files, and if resolution ever moves below any of them then
+        // `hasExistingPreferences` is true on every install, every install resolves to LEGACY, and
+        // the walkthrough silently ships to nobody. Read from source because the symptom is an
+        // absence — nothing crashes, nothing logs, a screen just never appears.
+        //
+        // TASK-309 removed SosStateCleanup, which used to be the specific offender this test
+        // named. The rule it protected did not go with it: the assertion below is deliberately
+        // about *any* preference access, so the next thing to creep above the gate is caught
+        // whatever it happens to be called.
         val onCreate = source("TrackMeApp.kt")
             .substringAfter("override fun onCreate()")
             .substringBefore("\n    }")
 
         val gateAt = onCreate.indexOf("OnboardingGate.resolve")
-        val cleanupAt = onCreate.indexOf("SosStateCleanup.clearOnce")
         assertTrue("TrackMeApp.onCreate no longer resolves the onboarding gate", gateAt >= 0)
-        assertTrue("SosStateCleanup.clearOnce not found — did it move?", cleanupAt >= 0)
-        assertTrue(
-            "OnboardingGate.resolve must run before SosStateCleanup.clearOnce writes to trackme_prefs",
-            gateAt < cleanupAt,
-        )
 
-        val preferenceWrites = Regex("""getSharedPreferences\("trackme_prefs"""").findAll(onCreate)
+        val preferenceAccesses = Regex("getSharedPreferences\\(").findAll(onCreate)
             .map { it.range.first }
             .filter { it < gateAt }
             .toList()
         assertTrue(
-            "something touches trackme_prefs before the onboarding gate resolves",
-            preferenceWrites.isEmpty(),
+            "something opens a preference file before the onboarding gate resolves",
+            preferenceAccesses.isEmpty(),
         )
     }
 

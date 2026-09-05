@@ -138,9 +138,6 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val send: String = s("send", "Send")
     val copy: String = s("copy", "Copy")
     val sharePin: String = s("sharePin", "Share location pin")
-    val sosRemovalNoticeTitle: String = s("sosRemovalNoticeTitle", "The SOS button has been removed")
-    val sosRemovalNoticeBody: String = s("sosRemovalNoticeBody", "TrackMe no longer includes the in-app SOS button or its automatic SMS alerts. They depended on a restricted Google Play permission and could not promise that a message would actually arrive, so we removed them instead of offering protection we could not stand behind.\n\nYour saved emergency contacts have been removed from this device and from your cloud account as part of this change.\n\nFor real emergencies, use your phone's built-in Emergency SOS: open the system Settings app and search for \"Emergency SOS\" to set it up. It can call emergency services even when TrackMe cannot.")
-    val sosRemovalNoticeAck: String = s("sosRemovalNoticeAck", "I understand")
     val timelineScrubberAccessibility: String = s("timelineScrubberAccessibility", "Timeline scrubber. Adjust to inspect speed, altitude, and route position.")
     val newVersionAvailable: String = s("newVersionAvailable", "New version available")
     val updateAvailable: String = s("updateAvailable", "Update available")
@@ -1056,9 +1053,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "Enviar",
             "copy" to "Copiar",
             "sharePin" to "Compartir ubicación",
-            "sosRemovalNoticeTitle" to "El botón SOS se ha eliminado",
-            "sosRemovalNoticeBody" to "TrackMe ya no incluye el botón SOS ni sus alertas SMS automáticas. Dependían de un permiso restringido de Google Play y no podían asegurar que un mensaje llegara realmente, así que las eliminamos en lugar de ofrecer una protección que no podíamos respaldar.\n\nTus contactos de emergencia guardados se han eliminado de este dispositivo y de tu cuenta en la nube como parte de este cambio.\n\nPara emergencias reales, usa la función Emergencia SOS integrada de tu teléfono: abre los Ajustes del sistema y busca \"Emergencia SOS\" para configurarla. Puede llamar a los servicios de emergencia incluso cuando TrackMe no puede.",
-            "sosRemovalNoticeAck" to "Entendido",
             "timelineScrubberAccessibility" to "Control de línea de tiempo. Ajusta para consultar velocidad, altitud y posición de la ruta.",
             "newVersionAvailable" to "Nueva versión disponible",
             "updateAvailable" to "Actualización disponible",
@@ -1686,9 +1680,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "Envoyer",
             "copy" to "Copier",
             "sharePin" to "Partager la position",
-            "sosRemovalNoticeTitle" to "Le bouton SOS a été retiré",
-            "sosRemovalNoticeBody" to "TrackMe n'inclut plus le bouton SOS ni ses alertes SMS automatiques. Ils reposaient sur une autorisation restreinte de Google Play et ne pouvaient pas assurer qu'un message arrive réellement ; nous les avons donc retirés plutôt que de proposer une protection que nous ne pouvions pas tenir.\n\nVos contacts d'urgence enregistrés ont été supprimés de cet appareil et de votre compte cloud dans le cadre de cette modification.\n\nEn cas d'urgence réelle, utilisez la fonction Urgence SOS intégrée de votre téléphone : ouvrez les réglages du système et recherchez « Urgence SOS » pour la configurer. Elle peut appeler les secours même quand TrackMe ne le peut pas.",
-            "sosRemovalNoticeAck" to "J'ai compris",
             "timelineScrubberAccessibility" to "Curseur de chronologie. Ajustez-le pour inspecter la vitesse, l’altitude et la position sur l’itinéraire.",
             "newVersionAvailable" to "Nouvelle version disponible",
             "updateAvailable" to "Mise à jour disponible",
@@ -2316,9 +2307,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "Senden",
             "copy" to "Kopieren",
             "sharePin" to "Standort teilen",
-            "sosRemovalNoticeTitle" to "Die SOS-Taste wurde entfernt",
-            "sosRemovalNoticeBody" to "TrackMe enthält die SOS-Taste und ihre automatischen SMS-Warnungen nicht mehr. Sie beruhten auf einer eingeschränkten Google-Play-Berechtigung und konnten nicht zusichern, dass eine Nachricht wirklich ankommt. Deshalb haben wir sie entfernt, statt einen Schutz anzubieten, für den wir nicht einstehen können.\n\nIhre gespeicherten Notfallkontakte wurden im Rahmen dieser Änderung von diesem Gerät und aus Ihrem Cloud-Konto entfernt.\n\nNutzen Sie in echten Notfällen die im Telefon integrierte Notruf-SOS-Funktion: Öffnen Sie die System-Einstellungen und suchen Sie nach \"Notruf SOS\". Sie kann den Notruf auch dann erreichen, wenn TrackMe es nicht kann.",
-            "sosRemovalNoticeAck" to "Verstanden",
             "timelineScrubberAccessibility" to "Zeitleistenregler. Anpassen, um Geschwindigkeit, Höhe und Routenposition zu prüfen.",
             "newVersionAvailable" to "Neue Version verfügbar",
             "updateAvailable" to "Update verfügbar",
@@ -2946,9 +2934,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "भेजें",
             "copy" to "कॉपी करें",
             "sharePin" to "स्थान साझा करें",
-            "sosRemovalNoticeTitle" to "SOS बटन हटा दिया गया है",
-            "sosRemovalNoticeBody" to "TrackMe में अब ऐप के अंदर का SOS बटन और उसके अपने-आप भेजे जाने वाले SMS अलर्ट नहीं हैं। वे Google Play की प्रतिबंधित अनुमति पर निर्भर थे और यह पक्का नहीं कर सकते थे कि संदेश सचमुच पहुंचेगा, इसलिए हमने ऐसा सुरक्षा-वादा देने के बजाय उन्हें हटा दिया।\n\nइस बदलाव के तहत आपके सहेजे गए आपातकालीन संपर्क इस डिवाइस और आपके क्लाउड खाते से हटा दिए गए हैं।\n\nअसली आपात स्थिति के लिए फ़ोन की इनबिल्ट Emergency SOS सुविधा इस्तेमाल करें: सिस्टम सेटिंग्स खोलकर \"Emergency SOS\" खोजें और उसे सेट करें। वह आपातकालीन सेवाओं को तब भी कॉल कर सकती है जब TrackMe नहीं कर सकता।",
-            "sosRemovalNoticeAck" to "ठीक है",
             "timelineScrubberAccessibility" to "टाइमलाइन स्लाइडर। गति, ऊँचाई और मार्ग की स्थिति देखने के लिए समायोजित करें।",
             "newVersionAvailable" to "नया संस्करण उपलब्ध है",
             "updateAvailable" to "अपडेट उपलब्ध है",
@@ -3576,9 +3561,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "送信",
             "copy" to "コピー",
             "sharePin" to "位置情報を共有",
-            "sosRemovalNoticeTitle" to "SOSボタンは削除されました",
-            "sosRemovalNoticeBody" to "TrackMe のアプリ内 SOS ボタンと自動 SMS 通知は廃止されました。これらは Google Play の制限付き権限に依存しており、メッセージが確実に届くとは言えなかったため、裏付けのない保護を提供し続けるのではなく削除しました。\n\nこの変更に伴い、保存されていた緊急連絡先はこの端末およびクラウドアカウントから削除されました。\n\n実際の緊急時には、スマートフォン本体の「緊急SOS」機能を使ってください。端末の設定アプリで「緊急SOS」を検索して設定できます。TrackMe が使えない状況でも緊急通報が可能です。",
-            "sosRemovalNoticeAck" to "理解しました",
             "timelineScrubberAccessibility" to "タイムラインスライダー。速度、高度、ルート上の位置を確認するには調整してください。",
             "newVersionAvailable" to "新しいバージョンがあります",
             "updateAvailable" to "アップデートがあります",
@@ -4206,9 +4188,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "发送",
             "copy" to "复制",
             "sharePin" to "分享位置",
-            "sosRemovalNoticeTitle" to "SOS 按钮已移除",
-            "sosRemovalNoticeBody" to "TrackMe 已不再提供应用内的 SOS 按钮及其自动短信警报。它们依赖 Google Play 的受限权限，且无法确保消息真正送达，因此我们选择移除，而不是提供无法兑现的保护。\n\n作为此次变更的一部分，你保存的紧急联系人已从此设备和你的云账户中移除。\n\n遇到真正的紧急情况，请使用手机自带的紧急 SOS 功能：打开系统设置并搜索\"紧急 SOS\"进行设置。即使 TrackMe 无法工作，它也能拨打紧急服务电话。",
-            "sosRemovalNoticeAck" to "我知道了",
             "timelineScrubberAccessibility" to "时间轴滑块。调整以查看速度、海拔和路线位置。",
             "newVersionAvailable" to "有新版本可用",
             "updateAvailable" to "有可用更新",

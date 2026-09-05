@@ -102,7 +102,6 @@ class MainActivity : ComponentActivity() {
       val updatePrompt by app.appUpdateChecker.prompt.collectAsState()
       val updateReadyToInstall by app.appUpdateChecker.readyToInstall.collectAsState()
       val ageDecision by app.ageSignalManager.decision().collectAsState()
-      val sosRemovalNotice by app.sosRemovalNotice.collectAsState()
 
       CompositionLocalProvider(LocalAppStrings provides appStrings) {
         TrackMeTheme(themeMode = themeMode, dynamicColor = dynamicColor) {
@@ -118,9 +117,8 @@ class MainActivity : ComponentActivity() {
                 }
                 if (showOnboarding) {
                   // Everything below is deliberately not composed underneath this. A fresh install
-                  // has nothing to update from and no legacy SOS state to acknowledge, and a
-                  // dialog over the first screen someone ever sees would be its own answer to
-                  // "what is this app like".
+                  // has nothing to update from, and a dialog over the first screen someone ever
+                  // sees would be its own answer to "what is this app like".
                   `in`.shvms.trackme.ui.onboarding.OnboardingScreen(
                     onFinish = { outcome ->
                       app.completeOnboarding(outcome)
@@ -146,28 +144,6 @@ class MainActivity : ComponentActivity() {
                   `in`.shvms.trackme.ui.update.UpdateReadyDialog(
                     onRestart = { app.appUpdateChecker.completeUpdate() },
                     onDismiss = { app.appUpdateChecker.dismissInstallPrompt() }
-                  )
-                }
-                // TG-A06: one-time, must-acknowledge notice for users who had completed
-                // SOS setup before 1.6.4. Back press / outside tap must not dismiss it —
-                // only the explicit acknowledgement clears it, permanently.
-                if (sosRemovalNotice) {
-                  androidx.compose.material3.AlertDialog(
-                    onDismissRequest = { /* must acknowledge */ },
-                    title = { androidx.compose.material3.Text(appStrings.sosRemovalNoticeTitle) },
-                    text = {
-                      androidx.compose.material3.Text(
-                        text = appStrings.sosRemovalNoticeBody,
-                        modifier = Modifier.verticalScroll(rememberScrollState())
-                      )
-                    },
-                    confirmButton = {
-                      androidx.compose.material3.TextButton(
-                        onClick = { app.acknowledgeSosRemovalNotice() }
-                      ) {
-                        androidx.compose.material3.Text(appStrings.sosRemovalNoticeAck)
-                      }
-                    }
                   )
                 }
                 }

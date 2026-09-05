@@ -12,9 +12,6 @@ import `in`.shvms.trackme.auth.AuthManager
 import `in`.shvms.trackme.data.local.AppPreferencesManager
 import `in`.shvms.trackme.data.remote.FirestoreSyncManager
 import `in`.shvms.trackme.data.remote.LiveShareManager
-import `in`.shvms.trackme.service.EmergencyManager
-import `in`.shvms.trackme.service.SosRemovalNoticePolicy
-import `in`.shvms.trackme.service.SosStateCleanup
 
 import `in`.shvms.trackme.utils.logger.ErrorLogger
 import `in`.shvms.trackme.utils.logger.CrashlyticsErrorLogger
@@ -35,7 +32,6 @@ class TrackMeApp : Application() {
     lateinit var trackingManager: TrackingManager
     internal lateinit var pipAlertStore: `in`.shvms.trackme.ui.home.components.PiPAlertStore
         private set
-    lateinit var emergencyManager: EmergencyManager
     lateinit var firestoreSyncManager: FirestoreSyncManager
         private set
 
@@ -128,14 +124,6 @@ class TrackMeApp : Application() {
     private val _recoveryNotice = MutableStateFlow<`in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.RecoverySummary?>(null)
     val recoveryNotice = _recoveryNotice.asStateFlow()
 
-    /**
-     * TG-A06 (1.6.4): true while an upgrading user who had completed SOS setup has not yet
-     * acknowledged the removal notice. Evaluated exactly once (per install) in [onCreate];
-     * users who never completed setup are grandfathered out so they never see it.
-     */
-    private val _sosRemovalNotice = MutableStateFlow(false)
-    val sosRemovalNotice = _sosRemovalNotice.asStateFlow()
-
     private val _locationPermissionRevokedNotice = MutableStateFlow(false)
     val locationPermissionRevokedNotice = _locationPermissionRevokedNotice.asStateFlow()
 
@@ -148,9 +136,10 @@ class TrackMeApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // FIRST. Not "early" — first. SosStateCleanup below commits a flag into trackme_prefs, so
-        // after it runs a brand-new install is indistinguishable from an upgrade by preference
-        // contents alone, and the walkthrough would never show for anyone. See OnboardingGate.
+        // FIRST. Not "early" — first. Almost everything below writes a preference sooner or
+        // later, and after any of them a brand-new install is indistinguishable from an upgrade by
+        // preference contents alone — so the walkthrough would never show for anyone. The gate
+        // has to read the file while it is still genuinely empty. See OnboardingGate.
         onboardingState = `in`.shvms.trackme.ui.onboarding.OnboardingGate.resolve(this)
 
         if (BuildConfig.STRICT_MODE) {
@@ -168,17 +157,11 @@ class TrackMeApp : Application() {
             )
         }
 
-        // TG-A05 / HAZARD-1: must run before EmergencyManager is constructed and before any
-        // UI reads the persisted SOS state. Synchronous by design — see SosStateCleanup.
-        SosStateCleanup.clearOnce(
-            getSharedPreferences(
-                `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
-                MODE_PRIVATE
-            )
-        )
-        // The SOS dispatch machinery is gone; drop its stale notification channel so
-        // "Emergency alerts" stops appearing in the system notification settings of
-        // upgraded installs. Deleting a nonexistent channel is a documented no-op.
+        // TASK-309: the SOS feature and every reader of its state are gone, but a notification
+        // channel outlives the code that created it — it survives until uninstall. Without this,
+        // an install upgraded from pre-1.6.4 still lists "Emergency alerts" under system
+        // notification settings for a feature the app no longer has. Deleting a channel that was
+        // never created is a documented no-op, so this is safe on every other install.
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             getSystemService(android.app.NotificationManager::class.java)
                 ?.deleteNotificationChannel("sos_channel")
@@ -237,12 +220,6 @@ class TrackMeApp : Application() {
         
         trackingManager = TrackingManager()
         pipAlertStore = `in`.shvms.trackme.ui.home.components.PiPAlertStore(applicationScope)
-        emergencyManager = EmergencyManager(
-            getSharedPreferences(
-                `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
-                MODE_PRIVATE
-            )
-        )
         authManager = AuthManager()
         liveShareManager = LiveShareManager()
         groupSessionStore = `in`.shvms.trackme.data.local.GroupSessionStore(this)
@@ -263,7 +240,6 @@ class TrackMeApp : Application() {
 
         applicationScope.launch(Dispatchers.IO) {
             seedOnboardingSampleRideIfNeeded()
-            evaluateSosRemovalNotice()
             `in`.shvms.trackme.service.EmergencyDataPurge.purgeOnce(
                 prefs = getSharedPreferences("trackme_prefs", MODE_PRIVATE),
                 authManager = authManager,
@@ -324,7 +300,6 @@ class TrackMeApp : Application() {
         `in`.shvms.trackme.domain.stats.CalmMomentGate.AppMoment(
             isTrackingIdle = trackingManager.trackingState.value ==
                 `in`.shvms.trackme.service.TrackingState.IDLE,
-            isEmergencyActive = emergencyManager.isEmergencyActive.value,
             hasPendingReveal = pendingRevealStore.pending.value != null
         )
 
@@ -334,7 +309,7 @@ class TrackMeApp : Application() {
      * the store computes weeks, this just surfaces the result. Idempotent while one is pending.
      *
      * TASK-119: prompt 09 requires this to fire only when the app is calmly idle. Foregrounding
-     * mid-ride, mid-SOS, or into a GPS-lost/storage-low state must skip the cycle. Skipping does
+     * mid-ride or into a GPS-lost/storage-low state must skip the cycle. Skipping does
      * NOT consume the recap — nothing is acknowledged here — so it stays eligible for the rest of
      * its week and surfaces on the next calm foreground.
      */
@@ -406,41 +381,6 @@ class TrackMeApp : Application() {
      */
     fun dismissLocationPermissionRevokedNoticeForSession() {
         _locationPermissionRevokedNotice.value = false
-    }
-
-    /**
-     * TG-A06: decide once whether this install needs the SOS-removal notice — see
-     * [SosRemovalNoticePolicy] for the eligibility rule and the read-failure handling.
-     *
-     * A `null` result means the answer is not known yet, so the notice state is left as-is for
-     * this launch: showing nothing is correct when the verdict is unknown, showing a wrong
-     * verdict is not.
-     *
-     * TG-A15–A21 (1.6.5): emergency tables are dropped by MIGRATION_9_10, so the setup-complete
-     * check can no longer query the database. Users already evaluated on 1.6.4 keep their
-     * stored verdict; unevaluated users who skip 1.6.4 never had SOS setup, so `false` is the
-     * correct answer.
-     */
-    private suspend fun evaluateSosRemovalNotice() {
-        val prefs = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
-        SosRemovalNoticePolicy.evaluateOnce(
-            prefs = prefs,
-            onReadFailure = { errorLogger.recordException(it) },
-        ) {
-            // The emergency_settings table was dropped in MIGRATION_9_10. Users who were
-            // already evaluated on 1.6.4 will not reach this lambda. Users upgrading
-            // directly from pre-1.6.4 to 1.6.5+ never had SOS setup complete, so `false`
-            // is the correct answer — they should not see the notice.
-            false
-        }?.let { shouldShow ->
-            _sosRemovalNotice.value = shouldShow
-        }
-    }
-
-    /** TG-A06: the notice is must-acknowledge; only an explicit tap clears it, permanently. */
-    fun acknowledgeSosRemovalNotice() {
-        _sosRemovalNotice.value = false
-        SosRemovalNoticePolicy.acknowledge(getSharedPreferences("trackme_prefs", MODE_PRIVATE))
     }
 
     /**
