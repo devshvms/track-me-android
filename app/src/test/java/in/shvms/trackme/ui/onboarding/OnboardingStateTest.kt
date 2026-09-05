@@ -149,6 +149,20 @@ class OnboardingStateTest {
     }
 
     @Test
+    fun `notification permission is deferred until the first ride starts`() {
+        val screen = source("ui/onboarding/OnboardingScreen.kt")
+            .substringAfter("fun OnboardingScreen(")
+            .substringBefore("private fun OnboardingChrome(")
+            .replace(Regex("/\\*[\\s\\S]*?\\*/"), "")
+            .replace(Regex("//.*"), "")
+        assertFalse(
+            "onboarding must not spend the once-only notification prompt before it is earned",
+            screen.contains("notificationLauncher") ||
+                screen.contains("Manifest.permission.POST_NOTIFICATIONS"),
+        )
+    }
+
+    @Test
     fun `the funnel carries primitives and keeps persona out of telemetry`() {
         val outcome = source("ui/onboarding/OnboardingState.kt")
             .substringAfter("data class OnboardingOutcome(")
