@@ -98,6 +98,11 @@ class MainActivity : ComponentActivity() {
       val themeMode by app.preferencesManager.themeMode.collectAsState()
       val dynamicColor by app.preferencesManager.dynamicColor.collectAsState()
       val appLanguage by app.preferencesManager.appLanguage.collectAsState()
+      // SCOPE_1.8.7 §6.3: the in-app half of an operator broadcast. Collected here rather than
+      // inside Home because a broadcast is about the app, not about riding — it has to reach
+      // someone who opens straight into History or Settings too.
+      val storedBroadcasts by app.broadcastStore.broadcasts.collectAsState()
+      val lastSeenBroadcast by app.broadcastStore.lastSeenCreatedAt.collectAsState()
       val appStrings = remember(appLanguage) { getAppStrings(appLanguage) }
       val updatePrompt by app.appUpdateChecker.prompt.collectAsState()
       val updateReadyToInstall by app.appUpdateChecker.readyToInstall.collectAsState()
@@ -126,6 +131,17 @@ class MainActivity : ComponentActivity() {
                     }
                   )
                 } else {
+                // Only the newest unread one. A stack of banners is a wall, and an operator with
+                // three outstanding notices has a bigger problem than the UI can solve.
+                val broadcast = storedBroadcasts.firstOrNull {
+                  it.isUnread(lastSeenBroadcast) && it.appliesTo(app.appVersionCode())
+                }
+                if (broadcast != null) {
+                  `in`.shvms.trackme.ui.notifications.BroadcastBanner(
+                    broadcast = broadcast,
+                    onDismiss = { app.broadcastStore.markSeen(broadcast.createdAtMillis) },
+                  )
+                }
                 MainNavigation()
                 updatePrompt?.let { prompt ->
                   `in`.shvms.trackme.ui.update.AppUpdateDialog(

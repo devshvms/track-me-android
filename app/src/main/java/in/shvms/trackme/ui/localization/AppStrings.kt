@@ -339,6 +339,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val channelDataDescription: String = s("channelDataDescription", "When a ride is saved for you, a backup stops working, or an export is ready.")
     val channelOperatorName: String = s("channelOperatorName", "App notices")
     val channelOperatorDescription: String = s("channelOperatorDescription", "Rare messages about problems with the app itself, and updates that fix them.")
+    val broadcastLearnMore: String = s("broadcastLearnMore", "Learn more")
+    val broadcastDismiss: String = s("broadcastDismiss", "Got it")
     val groupAlertSetBody: String = s("groupAlertSetBody", "%1\$s set their status to %2\$s")
     val groupAlertClearedBody: String = s("groupAlertClearedBody", "%1\$s cleared %2\$s")
     val groupAlertViewGroup: String = s("groupAlertViewGroup", "View group")
@@ -979,6 +981,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "channelDataDescription" to "Cuando se guarda una ruta por ti, deja de funcionar una copia de seguridad o una exportación está lista.",
             "channelOperatorName" to "Avisos de la app",
             "channelOperatorDescription" to "Mensajes poco frecuentes sobre problemas de la propia app y las actualizaciones que los solucionan.",
+            "broadcastLearnMore" to "Más información",
+            "broadcastDismiss" to "Entendido",
             "groupAlertSetBody" to "%1\$s ha puesto su estado en %2\$s",
             "groupAlertClearedBody" to "%1\$s ha quitado %2\$s",
             "groupAlertViewGroup" to "Ver grupo",
@@ -1614,6 +1618,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "channelDataDescription" to "Quand une sortie est enregistrée pour vous, qu'une sauvegarde cesse de fonctionner ou qu'un export est prêt.",
             "channelOperatorName" to "Avis de l'app",
             "channelOperatorDescription" to "Messages rares concernant des problèmes de l'app elle-même, et les mises à jour qui les corrigent.",
+            "broadcastLearnMore" to "En savoir plus",
+            "broadcastDismiss" to "J'ai compris",
             "groupAlertSetBody" to "%1\$s a défini son statut sur %2\$s",
             "groupAlertClearedBody" to "%1\$s a effacé %2\$s",
             "groupAlertViewGroup" to "Voir le groupe",
@@ -2249,6 +2255,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "channelDataDescription" to "Wenn eine Fahrt für Sie gespeichert wird, eine Sicherung nicht mehr funktioniert oder ein Export bereit ist.",
             "channelOperatorName" to "App-Hinweise",
             "channelOperatorDescription" to "Seltene Meldungen über Probleme mit der App selbst und die Updates, die sie beheben.",
+            "broadcastLearnMore" to "Mehr erfahren",
+            "broadcastDismiss" to "Verstanden",
             "groupAlertSetBody" to "%1\$s hat den Status auf %2\$s gesetzt",
             "groupAlertClearedBody" to "%1\$s hat %2\$s entfernt",
             "groupAlertViewGroup" to "Gruppe ansehen",
@@ -2884,6 +2892,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "channelDataDescription" to "जब आपके लिए कोई राइड सहेजी जाए, कोई बैकअप काम करना बंद कर दे, या कोई एक्सपोर्ट तैयार हो।",
             "channelOperatorName" to "ऐप सूचनाएं",
             "channelOperatorDescription" to "ऐप में आई समस्याओं और उन्हें ठीक करने वाले अपडेट के बारे में कभी-कभार आने वाले संदेश।",
+            "broadcastLearnMore" to "और जानें",
+            "broadcastDismiss" to "ठीक है",
             "groupAlertSetBody" to "%1\$s ने अपनी स्थिति %2\$s रखी",
             "groupAlertClearedBody" to "%1\$s ने %2\$s हटाया",
             "groupAlertViewGroup" to "समूह देखें",
@@ -3519,6 +3529,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "channelDataDescription" to "ライドが自動保存されたとき、バックアップが停止したとき、エクスポートの準備ができたとき。",
             "channelOperatorName" to "アプリからのお知らせ",
             "channelOperatorDescription" to "アプリ自体の不具合と、その修正アップデートに関するまれなお知らせ。",
+            "broadcastLearnMore" to "詳しく見る",
+            "broadcastDismiss" to "了解",
             "groupAlertSetBody" to "%1\$s さんが状態を「%2\$s」にしました",
             "groupAlertClearedBody" to "%1\$s さんが「%2\$s」を解除しました",
             "groupAlertViewGroup" to "グループを見る",
@@ -4154,6 +4166,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "channelDataDescription" to "当系统为你保存了一次记录、备份停止工作，或导出已就绪时。",
             "channelOperatorName" to "应用通知",
             "channelOperatorDescription" to "关于应用自身问题及其修复更新的少量消息。",
+            "broadcastLearnMore" to "了解更多",
+            "broadcastDismiss" to "知道了",
             "groupAlertSetBody" to "%1\$s 将状态设为%2\$s",
             "groupAlertClearedBody" to "%1\$s 清除了%2\$s",
             "groupAlertViewGroup" to "查看群组",

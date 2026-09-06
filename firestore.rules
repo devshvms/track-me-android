@@ -34,6 +34,28 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // SCOPE_1.8.7 §6.3 — operator broadcasts.
+    //
+    // World-readable and nobody-writable. Both halves matter:
+    //
+    // READ is open because a broadcast is a public operational notice — "sync is down", "this
+    // build has a defect" — and the foreground read is the fallback that catches anyone the push
+    // missed. It carries no personal data and is addressed to everyone by definition. Requiring
+    // auth would silence exactly the local-only users this app is built for.
+    //
+    // WRITE is denied to every client, unconditionally. The endpoint writes through the Admin SDK,
+    // which bypasses these rules, so `if false` costs nothing and closes the hole that matters: a
+    // client-writable broadcasts collection would let any signed-in user post a notification to
+    // every install on a HIGH-importance channel. That is the single worst thing this feature
+    // could become, and it would be one permissive rule away.
+    //
+    // The clients re-validate every row through OperatorBroadcast.parse regardless. These rules are
+    // the first gate, not the only one.
+    match /broadcasts/{broadcastId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Default deny for all other paths
     match /{document=**} {
       allow read, write: if false;

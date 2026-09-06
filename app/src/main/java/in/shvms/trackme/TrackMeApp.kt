@@ -188,6 +188,16 @@ class TrackMeApp : Application() {
         // launch because this is the only thing that recovers the subscription after a reinstall,
         // a restore, or the user turning notifications back on outside our settings.
         `in`.shvms.trackme.service.notifications.BroadcastSubscription.sync(this, errorLogger)
+        // §6.3: push is the fast path, not the only one. Anyone the push missed — permission
+        // declined, device off, FCM dropped it, subscription not yet complete — picks the
+        // broadcast up here instead, silently, because the moment to interrupt has passed.
+        applicationScope.launch(Dispatchers.IO) {
+            `in`.shvms.trackme.data.remote.BroadcastReconciler.reconcile(
+                store = broadcastStore,
+                versionCode = appVersionCode(),
+                errorLogger = errorLogger,
+            )
+        }
         `in`.shvms.trackme.analytics.AnalyticsManager.init(this)
 
         // Install the Maps SDK's static delegates before any screen can reach for them.
@@ -312,6 +322,23 @@ class TrackMeApp : Application() {
      * UI layer; `HomeScreen` builds the equivalent moment from its already-collected UI state so
      * the dialog also disappears if the app leaves idle while a recap is queued.
      */
+    /**
+     * The running build number.
+     *
+     * `Int.MAX_VALUE` when it cannot be read: a device whose own version we cannot determine must
+     * never be told to update to fix a bug it may not have. Silence is the safe direction for a
+     * message about correctness.
+     */
+    fun appVersionCode(): Int = runCatching {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            info.longVersionCode.toInt()
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode
+        }
+    }.getOrDefault(Int.MAX_VALUE)
+
     fun currentCalmMoment(): `in`.shvms.trackme.domain.stats.CalmMomentGate.AppMoment =
         `in`.shvms.trackme.domain.stats.CalmMomentGate.AppMoment(
             isTrackingIdle = trackingManager.trackingState.value ==

@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import androidx.annotation.RequiresApi
 import `in`.shvms.trackme.ui.localization.AppStrings
 
 /**
@@ -93,6 +94,10 @@ object NotificationChannels {
         )
     }
 
+    // @RequiresApi rather than a second Build.VERSION check: `ensure` already guards the only call
+    // path, but lint cannot see that across a private function boundary, and adding a redundant
+    // runtime check to satisfy it would leave a branch that can never be taken and never be tested.
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun channel(id: String, name: String, description: String, importance: Int) =
         NotificationChannel(id, name, importance).apply { this.description = description }
 }
