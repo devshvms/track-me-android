@@ -107,6 +107,16 @@ class TrackMeApp : Application() {
     lateinit var preferencesManager: AppPreferencesManager
         private set
 
+    /**
+     * SCOPE_1.8.7 §6.3 — operator broadcasts, and the durable record of them.
+     *
+     * Application-scoped because `TrackMeMessagingService` writes to it from a background delivery
+     * with no Activity alive, and the UI reads the same instance. Two instances would let a push
+     * and the foreground read disagree about what the user has already been shown.
+     */
+    lateinit var broadcastStore: `in`.shvms.trackme.data.local.BroadcastStore
+        private set
+
     lateinit var ageSignalManager: `in`.shvms.trackme.data.AgeSignalManager
         private set
 
@@ -172,6 +182,12 @@ class TrackMeApp : Application() {
 
         errorLogger = CrashlyticsErrorLogger()
         errorLogger.init()
+        broadcastStore = `in`.shvms.trackme.data.local.BroadcastStore(this)
+        // §6.3: the subscription follows the OS permission and never asks for it — TASK-284's rule
+        // still holds, so a broadcast arriving must not trigger a permission request. Run on every
+        // launch because this is the only thing that recovers the subscription after a reinstall,
+        // a restore, or the user turning notifications back on outside our settings.
+        `in`.shvms.trackme.service.notifications.BroadcastSubscription.sync(this, errorLogger)
         `in`.shvms.trackme.analytics.AnalyticsManager.init(this)
 
         // Install the Maps SDK's static delegates before any screen can reach for them.

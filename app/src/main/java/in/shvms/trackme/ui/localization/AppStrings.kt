@@ -327,6 +327,18 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
 
     // Alerting (§3.8)
     val groupAlertChannelName: String = s("groupAlertChannelName", "Group ride alerts")
+
+    // Track 2 (SCOPE_1.8.7 §6.2) — one channel per thing a user would switch off independently.
+    // The descriptions are the promise: a user reading system settings should be able to predict
+    // exactly what disabling each one costs them, without opening the app.
+    val channelRemindersName: String = s("channelRemindersName", "Reminders")
+    val channelRemindersDescription: String = s("channelRemindersDescription", "Only the reminders you set yourself. Nothing else uses this.")
+    val channelProgressName: String = s("channelProgressName", "Your progress")
+    val channelProgressDescription: String = s("channelProgressDescription", "Your weekly recap, at most once a week. Everything here is also in the app.")
+    val channelDataName: String = s("channelDataName", "Sync and data")
+    val channelDataDescription: String = s("channelDataDescription", "When a ride is saved for you, a backup stops working, or an export is ready.")
+    val channelOperatorName: String = s("channelOperatorName", "App notices")
+    val channelOperatorDescription: String = s("channelOperatorDescription", "Rare messages about problems with the app itself, and updates that fix them.")
     val groupAlertSetBody: String = s("groupAlertSetBody", "%1\$s set their status to %2\$s")
     val groupAlertClearedBody: String = s("groupAlertClearedBody", "%1\$s cleared %2\$s")
     val groupAlertViewGroup: String = s("groupAlertViewGroup", "View group")
@@ -959,6 +971,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s sin enviar",
             "groupPillSent" to "%1\$s enviado",
             "groupAlertChannelName" to "Avisos de ruta en grupo",
+            "channelRemindersName" to "Recordatorios",
+            "channelRemindersDescription" to "Solo los recordatorios que tú configuras. Nada más usa este canal.",
+            "channelProgressName" to "Tu progreso",
+            "channelProgressDescription" to "Tu resumen semanal, como máximo una vez por semana. Todo esto también está en la app.",
+            "channelDataName" to "Sincronización y datos",
+            "channelDataDescription" to "Cuando se guarda una ruta por ti, deja de funcionar una copia de seguridad o una exportación está lista.",
+            "channelOperatorName" to "Avisos de la app",
+            "channelOperatorDescription" to "Mensajes poco frecuentes sobre problemas de la propia app y las actualizaciones que los solucionan.",
             "groupAlertSetBody" to "%1\$s ha puesto su estado en %2\$s",
             "groupAlertClearedBody" to "%1\$s ha quitado %2\$s",
             "groupAlertViewGroup" to "Ver grupo",
@@ -1586,6 +1606,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s non envoyé",
             "groupPillSent" to "%1\$s envoyé",
             "groupAlertChannelName" to "Alertes de sortie en groupe",
+            "channelRemindersName" to "Rappels",
+            "channelRemindersDescription" to "Uniquement les rappels que vous définissez. Rien d'autre n'utilise ce canal.",
+            "channelProgressName" to "Votre progression",
+            "channelProgressDescription" to "Votre récapitulatif hebdomadaire, au maximum une fois par semaine. Tout cela est aussi dans l'app.",
+            "channelDataName" to "Synchronisation et données",
+            "channelDataDescription" to "Quand une sortie est enregistrée pour vous, qu'une sauvegarde cesse de fonctionner ou qu'un export est prêt.",
+            "channelOperatorName" to "Avis de l'app",
+            "channelOperatorDescription" to "Messages rares concernant des problèmes de l'app elle-même, et les mises à jour qui les corrigent.",
             "groupAlertSetBody" to "%1\$s a défini son statut sur %2\$s",
             "groupAlertClearedBody" to "%1\$s a effacé %2\$s",
             "groupAlertViewGroup" to "Voir le groupe",
@@ -2213,6 +2241,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s nicht gesendet",
             "groupPillSent" to "%1\$s gesendet",
             "groupAlertChannelName" to "Gruppenfahrt-Warnungen",
+            "channelRemindersName" to "Erinnerungen",
+            "channelRemindersDescription" to "Nur die Erinnerungen, die Sie selbst einstellen. Sonst nutzt nichts diesen Kanal.",
+            "channelProgressName" to "Ihr Fortschritt",
+            "channelProgressDescription" to "Ihr Wochenrückblick, höchstens einmal pro Woche. Alles davon steht auch in der App.",
+            "channelDataName" to "Synchronisierung und Daten",
+            "channelDataDescription" to "Wenn eine Fahrt für Sie gespeichert wird, eine Sicherung nicht mehr funktioniert oder ein Export bereit ist.",
+            "channelOperatorName" to "App-Hinweise",
+            "channelOperatorDescription" to "Seltene Meldungen über Probleme mit der App selbst und die Updates, die sie beheben.",
             "groupAlertSetBody" to "%1\$s hat den Status auf %2\$s gesetzt",
             "groupAlertClearedBody" to "%1\$s hat %2\$s entfernt",
             "groupAlertViewGroup" to "Gruppe ansehen",
@@ -2840,6 +2876,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s भेजा नहीं गया",
             "groupPillSent" to "%1\$s भेजा गया",
             "groupAlertChannelName" to "समूह राइड अलर्ट",
+            "channelRemindersName" to "रिमाइंडर",
+            "channelRemindersDescription" to "सिर्फ़ वे रिमाइंडर जो आप खुद सेट करते हैं। इस चैनल का और कोई उपयोग नहीं है।",
+            "channelProgressName" to "आपकी प्रगति",
+            "channelProgressDescription" to "आपका साप्ताहिक सारांश, हफ़्ते में ज़्यादा से ज़्यादा एक बार। यह सब ऐप में भी मौजूद है।",
+            "channelDataName" to "सिंक और डेटा",
+            "channelDataDescription" to "जब आपके लिए कोई राइड सहेजी जाए, कोई बैकअप काम करना बंद कर दे, या कोई एक्सपोर्ट तैयार हो।",
+            "channelOperatorName" to "ऐप सूचनाएं",
+            "channelOperatorDescription" to "ऐप में आई समस्याओं और उन्हें ठीक करने वाले अपडेट के बारे में कभी-कभार आने वाले संदेश।",
             "groupAlertSetBody" to "%1\$s ने अपनी स्थिति %2\$s रखी",
             "groupAlertClearedBody" to "%1\$s ने %2\$s हटाया",
             "groupAlertViewGroup" to "समूह देखें",
@@ -3467,6 +3511,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s は未送信",
             "groupPillSent" to "%1\$s を送信",
             "groupAlertChannelName" to "グループライドの通知",
+            "channelRemindersName" to "リマインダー",
+            "channelRemindersDescription" to "自分で設定したリマインダーのみ。他の用途では使いません。",
+            "channelProgressName" to "あなたの記録",
+            "channelProgressDescription" to "週次まとめ。多くても週に1回です。内容はアプリ内でも確認できます。",
+            "channelDataName" to "同期とデータ",
+            "channelDataDescription" to "ライドが自動保存されたとき、バックアップが停止したとき、エクスポートの準備ができたとき。",
+            "channelOperatorName" to "アプリからのお知らせ",
+            "channelOperatorDescription" to "アプリ自体の不具合と、その修正アップデートに関するまれなお知らせ。",
             "groupAlertSetBody" to "%1\$s さんが状態を「%2\$s」にしました",
             "groupAlertClearedBody" to "%1\$s さんが「%2\$s」を解除しました",
             "groupAlertViewGroup" to "グループを見る",
@@ -4094,6 +4146,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s 未发送",
             "groupPillSent" to "%1\$s 已发送",
             "groupAlertChannelName" to "群骑提醒",
+            "channelRemindersName" to "提醒",
+            "channelRemindersDescription" to "仅包含你自己设置的提醒，此渠道不作他用。",
+            "channelProgressName" to "你的进展",
+            "channelProgressDescription" to "每周回顾，最多每周一次。这些内容在应用内也能看到。",
+            "channelDataName" to "同步与数据",
+            "channelDataDescription" to "当系统为你保存了一次记录、备份停止工作，或导出已就绪时。",
+            "channelOperatorName" to "应用通知",
+            "channelOperatorDescription" to "关于应用自身问题及其修复更新的少量消息。",
             "groupAlertSetBody" to "%1\$s 将状态设为%2\$s",
             "groupAlertClearedBody" to "%1\$s 清除了%2\$s",
             "groupAlertViewGroup" to "查看群组",

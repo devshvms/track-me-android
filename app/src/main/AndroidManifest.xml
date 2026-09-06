@@ -97,6 +97,17 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- SCOPE_1.8.7 §6.3: operator broadcasts. Exported because FCM delivers to it; the
+             payload is data-only and every field is validated by OperatorBroadcast.parse before
+             anything is posted, so an unsigned message cannot reach the notification shade. -->
+        <service
+            android:name=".service.notifications.TrackMeMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <!-- TASK-289: receives the chooser's EXTRA_CHOSEN_COMPONENT so group_invite_sent counts
              actual sends rather than share-sheet presentations. Not exported: only the system
              delivers to it, via the PendingIntent handed to createChooser. -->

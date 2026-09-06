@@ -200,6 +200,10 @@ dependencies {
   implementation(libs.firebase.auth)
   implementation(libs.firebase.firestore)
   implementation(libs.firebase.crashlytics)
+  // Track 2 (SCOPE_1.8.7 §6.3): operator broadcasts, delivered to an FCM topic. No token is
+  // collected or stored — the client subscribes itself, so there is no device identifier to
+  // declare, retain or delete.
+  implementation(libs.firebase.messaging)
 
   // WorkManager (Background Scheduled Sync)
   implementation("androidx.work:work-runtime-ktx:2.9.1")
