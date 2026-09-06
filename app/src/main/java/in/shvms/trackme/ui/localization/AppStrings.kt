@@ -786,7 +786,8 @@ val LocalAppStrings = staticCompositionLocalOf { AppStrings() }
  * add its display name to the picker in `SettingsScreen.kt`. The coverage test enforces the
  * second of those and cross-checks the third.
  */
-val SUPPORTED_LANGUAGE_CODES: List<String> = listOf("en", "es", "fr", "de", "hi", "ja", "zh")
+val SUPPORTED_LANGUAGE_CODES: List<String> =
+    `in`.shvms.trackme.data.local.AppLanguageCatalog.supportedCodes
 
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {

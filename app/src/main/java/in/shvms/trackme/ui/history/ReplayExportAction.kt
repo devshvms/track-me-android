@@ -57,6 +57,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.PolylineOptions
 import `in`.shvms.trackme.config.AppConfig
+import `in`.shvms.trackme.domain.export.artifactDeepLink
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.domain.replay.MediaCodecReplayExporter
@@ -339,7 +340,6 @@ private fun startExport(
 ) {
     val lastPublishedProgress = AtomicReference(-1f)
     val renderStartedAt = android.os.SystemClock.elapsedRealtime()
-    val deepLinkId = rideWithPoints.ride.firestoreId?.takeLast(12) ?: rideWithPoints.ride.id.toString()
     val job = scope.launch {
         try {
             val result = withContext(Dispatchers.Default) {
@@ -353,7 +353,7 @@ private fun startExport(
                         applyPrivacyTrim = applyPrivacyTrim,
                         privacyTrimDistanceMeters = COMPARISON_PRIVACY_TRIM_METERS,
                         persona = persona,
-                        deepLink = "${AppConfig.REPLAY_DEEP_LINK_BASE_URL}$deepLinkId",
+                        deepLink = artifactDeepLink(rideWithPoints.ride),
                         overlay = overlay
                     ),
                     outputDirectory = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME),
