@@ -16,9 +16,29 @@ import kotlinx.coroutines.withContext
  */
 object OrphanedRideRecoveryManager {
 
+    /**
+     * The facts a recovered ride can be described with.
+     *
+     * SCOPE_1.8.7 §6.1.1 scenario 1 needs these, not just a count. §4.2 N1 is "every notification
+     * carries a fact, not a feeling": *"Your ride was saved"* on its own is the kind of line that
+     * could have been written without reading the user's data. *"12.3 km, recording stopped at
+     * 14:32"* could not.
+     */
+    data class RecoveredRide(
+        val rideId: Long,
+        val endTimeMillis: Long,
+        val distanceMeters: Double,
+    )
+
     data class RecoverySummary(
         val recoveredCount: Int = 0,
-        val discardedCount: Int = 0
+        val discardedCount: Int = 0,
+        /**
+         * Details of what was recovered, newest last. Empty when nothing was — and deliberately
+         * carries no title: a ride title can be user-written, and a notification is rendered on a
+         * lock screen where whoever is holding the phone may not be its owner.
+         */
+        val recovered: List<RecoveredRide> = emptyList(),
     ) {
         val hasChanges: Boolean
             get() = recoveredCount > 0 || discardedCount > 0
@@ -39,6 +59,7 @@ object OrphanedRideRecoveryManager {
         val uncompletedRides = rideDao.getUncompletedRides()
         var recoveredCount = 0
         var discardedCount = 0
+        val recovered = mutableListOf<RecoveredRide>()
 
         for (ride in uncompletedRides) {
             // Skip if this is the active live tracking session
@@ -120,11 +141,17 @@ object OrphanedRideRecoveryManager {
 
             rideDao.updateRide(recoveredRide)
             recoveredCount++
+            recovered += RecoveredRide(
+                rideId = ride.id,
+                endTimeMillis = endTime,
+                distanceMeters = totalDistance,
+            )
         }
 
         RecoverySummary(
             recoveredCount = recoveredCount,
-            discardedCount = discardedCount
+            discardedCount = discardedCount,
+            recovered = recovered,
         )
     }
 }

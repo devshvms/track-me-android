@@ -341,6 +341,15 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val channelOperatorDescription: String = s("channelOperatorDescription", "Rare messages about problems with the app itself, and updates that fix them.")
     val broadcastLearnMore: String = s("broadcastLearnMore", "Learn more")
     val broadcastDismiss: String = s("broadcastDismiss", "Got it")
+
+    // SCOPE_1.8.7 §6.1.1 scenario 1. "Saved" rather than "recovered": the user did not lose
+    // anything and should not be told a word that implies they nearly did. %1$s is the end time,
+    // %2$s the distance — both already formatted by the caller.
+    val rideSavedTitle: String = s("rideSavedTitle", "Your ride was saved")
+    val rideSavedBody: String = s("rideSavedBody", "Recording stopped at %1\$s because the app was closed. %2\$s was kept.")
+    val rideSavedBodyPlain: String = s("rideSavedBodyPlain", "The app closed while you were recording, so the ride was finished and kept.")
+    val ridesSavedTitle: String = s("ridesSavedTitle", "%1\$d rides were saved")
+    val ridesSavedBody: String = s("ridesSavedBody", "The app closed while they were recording. They were finished and kept.")
     val groupAlertSetBody: String = s("groupAlertSetBody", "%1\$s set their status to %2\$s")
     val groupAlertClearedBody: String = s("groupAlertClearedBody", "%1\$s cleared %2\$s")
     val groupAlertViewGroup: String = s("groupAlertViewGroup", "View group")
@@ -983,6 +992,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "channelOperatorDescription" to "Mensajes poco frecuentes sobre problemas de la propia app y las actualizaciones que los solucionan.",
             "broadcastLearnMore" to "Más información",
             "broadcastDismiss" to "Entendido",
+            "rideSavedTitle" to "Tu ruta se ha guardado",
+            "rideSavedBody" to "La grabación se detuvo a las %1\$s porque la app se cerró. Se conservaron %2\$s.",
+            "rideSavedBodyPlain" to "La app se cerró mientras grababas, así que la ruta se finalizó y se conservó.",
+            "ridesSavedTitle" to "Se guardaron %1\$d rutas",
+            "ridesSavedBody" to "La app se cerró mientras se grababan. Se finalizaron y se conservaron.",
             "groupAlertSetBody" to "%1\$s ha puesto su estado en %2\$s",
             "groupAlertClearedBody" to "%1\$s ha quitado %2\$s",
             "groupAlertViewGroup" to "Ver grupo",
@@ -1620,6 +1634,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "channelOperatorDescription" to "Messages rares concernant des problèmes de l'app elle-même, et les mises à jour qui les corrigent.",
             "broadcastLearnMore" to "En savoir plus",
             "broadcastDismiss" to "J'ai compris",
+            "rideSavedTitle" to "Votre sortie a été enregistrée",
+            "rideSavedBody" to "L'enregistrement s'est arrêté à %1\$s car l'app s'est fermée. %2\$s ont été conservés.",
+            "rideSavedBodyPlain" to "L'app s'est fermée pendant l'enregistrement ; la sortie a été terminée et conservée.",
+            "ridesSavedTitle" to "%1\$d sorties ont été enregistrées",
+            "ridesSavedBody" to "L'app s'est fermée pendant l'enregistrement. Elles ont été terminées et conservées.",
             "groupAlertSetBody" to "%1\$s a défini son statut sur %2\$s",
             "groupAlertClearedBody" to "%1\$s a effacé %2\$s",
             "groupAlertViewGroup" to "Voir le groupe",
@@ -2257,6 +2276,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "channelOperatorDescription" to "Seltene Meldungen über Probleme mit der App selbst und die Updates, die sie beheben.",
             "broadcastLearnMore" to "Mehr erfahren",
             "broadcastDismiss" to "Verstanden",
+            "rideSavedTitle" to "Ihre Fahrt wurde gespeichert",
+            "rideSavedBody" to "Die Aufzeichnung endete um %1\$s, weil die App geschlossen wurde. %2\$s wurden behalten.",
+            "rideSavedBodyPlain" to "Die App wurde während der Aufzeichnung geschlossen, die Fahrt wurde beendet und behalten.",
+            "ridesSavedTitle" to "%1\$d Fahrten wurden gespeichert",
+            "ridesSavedBody" to "Die App wurde während der Aufzeichnung geschlossen. Sie wurden beendet und behalten.",
             "groupAlertSetBody" to "%1\$s hat den Status auf %2\$s gesetzt",
             "groupAlertClearedBody" to "%1\$s hat %2\$s entfernt",
             "groupAlertViewGroup" to "Gruppe ansehen",
@@ -2894,6 +2918,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "channelOperatorDescription" to "ऐप में आई समस्याओं और उन्हें ठीक करने वाले अपडेट के बारे में कभी-कभार आने वाले संदेश।",
             "broadcastLearnMore" to "और जानें",
             "broadcastDismiss" to "ठीक है",
+            "rideSavedTitle" to "आपकी राइड सहेज ली गई",
+            "rideSavedBody" to "ऐप बंद होने से रिकॉर्डिंग %1\$s पर रुक गई। %2\$s सहेजा गया।",
+            "rideSavedBodyPlain" to "रिकॉर्डिंग के दौरान ऐप बंद हो गया, इसलिए राइड पूरी करके सहेज ली गई।",
+            "ridesSavedTitle" to "%1\$d राइड सहेजी गईं",
+            "ridesSavedBody" to "रिकॉर्डिंग के दौरान ऐप बंद हो गया। उन्हें पूरा करके सहेज लिया गया।",
             "groupAlertSetBody" to "%1\$s ने अपनी स्थिति %2\$s रखी",
             "groupAlertClearedBody" to "%1\$s ने %2\$s हटाया",
             "groupAlertViewGroup" to "समूह देखें",
@@ -3531,6 +3560,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "channelOperatorDescription" to "アプリ自体の不具合と、その修正アップデートに関するまれなお知らせ。",
             "broadcastLearnMore" to "詳しく見る",
             "broadcastDismiss" to "了解",
+            "rideSavedTitle" to "ライドを保存しました",
+            "rideSavedBody" to "アプリが終了したため %1\$s に記録が停止しました。%2\$s を保存しています。",
+            "rideSavedBodyPlain" to "記録中にアプリが終了したため、ライドを終了して保存しました。",
+            "ridesSavedTitle" to "%1\$d 件のライドを保存しました",
+            "ridesSavedBody" to "記録中にアプリが終了しました。すべて終了して保存しています。",
             "groupAlertSetBody" to "%1\$s さんが状態を「%2\$s」にしました",
             "groupAlertClearedBody" to "%1\$s さんが「%2\$s」を解除しました",
             "groupAlertViewGroup" to "グループを見る",
@@ -4168,6 +4202,11 @@ fun getAppStrings(languageCode: String): AppStrings {
             "channelOperatorDescription" to "关于应用自身问题及其修复更新的少量消息。",
             "broadcastLearnMore" to "了解更多",
             "broadcastDismiss" to "知道了",
+            "rideSavedTitle" to "你的记录已保存",
+            "rideSavedBody" to "应用关闭，记录于 %1\$s 停止。已保留 %2\$s。",
+            "rideSavedBodyPlain" to "记录期间应用关闭，已结束并保留这次记录。",
+            "ridesSavedTitle" to "已保存 %1\$d 次记录",
+            "ridesSavedBody" to "记录期间应用关闭，已全部结束并保留。",
             "groupAlertSetBody" to "%1\$s 将状态设为%2\$s",
             "groupAlertClearedBody" to "%1\$s 清除了%2\$s",
             "groupAlertViewGroup" to "查看群组",

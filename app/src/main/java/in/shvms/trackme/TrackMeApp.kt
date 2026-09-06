@@ -286,6 +286,18 @@ class TrackMeApp : Application() {
                     )
                     if (summary.hasChanges) {
                         _recoveryNotice.value = summary
+                        // §6.1.1 scenario 1: the in-app banner above only fires if the app is
+                        // opened, and the people who most need this are the ones whose phone died
+                        // and have stopped expecting the ride to be there. Class A — never
+                        // rationed by the proactive budget.
+                        `in`.shvms.trackme.service.notifications.RecoveryNotifier.notify(
+                            context = this@TrackMeApp,
+                            summary = summary,
+                            strings = `in`.shvms.trackme.ui.localization.getAppStrings(
+                                preferencesManager.appLanguage.value
+                            ),
+                            imperialUnits = preferencesManager.unitSystem.value == "imperial",
+                        )
                     }
                 }
             } catch (e: Exception) {
