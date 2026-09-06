@@ -13,10 +13,10 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Rational
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -55,7 +55,7 @@ import `in`.shvms.trackme.ui.home.components.PiPRideState
 import `in`.shvms.trackme.ui.home.components.PiPSessionDurationBucket
 import `in`.shvms.trackme.ui.home.components.toPiPRideState
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
   private var pipMode by mutableStateOf(false)
   private var pipEligible = false
@@ -74,9 +74,13 @@ class MainActivity : ComponentActivity() {
     registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { }
 
   override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-      handleGroupInvite(intent)
     val app = applicationContext as TrackMeApp
+    // The first call hands the legacy TrackMe preference to AndroidX before AppCompat attaches
+    // its resources. The second imports a choice made from Android's App language settings.
+    app.preferencesManager.prepareApplicationLocale()
+    super.onCreate(savedInstanceState)
+    app.preferencesManager.reconcileApplicationLocale()
+    handleGroupInvite(intent)
 
     pipDashboardStateSource = PiPDashboardStateSource(
       trackingManager = app.trackingManager,
