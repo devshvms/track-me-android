@@ -103,6 +103,12 @@
         <receiver
             android:name=".ui.community.GroupInviteChosenReceiver"
             android:exported="false" />
+
+        <!-- TASK-305: the same pattern for exported share artifacts, so `export_shared` counts
+             destinations actually chosen rather than share sheets opened. Not exported. -->
+        <receiver
+            android:name=".ui.history.ExportSharedReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

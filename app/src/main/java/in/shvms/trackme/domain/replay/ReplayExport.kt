@@ -17,11 +17,15 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import `in`.shvms.trackme.R
+import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import `in`.shvms.trackme.domain.UnitFormatter
 import `in`.shvms.trackme.domain.export.gpsDistanceMeters
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.ui.history.OverlayContent
+import `in`.shvms.trackme.ui.history.OverlayMetrics
+import `in`.shvms.trackme.ui.history.StatsOverlayStyle
 import `in`.shvms.trackme.ui.history.trimComparisonEndpoints
 import `in`.shvms.trackme.theme.BrandThemeConfig
 import kotlinx.coroutines.CancellationException
@@ -65,17 +69,44 @@ data class ReplayStats(
 )
 
 /**
- * Presentation text for the burned-in overlay. The renderer must never resolve strings or
- * preferences itself — the exported MP4 is a shared artifact, so its text has to match exactly what
- * the user sees in-app, in their language and their unit system.
+ * Presentation text and chrome for the burned-in overlay. The renderer must never resolve strings
+ * or preferences itself — the exported MP4 is a shared artifact, so its text has to match exactly
+ * what the user sees in-app, in their language and their unit system.
  *
  * [personaLabel] must come from `AppStrings.personaLabel(persona)`. When null the renderer falls
  * back to the English `RidePersona.displayName`, which is a bug on any user-facing surface.
+ *
+ * ### TASK-305: why the style fields are here
+ *
+ * The still export and the video are made from the same preview, with the same settings, one button
+ * apart — and until 1.8.7 the video honoured none of the panel settings. It drew distance and
+ * duration in a fixed position, in a fixed dark treatment, whatever the user had chosen. Someone who
+ * picked `StatsOverlayStyle.None` — *"No panel. The map alone."* — got a clean image and a video
+ * with a stats panel welded on. That is the choice most likely to be made for something a person
+ * actually intends to post, and it was the one choice the video could not honour.
+ *
+ * [figures] is the same already-formatted list the still export receives as `ExportOptions
+ * .overlayFigures`, built once by `buildOverlayContent`. Handing the renderer finished strings is
+ * the same rule as [personaLabel], for the same reason: two renderers deriving the same figures
+ * independently is exactly how the file came to say something the preview did not.
+ *
+ * The defaults describe an *unstyled* frame rather than the old hard-coded one: a call site that
+ * forgets to pass the user's choice now produces a clean video, never a wrong one.
+ * `ReplayExportOverlayWiringTest` asserts the production call site does pass them.
  */
 data class ReplayOverlay(
     val personaLabel: String? = null,
-    val imperialUnits: Boolean = false
-)
+    val imperialUnits: Boolean = false,
+    /** Where the panel sits, and — as `None` — whether it is drawn at all. */
+    val statsStyle: StatsOverlayStyle = StatsOverlayStyle.None,
+    /** Already-formatted figures, in display order. Empty means nothing to show. */
+    val figures: List<String> = emptyList(),
+    /** The user's theme choice, applied to the burned-in chrome as well as the basemap. */
+    val darkTheme: Boolean = true
+) {
+    /** True when there is both a place to draw the panel and something to put in it. */
+    val drawsPanel: Boolean get() = statsStyle.isVisible && figures.isNotEmpty()
+}
 
 interface ReplayFrameRenderer {
     fun renderFrame(
@@ -134,12 +165,16 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
         val usableSnapshot = mapSnapshot?.takeIf {
             !it.isRecycled && usableProjection != null
         }
+        // TASK-305: the scrim follows the user's theme, as the still export's does. A light
+        // export used to get a dark video from the same preview.
         if (usableSnapshot != null) {
             drawMapSnapshot(canvas, usableSnapshot, width, height)
             // Keep the route and text legible without changing the captured map itself.
-            canvas.drawColor(Color.argb(92, 18, 22, 28))
+            canvas.drawColor(
+                if (overlay.darkTheme) Color.argb(92, 18, 22, 28) else Color.argb(56, 255, 255, 255)
+            )
         } else {
-            canvas.drawColor(Color.rgb(18, 22, 28))
+            canvas.drawColor(if (overlay.darkTheme) Color.rgb(18, 22, 28) else Color.rgb(244, 246, 249))
         }
 
         val routePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -192,29 +227,95 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
             canvas.restore()
         }
 
+        // The lockup and the link are not chrome the user opted into — they are what makes the
+        // artifact traceable back to the app. They are drawn whatever the panel setting is.
         drawTrackMeLockup(canvas, width.toInt())
 
-        val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.LTGRAY
-            textSize = max(18f, width * 0.028f)
+        if (overlay.drawsPanel) {
+            drawStatsPanel(
+                canvas = canvas,
+                width = width,
+                height = height,
+                personaLabel = overlay.personaLabel?.takeIf { it.isNotBlank() } ?: persona.displayName,
+                overlay = overlay
+            )
         }
-        canvas.drawText(
-            overlay.personaLabel?.takeIf { it.isNotBlank() } ?: persona.displayName,
-            width * 0.06f,
-            height * 0.12f,
-            bodyPaint
-        )
-        canvas.drawText(
-            "${formatReplayDistance(stats.distanceMeters, overlay.imperialUnits)}" +
-                "  ·  ${formatReplayDuration(stats.durationMillis)}",
-            width * 0.06f,
-            height * 0.93f,
-            bodyPaint
-        )
-        deepLink?.takeIf { it.startsWith("https://trackme.shvms.in/r/") }?.let {
-            bodyPaint.textSize = max(12f, width * 0.018f)
-            canvas.drawText(it, width * 0.06f, height * 0.965f, bodyPaint)
+
+        deepLink?.takeIf { it.startsWith(AppConfig.REPLAY_DEEP_LINK_BASE_URL) }?.let {
+            val linkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = if (overlay.darkTheme) Color.LTGRAY else Color.DKGRAY
+                textSize = max(12f, width * 0.018f)
+            }
+            canvas.drawText(it, width * 0.06f, height * 0.965f, linkPaint)
         }
+    }
+
+    /**
+     * The burned-in figures, in the placement the user chose — the same geometry the still export
+     * uses, from the same [StatsOverlayStyle].
+     *
+     * Geometry is deliberately not re-derived here. `StatsOverlayStyle.rect(content)` is the one
+     * place that decides where a panel sits and how tall it is for its line count; the still
+     * exporter and the Compose preview already share it, and the video drawing its own rectangle is
+     * how it came to disagree with both.
+     */
+    private fun drawStatsPanel(
+        canvas: Canvas,
+        width: Float,
+        height: Float,
+        personaLabel: String,
+        overlay: ReplayOverlay
+    ) {
+        val content = OverlayContent(overlay.figures)
+        val rect = overlay.statsStyle.rect(content) ?: return
+        val shorterEdge = minOf(width, height)
+
+        val panel = RectF(rect.left * width, rect.top * height, rect.right * width, rect.bottom * height)
+        val radius = rect.inset * shorterEdge
+        canvas.drawRoundRect(
+            panel,
+            radius,
+            radius,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = if (overlay.darkTheme) {
+                    Color.argb(214, 18, 22, 28)
+                } else {
+                    Color.argb(214, 252, 253, 255)
+                }
+            }
+        )
+
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = if (overlay.darkTheme) Color.WHITE else Color.rgb(18, 22, 28)
+            textSize = OverlayMetrics.FIGURE_LINE_RATIO * shorterEdge * 0.72f
+            typeface = watermarkTypeface
+            textAlign = if (overlay.statsStyle.alignsTextEnd) Paint.Align.RIGHT else Paint.Align.LEFT
+        }
+        val padding = panel.width() * OverlayMetrics.HORIZONTAL_PADDING_FRACTION
+        val textX = if (overlay.statsStyle.alignsTextEnd) panel.right - padding else panel.left + padding
+
+        val lines = if (overlay.statsStyle.stacksFigures) {
+            overlay.figures
+        } else {
+            listOf(overlay.figures.joinToString("  ·  "))
+        }
+        val lineHeight = OverlayMetrics.FIGURE_LINE_RATIO * shorterEdge
+        var baseline = panel.top + OverlayMetrics.VERTICAL_PADDING_RATIO * shorterEdge + lineHeight * 0.78f
+        lines.forEach { line ->
+            canvas.drawText(line, textX, baseline, textPaint)
+            baseline += lineHeight
+        }
+
+        // The activity is chrome, not a figure: it never appears in `buildOverlayContent`, so it is
+        // drawn beside the panel rather than inside it -- and only when the panel exists, because
+        // "the map alone" means the map alone.
+        val personaPaint = Paint(textPaint).apply {
+            textSize = textPaint.textSize * 0.82f
+            textAlign = Paint.Align.LEFT
+            color = if (overlay.darkTheme) Color.LTGRAY else Color.DKGRAY
+        }
+        val personaY = if (overlay.statsStyle == StatsOverlayStyle.BottomBar) height * 0.12f else height * 0.93f
+        canvas.drawText(personaLabel, width * 0.06f, personaY, personaPaint)
     }
 
     private fun drawMapSnapshot(canvas: Canvas, snapshot: Bitmap, width: Float, height: Float) {
@@ -326,28 +427,12 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
     }
 }
 
-/**
- * Distance for the burned-in overlay. Routed through [UnitFormatter] so the shared MP4 honours the
- * user's unit preference and reads identically to the History card (`decimals = 1`).
- */
-internal fun formatReplayDistance(meters: Double, imperial: Boolean): String =
-    UnitFormatter.distance(meters.coerceAtLeast(0.0), imperial, decimals = 1)
-
-/**
- * `HH:MM:SS`, matching `HistoryScreen`/`RideDetailScreen`. The previous `"%02d:%02d"` had no hours
- * field, so a 2h44m ride rendered as `"164:47"` — a minutes value no reader parses as a duration.
- */
-internal fun formatReplayDuration(durationMillis: Long): String {
-    if (durationMillis <= 0L) return "00:00:00"
-    val totalSeconds = durationMillis / 1000L
-    return String.format(
-        Locale.getDefault(),
-        "%02d:%02d:%02d",
-        totalSeconds / 3600L,
-        (totalSeconds % 3600L) / 60L,
-        totalSeconds % 60L
-    )
-}
+// TASK-305 removed `formatReplayDistance` and `formatReplayDuration`. They were the video deriving
+// its own figures — the exact duplicate derivation this file's own contract forbids — and they were
+// the mechanism by which the MP4 could say something the preview did not. The video now receives
+// `ReplayOverlay.figures`, already formatted by the same `buildOverlayContent` the still export
+// uses. This also fixes a divergence nobody had listed: the video rendered `02:44:47` while the
+// image rendered `2hr 44min`, because only the image went through `compactDuration`.
 
 private data class SnapshotTransform(
     val scale: Float,

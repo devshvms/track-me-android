@@ -202,6 +202,104 @@ object AnalyticsManager {
         )
     }
 
+    // --- Export / share funnel (TASK-305) ---------------------------------------------------
+    //
+    // The share artifact is the only channel that compounds, and until 1.8.7 it was completely
+    // dark: ReplayExportAction, ExportPreviewDialog and GalleryImageSaver all existed and fired
+    // nothing, so nobody could say whether a single route image had ever been exported. The
+    // acquisition plan scored the loop low "with low confidence" — the low confidence was the
+    // absence of evidence, not evidence of absence.
+    //
+    // §Guardrails: count exports, never contents. No latitude, longitude, ride title, name or
+    // email may appear in any property here. `kind` and counts only.
+
+    /** The preview opened. Top of the funnel — everything below is measured against this. */
+    fun trackExportPreviewOpened(surface: ExportSurface) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "export_preview_opened",
+            properties = mapOf("surface" to surface.value)
+        )
+    }
+
+    /**
+     * A style control was changed. [control] is the control's identity, never its value, so this
+     * says which knobs people reach for without recording what their export looks like.
+     */
+    fun trackExportStyleChanged(control: ExportStyleControl) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "export_style_changed",
+            properties = mapOf("control" to control.value)
+        )
+    }
+
+    /**
+     * A render finished or failed. The duration is why this carries `success` rather than being
+     * split in two: a render that fails after 40 seconds and one that fails instantly are
+     * different bugs, and only a single event with both fields can tell them apart.
+     */
+    fun trackExportRendered(
+        kind: ExportArtifactKind,
+        success: Boolean,
+        durationMillis: Long,
+        failureReason: String? = null,
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "export_rendered",
+            properties = buildMap {
+                put("kind", kind.value)
+                put("success", success)
+                put("duration_ms", durationMillis)
+                failureReason?.let { put("failure_reason", it) }
+            }
+        )
+    }
+
+    /** Written to the device gallery. A real outcome even when nothing is then shared. */
+    fun trackExportSavedToGallery(kind: ExportArtifactKind, success: Boolean) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "export_saved_to_gallery",
+            properties = mapOf("kind" to kind.value, "success" to success)
+        )
+    }
+
+    /** The OS share sheet was presented. Distinct from [trackExportShared] — see that comment. */
+    fun trackExportShareSheetOpened(kind: ExportArtifactKind) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "export_share_sheet_opened",
+            properties = mapOf("kind" to kind.value)
+        )
+    }
+
+    /**
+     * The user committed to a destination in the share sheet.
+     *
+     * These are two events, not one, because of TASK-289: `group_invite_sent` fired on sheet
+     * *presentation*, so its 2-of-42 baseline counted openings and could not be compared with
+     * anything measured afterwards. Opening a sheet and picking a destination are different
+     * things, and conflating them makes a funnel that reads as real and is not.
+     *
+     * **The chosen app is deliberately not recorded**, though Android hands it to us and
+     * `TASK_305_…md` phase 1 asks for it "where the OS exposes it". `GroupInviteChosenReceiver`
+     * already settled this for the invite loop — *"which app someone invites their friend through
+     * is not ours to collect"* — and the same reasoning applies harder here: a share target is a
+     * record of what else is on someone's phone and how they use it, which is exactly the kind of
+     * ambient collection this app's whole positioning refuses. Knowing Instagram versus WhatsApp
+     * would genuinely inform the artifact design; it is not worth being the app that logs it.
+     * Overruling this is shvm's call, and it should be a written one.
+     */
+    fun trackExportShared(kind: ExportArtifactKind) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "export_shared",
+            properties = mapOf("kind" to kind.value)
+        )
+    }
+
     fun trackRideStartAborted(method: RideStartAbortMethod) {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture(
@@ -722,4 +820,36 @@ internal data class TelemetryConsentState(
     val environmentAllowsDelivery: Boolean,
 ) {
     val isEnabled: Boolean get() = localConsent && remoteAllowed && environmentAllowsDelivery
+}
+
+
+/** Which preview the export came from. */
+enum class ExportSurface(val value: String) {
+    RIDE_DETAIL("ride_detail"),
+    MULTI_RIDE_COMPARE("multi_ride_compare"),
+}
+
+/** What was produced. The two artifacts have different costs and very different share rates. */
+enum class ExportArtifactKind(val value: String) {
+    IMAGE("image"),
+    VIDEO("video"),
+}
+
+/**
+ * Which control was adjusted — the control's identity, never its value.
+ *
+ * Recording the value would make the event a description of the user's export, which the
+ * guardrail forbids; recording the identity answers the question that matters, which is whether
+ * the controls are worth their place in the rail.
+ */
+enum class ExportStyleControl(val value: String) {
+    RATIO("ratio"),
+    MAP_TYPE("map_type"),
+    MAP_LABELS("map_labels"),
+    PRIVACY_TRIM("privacy_trim"),
+    MARKERS("markers"),
+    STATS_OVERLAY("stats_overlay"),
+    THEME("theme"),
+    FIGURES("figures"),
+    LEGEND("legend"),
 }

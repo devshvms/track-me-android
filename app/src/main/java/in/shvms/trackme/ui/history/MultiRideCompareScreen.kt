@@ -451,6 +451,7 @@ private fun UnifiedAggregateRidePreviewDialog(
     }
 
     ExportPreviewDialog(
+        surface = `in`.shvms.trackme.analytics.ExportSurface.MULTI_RIDE_COMPARE,
         title = strings.aggregatePreviewTitle,
         initialRatio = Pair(1, 1),
         initialMarkerStyle = ExportMarkerStyle.StartFinish,

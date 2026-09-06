@@ -1034,6 +1034,7 @@ fun RideDetailScreen(
                     exportFailure = ExportPreviewFailure.Render
                     return@captureOffscreenMap
                 }
+                val renderStartedAt = android.os.SystemClock.elapsedRealtime()
                 coroutineScope.launch(Dispatchers.IO) {
                     runCatching {
                         // Built once, here, and handed to both the panel geometry and the exporter.
@@ -1081,16 +1082,20 @@ fun RideDetailScreen(
                             )
                         )
                     }.onSuccess { imageFile ->
+                        `in`.shvms.trackme.analytics.AnalyticsManager.trackExportRendered(
+                            kind = `in`.shvms.trackme.analytics.ExportArtifactKind.IMAGE,
+                            success = true,
+                            durationMillis = android.os.SystemClock.elapsedRealtime() - renderStartedAt,
+                        )
                         val title = ride.ride.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride"
                         if (share) {
                             withContext(Dispatchers.Main) {
-                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", imageFile)
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "image/png"
-                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(Intent.createChooser(intent, strings.shareImage))
+                                shareExportedArtifact(
+                                    context = context,
+                                    file = imageFile,
+                                    kind = `in`.shvms.trackme.analytics.ExportArtifactKind.IMAGE,
+                                    chooserTitle = strings.shareImage,
+                                )
                                 exportInProgress = false
                                 showExportDialog = false
                             }
@@ -1108,6 +1113,10 @@ fun RideDetailScreen(
                             }
                         } else {
                             val saved = saveImageToGallery(context, imageFile, title)
+                            `in`.shvms.trackme.analytics.AnalyticsManager.trackExportSavedToGallery(
+                                kind = `in`.shvms.trackme.analytics.ExportArtifactKind.IMAGE,
+                                success = saved,
+                            )
                             withContext(Dispatchers.Main) {
                                 exportInProgress = false
                                 if (saved) {
@@ -1118,7 +1127,13 @@ fun RideDetailScreen(
                                 }
                             }
                         }
-                    }.onFailure {
+                    }.onFailure { error ->
+                        `in`.shvms.trackme.analytics.AnalyticsManager.trackExportRendered(
+                            kind = `in`.shvms.trackme.analytics.ExportArtifactKind.IMAGE,
+                            success = false,
+                            durationMillis = android.os.SystemClock.elapsedRealtime() - renderStartedAt,
+                            failureReason = error::class.simpleName,
+                        )
                         withContext(Dispatchers.Main) {
                             exportInProgress = false
                             exportFailure = ExportPreviewFailure.Render

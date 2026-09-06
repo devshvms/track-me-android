@@ -1,7 +1,6 @@
 package `in`.shvms.trackme
 
 import `in`.shvms.trackme.domain.UnitFormatter
-import `in`.shvms.trackme.domain.replay.formatReplayDistance
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -72,16 +71,10 @@ class UnitFormatterTest {
         }
     }
 
-    // The regression this task exists to prevent: the number on the ride detail screen and the
-    // number burned into the MP4 shared from that screen must be the same string.
-    @Test fun rideDistanceMatchesTheBurnedInReplayOverlay() {
-        listOf(0.0, 950.0, 12345.0, 12350.0, 42195.0).forEach { meters ->
-            listOf(false, true).forEach { imperial ->
-                assertEquals(
-                    formatReplayDistance(meters, imperial),
-                    UnitFormatter.rideDistance(meters, imperial)
-                )
-            }
-        }
-    }
+    // The regression this test existed to prevent — the number on the ride detail screen and the
+    // number burned into the MP4 disagreeing — is now structural rather than asserted. TASK-305
+    // deleted the replay's own formatters; the video receives the same already-formatted figures
+    // the still export does, from one `buildOverlayContent` call. Two formatters producing equal
+    // output was always the weaker guarantee: it held only for the values someone thought to list
+    // here. `ReplayExportOverlayWiringTest` asserts the single-source wiring instead.
 }

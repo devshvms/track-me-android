@@ -58,6 +58,8 @@ import com.google.maps.android.compose.MapType
 import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.theme.LocalTrackMeMotion
 import `in`.shvms.trackme.theme.LocalTrackMeSpacing
+import androidx.compose.runtime.LaunchedEffect
+import `in`.shvms.trackme.analytics.ExportStyleControl
 import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
@@ -217,6 +219,9 @@ fun ExportPreviewDialog(
     initialShowLegend: Boolean = false,
     initialShowSequence: Boolean = false,
     showAggregateControls: Boolean = false,
+    /** TASK-305: which preview this is, for the export funnel. */
+    surface: `in`.shvms.trackme.analytics.ExportSurface =
+        `in`.shvms.trackme.analytics.ExportSurface.RIDE_DETAIL,
     canExport: Boolean = true,
     isExporting: Boolean = false,
     errorMessage: String? = null,
@@ -242,6 +247,20 @@ fun ExportPreviewDialog(
     var showLegend by remember(initialShowLegend) { mutableStateOf(initialShowLegend) }
     var showSequence by remember(initialShowSequence) { mutableStateOf(initialShowSequence) }
     var category by remember { mutableStateOf(ExportControlCategory.Ratio) }
+
+    // TASK-305: the top of the export funnel. Fired once per presentation, not per recomposition —
+    // a rail tap or a preview redraw is not a new export attempt, and counting it as one would make
+    // every downstream ratio look worse than it is.
+    LaunchedEffect(Unit) {
+        `in`.shvms.trackme.analytics.AnalyticsManager.trackExportPreviewOpened(surface)
+    }
+
+    // One helper rather than a call in each lambda below: sixteen separate analytics lines is
+    // sixteen chances to record the value alongside the control, and the value is the user's
+    // export, which the task's own guardrail says we do not collect.
+    fun styleChanged(control: `in`.shvms.trackme.analytics.ExportStyleControl) {
+        `in`.shvms.trackme.analytics.AnalyticsManager.trackExportStyleChanged(control)
+    }
 
     val settings = ExportPreviewSettings(
         ratio = ratio,
@@ -332,18 +351,18 @@ fun ExportPreviewDialog(
                     settings = settings,
                     showAggregateControls = showAggregateControls,
                     strings = strings,
-                    onRatio = { ratio = it },
-                    onMapType = { mapType = it },
-                    onPrivacyTrim = { privacyTrim = it },
-                    onMapLabels = { mapLabels = it },
-                    onMarkerStyle = { markerStyle = it },
-                    onStatsOverlay = { statsOverlay = it },
-                    onDarkTheme = { darkTheme = it },
-                    onShowDistance = { showDistance = it },
-                    onShowDuration = { showDuration = it },
-                    onShowDate = { showDate = it },
-                    onShowLegend = { showLegend = it },
-                    onShowSequence = { showSequence = it },
+                    onRatio = { ratio = it; styleChanged(ExportStyleControl.RATIO) },
+                    onMapType = { mapType = it; styleChanged(ExportStyleControl.MAP_TYPE) },
+                    onPrivacyTrim = { privacyTrim = it; styleChanged(ExportStyleControl.PRIVACY_TRIM) },
+                    onMapLabels = { mapLabels = it; styleChanged(ExportStyleControl.MAP_LABELS) },
+                    onMarkerStyle = { markerStyle = it; styleChanged(ExportStyleControl.MARKERS) },
+                    onStatsOverlay = { statsOverlay = it; styleChanged(ExportStyleControl.STATS_OVERLAY) },
+                    onDarkTheme = { darkTheme = it; styleChanged(ExportStyleControl.THEME) },
+                    onShowDistance = { showDistance = it; styleChanged(ExportStyleControl.FIGURES) },
+                    onShowDuration = { showDuration = it; styleChanged(ExportStyleControl.FIGURES) },
+                    onShowDate = { showDate = it; styleChanged(ExportStyleControl.FIGURES) },
+                    onShowLegend = { showLegend = it; styleChanged(ExportStyleControl.LEGEND) },
+                    onShowSequence = { showSequence = it; styleChanged(ExportStyleControl.LEGEND) },
                 )
 
                 CategoryRail(

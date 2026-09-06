@@ -160,9 +160,31 @@ fun ReplayExportAction(
     val app = context.applicationContext as `in`.shvms.trackme.TrackMeApp
     val unitSystem by app.preferencesManager.unitSystem.collectAsState()
     val persona = RideUtils.personaFromStoredName(rideWithPoints.ride.persona)
+    val imperial = unitSystem == "imperial"
+    // TASK-305: built by the same function the still export uses, so the two artifacts made from
+    // this one preview cannot disagree about what they say. The video used to derive its own
+    // distance and duration with its own formatters and ignore the panel settings entirely.
+    val exportDuration = displayExportDuration(rideWithPoints.ride)
+    val overlayContent = buildOverlayContent(
+        date = remember(rideWithPoints.ride.startTime) {
+            java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
+                .format(java.util.Date(rideWithPoints.ride.startTime))
+        },
+        duration = exportDuration ?: strings.unknown,
+        distance = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(
+            rideWithPoints.ride.postRideCalculation?.distance ?: 0.0,
+            imperial
+        ),
+        showDate = settings.showDate,
+        showDuration = settings.showDuration && exportDuration != null,
+        showDistance = settings.showDistance,
+    )
     val overlay = ReplayOverlay(
         personaLabel = strings.personaLabel(persona),
-        imperialUnits = unitSystem == "imperial"
+        imperialUnits = imperial,
+        statsStyle = settings.statsOverlay,
+        figures = overlayContent.figures,
+        darkTheme = settings.darkTheme
     )
 
     val state = replayExportButtonState(
@@ -190,9 +212,8 @@ fun ReplayExportAction(
             points = routePoints,
             size = replaySnapshotSize(frameSize),
             mapType = settings.mapType,
-            // The replay video never received the label or theme choices, so "No text at all"
-            // and dark theme applied to the still export and were silently ignored by the video
-            // made from the same preview, with the same settings, one button away.
+            // Basemap theme and label rules, composed into one MapStyleOptions. The burned-in
+            // chrome is carried separately, on `overlay` — see ReplayOverlay (TASK-305).
             mapStyle = settings.mapStyle(context)
         ) { captured ->
             startExport(
@@ -317,6 +338,7 @@ private fun startExport(
     onFailure: () -> Unit
 ) {
     val lastPublishedProgress = AtomicReference(-1f)
+    val renderStartedAt = android.os.SystemClock.elapsedRealtime()
     val deepLinkId = rideWithPoints.ride.firestoreId?.takeLast(12) ?: rideWithPoints.ride.id.toString()
     val job = scope.launch {
         try {
@@ -347,7 +369,28 @@ private fun startExport(
                     }
                 )
             }
-            result.onSuccess { file -> shareReplay(context, file) }.onFailure { onFailure() }
+            // TASK-305: one event for both outcomes, carrying the elapsed time. A render that
+            // fails after forty seconds and one that fails immediately are different bugs, and
+            // only a single event with both fields can tell them apart.
+            val elapsed = android.os.SystemClock.elapsedRealtime() - renderStartedAt
+            result
+                .onSuccess { file ->
+                    `in`.shvms.trackme.analytics.AnalyticsManager.trackExportRendered(
+                        kind = `in`.shvms.trackme.analytics.ExportArtifactKind.VIDEO,
+                        success = true,
+                        durationMillis = elapsed,
+                    )
+                    shareReplay(context, file)
+                }
+                .onFailure { error ->
+                    `in`.shvms.trackme.analytics.AnalyticsManager.trackExportRendered(
+                        kind = `in`.shvms.trackme.analytics.ExportArtifactKind.VIDEO,
+                        success = false,
+                        durationMillis = elapsed,
+                        failureReason = error::class.simpleName,
+                    )
+                    onFailure()
+                }
         } catch (_: CancellationException) {
             throw CancellationException()
         }
@@ -505,11 +548,10 @@ private fun evenPixels(value: Float): Int {
 }
 
 private fun shareReplay(context: Context, file: File) {
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "video/mp4"
-        putExtra(Intent.EXTRA_STREAM, uri)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    context.startActivity(Intent.createChooser(intent, "TrackMe"))
+    shareExportedArtifact(
+        context = context,
+        file = file,
+        kind = `in`.shvms.trackme.analytics.ExportArtifactKind.VIDEO,
+        chooserTitle = "TrackMe",
+    )
 }
