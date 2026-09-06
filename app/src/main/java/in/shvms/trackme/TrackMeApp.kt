@@ -263,6 +263,10 @@ class TrackMeApp : Application() {
         firestoreSyncManager = FirestoreSyncManager(database.rideDao(), authManager, errorLogger)
         appUpdateChecker = `in`.shvms.trackme.ui.update.AppUpdateChecker(this)
         `in`.shvms.trackme.data.remote.SyncWorker.schedulePeriodicSync(this)
+        // §6.1.2 scenario 8: the recap has to reach people who do not open the app, so it runs on a
+        // schedule rather than on foreground. Inexact and daily — nothing here needs an exact
+        // alarm, so SCHEDULE_EXACT_ALARM stays undeclared.
+        `in`.shvms.trackme.service.notifications.ProactiveNotificationWorker.schedule(this)
 
         applicationScope.launch(Dispatchers.IO) {
             seedOnboardingSampleRideIfNeeded()

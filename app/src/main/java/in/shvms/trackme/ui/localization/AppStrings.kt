@@ -350,6 +350,11 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val rideSavedBodyPlain: String = s("rideSavedBodyPlain", "The app closed while you were recording, so the ride was finished and kept.")
     val ridesSavedTitle: String = s("ridesSavedTitle", "%1\$d rides were saved")
     val ridesSavedBody: String = s("ridesSavedBody", "The app closed while they were recording. They were finished and kept.")
+
+    // §6.1.2 scenario 8. Gain-framed and factual: a count and a distance the user actually covered.
+    // %1$d rides, %2$s distance.
+    val weeklyRecapNotificationTitle: String = s("weeklyRecapNotificationTitle", "Last week")
+    val weeklyRecapNotificationBody: String = s("weeklyRecapNotificationBody", "%1\$d activities, %2\$s.")
     val groupAlertSetBody: String = s("groupAlertSetBody", "%1\$s set their status to %2\$s")
     val groupAlertClearedBody: String = s("groupAlertClearedBody", "%1\$s cleared %2\$s")
     val groupAlertViewGroup: String = s("groupAlertViewGroup", "View group")
@@ -997,6 +1002,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "rideSavedBodyPlain" to "La app se cerró mientras grababas, así que la ruta se finalizó y se conservó.",
             "ridesSavedTitle" to "Se guardaron %1\$d rutas",
             "ridesSavedBody" to "La app se cerró mientras se grababan. Se finalizaron y se conservaron.",
+            "weeklyRecapNotificationTitle" to "La semana pasada",
+            "weeklyRecapNotificationBody" to "%1\$d actividades, %2\$s.",
             "groupAlertSetBody" to "%1\$s ha puesto su estado en %2\$s",
             "groupAlertClearedBody" to "%1\$s ha quitado %2\$s",
             "groupAlertViewGroup" to "Ver grupo",
@@ -1639,6 +1646,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "rideSavedBodyPlain" to "L'app s'est fermée pendant l'enregistrement ; la sortie a été terminée et conservée.",
             "ridesSavedTitle" to "%1\$d sorties ont été enregistrées",
             "ridesSavedBody" to "L'app s'est fermée pendant l'enregistrement. Elles ont été terminées et conservées.",
+            "weeklyRecapNotificationTitle" to "La semaine dernière",
+            "weeklyRecapNotificationBody" to "%1\$d activités, %2\$s.",
             "groupAlertSetBody" to "%1\$s a défini son statut sur %2\$s",
             "groupAlertClearedBody" to "%1\$s a effacé %2\$s",
             "groupAlertViewGroup" to "Voir le groupe",
@@ -2281,6 +2290,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "rideSavedBodyPlain" to "Die App wurde während der Aufzeichnung geschlossen, die Fahrt wurde beendet und behalten.",
             "ridesSavedTitle" to "%1\$d Fahrten wurden gespeichert",
             "ridesSavedBody" to "Die App wurde während der Aufzeichnung geschlossen. Sie wurden beendet und behalten.",
+            "weeklyRecapNotificationTitle" to "Letzte Woche",
+            "weeklyRecapNotificationBody" to "%1\$d Aktivitäten, %2\$s.",
             "groupAlertSetBody" to "%1\$s hat den Status auf %2\$s gesetzt",
             "groupAlertClearedBody" to "%1\$s hat %2\$s entfernt",
             "groupAlertViewGroup" to "Gruppe ansehen",
@@ -2923,6 +2934,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "rideSavedBodyPlain" to "रिकॉर्डिंग के दौरान ऐप बंद हो गया, इसलिए राइड पूरी करके सहेज ली गई।",
             "ridesSavedTitle" to "%1\$d राइड सहेजी गईं",
             "ridesSavedBody" to "रिकॉर्डिंग के दौरान ऐप बंद हो गया। उन्हें पूरा करके सहेज लिया गया।",
+            "weeklyRecapNotificationTitle" to "पिछला हफ़्ता",
+            "weeklyRecapNotificationBody" to "%1\$d गतिविधियाँ, %2\$s।",
             "groupAlertSetBody" to "%1\$s ने अपनी स्थिति %2\$s रखी",
             "groupAlertClearedBody" to "%1\$s ने %2\$s हटाया",
             "groupAlertViewGroup" to "समूह देखें",
@@ -3565,6 +3578,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "rideSavedBodyPlain" to "記録中にアプリが終了したため、ライドを終了して保存しました。",
             "ridesSavedTitle" to "%1\$d 件のライドを保存しました",
             "ridesSavedBody" to "記録中にアプリが終了しました。すべて終了して保存しています。",
+            "weeklyRecapNotificationTitle" to "先週",
+            "weeklyRecapNotificationBody" to "%1\$d 件のアクティビティ、%2\$s。",
             "groupAlertSetBody" to "%1\$s さんが状態を「%2\$s」にしました",
             "groupAlertClearedBody" to "%1\$s さんが「%2\$s」を解除しました",
             "groupAlertViewGroup" to "グループを見る",
@@ -4207,6 +4222,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "rideSavedBodyPlain" to "记录期间应用关闭，已结束并保留这次记录。",
             "ridesSavedTitle" to "已保存 %1\$d 次记录",
             "ridesSavedBody" to "记录期间应用关闭，已全部结束并保留。",
+            "weeklyRecapNotificationTitle" to "上周",
+            "weeklyRecapNotificationBody" to "%1\$d 次活动，%2\$s。",
             "groupAlertSetBody" to "%1\$s 将状态设为%2\$s",
             "groupAlertClearedBody" to "%1\$s 清除了%2\$s",
             "groupAlertViewGroup" to "查看群组",
