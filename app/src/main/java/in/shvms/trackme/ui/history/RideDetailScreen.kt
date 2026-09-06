@@ -71,6 +71,7 @@ import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MapStyleOptions
 import `in`.shvms.trackme.domain.export.ExportOptions
+import `in`.shvms.trackme.domain.export.artifactDeepLink
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.material3.Switch
@@ -966,6 +967,7 @@ fun RideDetailScreen(
             val (exportWidth, exportHeight) = settings.exportSize
             val markerSize = ExportRenderScale.markerSize(exportWidth)
             val markerStyle = settings.markerStyle
+            val artifactLink = artifactDeepLink(ride.ride)
             // TASK-257: `handleExport` has its own `ride`, so the persona is resolved here rather
             // than captured from the composable scope above.
             val exportPersona = runCatching { RidePersona.valueOf(ride.ride.persona) }
@@ -1078,7 +1080,8 @@ fun RideDetailScreen(
                                 showDistance = settings.showDistance,
                                 showDuration = settings.showDuration,
                                 showDate = settings.showDate,
-                                routePoints = routePoints
+                                routePoints = routePoints,
+                                deepLink = artifactLink,
                             )
                         )
                     }.onSuccess { imageFile ->
@@ -1311,27 +1314,42 @@ fun RideDetailScreen(
                     // The exporter stamps this lockup on every file; the preview never showed it,
                     // so the sharer only met it after exporting (SCOPE_1.8.4 §8.1). Mirrors
                     // `drawTrackMeLockup`'s placement and dark plate.
-                    Row(
+                    val artifactLink = remember(rideWithPoints?.ride?.firestoreId, rideWithPoints?.ride?.id) {
+                        rideWithPoints?.ride?.let(::artifactDeepLink)
+                    }
+                    Column(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(with(density) { (previewWidthPx * AppConfig.LOCKUP_MARGIN_RATIO).toDp() })
                             .clip(RoundedCornerShape(4.dp))
                             .background(Color(0xDC12161C))
                             .padding(horizontal = 4.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        horizontalAlignment = Alignment.Start
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_trackme_logo),
-                            contentDescription = null,
-                            modifier = Modifier.size(with(density) { (previewWidthPx * AppConfig.LOCKUP_ICON_RATIO).toDp() })
-                        )
-                        Text(
-                            "TrackMe",
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_trackme_logo),
+                                contentDescription = null,
+                                modifier = Modifier.size(with(density) { (previewWidthPx * AppConfig.LOCKUP_ICON_RATIO).toDp() })
+                            )
+                            Text(
+                                "TrackMe",
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1
+                            )
+                        }
+                        artifactLink?.let { link ->
+                            Text(
+                                link,
+                                color = Color.LightGray,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                            )
+                        }
                     }
 
                     // Nothing selected means nothing drawn. A panel with an empty line in it is a
