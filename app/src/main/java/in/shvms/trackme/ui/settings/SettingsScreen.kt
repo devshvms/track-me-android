@@ -515,6 +515,29 @@ fun SettingsScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
 
+        // SCOPE_1.8.7 §6.1.7 — the way in to the bulletin.
+        //
+        // In Settings rather than as a fifth tab: the bar already carries four, and a permanent tab
+        // for a surface that is empty most weeks would advertise itself far more loudly than
+        // "subtle unread badge" allows. The badge on this tab is what makes it discoverable when
+        // there is something in it, and invisible when there is not.
+        SettingsGroup(title = strings.bulletinTitle) {
+            SettingsRow(
+                title = strings.bulletinTitle,
+                supportingText = strings.bulletinEmpty,
+                trailingContent = {
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                onClick = { navController?.navigate("bulletin") },
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // A navigating row rather than a card wrapping a full-width button. Same destination,
         // same one tap — but it reads as part of the list instead of interrupting it.
         SettingsGroup(title = strings.helpFeedbackTitle) {

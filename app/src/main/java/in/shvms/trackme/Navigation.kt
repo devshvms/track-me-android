@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import `in`.shvms.trackme.ui.home.HomeScreen
 import `in`.shvms.trackme.ui.history.HistoryScreen
 import `in`.shvms.trackme.ui.history.RideDetailScreen
@@ -134,6 +135,12 @@ fun MainNavigation() {
     // application and observed here, where the controller already lives. Same outcome, none of the
     // blast radius.
     val app = LocalContext.current.applicationContext as TrackMeApp
+    // §6.1.7: "a subtle unread badge". A dot on the tab that already leads there, not a count —
+    // a number turns a feed of things the app happened to notice into a queue the reader owes
+    // something to, which is the pressure the whole interruption budget exists to avoid.
+    val bulletinEntries by app.bulletinStore.entries.collectAsStateWithLifecycle()
+    val bulletinLastSeen by app.bulletinStore.lastSeenCreatedAt.collectAsStateWithLifecycle()
+    val showBulletinBadge = bulletinEntries.any { it.isUnread(bulletinLastSeen) }
     // TASK-224: the bottom navigation is never hidden, which is what 1.8.4 shipped.
     //
     // 1.8.5 gated it on `trackingState == IDLE`, so History, Community and Settings were
@@ -172,7 +179,7 @@ fun MainNavigation() {
                     NavigationBar {
                         items.forEachIndexed { index, item ->
                             NavigationBarItem(
-                                icon = { Icon(icons[index], contentDescription = item) },
+                                icon = { TabIcon(icons[index], item, showBulletinBadge && routes[index] == "settings") },
                                 label = { Text(item) },
                                 alwaysShowLabel = true,
                                 selected = selectedItem == index,
@@ -188,7 +195,7 @@ fun MainNavigation() {
                     NavigationRail {
                         items.forEachIndexed { index, item ->
                             NavigationRailItem(
-                                icon = { Icon(icons[index], contentDescription = item) },
+                                icon = { TabIcon(icons[index], item, showBulletinBadge && routes[index] == "settings") },
                                 label = { Text(item) },
                                 alwaysShowLabel = true,
                                 selected = selectedItem == index,
@@ -268,6 +275,12 @@ fun MainNavigation() {
                         )
                     }
                     composable("settings") { SettingsScreen(navController = navController) }
+                    // SCOPE_1.8.7 §6.1.7 — the bulletin. A route rather than a fifth tab: the bar
+                    // already carries four, and a permanent tab for a surface that is empty most
+                    // weeks would advertise itself far more loudly than "subtle unread badge".
+                    composable("bulletin") {
+                        `in`.shvms.trackme.ui.notifications.BulletinScreen()
+                    }
                     composable("account_management") {
                         `in`.shvms.trackme.ui.settings.AccountManagementScreen(navController = navController)
                     }
@@ -287,5 +300,28 @@ fun MainNavigation() {
                 }
             }
         }
+    }
+}
+
+
+/**
+ * A tab icon with §6.1.7's "subtle unread badge".
+ *
+ * A dot rather than a count, deliberately. A number turns a feed of things the app happened to
+ * notice into a queue the reader owes something to — which is precisely the pressure the whole
+ * interruption budget exists to avoid.
+ */
+@Composable
+private fun TabIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    showBadge: Boolean,
+) {
+    if (showBadge) {
+        androidx.compose.material3.BadgedBox(badge = { androidx.compose.material3.Badge() }) {
+            Icon(icon, contentDescription = contentDescription)
+        }
+    } else {
+        Icon(icon, contentDescription = contentDescription)
     }
 }
