@@ -146,6 +146,16 @@ interface RideDao {
     @Query("DELETE FROM gps_points WHERE rideId = :rideId")
     suspend fun deletePointsForRide(rideId: Long): Int
 
+    /**
+     * SCOPE_1.8.7 §6.1.5 #23: how many rides are waiting for the cloud.
+     *
+     * `pendingDelete = 0` because a ride on its way out is not a ride at risk — counting it would
+     * tell someone their backup is failing to save something they asked us to remove. `isSample = 0`
+     * for the same reason: the first-run fixture is local by design and never syncs.
+     */
+    @Query("SELECT COUNT(*) FROM rides WHERE isSynced = 0 AND pendingDelete = 0 AND isSample = 0")
+    suspend fun countUnsyncedRides(): Int
+
     @Query("DELETE FROM gps_points WHERE rideId IN (SELECT id FROM rides WHERE isSynced = 1)")
     suspend fun deleteSyncedPoints(): Int
 
