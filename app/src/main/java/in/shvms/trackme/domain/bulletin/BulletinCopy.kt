@@ -66,8 +66,23 @@ object BulletinCopy {
 
             BulletinKind.SYNC_PROBLEM -> {
                 val unsynced = entry.intFact(BulletinEntry.FACT_UNSYNCED_COUNT) ?: return null
-                val since = entry.fact(FORMATTED_SINCE) ?: return null
-                Row(strings.syncProblemTitle, strings.syncProblemBody(unsynced, since))
+                // A missing date is a real state, not a broken row: the last-success key does not
+                // exist until Track 2 has seen one succeed, so the FIRST failing episode after an
+                // upgrade or install has no date to quote. Requiring one made that episode render
+                // as nothing at all — the row was invisible and the notification was skipped, while
+                // the episode was still marked reported. The one case where the user most needs to
+                // hear about a broken backup was the one case that said nothing.
+                val since = entry.fact(FORMATTED_SINCE)
+                if (since == null) {
+                    Row(strings.syncProblemTitle, strings.syncProblemBodyNoDate(unsynced))
+                } else {
+                    Row(strings.syncProblemTitle, strings.syncProblemBody(unsynced, since))
+                }
+            }
+
+            BulletinKind.RETURN_NOTICE -> {
+                val days = entry.intFact(BulletinEntry.FACT_DAYS_AWAY) ?: return null
+                Row(strings.returnNoticeTitle, strings.returnNoticeBody(days))
             }
 
             BulletinKind.VERSION_NOTE -> {
@@ -107,7 +122,11 @@ object BulletinCopy {
         val milestoneBody: String
         val syncProblemTitle: String
         fun syncProblemBody(unsynced: Int, since: String): String
+        /** Used when there is no trustworthy last-success date — see the SYNC_PROBLEM branch. */
+        fun syncProblemBodyNoDate(unsynced: Int): String
         fun versionNoteTitle(version: String): String
         val versionNoteBody: String
+        val returnNoticeTitle: String
+        fun returnNoticeBody(days: Int): String
     }
 }

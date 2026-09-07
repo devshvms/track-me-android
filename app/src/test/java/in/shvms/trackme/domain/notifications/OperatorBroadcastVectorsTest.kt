@@ -51,7 +51,7 @@ class OperatorBroadcastVectorsTest {
             assertEquals(
                 description,
                 vector.getBoolean("expected_applies"),
-                parsed!!.appliesTo(vector.getInt("applies_to_version_code")),
+                parsed!!.appliesTo(vector.getString("applies_to_release")),
             )
         }
     }
@@ -101,14 +101,16 @@ class OperatorBroadcastVectorsTest {
             mapOf(
                 "id" to "b1", "tag" to "UPDATE", "title" to "t", "body" to "b",
                 "created_at_millis" to 1_757_000_000_000L,
-                "applies_to_versions_at_or_below" to 187,
+                "applies_to_releases_at_or_below" to "1.8.7",
             )
         )
         val fromPush = OperatorBroadcast.parse(
             mapOf(
                 "id" to "b1", "tag" to "UPDATE", "title" to "t", "body" to "b",
                 "created_at_millis" to "1757000000000",
-                "applies_to_versions_at_or_below" to "187",
+                // The release ceiling is a string on both routes now, which is one fewer type the
+                // two paths can disagree about.
+                "applies_to_releases_at_or_below" to "1.8.7",
             )
         )
         assertEquals(fromFirestore, fromPush)
@@ -125,14 +127,44 @@ class OperatorBroadcastVectorsTest {
     }
 
     @Test
-    fun `a version ceiling is refused on every tag except update`() {
+    fun `releases compare numerically, not as text`() {
+        // "1.9.9" sorts above "1.10.0" as a string, which would silently exclude every device that
+        // most needs an update notice — and the failure looks like the broadcast reaching nobody.
+        val cases = vectors.getJSONArray("release_comparison")
+        for (i in 0 until cases.length()) {
+            val vector = cases.getJSONObject(i)
+            assertEquals(
+                "${vector.getString("left")} vs ${vector.getString("right")}",
+                vector.getInt("expected"),
+                ReleaseVersion.compare(vector.getString("left"), vector.getString("right")),
+            )
+        }
+    }
+
+    @Test
+    fun `the retired integer ceiling is refused, not quietly ignored`() {
+        // v1's key meant a different build on each platform — versionCode 29 here, CFBundleVersion
+        // 7 on iOS. Accepting it alongside the new one would let a stale sender target nobody while
+        // every test still passed.
+        assertNull(
+            OperatorBroadcast.parse(
+                mapOf(
+                    "id" to "x", "tag" to "UPDATE", "title" to "t", "body" to "b",
+                    "created_at_millis" to 1L, "applies_to_versions_at_or_below" to 187,
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `a release ceiling is refused on every tag except update`() {
         // Version filtering exists so an update notice is TRUE for the device that receives it. On
         // any other tag it is a segmentation lever with no operational meaning.
         BroadcastTag.entries.forEach { tag ->
             val parsed = OperatorBroadcast.parse(
                 mapOf(
                     "id" to "b", "tag" to tag.name, "title" to "t", "body" to "b",
-                    "created_at_millis" to 1L, "applies_to_versions_at_or_below" to 187,
+                    "created_at_millis" to 1L, "applies_to_releases_at_or_below" to "1.8.7",
                 )
             )
             if (tag == BroadcastTag.UPDATE) assertNotNull(tag.name, parsed)
@@ -145,8 +177,8 @@ class OperatorBroadcastVectorsTest {
         val broadcast = OperatorBroadcast.parse(
             mapOf("id" to "b", "tag" to "MAINTENANCE", "title" to "t", "body" to "b", "created_at_millis" to 1L)
         )!!
-        assertTrue(broadcast.appliesTo(1))
-        assertTrue(broadcast.appliesTo(Int.MAX_VALUE))
+        assertTrue(broadcast.appliesTo("1.0.0"))
+        assertTrue(broadcast.appliesTo("99.99.99"))
         assertFalse(broadcast.isUnread(1L))
     }
 }

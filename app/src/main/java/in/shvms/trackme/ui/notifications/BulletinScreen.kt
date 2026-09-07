@@ -169,7 +169,12 @@ private class AppStringsBulletinCopy(private val s: AppStrings) : BulletinCopy.S
     override val syncProblemTitle get() = s.bulletinSyncProblem
     override fun syncProblemBody(unsynced: Int, since: String) =
         String.format(Locale.getDefault(), s.bulletinSyncProblemBody, unsynced, since)
+    override fun syncProblemBodyNoDate(unsynced: Int) =
+        String.format(Locale.getDefault(), s.bulletinSyncProblemBodyNoDate, unsynced)
     override fun versionNoteTitle(version: String) =
         String.format(Locale.getDefault(), s.bulletinVersionNote, version)
     override val versionNoteBody get() = s.bulletinVersionNoteBody
+    override val returnNoticeTitle get() = s.returnNoticeTitle
+    override fun returnNoticeBody(days: Int) =
+        String.format(Locale.getDefault(), s.returnNoticeBody, days)
 }

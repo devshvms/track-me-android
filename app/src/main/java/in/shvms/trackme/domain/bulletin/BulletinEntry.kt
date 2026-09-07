@@ -70,6 +70,7 @@ data class BulletinEntry(
         const val FACT_MILESTONE_COUNT = "milestone_count"
         const val FACT_UNSYNCED_COUNT = "unsynced_count"
         const val FACT_SINCE_MILLIS = "since_millis"
+        const val FACT_DAYS_AWAY = "days_away"
     }
 }
 
@@ -99,7 +100,16 @@ enum class BulletinKind {
     MILESTONE,
 
     /** §6.1.5 #26 — a new version. Already an in-app prompt; never escalated to the shade. */
-    VERSION_NOTE;
+    VERSION_NOTE,
+
+    /**
+     * §6.1.3 #13 — the return-after-absence notice.
+     *
+     * Present because §6.1.7's contract is "a copy of every notification actually sent". A Class C
+     * notice that interrupted someone and then cannot be found in the feed is the exact failure the
+     * bulletin exists to prevent — they saw it, swiped it, and it is gone.
+     */
+    RETURN_NOTICE;
 
     companion object {
         /** Exact match only, for the same reason `BroadcastTag.parse` is strict. */

@@ -79,6 +79,22 @@ class SyncFailureNoticeTest {
     }
 
     @Test
+    fun `the first episode after an upgrade is not consumed in silence`() {
+        // Codex review finding 3. The last-success key does not exist until Track 2 has seen a sync
+        // succeed, so the FIRST failing episode after an install or upgrade has no date to quote.
+        // The old code marked the episode reported and then bailed out because it had no date,
+        // producing an invisible bulletin row and no notification — for exactly the population that
+        // has never had a working backup, and with no second chance until a success reset the flag.
+        //
+        // The decision itself never depended on the date, and this pins that: a missing timestamp
+        // must not change whether the user is told.
+        assertTrue(
+            "a failing backup with no prior success is still a failing backup",
+            SyncFailureNotice.shouldNotify(threshold, unsyncedRideCount = 5, alreadyNotifiedThisEpisode = false),
+        )
+    }
+
+    @Test
     fun `a broken backup is never suppressed by the proactive budget`() {
         // Class A. A backup that broke during a week when a recap went out is still broken, and
         // asserting the classification here stops a later "unify through the budget" refactor.

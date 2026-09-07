@@ -367,6 +367,9 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val bulletinMilestoneBody: String = s("bulletinMilestoneBody", "A milestone worth noting.")
     val bulletinSyncProblem: String = s("bulletinSyncProblem", "Cloud backup is not working")
     val bulletinSyncProblemBody: String = s("bulletinSyncProblemBody", "%1\$d activities have not reached your backup since %2\$s.")
+    // Used when there is no trustworthy last-success date. The first failing episode after an
+    // install or upgrade has none, and that is exactly the user who has never had a working backup.
+    val bulletinSyncProblemBodyNoDate: String = s("bulletinSyncProblemBodyNoDate", "%1\$d activities have not reached your cloud backup.")
     val bulletinVersionNote: String = s("bulletinVersionNote", "TrackMe %1\$s")
     val bulletinVersionNoteBody: String = s("bulletinVersionNoteBody", "A newer version is available.")
 
@@ -1036,6 +1039,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinMilestoneBody" to "Un hito que vale la pena señalar.",
             "bulletinSyncProblem" to "La copia en la nube no funciona",
             "bulletinSyncProblemBody" to "%1\$d actividades no han llegado a tu copia desde %2\$s.",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d actividades no han llegado a tu copia en la nube.",
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "Hay una versión más reciente disponible.",
             "sunsetSoon" to "Anochece en %1\$d min",
@@ -1694,6 +1698,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinMilestoneBody" to "Une étape qui mérite d'être notée.",
             "bulletinSyncProblem" to "La sauvegarde cloud ne fonctionne pas",
             "bulletinSyncProblemBody" to "%1\$d activités n'ont pas atteint votre sauvegarde depuis %2\$s.",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d activités n'ont pas atteint votre sauvegarde cloud.",
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "Une version plus récente est disponible.",
             "sunsetSoon" to "Coucher du soleil dans %1\$d min",
@@ -2352,6 +2357,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinMilestoneBody" to "Ein Meilenstein, der Erwähnung verdient.",
             "bulletinSyncProblem" to "Die Cloud-Sicherung funktioniert nicht",
             "bulletinSyncProblemBody" to "%1\$d Aktivitäten haben Ihre Sicherung seit %2\$s nicht erreicht.",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d Aktivitäten haben Ihre Cloud-Sicherung nicht erreicht.",
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "Eine neuere Version ist verfügbar.",
             "sunsetSoon" to "Sonnenuntergang in %1\$d Min",
@@ -3010,6 +3016,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinMilestoneBody" to "एक उल्लेखनीय पड़ाव।",
             "bulletinSyncProblem" to "क्लाउड बैकअप काम नहीं कर रहा",
             "bulletinSyncProblemBody" to "%2\$s से %1\$d गतिविधियाँ आपके बैकअप तक नहीं पहुँचीं।",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d गतिविधियाँ आपके क्लाउड बैकअप तक नहीं पहुँचीं।",
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "एक नया संस्करण उपलब्ध है।",
             "sunsetSoon" to "%1\$d मिनट में सूर्यास्त",
@@ -3668,6 +3675,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinMilestoneBody" to "記録に値する節目です。",
             "bulletinSyncProblem" to "クラウドバックアップが機能していません",
             "bulletinSyncProblemBody" to "%2\$s 以降、%1\$d 件のアクティビティがバックアップに届いていません。",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d 件のアクティビティがクラウドバックアップに届いていません。",
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "新しいバージョンが利用できます。",
             "sunsetSoon" to "あと %1\$d 分で日没",
@@ -4326,6 +4334,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinMilestoneBody" to "一个值得记录的里程碑。",
             "bulletinSyncProblem" to "云备份未在工作",
             "bulletinSyncProblemBody" to "自 %2\$s 起，%1\$d 次活动尚未同步到你的备份。",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d 次活动尚未同步到你的云备份。",
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "有新版本可用。",
             "sunsetSoon" to "%1\$d 分钟后日落",

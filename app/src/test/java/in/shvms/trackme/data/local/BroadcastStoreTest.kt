@@ -30,14 +30,14 @@ class BroadcastStoreTest {
         id: String,
         createdAt: Long,
         tag: BroadcastTag = BroadcastTag.URGENT,
-        ceiling: Int? = null,
+        ceiling: String? = null,
     ) = OperatorBroadcast(
         id = id,
         tag = tag,
         title = "Title $id",
         body = "Body $id",
         createdAtMillis = createdAt,
-        appliesToVersionsAtOrBelow = ceiling,
+        appliesToReleasesAtOrBelow = ceiling,
     )
 
     @Before
@@ -88,11 +88,11 @@ class BroadcastStoreTest {
     fun `unread respects both what was seen and what applies to this build`() {
         store.store(broadcast("seen", 100))
         store.store(broadcast("unseen", 300))
-        store.store(broadcast("not-for-this-build", 400, BroadcastTag.UPDATE, ceiling = 50))
+        store.store(broadcast("not-for-this-build", 400, BroadcastTag.UPDATE, ceiling = "1.0.0"))
 
         store.markSeen(100)
 
-        val unread = store.unread(versionCode = 187).map { it.id }
+        val unread = store.unread(release = "1.8.7").map { it.id }
         assertEquals(listOf("unseen"), unread)
     }
 

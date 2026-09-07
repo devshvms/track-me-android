@@ -27,20 +27,28 @@ data class OperatorBroadcast(
     val body: String,
     val createdAtMillis: Long,
     /**
-     * Only meaningful for [BroadcastTag.UPDATE]: the newest build the message is *true* for.
+     * Only meaningful for [BroadcastTag.UPDATE]: the newest **release** the message is true for, as
+     * a dotted marketing version ("1.8.7").
      *
      * This is the single filter in the design, and it is about correctness rather than targeting.
      * Telling somebody already running the fixed build to update is noise, and noise on this
-     * channel is how people learn to swipe away the one message that mattered. The client decides,
-     * not the server — so the filter has exactly one axis and cannot quietly become segmentation.
+     * channel is how people learn to swipe away the one message that mattered.
+     *
+     * A *release* rather than a version code: `versionCode` is 29 here and `CFBundleVersion` is 7
+     * on iOS for the same release, so the integer this replaced could not mean one thing across
+     * platforms — the same broadcast selected two different populations.
      */
-    val appliesToVersionsAtOrBelow: Int? = null,
+    val appliesToReleasesAtOrBelow: String? = null,
     val learnMoreUrl: String? = null,
 ) {
-    /** Whether this message is true for a device running [versionCode]. Inclusive at the boundary. */
-    fun appliesTo(versionCode: Int): Boolean {
-        val ceiling = appliesToVersionsAtOrBelow ?: return true
-        return versionCode <= ceiling
+    /**
+     * Whether this message is true for a device running [release]. Inclusive at the boundary.
+     *
+     * @param release the app's marketing version, e.g. `BuildConfig.VERSION_NAME`.
+     */
+    fun appliesTo(release: String): Boolean {
+        val ceiling = appliesToReleasesAtOrBelow ?: return true
+        return ReleaseVersion.compare(release, ceiling) <= 0
     }
 
     /**
@@ -77,8 +85,15 @@ data class OperatorBroadcast(
 
             val createdAt = raw.long("created_at_millis") ?: return null
 
-            val ceiling = raw.int("applies_to_versions_at_or_below")
-            // Version filtering has an operational meaning only for an update notice. Anywhere else
+            // v1's integer key is refused outright rather than accepted alongside the new one. It
+            // meant a different build on each platform, so a stale sender using it would silently
+            // target nobody — and a parser that quietly ignores a retired field never finds out.
+            if (raw["applies_to_versions_at_or_below"] != null) return null
+
+            val ceiling = raw.string("applies_to_releases_at_or_below")?.trim()?.takeIf { it.isNotEmpty() }
+            if (raw["applies_to_releases_at_or_below"] != null && ceiling == null) return null
+            if (ceiling != null && !ReleaseVersion.isValid(ceiling)) return null
+            // Release filtering has an operational meaning only for an update notice. Anywhere else
             // it is a segmentation lever with no honest use, so the shape forbids it rather than
             // relying on nobody reaching for it.
             if (ceiling != null && tag != BroadcastTag.UPDATE) return null
@@ -92,7 +107,7 @@ data class OperatorBroadcast(
                 title = title,
                 body = body,
                 createdAtMillis = createdAt,
-                appliesToVersionsAtOrBelow = ceiling,
+                appliesToReleasesAtOrBelow = ceiling,
                 learnMoreUrl = learnMore,
             )
         }
@@ -135,5 +150,36 @@ enum class BroadcastTag {
          * whole vocabulary defeats the point of having one.
          */
         fun parse(raw: String?): BroadcastTag? = entries.firstOrNull { it.name == raw }
+    }
+}
+
+
+/**
+ * Dotted release strings, compared the way a person means them.
+ *
+ * Component-wise and **numeric**, not lexicographic. String comparison puts `"1.9.9"` above
+ * `"1.10.0"`, which would silently exclude every device that most needs an update notice — and the
+ * failure looks like the broadcast simply reaching nobody, which is the hardest kind to notice.
+ *
+ * Missing components are zero, so `"1.8"` and `"1.8.0"` are the same release.
+ */
+object ReleaseVersion {
+
+    private val PATTERN = Regex("^\\d+(\\.\\d+)*$")
+
+    /** Dotted digits and nothing else. A ceiling the platforms might parse differently is worse than none. */
+    fun isValid(value: String): Boolean = PATTERN.matches(value)
+
+    /** -1, 0 or 1. Returns 0 for anything unparseable, so a malformed pair never excludes anyone. */
+    fun compare(left: String, right: String): Int {
+        if (!isValid(left) || !isValid(right)) return 0
+        val a = left.split(".").map { it.toIntOrNull() ?: 0 }
+        val b = right.split(".").map { it.toIntOrNull() ?: 0 }
+        for (i in 0 until maxOf(a.size, b.size)) {
+            val x = a.getOrElse(i) { 0 }
+            val y = b.getOrElse(i) { 0 }
+            if (x != y) return if (x < y) -1 else 1
+        }
+        return 0
     }
 }

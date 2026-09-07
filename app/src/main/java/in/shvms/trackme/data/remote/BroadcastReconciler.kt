@@ -35,7 +35,7 @@ object BroadcastReconciler {
      */
     suspend fun reconcile(
         store: BroadcastStore,
-        versionCode: Int,
+        release: String,
         errorLogger: ErrorLogger?,
         bulletin: BulletinStore? = null,
         firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -51,7 +51,7 @@ object BroadcastReconciler {
             // parser is what enforces the closed tag vocabulary and the length limits — and a
             // security rule protects the collection, not the shape of what is in it.
             val broadcast = OperatorBroadcast.parse(document.data.orEmpty()) ?: return@count false
-            if (!broadcast.appliesTo(versionCode)) return@count false
+            if (!broadcast.appliesTo(release)) return@count false
             // §6.1.7: into the feed whichever route it arrived by. A broadcast the push missed is
             // exactly the one the user has no other way to find.
             bulletin?.add(BulletinAdapters.from(broadcast))

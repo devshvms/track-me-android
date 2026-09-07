@@ -134,7 +134,7 @@ class MainActivity : ComponentActivity() {
                 // Only the newest unread one. A stack of banners is a wall, and an operator with
                 // three outstanding notices has a bigger problem than the UI can solve.
                 val broadcast = storedBroadcasts.firstOrNull {
-                  it.isUnread(lastSeenBroadcast) && it.appliesTo(app.appVersionCode())
+                  it.isUnread(lastSeenBroadcast) && it.appliesTo(`in`.shvms.trackme.BuildConfig.VERSION_NAME)
                 }
                 if (broadcast != null) {
                   `in`.shvms.trackme.ui.notifications.BroadcastBanner(

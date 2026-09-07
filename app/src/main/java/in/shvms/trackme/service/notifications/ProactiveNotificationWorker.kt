@@ -76,6 +76,14 @@ class ProactiveNotificationWorker(
         val now = System.currentTimeMillis()
         val recap = app.rideStatsStore.pendingWeeklyRecap()
 
+        // §6.1.7: the fact reaches the feed whether or not it earns an interruption. A recap the
+        // budget refuses used to appear nowhere at all — which made "the bulletin is what lets the
+        // cap be a trade rather than a loss" untrue for the one case it was written about. The
+        // notification is a separate decision below; this is unconditional.
+        recap?.takeIf { it.rideCount > 0 }?.let {
+            app.bulletinStore.add(`in`.shvms.trackme.data.local.BulletinAdapters.from(it))
+        }
+
         val eligible = buildSet {
             if (WeeklyRecapNotice.shouldNotify(
                     recap = recap,
@@ -154,9 +162,6 @@ class ProactiveNotificationWorker(
             // again if the user never acknowledges it in-app.
             ledger.recordProactiveSent(now)
             ledger.recordRecapNotified(ready.weekStartEpochDay)
-            // §6.1.7: the recap outlives its notification. Keyed by week, so the same recap read
-            // in-app later does not produce a second row.
-            app.bulletinStore.add(`in`.shvms.trackme.data.local.BulletinAdapters.from(ready))
         }
     }
 
@@ -204,6 +209,20 @@ class ProactiveNotificationWorker(
             // ledger closes the quarter for this one.
             ledger.recordProactiveSent(now)
             ledger.recordReturnNoticeSent(now)
+            // §6.1.7: "a copy of every notification actually sent". A Class C notice that
+            // interrupted someone and cannot then be found in the feed is the exact failure the
+            // bulletin exists to prevent.
+            app.bulletinStore.add(
+                `in`.shvms.trackme.domain.bulletin.BulletinEntry(
+                    // Keyed by the quarter it belongs to, so a retry cannot stack rows.
+                    id = "return-notice:$now",
+                    kind = `in`.shvms.trackme.domain.bulletin.BulletinKind.RETURN_NOTICE,
+                    createdAtMillis = now,
+                    facts = mapOf(
+                        `in`.shvms.trackme.domain.bulletin.BulletinEntry.FACT_DAYS_AWAY to days.toString()
+                    ),
+                )
+            )
         }
     }
 

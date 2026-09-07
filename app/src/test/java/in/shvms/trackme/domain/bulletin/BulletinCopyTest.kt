@@ -30,6 +30,9 @@ class BulletinCopyTest {
             "$unsynced activities have not reached your cloud backup since $since."
         override fun versionNoteTitle(version: String) = "TrackMe $version"
         override val versionNoteBody = "See what changed."
+        override fun syncProblemBodyNoDate(unsynced: Int) = "$unsynced not backed up."
+        override val returnNoticeTitle = "Your rides are still here"
+        override fun returnNoticeBody(days: Int) = "Last activity $days days ago." 
     }
 
     private fun entry(kind: BulletinKind, facts: Map<String, String>) =
@@ -111,6 +114,33 @@ class BulletinCopyTest {
     }
 
     @Test
+    fun `a sync problem with no date still renders`() {
+        // Codex review finding 3. The last-success key does not exist until a sync has succeeded,
+        // so the first failing episode after an install or upgrade has no date. Requiring one made
+        // that row invisible — for the user who has never had a working backup.
+        assertEquals(
+            BulletinCopy.Row("Backup is not working", "3 not backed up."),
+            BulletinCopy.render(
+                entry(BulletinKind.SYNC_PROBLEM, mapOf(BulletinEntry.FACT_UNSYNCED_COUNT to "3")),
+                FakeStrings,
+            ),
+        )
+    }
+
+    @Test
+    fun `a sent return notice is in the feed`() {
+        // §6.1.7: "a copy of every notification actually sent". A Class C notice that interrupted
+        // someone and cannot then be found is the exact failure the bulletin exists to prevent.
+        assertEquals(
+            BulletinCopy.Row("Your rides are still here", "Last activity 30 days ago."),
+            BulletinCopy.render(
+                entry(BulletinKind.RETURN_NOTICE, mapOf(BulletinEntry.FACT_DAYS_AWAY to "30")),
+                FakeStrings,
+            ),
+        )
+    }
+
+    @Test
     fun `every kind either renders or is dropped, and none of them crashes`() {
         // Exhaustive over the vocabulary. A kind added later without a branch here would be a
         // silent blank row, which is the failure mode a feed is least likely to have noticed.
@@ -126,9 +156,9 @@ class BulletinCopyTest {
         listOf(
             BulletinKind.LEVEL_REACHED,
             BulletinKind.MILESTONE,
-            BulletinKind.SYNC_PROBLEM,
             BulletinKind.VERSION_NOTE,
             BulletinKind.WEEKLY_RECAP,
+            BulletinKind.RETURN_NOTICE,
         ).forEach { kind ->
             assertNull(kind.name, BulletinCopy.render(entry(kind, emptyMap()), FakeStrings))
         }

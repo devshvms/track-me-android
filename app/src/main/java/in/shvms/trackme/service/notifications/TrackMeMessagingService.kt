@@ -41,7 +41,7 @@ class TrackMeMessagingService : FirebaseMessagingService() {
         // Not true for this build. An update notice telling someone already on the fixed version to
         // update is noise, and noise on this channel is how people learn to swipe away the one
         // message that mattered.
-        if (!broadcast.appliesTo(currentVersionCode())) return
+        if (!broadcast.appliesTo(`in`.shvms.trackme.BuildConfig.VERSION_NAME)) return
 
         val app = applicationContext as? TrackMeApp
         val store = app?.broadcastStore ?: BroadcastStore(applicationContext)

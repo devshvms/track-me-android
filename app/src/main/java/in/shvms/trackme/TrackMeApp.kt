@@ -206,7 +206,7 @@ class TrackMeApp : Application() {
         applicationScope.launch(Dispatchers.IO) {
             `in`.shvms.trackme.data.remote.BroadcastReconciler.reconcile(
                 store = broadcastStore,
-                versionCode = appVersionCode(),
+                release = `in`.shvms.trackme.BuildConfig.VERSION_NAME,
                 errorLogger = errorLogger,
                 bulletin = bulletinStore,
             )

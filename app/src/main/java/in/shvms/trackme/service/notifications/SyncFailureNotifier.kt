@@ -86,15 +86,26 @@ class SyncFailureNotifier(private val context: Context) {
             )
         )
 
+        // Marked reported only once something has actually been shown. Setting it before the
+        // permission and date checks below meant a device with no last-success timestamp consumed
+        // its whole first failing episode in silence — no row, no notification, and no second
+        // chance until a success reset the flag. That is precisely the population that has never
+        // had a working backup.
         prefs.edit().putBoolean(KEY_NOTIFIED, true).apply()
 
         if (!BroadcastSubscription.hasNotificationPermission(context)) return
-        if (sinceLabel == null) return
 
         NotificationChannels.ensure(context, strings)
-        val body = String.format(
-            Locale.getDefault(), strings.bulletinSyncProblemBody, unsyncedRideCount, sinceLabel
-        )
+        val body = if (sinceLabel != null) {
+            String.format(
+                Locale.getDefault(), strings.bulletinSyncProblemBody, unsyncedRideCount, sinceLabel
+            )
+        } else {
+            // No date to quote — say the part that is true and useful rather than nothing.
+            String.format(
+                Locale.getDefault(), strings.bulletinSyncProblemBodyNoDate, unsyncedRideCount
+            )
+        }
         val open = PendingIntent.getActivity(
             context,
             NOTIFICATION_ID,

@@ -68,8 +68,8 @@ class BroadcastStore(context: Context) {
     }
 
     /** Broadcasts that are both unread and true for this build. */
-    fun unread(versionCode: Int, lastSeen: Long? = _lastSeenCreatedAt.value): List<OperatorBroadcast> =
-        _broadcasts.value.filter { it.isUnread(lastSeen) && it.appliesTo(versionCode) }
+    fun unread(release: String, lastSeen: Long? = _lastSeenCreatedAt.value): List<OperatorBroadcast> =
+        _broadcasts.value.filter { it.isUnread(lastSeen) && it.appliesTo(release) }
 
     private fun readLastSeen(): Long? =
         if (prefs.contains(KEY_LAST_SEEN)) prefs.getLong(KEY_LAST_SEEN, 0L) else null
@@ -102,8 +102,8 @@ class BroadcastStore(context: Context) {
                     put("title", broadcast.title)
                     put("body", broadcast.body)
                     put("created_at_millis", broadcast.createdAtMillis)
-                    broadcast.appliesToVersionsAtOrBelow?.let {
-                        put("applies_to_versions_at_or_below", it)
+                    broadcast.appliesToReleasesAtOrBelow?.let {
+                        put("applies_to_releases_at_or_below", it)
                     }
                     broadcast.learnMoreUrl?.let { put("learn_more_url", it) }
                 }
