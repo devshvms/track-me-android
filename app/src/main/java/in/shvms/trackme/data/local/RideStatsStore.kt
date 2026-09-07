@@ -79,6 +79,21 @@ class RideStatsStore(context: Context) {
         zone: ZoneId = ZoneId.systemDefault()
     ): WeeklyRecap? = WeeklyRecapSelector.select(_stats.value, nowMillis, zone)
 
+    /**
+     * SCOPE_1.8.7 §6.1.3 #13 — whole days since the last recorded activity, or null when there has
+     * never been one.
+     *
+     * Null rather than a huge number for a user with no rides: someone who has installed the app
+     * and not yet ridden has not "been away", and a return notice would be the app welcoming them
+     * back from something they never left.
+     */
+    fun daysSinceLastActivity(nowMillis: Long = System.currentTimeMillis()): Int? {
+        val last = _stats.value.lastRideFinishedAtMillis
+        if (last <= 0L) return null
+        if (nowMillis <= last) return 0
+        return ((nowMillis - last) / 86_400_000L).toInt()
+    }
+
     /** B2: mark the recap for [weekStartEpochDay] presented, so it never shows again. */
     suspend fun acknowledgeWeeklyRecap(weekStartEpochDay: Long) = mutex.withLock {
         val s = _stats.value

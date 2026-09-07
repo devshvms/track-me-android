@@ -52,7 +52,7 @@ class ProactiveNotificationWorker(
     override suspend fun doWork(): Result {
         val app = applicationContext as? TrackMeApp ?: return Result.success()
         return try {
-            deliverWeeklyRecap(app)
+            deliverProactive(app)
             Result.success()
         } catch (e: Exception) {
             // A failed proactive notification is not worth a retry storm. The next daily run picks
@@ -62,21 +62,57 @@ class ProactiveNotificationWorker(
         }
     }
 
-    private fun deliverWeeklyRecap(app: TrackMeApp) {
+    /**
+     * §6.0: when several Class C sources are eligible, exactly one is sent and the losers are
+     * **not** consumed — they stay eligible for their next window. `NotificationBudget.choose`
+     * decides by declared rank rather than by whichever check happens to run first, which is the
+     * only reason two sources can share one weekly allowance without one of them silently winning
+     * every time.
+     */
+    private fun deliverProactive(app: TrackMeApp) {
         if (!BroadcastSubscription.hasNotificationPermission(applicationContext)) return
 
         val ledger = ProactiveLedger(applicationContext)
-        val recap = app.rideStatsStore.pendingWeeklyRecap()
         val now = System.currentTimeMillis()
+        val recap = app.rideStatsStore.pendingWeeklyRecap()
 
-        if (!WeeklyRecapNotice.shouldNotify(
-                recap = recap,
-                nowMillis = now,
-                lastProactiveSentAtMillis = ledger.lastProactiveSentAtMillis,
-                alreadyNotifiedWeekStart = ledger.lastRecapWeekStartEpochDay,
-            )
-        ) return
-        val ready = recap ?: return
+        val eligible = buildSet {
+            if (WeeklyRecapNotice.shouldNotify(
+                    recap = recap,
+                    nowMillis = now,
+                    lastProactiveSentAtMillis = ledger.lastProactiveSentAtMillis,
+                    alreadyNotifiedWeekStart = ledger.lastRecapWeekStartEpochDay,
+                )
+            ) add(NotificationBudget.ProactiveKind.WEEKLY_RECAP)
+
+            val daysAway = app.rideStatsStore.daysSinceLastActivity()
+            if (daysAway != null &&
+                NotificationBudget.allows(
+                    NotificationBudget.Klass.PROACTIVE, now, ledger.lastProactiveSentAtMillis
+                ) &&
+                NotificationBudget.allowsReturnNotice(
+                    nowMillis = now,
+                    lastReturnNoticeAtMillis = ledger.lastReturnNoticeAtMillis,
+                    daysSinceLastActivity = daysAway,
+                )
+            ) add(NotificationBudget.ProactiveKind.RETURN_AFTER_ABSENCE)
+        }
+
+        when (NotificationBudget.choose(eligible)) {
+            NotificationBudget.ProactiveKind.RETURN_AFTER_ABSENCE ->
+                deliverReturnNotice(app, ledger, now)
+            NotificationBudget.ProactiveKind.WEEKLY_RECAP ->
+                recap?.let { deliverWeeklyRecap(app, ledger, now, it) }
+            null -> Unit
+        }
+    }
+
+    private fun deliverWeeklyRecap(
+        app: TrackMeApp,
+        ledger: ProactiveLedger,
+        now: Long,
+        ready: `in`.shvms.trackme.domain.stats.WeeklyRecap,
+    ) {
 
         val strings = getAppStrings(app.preferencesManager.appLanguage.value)
         val imperial = app.preferencesManager.unitSystem.value == "imperial"
@@ -124,8 +160,56 @@ class ProactiveNotificationWorker(
         }
     }
 
+    /**
+     * §6.1.3 scenario 13 — one notice, at 21 days or more, carrying a real fact.
+     *
+     * This is the closest the app comes to a line §4.2 N2 would otherwise forbid, and it survives
+     * only because of what it is not. It is **not** loss-framed: no streak, no missed days, no
+     * falling number. It carries a fact the user might actually want — how long it has been, which
+     * they may genuinely have lost track of — and it arrives at most once a quarter.
+     *
+     * The threshold is deliberately higher than `HomeInsight.Return`'s in-app 14 days: interrupting
+     * someone is a bigger claim than showing them something once they have already opened the app.
+     */
+    private fun deliverReturnNotice(app: TrackMeApp, ledger: ProactiveLedger, now: Long) {
+        val days = app.rideStatsStore.daysSinceLastActivity() ?: return
+        val strings = getAppStrings(app.preferencesManager.appLanguage.value)
+        val body = String.format(Locale.getDefault(), strings.returnNoticeBody, days)
+
+        NotificationChannels.ensure(applicationContext, strings)
+        val open = PendingIntent.getActivity(
+            applicationContext,
+            RETURN_NOTIFICATION_ID,
+            Intent(applicationContext, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(applicationContext, NotificationChannels.PROGRESS)
+            .setSmallIcon(R.drawable.ic_trackme_logo_transparent)
+            .setContentTitle(strings.returnNoticeTitle)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            // LOW, like the recap. The most intrusive thing this app may say gets the quietest
+            // delivery it can have while still being visible.
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+
+        runCatching {
+            applicationContext.getSystemService(NotificationManager::class.java)
+                ?.notify(RETURN_NOTIFICATION_ID, notification)
+        }.onSuccess {
+            // Both ledgers: the shared budget closes the week for every C source, and the return
+            // ledger closes the quarter for this one.
+            ledger.recordProactiveSent(now)
+            ledger.recordReturnNoticeSent(now)
+        }
+    }
+
     companion object {
         private const val NOTIFICATION_ID = 4302
+        private const val RETURN_NOTIFICATION_ID = 4304
         const val WORK_NAME = "TrackMeProactiveNotifications"
 
         /**

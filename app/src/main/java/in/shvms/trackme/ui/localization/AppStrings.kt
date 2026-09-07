@@ -373,6 +373,11 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     // §6.1.6 #28 — sunset. A fact and a number, no advice: whether that is enough daylight is the
     // rider's call, and an app that says "be careful" is an app saying something it cannot know.
     val sunsetSoon: String = s("sunsetSoon", "Sunset in %1\$d min")
+
+    // §6.1.3 #13. Gain-framed and factual — never "you have not ridden", which is the loss framing
+    // §4.2 N2 rules out. %1$d is whole days.
+    val returnNoticeTitle: String = s("returnNoticeTitle", "Your rides are still here")
+    val returnNoticeBody: String = s("returnNoticeBody", "Your last recorded activity was %1\$d days ago. Everything you recorded is still on your phone.")
     val groupAlertSetBody: String = s("groupAlertSetBody", "%1\$s set their status to %2\$s")
     val groupAlertClearedBody: String = s("groupAlertClearedBody", "%1\$s cleared %2\$s")
     val groupAlertViewGroup: String = s("groupAlertViewGroup", "View group")
@@ -1034,6 +1039,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "Hay una versión más reciente disponible.",
             "sunsetSoon" to "Anochece en %1\$d min",
+            "returnNoticeTitle" to "Tus rutas siguen aquí",
+            "returnNoticeBody" to "Tu última actividad registrada fue hace %1\$d días. Todo lo que grabaste sigue en tu teléfono.",
             "groupAlertSetBody" to "%1\$s ha puesto su estado en %2\$s",
             "groupAlertClearedBody" to "%1\$s ha quitado %2\$s",
             "groupAlertViewGroup" to "Ver grupo",
@@ -1690,6 +1697,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "Une version plus récente est disponible.",
             "sunsetSoon" to "Coucher du soleil dans %1\$d min",
+            "returnNoticeTitle" to "Vos sorties sont toujours là",
+            "returnNoticeBody" to "Votre dernière activité enregistrée date de %1\$d jours. Tout ce que vous avez enregistré est toujours sur votre téléphone.",
             "groupAlertSetBody" to "%1\$s a défini son statut sur %2\$s",
             "groupAlertClearedBody" to "%1\$s a effacé %2\$s",
             "groupAlertViewGroup" to "Voir le groupe",
@@ -2346,6 +2355,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "Eine neuere Version ist verfügbar.",
             "sunsetSoon" to "Sonnenuntergang in %1\$d Min",
+            "returnNoticeTitle" to "Ihre Fahrten sind noch da",
+            "returnNoticeBody" to "Ihre letzte aufgezeichnete Aktivität war vor %1\$d Tagen. Alles Aufgezeichnete ist weiterhin auf Ihrem Telefon.",
             "groupAlertSetBody" to "%1\$s hat den Status auf %2\$s gesetzt",
             "groupAlertClearedBody" to "%1\$s hat %2\$s entfernt",
             "groupAlertViewGroup" to "Gruppe ansehen",
@@ -3002,6 +3013,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "एक नया संस्करण उपलब्ध है।",
             "sunsetSoon" to "%1\$d मिनट में सूर्यास्त",
+            "returnNoticeTitle" to "आपकी राइड्स यहीं हैं",
+            "returnNoticeBody" to "आपकी आखिरी दर्ज गतिविधि %1\$d दिन पहले थी। आपका दर्ज किया सब कुछ अब भी आपके फ़ोन में है।",
             "groupAlertSetBody" to "%1\$s ने अपनी स्थिति %2\$s रखी",
             "groupAlertClearedBody" to "%1\$s ने %2\$s हटाया",
             "groupAlertViewGroup" to "समूह देखें",
@@ -3658,6 +3671,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "新しいバージョンが利用できます。",
             "sunsetSoon" to "あと %1\$d 分で日没",
+            "returnNoticeTitle" to "記録はそのまま残っています",
+            "returnNoticeBody" to "最後に記録したアクティビティは %1\$d 日前です。記録した内容はすべて端末に残っています。",
             "groupAlertSetBody" to "%1\$s さんが状態を「%2\$s」にしました",
             "groupAlertClearedBody" to "%1\$s さんが「%2\$s」を解除しました",
             "groupAlertViewGroup" to "グループを見る",
@@ -4314,6 +4329,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "有新版本可用。",
             "sunsetSoon" to "%1\$d 分钟后日落",
+            "returnNoticeTitle" to "你的记录都还在",
+            "returnNoticeBody" to "上次记录的活动是在 %1\$d 天前。你记录的一切仍保存在手机上。",
             "groupAlertSetBody" to "%1\$s 将状态设为%2\$s",
             "groupAlertClearedBody" to "%1\$s 清除了%2\$s",
             "groupAlertViewGroup" to "查看群组",
