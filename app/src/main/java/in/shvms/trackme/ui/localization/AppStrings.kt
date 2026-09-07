@@ -355,6 +355,20 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     // %1$d rides, %2$s distance.
     val weeklyRecapNotificationTitle: String = s("weeklyRecapNotificationTitle", "Last week")
     val weeklyRecapNotificationBody: String = s("weeklyRecapNotificationBody", "%1\$d activities, %2\$s.")
+
+    // §6.1.7 — the bulletin. Every row is a fact the app already knew; none of these sentences
+    // exists to make the user feel a way about it.
+    val bulletinTitle: String = s("bulletinTitle", "What's new")
+    val bulletinEmpty: String = s("bulletinEmpty", "Nothing to report. Anything TrackMe needs to tell you shows up here.")
+    val bulletinClear: String = s("bulletinClear", "Clear")
+    val bulletinLevelReached: String = s("bulletinLevelReached", "You reached %1\$s")
+    val bulletinLevelReachedBody: String = s("bulletinLevelReachedBody", "From the active minutes you have recorded.")
+    val bulletinMilestone: String = s("bulletinMilestone", "%1\$d activities recorded")
+    val bulletinMilestoneBody: String = s("bulletinMilestoneBody", "A milestone worth noting.")
+    val bulletinSyncProblem: String = s("bulletinSyncProblem", "Cloud backup is not working")
+    val bulletinSyncProblemBody: String = s("bulletinSyncProblemBody", "%1\$d activities have not reached your backup since %2\$s.")
+    val bulletinVersionNote: String = s("bulletinVersionNote", "TrackMe %1\$s")
+    val bulletinVersionNoteBody: String = s("bulletinVersionNoteBody", "A newer version is available.")
     val groupAlertSetBody: String = s("groupAlertSetBody", "%1\$s set their status to %2\$s")
     val groupAlertClearedBody: String = s("groupAlertClearedBody", "%1\$s cleared %2\$s")
     val groupAlertViewGroup: String = s("groupAlertViewGroup", "View group")
@@ -1004,6 +1018,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "ridesSavedBody" to "La app se cerró mientras se grababan. Se finalizaron y se conservaron.",
             "weeklyRecapNotificationTitle" to "La semana pasada",
             "weeklyRecapNotificationBody" to "%1\$d actividades, %2\$s.",
+            "bulletinTitle" to "Novedades",
+            "bulletinEmpty" to "Nada que informar. Lo que TrackMe necesite decirte aparecerá aquí.",
+            "bulletinClear" to "Borrar",
+            "bulletinLevelReached" to "Alcanzaste %1\$s",
+            "bulletinLevelReachedBody" to "Según los minutos activos que has registrado.",
+            "bulletinMilestone" to "%1\$d actividades registradas",
+            "bulletinMilestoneBody" to "Un hito que vale la pena señalar.",
+            "bulletinSyncProblem" to "La copia en la nube no funciona",
+            "bulletinSyncProblemBody" to "%1\$d actividades no han llegado a tu copia desde %2\$s.",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "Hay una versión más reciente disponible.",
             "groupAlertSetBody" to "%1\$s ha puesto su estado en %2\$s",
             "groupAlertClearedBody" to "%1\$s ha quitado %2\$s",
             "groupAlertViewGroup" to "Ver grupo",
@@ -1648,6 +1673,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "ridesSavedBody" to "L'app s'est fermée pendant l'enregistrement. Elles ont été terminées et conservées.",
             "weeklyRecapNotificationTitle" to "La semaine dernière",
             "weeklyRecapNotificationBody" to "%1\$d activités, %2\$s.",
+            "bulletinTitle" to "Nouveautés",
+            "bulletinEmpty" to "Rien à signaler. Ce que TrackMe doit vous dire apparaîtra ici.",
+            "bulletinClear" to "Effacer",
+            "bulletinLevelReached" to "Vous avez atteint %1\$s",
+            "bulletinLevelReachedBody" to "D'après les minutes actives que vous avez enregistrées.",
+            "bulletinMilestone" to "%1\$d activités enregistrées",
+            "bulletinMilestoneBody" to "Une étape qui mérite d'être notée.",
+            "bulletinSyncProblem" to "La sauvegarde cloud ne fonctionne pas",
+            "bulletinSyncProblemBody" to "%1\$d activités n'ont pas atteint votre sauvegarde depuis %2\$s.",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "Une version plus récente est disponible.",
             "groupAlertSetBody" to "%1\$s a défini son statut sur %2\$s",
             "groupAlertClearedBody" to "%1\$s a effacé %2\$s",
             "groupAlertViewGroup" to "Voir le groupe",
@@ -2292,6 +2328,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "ridesSavedBody" to "Die App wurde während der Aufzeichnung geschlossen. Sie wurden beendet und behalten.",
             "weeklyRecapNotificationTitle" to "Letzte Woche",
             "weeklyRecapNotificationBody" to "%1\$d Aktivitäten, %2\$s.",
+            "bulletinTitle" to "Neuigkeiten",
+            "bulletinEmpty" to "Nichts zu berichten. Was TrackMe Ihnen sagen muss, erscheint hier.",
+            "bulletinClear" to "Löschen",
+            "bulletinLevelReached" to "Sie haben %1\$s erreicht",
+            "bulletinLevelReachedBody" to "Aus den aktiven Minuten, die Sie aufgezeichnet haben.",
+            "bulletinMilestone" to "%1\$d Aktivitäten aufgezeichnet",
+            "bulletinMilestoneBody" to "Ein Meilenstein, der Erwähnung verdient.",
+            "bulletinSyncProblem" to "Die Cloud-Sicherung funktioniert nicht",
+            "bulletinSyncProblemBody" to "%1\$d Aktivitäten haben Ihre Sicherung seit %2\$s nicht erreicht.",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "Eine neuere Version ist verfügbar.",
             "groupAlertSetBody" to "%1\$s hat den Status auf %2\$s gesetzt",
             "groupAlertClearedBody" to "%1\$s hat %2\$s entfernt",
             "groupAlertViewGroup" to "Gruppe ansehen",
@@ -2936,6 +2983,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "ridesSavedBody" to "रिकॉर्डिंग के दौरान ऐप बंद हो गया। उन्हें पूरा करके सहेज लिया गया।",
             "weeklyRecapNotificationTitle" to "पिछला हफ़्ता",
             "weeklyRecapNotificationBody" to "%1\$d गतिविधियाँ, %2\$s।",
+            "bulletinTitle" to "नया क्या है",
+            "bulletinEmpty" to "बताने के लिए कुछ नहीं। TrackMe को जो कहना होगा वह यहाँ दिखेगा।",
+            "bulletinClear" to "साफ़ करें",
+            "bulletinLevelReached" to "आपने %1\$s हासिल किया",
+            "bulletinLevelReachedBody" to "आपके दर्ज किए गए सक्रिय मिनटों के आधार पर।",
+            "bulletinMilestone" to "%1\$d गतिविधियाँ दर्ज हुईं",
+            "bulletinMilestoneBody" to "एक उल्लेखनीय पड़ाव।",
+            "bulletinSyncProblem" to "क्लाउड बैकअप काम नहीं कर रहा",
+            "bulletinSyncProblemBody" to "%2\$s से %1\$d गतिविधियाँ आपके बैकअप तक नहीं पहुँचीं।",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "एक नया संस्करण उपलब्ध है।",
             "groupAlertSetBody" to "%1\$s ने अपनी स्थिति %2\$s रखी",
             "groupAlertClearedBody" to "%1\$s ने %2\$s हटाया",
             "groupAlertViewGroup" to "समूह देखें",
@@ -3580,6 +3638,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "ridesSavedBody" to "記録中にアプリが終了しました。すべて終了して保存しています。",
             "weeklyRecapNotificationTitle" to "先週",
             "weeklyRecapNotificationBody" to "%1\$d 件のアクティビティ、%2\$s。",
+            "bulletinTitle" to "お知らせ",
+            "bulletinEmpty" to "お知らせはありません。TrackMe からの連絡はここに表示されます。",
+            "bulletinClear" to "消去",
+            "bulletinLevelReached" to "%1\$s に到達しました",
+            "bulletinLevelReachedBody" to "記録された活動時間に基づいています。",
+            "bulletinMilestone" to "%1\$d 件のアクティビティを記録",
+            "bulletinMilestoneBody" to "記録に値する節目です。",
+            "bulletinSyncProblem" to "クラウドバックアップが機能していません",
+            "bulletinSyncProblemBody" to "%2\$s 以降、%1\$d 件のアクティビティがバックアップに届いていません。",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "新しいバージョンが利用できます。",
             "groupAlertSetBody" to "%1\$s さんが状態を「%2\$s」にしました",
             "groupAlertClearedBody" to "%1\$s さんが「%2\$s」を解除しました",
             "groupAlertViewGroup" to "グループを見る",
@@ -4224,6 +4293,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "ridesSavedBody" to "记录期间应用关闭，已全部结束并保留。",
             "weeklyRecapNotificationTitle" to "上周",
             "weeklyRecapNotificationBody" to "%1\$d 次活动，%2\$s。",
+            "bulletinTitle" to "最新动态",
+            "bulletinEmpty" to "暂无内容。TrackMe 需要告诉你的事情会显示在这里。",
+            "bulletinClear" to "清除",
+            "bulletinLevelReached" to "你达到了 %1\$s",
+            "bulletinLevelReachedBody" to "根据你记录的活动时长。",
+            "bulletinMilestone" to "已记录 %1\$d 次活动",
+            "bulletinMilestoneBody" to "一个值得记录的里程碑。",
+            "bulletinSyncProblem" to "云备份未在工作",
+            "bulletinSyncProblemBody" to "自 %2\$s 起，%1\$d 次活动尚未同步到你的备份。",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "有新版本可用。",
             "groupAlertSetBody" to "%1\$s 将状态设为%2\$s",
             "groupAlertClearedBody" to "%1\$s 清除了%2\$s",
             "groupAlertViewGroup" to "查看群组",

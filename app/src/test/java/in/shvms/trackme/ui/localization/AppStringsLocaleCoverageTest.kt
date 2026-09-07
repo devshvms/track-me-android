@@ -78,8 +78,15 @@ class AppStringsLocaleCoverageTest {
      * same, not a copy-paste. German, Hindi, Japanese and Chinese all differ (`Gesamt`, `कुल`,
      * `合計`, `总计`), which is the check that this is a spelling coincidence and not four skipped
      * languages.
+     *
+     * Raised to 49 on 2026-09-07 for `bulletinVersionNote` in all six non-English locales
+     * (SCOPE_1.8.7 §6.1.7). The string is `"TrackMe %1${'$'}s"` — a brand name followed by a version
+     * number, and there is nothing in it to translate. Unlike the cases above this is identical in
+     * *every* language rather than a coincidence in some, which is itself the tell: a string that no
+     * locale differs on is not an untranslated one. Its body, `bulletinVersionNoteBody`, is
+     * translated everywhere and is what carries the meaning.
      */
-    private val maxEntriesIdenticalToEnglish = 43
+    private val maxEntriesIdenticalToEnglish = 49
 
     /** Every `val x: String = s("x", …)` field on the base class, derived from its getters. */
     private fun declaredStringKeys(): Set<String> =

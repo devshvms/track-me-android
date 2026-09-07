@@ -3,6 +3,8 @@ package `in`.shvms.trackme.data.remote
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import `in`.shvms.trackme.data.local.BroadcastStore
+import `in`.shvms.trackme.data.local.BulletinAdapters
+import `in`.shvms.trackme.data.local.BulletinStore
 import `in`.shvms.trackme.domain.notifications.OperatorBroadcast
 import `in`.shvms.trackme.utils.logger.ErrorLogger
 import kotlinx.coroutines.tasks.await
@@ -35,6 +37,7 @@ object BroadcastReconciler {
         store: BroadcastStore,
         versionCode: Int,
         errorLogger: ErrorLogger?,
+        bulletin: BulletinStore? = null,
         firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     ): Int = try {
         val snapshot = firestore.collection("broadcasts")
@@ -49,6 +52,9 @@ object BroadcastReconciler {
             // security rule protects the collection, not the shape of what is in it.
             val broadcast = OperatorBroadcast.parse(document.data.orEmpty()) ?: return@count false
             if (!broadcast.appliesTo(versionCode)) return@count false
+            // §6.1.7: into the feed whichever route it arrived by. A broadcast the push missed is
+            // exactly the one the user has no other way to find.
+            bulletin?.add(BulletinAdapters.from(broadcast))
             store.store(broadcast)
         }
     } catch (e: Exception) {

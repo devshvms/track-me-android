@@ -118,6 +118,9 @@ class ProactiveNotificationWorker(
             // again if the user never acknowledges it in-app.
             ledger.recordProactiveSent(now)
             ledger.recordRecapNotified(ready.weekStartEpochDay)
+            // §6.1.7: the recap outlives its notification. Keyed by week, so the same recap read
+            // in-app later does not produce a second row.
+            app.bulletinStore.add(`in`.shvms.trackme.data.local.BulletinAdapters.from(ready))
         }
     }
 

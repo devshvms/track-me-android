@@ -117,6 +117,17 @@ class TrackMeApp : Application() {
     lateinit var broadcastStore: `in`.shvms.trackme.data.local.BroadcastStore
         private set
 
+    /**
+     * SCOPE_1.8.7 §6.1.7 — the bulletin, and the reason the one-per-week notification cap is a
+     * trade rather than a loss. Everything the budget refuses lands here instead.
+     *
+     * Application-scoped for the same reason as [broadcastStore]: background workers write to it
+     * with no Activity alive, and the UI must read the same instance or the badge will disagree
+     * with the feed.
+     */
+    lateinit var bulletinStore: `in`.shvms.trackme.data.local.BulletinStore
+        private set
+
     lateinit var ageSignalManager: `in`.shvms.trackme.data.AgeSignalManager
         private set
 
@@ -183,6 +194,7 @@ class TrackMeApp : Application() {
         errorLogger = CrashlyticsErrorLogger()
         errorLogger.init()
         broadcastStore = `in`.shvms.trackme.data.local.BroadcastStore(this)
+        bulletinStore = `in`.shvms.trackme.data.local.BulletinStore(this)
         // §6.3: the subscription follows the OS permission and never asks for it — TASK-284's rule
         // still holds, so a broadcast arriving must not trigger a permission request. Run on every
         // launch because this is the only thing that recovers the subscription after a reinstall,
@@ -196,6 +208,7 @@ class TrackMeApp : Application() {
                 store = broadcastStore,
                 versionCode = appVersionCode(),
                 errorLogger = errorLogger,
+                bulletin = bulletinStore,
             )
         }
         `in`.shvms.trackme.analytics.AnalyticsManager.init(this)
@@ -290,6 +303,11 @@ class TrackMeApp : Application() {
                     )
                     if (summary.hasChanges) {
                         _recoveryNotice.value = summary
+                        // §6.1.7: one row per recovered ride. The notification says "3 rides were
+                        // saved" because it has one line; the feed has room to say which three, and
+                        // checking whether a particular ride survived is the reason to look.
+                        `in`.shvms.trackme.data.local.BulletinAdapters.from(summary)
+                            .forEach { bulletinStore.add(it) }
                         // §6.1.1 scenario 1: the in-app banner above only fires if the app is
                         // opened, and the people who most need this are the ones whose phone died
                         // and have stopped expecting the ride to be there. Class A — never

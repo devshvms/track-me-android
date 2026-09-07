@@ -50,6 +50,11 @@ class TrackMeMessagingService : FirebaseMessagingService() {
         // Only the first arrival may interrupt.
         if (!store.store(broadcast)) return
 
+        // §6.1.7: a copy of every notification actually sent. A fact that interrupted someone and
+        // is then not in the feed is worse than one that never interrupted — they saw it, swiped
+        // it, and now cannot find it.
+        app?.bulletinStore?.add(`in`.shvms.trackme.data.local.BulletinAdapters.from(broadcast))
+
         // Follows the OS permission rather than assuming: a push can arrive in the window between
         // the user revoking notifications and FCM processing the unsubscribe. The broadcast is
         // already stored above, so it still reaches them in the app — silently, which is what
