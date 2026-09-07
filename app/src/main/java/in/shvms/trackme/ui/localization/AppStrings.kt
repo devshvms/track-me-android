@@ -369,6 +369,10 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val bulletinSyncProblemBody: String = s("bulletinSyncProblemBody", "%1\$d activities have not reached your backup since %2\$s.")
     val bulletinVersionNote: String = s("bulletinVersionNote", "TrackMe %1\$s")
     val bulletinVersionNoteBody: String = s("bulletinVersionNoteBody", "A newer version is available.")
+
+    // §6.1.6 #28 — sunset. A fact and a number, no advice: whether that is enough daylight is the
+    // rider's call, and an app that says "be careful" is an app saying something it cannot know.
+    val sunsetSoon: String = s("sunsetSoon", "Sunset in %1\$d min")
     val groupAlertSetBody: String = s("groupAlertSetBody", "%1\$s set their status to %2\$s")
     val groupAlertClearedBody: String = s("groupAlertClearedBody", "%1\$s cleared %2\$s")
     val groupAlertViewGroup: String = s("groupAlertViewGroup", "View group")
@@ -1029,6 +1033,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinSyncProblemBody" to "%1\$d actividades no han llegado a tu copia desde %2\$s.",
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "Hay una versión más reciente disponible.",
+            "sunsetSoon" to "Anochece en %1\$d min",
             "groupAlertSetBody" to "%1\$s ha puesto su estado en %2\$s",
             "groupAlertClearedBody" to "%1\$s ha quitado %2\$s",
             "groupAlertViewGroup" to "Ver grupo",
@@ -1684,6 +1689,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinSyncProblemBody" to "%1\$d activités n'ont pas atteint votre sauvegarde depuis %2\$s.",
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "Une version plus récente est disponible.",
+            "sunsetSoon" to "Coucher du soleil dans %1\$d min",
             "groupAlertSetBody" to "%1\$s a défini son statut sur %2\$s",
             "groupAlertClearedBody" to "%1\$s a effacé %2\$s",
             "groupAlertViewGroup" to "Voir le groupe",
@@ -2339,6 +2345,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinSyncProblemBody" to "%1\$d Aktivitäten haben Ihre Sicherung seit %2\$s nicht erreicht.",
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "Eine neuere Version ist verfügbar.",
+            "sunsetSoon" to "Sonnenuntergang in %1\$d Min",
             "groupAlertSetBody" to "%1\$s hat den Status auf %2\$s gesetzt",
             "groupAlertClearedBody" to "%1\$s hat %2\$s entfernt",
             "groupAlertViewGroup" to "Gruppe ansehen",
@@ -2994,6 +3001,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinSyncProblemBody" to "%2\$s से %1\$d गतिविधियाँ आपके बैकअप तक नहीं पहुँचीं।",
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "एक नया संस्करण उपलब्ध है।",
+            "sunsetSoon" to "%1\$d मिनट में सूर्यास्त",
             "groupAlertSetBody" to "%1\$s ने अपनी स्थिति %2\$s रखी",
             "groupAlertClearedBody" to "%1\$s ने %2\$s हटाया",
             "groupAlertViewGroup" to "समूह देखें",
@@ -3649,6 +3657,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinSyncProblemBody" to "%2\$s 以降、%1\$d 件のアクティビティがバックアップに届いていません。",
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "新しいバージョンが利用できます。",
+            "sunsetSoon" to "あと %1\$d 分で日没",
             "groupAlertSetBody" to "%1\$s さんが状態を「%2\$s」にしました",
             "groupAlertClearedBody" to "%1\$s さんが「%2\$s」を解除しました",
             "groupAlertViewGroup" to "グループを見る",
@@ -4304,6 +4313,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "bulletinSyncProblemBody" to "自 %2\$s 起，%1\$d 次活动尚未同步到你的备份。",
             "bulletinVersionNote" to "TrackMe %1\$s",
             "bulletinVersionNoteBody" to "有新版本可用。",
+            "sunsetSoon" to "%1\$d 分钟后日落",
             "groupAlertSetBody" to "%1\$s 将状态设为%2\$s",
             "groupAlertClearedBody" to "%1\$s 清除了%2\$s",
             "groupAlertViewGroup" to "查看群组",
