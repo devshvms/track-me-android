@@ -359,7 +359,18 @@ fun HomeScreen(
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = { /* Notification access is optional; ride tracking still proceeds. */ }
+        onResult = { granted ->
+            // Notification access is optional; ride tracking still proceeds. A grant in this
+            // running process must subscribe immediately, not wait for another cold launch.
+            if (granted) {
+                (context.applicationContext as? TrackMeApp)?.let { app ->
+                    `in`.shvms.trackme.service.notifications.BroadcastSubscription.sync(
+                        app,
+                        app.errorLogger,
+                    )
+                }
+            }
+        }
     )
 
     // TASK-284. Both ride-start paths used to ask whenever the permission was not granted, i.e.
@@ -424,12 +435,35 @@ fun HomeScreen(
     }
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
+    // SCOPE_1.8.7 §6.1.6 #28 — sunset, from the coarse location the map already asked for.
+    //
+    // No network, no new permission and no new party receiving location: it follows from a date
+    // and a position the app already has. That is the whole reason it ships while weather and AQI
+    // (#29, #30) are deferred — those need a third-party call and a Data Safety change.
+    //
+    // Reuses the fix the camera already fetched rather than starting its own request. A second
+    // location subscription for a line of text would be exactly the kind of thing a privacy-first
+    // app should not do quietly.
+    var minutesUntilSunset by remember { mutableStateOf<Int?>(null) }
+
     var hasCenteredOnLocation by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(hasLocationPermission, isInteractiveMap) {
         if (isInteractiveMap && hasLocationPermission && !hasCenteredOnLocation && uiState.pathPoints.isEmpty()) {
             try {
                 fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
                     if (loc != null) {
+                        val now = java.util.Calendar.getInstance()
+                        minutesUntilSunset = `in`.shvms.trackme.domain.notifications.SunsetCalculator
+                            .minutesUntilSunset(
+                                latitude = loc.latitude,
+                                longitude = loc.longitude,
+                                dayOfYear = now.get(java.util.Calendar.DAY_OF_YEAR),
+                                minutesAfterLocalMidnightNow =
+                                    now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
+                                        now.get(java.util.Calendar.MINUTE),
+                                utcOffsetMinutes = `in`.shvms.trackme.domain.notifications.SunsetCalculator
+                                    .utcOffsetMinutes(java.util.TimeZone.getDefault(), System.currentTimeMillis()),
+                            )
                         hasCenteredOnLocation = true
                         coroutineScope.launch {
                             cameraPositionState.animateSafely {
@@ -1422,6 +1456,18 @@ fun HomeScreen(
                 exit = if (animationsEnabled) fadeOut(tween(300)) else ExitTransition.None,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // §6.1.6 #28 — the one moment the fact is actionable: the rider has not set off
+                    // yet and is deciding. A fact and a number, no advice — whether that is enough
+                    // daylight is their call, and an app that adds "be careful" is saying something
+                    // it cannot know. Absent entirely when sunset is far away or already past.
+                    minutesUntilSunset?.let { minutes ->
+                        Text(
+                            text = String.format(java.util.Locale.getDefault(), strings.sunsetSoon, minutes),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    }
                     RadialStartRideButton(
                         onOpenAllPersonas = { showDashboardPersonaPicker = true },
                         onStartRide = { persona ->

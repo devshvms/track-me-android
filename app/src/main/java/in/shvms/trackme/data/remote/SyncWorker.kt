@@ -13,7 +13,19 @@ class SyncWorker(
     override suspend fun doWork(): Result {
         val app = applicationContext as? TrackMeApp ?: return Result.failure()
         return try {
-            when (app.firestoreSyncManager.syncPeriodic()) {
+            val outcome = app.firestoreSyncManager.syncPeriodic()
+            // SCOPE_1.8.7 §6.1.5 #23. Every attempt is recorded, success or failure — the episode
+            // only ends on a success, so a run that is never told about a success never ends.
+            `in`.shvms.trackme.service.notifications.SyncFailureNotifier(applicationContext)
+                .recordAttempt(
+                    succeeded = outcome is SyncResult.Success,
+                    unsyncedRideCount = app.database.rideDao().countUnsyncedRides(),
+                    strings = `in`.shvms.trackme.ui.localization.getAppStrings(
+                        app.preferencesManager.appLanguage.value
+                    ),
+                    bulletin = app.bulletinStore,
+                )
+            when (outcome) {
                 is SyncResult.Success -> {
                     val time = System.currentTimeMillis()
                     applicationContext.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE)

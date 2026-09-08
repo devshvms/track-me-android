@@ -327,6 +327,61 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
 
     // Alerting (§3.8)
     val groupAlertChannelName: String = s("groupAlertChannelName", "Group ride alerts")
+
+    // Track 2 (SCOPE_1.8.7 §6.2) — one channel per thing a user would switch off independently.
+    // The descriptions are the promise: a user reading system settings should be able to predict
+    // exactly what disabling each one costs them, without opening the app.
+    val channelRemindersName: String = s("channelRemindersName", "Reminders")
+    val channelRemindersDescription: String = s("channelRemindersDescription", "Only the reminders you set yourself. Nothing else uses this.")
+    val channelProgressName: String = s("channelProgressName", "Your progress")
+    val channelProgressDescription: String = s("channelProgressDescription", "Your weekly recap, at most once a week. Everything here is also in the app.")
+    val channelDataName: String = s("channelDataName", "Sync and data")
+    val channelDataDescription: String = s("channelDataDescription", "When a ride is saved for you, a backup stops working, or an export is ready.")
+    val channelOperatorName: String = s("channelOperatorName", "App notices")
+    val channelOperatorDescription: String = s("channelOperatorDescription", "Rare messages about problems with the app itself, and updates that fix them.")
+    val broadcastLearnMore: String = s("broadcastLearnMore", "Learn more")
+    val broadcastDismiss: String = s("broadcastDismiss", "Got it")
+
+    // SCOPE_1.8.7 §6.1.1 scenario 1. "Saved" rather than "recovered": the user did not lose
+    // anything and should not be told a word that implies they nearly did. %1$s is the end time,
+    // %2$s the distance — both already formatted by the caller.
+    val rideSavedTitle: String = s("rideSavedTitle", "Your ride was saved")
+    val rideSavedBody: String = s("rideSavedBody", "Recording stopped at %1\$s because the app was closed. %2\$s was kept.")
+    val rideSavedBodyPlain: String = s("rideSavedBodyPlain", "The app closed while you were recording, so the ride was finished and kept.")
+    val ridesSavedTitle: String = s("ridesSavedTitle", "%1\$d rides were saved")
+    val ridesSavedBody: String = s("ridesSavedBody", "The app closed while they were recording. They were finished and kept.")
+
+    // §6.1.2 scenario 8. Gain-framed and factual: a count and a distance the user actually covered.
+    // %1$d rides, %2$s distance.
+    val weeklyRecapNotificationTitle: String = s("weeklyRecapNotificationTitle", "Last week")
+    val weeklyRecapNotificationBody: String = s("weeklyRecapNotificationBody", "%1\$d activities, %2\$s.")
+
+    // §6.1.7 — the bulletin. Every row is a fact the app already knew; none of these sentences
+    // exists to make the user feel a way about it.
+    val bulletinTitle: String = s("bulletinTitle", "What's new")
+    val bulletinEmpty: String = s("bulletinEmpty", "Nothing to report. Anything TrackMe needs to tell you shows up here.")
+    val bulletinClear: String = s("bulletinClear", "Clear")
+    val bulletinLevelReached: String = s("bulletinLevelReached", "You reached %1\$s")
+    val bulletinLevelReachedBody: String = s("bulletinLevelReachedBody", "From the active minutes you have recorded.")
+    val bulletinMilestone: String = s("bulletinMilestone", "%1\$d activities recorded")
+    val bulletinMilestoneBody: String = s("bulletinMilestoneBody", "A milestone worth noting.")
+    val bulletinSyncProblem: String = s("bulletinSyncProblem", "Cloud backup is not working")
+    val bulletinSyncProblemBody: String = s("bulletinSyncProblemBody", "%1\$d activities have not reached your backup since %2\$s.")
+    // Used when there is no trustworthy last-success date. The first failing episode after an
+    // install or upgrade has none, and that is exactly the user who has never had a working backup.
+    val bulletinSyncProblemBodyNoDate: String = s("bulletinSyncProblemBodyNoDate", "%1\$d activities have not reached your cloud backup.")
+    val bulletinVersionNote: String = s("bulletinVersionNote", "TrackMe %1\$s")
+    val bulletinVersionNoteBody: String = s("bulletinVersionNoteBody", "A newer version is available.")
+
+    // §6.1.6 #28 — sunset. A fact and a number, no advice: whether that is enough daylight is the
+    // rider's call, and an app that says "be careful" is an app saying something it cannot know.
+    val sunsetSoon: String = s("sunsetSoon", "Sunset in %1\$d min")
+
+    // §6.1.3 #13. Gain-framed and factual — never "you have not ridden", which is the loss framing
+    // §4.2 N2 rules out. %1$d is whole days.
+    val returnNoticeTitle: String = s("returnNoticeTitle", "Your rides are still here")
+    val returnNoticeBody: String = s("returnNoticeBody", "Your last recorded activity was %1\$d days ago. Everything you recorded is still on your phone.")
+    val returnNoticeStop: String = s("returnNoticeStop", "Stop these")
     val groupAlertSetBody: String = s("groupAlertSetBody", "%1\$s set their status to %2\$s")
     val groupAlertClearedBody: String = s("groupAlertClearedBody", "%1\$s cleared %2\$s")
     val groupAlertViewGroup: String = s("groupAlertViewGroup", "View group")
@@ -959,6 +1014,39 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s sin enviar",
             "groupPillSent" to "%1\$s enviado",
             "groupAlertChannelName" to "Avisos de ruta en grupo",
+            "channelRemindersName" to "Recordatorios",
+            "channelRemindersDescription" to "Solo los recordatorios que tú configuras. Nada más usa este canal.",
+            "channelProgressName" to "Tu progreso",
+            "channelProgressDescription" to "Tu resumen semanal, como máximo una vez por semana. Todo esto también está en la app.",
+            "channelDataName" to "Sincronización y datos",
+            "channelDataDescription" to "Cuando se guarda una ruta por ti, deja de funcionar una copia de seguridad o una exportación está lista.",
+            "channelOperatorName" to "Avisos de la app",
+            "channelOperatorDescription" to "Mensajes poco frecuentes sobre problemas de la propia app y las actualizaciones que los solucionan.",
+            "broadcastLearnMore" to "Más información",
+            "broadcastDismiss" to "Entendido",
+            "rideSavedTitle" to "Tu ruta se ha guardado",
+            "rideSavedBody" to "La grabación se detuvo a las %1\$s porque la app se cerró. Se conservaron %2\$s.",
+            "rideSavedBodyPlain" to "La app se cerró mientras grababas, así que la ruta se finalizó y se conservó.",
+            "ridesSavedTitle" to "Se guardaron %1\$d rutas",
+            "ridesSavedBody" to "La app se cerró mientras se grababan. Se finalizaron y se conservaron.",
+            "weeklyRecapNotificationTitle" to "La semana pasada",
+            "weeklyRecapNotificationBody" to "%1\$d actividades, %2\$s.",
+            "bulletinTitle" to "Novedades",
+            "bulletinEmpty" to "Nada que informar. Lo que TrackMe necesite decirte aparecerá aquí.",
+            "bulletinClear" to "Borrar",
+            "bulletinLevelReached" to "Alcanzaste %1\$s",
+            "bulletinLevelReachedBody" to "Según los minutos activos que has registrado.",
+            "bulletinMilestone" to "%1\$d actividades registradas",
+            "bulletinMilestoneBody" to "Un hito que vale la pena señalar.",
+            "bulletinSyncProblem" to "La copia en la nube no funciona",
+            "bulletinSyncProblemBody" to "%1\$d actividades no han llegado a tu copia desde %2\$s.",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d actividades no han llegado a tu copia en la nube.",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "Hay una versión más reciente disponible.",
+            "sunsetSoon" to "Anochece en %1\$d min",
+            "returnNoticeTitle" to "Tus rutas siguen aquí",
+            "returnNoticeBody" to "Tu última actividad registrada fue hace %1\$d días. Todo lo que grabaste sigue en tu teléfono.",
+            "returnNoticeStop" to "Detener estos avisos",
             "groupAlertSetBody" to "%1\$s ha puesto su estado en %2\$s",
             "groupAlertClearedBody" to "%1\$s ha quitado %2\$s",
             "groupAlertViewGroup" to "Ver grupo",
@@ -1586,6 +1674,39 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s non envoyé",
             "groupPillSent" to "%1\$s envoyé",
             "groupAlertChannelName" to "Alertes de sortie en groupe",
+            "channelRemindersName" to "Rappels",
+            "channelRemindersDescription" to "Uniquement les rappels que vous définissez. Rien d'autre n'utilise ce canal.",
+            "channelProgressName" to "Votre progression",
+            "channelProgressDescription" to "Votre récapitulatif hebdomadaire, au maximum une fois par semaine. Tout cela est aussi dans l'app.",
+            "channelDataName" to "Synchronisation et données",
+            "channelDataDescription" to "Quand une sortie est enregistrée pour vous, qu'une sauvegarde cesse de fonctionner ou qu'un export est prêt.",
+            "channelOperatorName" to "Avis de l'app",
+            "channelOperatorDescription" to "Messages rares concernant des problèmes de l'app elle-même, et les mises à jour qui les corrigent.",
+            "broadcastLearnMore" to "En savoir plus",
+            "broadcastDismiss" to "J'ai compris",
+            "rideSavedTitle" to "Votre sortie a été enregistrée",
+            "rideSavedBody" to "L'enregistrement s'est arrêté à %1\$s car l'app s'est fermée. %2\$s ont été conservés.",
+            "rideSavedBodyPlain" to "L'app s'est fermée pendant l'enregistrement ; la sortie a été terminée et conservée.",
+            "ridesSavedTitle" to "%1\$d sorties ont été enregistrées",
+            "ridesSavedBody" to "L'app s'est fermée pendant l'enregistrement. Elles ont été terminées et conservées.",
+            "weeklyRecapNotificationTitle" to "La semaine dernière",
+            "weeklyRecapNotificationBody" to "%1\$d activités, %2\$s.",
+            "bulletinTitle" to "Nouveautés",
+            "bulletinEmpty" to "Rien à signaler. Ce que TrackMe doit vous dire apparaîtra ici.",
+            "bulletinClear" to "Effacer",
+            "bulletinLevelReached" to "Vous avez atteint %1\$s",
+            "bulletinLevelReachedBody" to "D'après les minutes actives que vous avez enregistrées.",
+            "bulletinMilestone" to "%1\$d activités enregistrées",
+            "bulletinMilestoneBody" to "Une étape qui mérite d'être notée.",
+            "bulletinSyncProblem" to "La sauvegarde cloud ne fonctionne pas",
+            "bulletinSyncProblemBody" to "%1\$d activités n'ont pas atteint votre sauvegarde depuis %2\$s.",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d activités n'ont pas atteint votre sauvegarde cloud.",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "Une version plus récente est disponible.",
+            "sunsetSoon" to "Coucher du soleil dans %1\$d min",
+            "returnNoticeTitle" to "Vos sorties sont toujours là",
+            "returnNoticeBody" to "Votre dernière activité enregistrée date de %1\$d jours. Tout ce que vous avez enregistré est toujours sur votre téléphone.",
+            "returnNoticeStop" to "Arrêter ces rappels",
             "groupAlertSetBody" to "%1\$s a défini son statut sur %2\$s",
             "groupAlertClearedBody" to "%1\$s a effacé %2\$s",
             "groupAlertViewGroup" to "Voir le groupe",
@@ -2213,6 +2334,39 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s nicht gesendet",
             "groupPillSent" to "%1\$s gesendet",
             "groupAlertChannelName" to "Gruppenfahrt-Warnungen",
+            "channelRemindersName" to "Erinnerungen",
+            "channelRemindersDescription" to "Nur die Erinnerungen, die Sie selbst einstellen. Sonst nutzt nichts diesen Kanal.",
+            "channelProgressName" to "Ihr Fortschritt",
+            "channelProgressDescription" to "Ihr Wochenrückblick, höchstens einmal pro Woche. Alles davon steht auch in der App.",
+            "channelDataName" to "Synchronisierung und Daten",
+            "channelDataDescription" to "Wenn eine Fahrt für Sie gespeichert wird, eine Sicherung nicht mehr funktioniert oder ein Export bereit ist.",
+            "channelOperatorName" to "App-Hinweise",
+            "channelOperatorDescription" to "Seltene Meldungen über Probleme mit der App selbst und die Updates, die sie beheben.",
+            "broadcastLearnMore" to "Mehr erfahren",
+            "broadcastDismiss" to "Verstanden",
+            "rideSavedTitle" to "Ihre Fahrt wurde gespeichert",
+            "rideSavedBody" to "Die Aufzeichnung endete um %1\$s, weil die App geschlossen wurde. %2\$s wurden behalten.",
+            "rideSavedBodyPlain" to "Die App wurde während der Aufzeichnung geschlossen, die Fahrt wurde beendet und behalten.",
+            "ridesSavedTitle" to "%1\$d Fahrten wurden gespeichert",
+            "ridesSavedBody" to "Die App wurde während der Aufzeichnung geschlossen. Sie wurden beendet und behalten.",
+            "weeklyRecapNotificationTitle" to "Letzte Woche",
+            "weeklyRecapNotificationBody" to "%1\$d Aktivitäten, %2\$s.",
+            "bulletinTitle" to "Neuigkeiten",
+            "bulletinEmpty" to "Nichts zu berichten. Was TrackMe Ihnen sagen muss, erscheint hier.",
+            "bulletinClear" to "Löschen",
+            "bulletinLevelReached" to "Sie haben %1\$s erreicht",
+            "bulletinLevelReachedBody" to "Aus den aktiven Minuten, die Sie aufgezeichnet haben.",
+            "bulletinMilestone" to "%1\$d Aktivitäten aufgezeichnet",
+            "bulletinMilestoneBody" to "Ein Meilenstein, der Erwähnung verdient.",
+            "bulletinSyncProblem" to "Die Cloud-Sicherung funktioniert nicht",
+            "bulletinSyncProblemBody" to "%1\$d Aktivitäten haben Ihre Sicherung seit %2\$s nicht erreicht.",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d Aktivitäten haben Ihre Cloud-Sicherung nicht erreicht.",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "Eine neuere Version ist verfügbar.",
+            "sunsetSoon" to "Sonnenuntergang in %1\$d Min",
+            "returnNoticeTitle" to "Ihre Fahrten sind noch da",
+            "returnNoticeBody" to "Ihre letzte aufgezeichnete Aktivität war vor %1\$d Tagen. Alles Aufgezeichnete ist weiterhin auf Ihrem Telefon.",
+            "returnNoticeStop" to "Diese Hinweise stoppen",
             "groupAlertSetBody" to "%1\$s hat den Status auf %2\$s gesetzt",
             "groupAlertClearedBody" to "%1\$s hat %2\$s entfernt",
             "groupAlertViewGroup" to "Gruppe ansehen",
@@ -2840,6 +2994,39 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s भेजा नहीं गया",
             "groupPillSent" to "%1\$s भेजा गया",
             "groupAlertChannelName" to "समूह राइड अलर्ट",
+            "channelRemindersName" to "रिमाइंडर",
+            "channelRemindersDescription" to "सिर्फ़ वे रिमाइंडर जो आप खुद सेट करते हैं। इस चैनल का और कोई उपयोग नहीं है।",
+            "channelProgressName" to "आपकी प्रगति",
+            "channelProgressDescription" to "आपका साप्ताहिक सारांश, हफ़्ते में ज़्यादा से ज़्यादा एक बार। यह सब ऐप में भी मौजूद है।",
+            "channelDataName" to "सिंक और डेटा",
+            "channelDataDescription" to "जब आपके लिए कोई राइड सहेजी जाए, कोई बैकअप काम करना बंद कर दे, या कोई एक्सपोर्ट तैयार हो।",
+            "channelOperatorName" to "ऐप सूचनाएं",
+            "channelOperatorDescription" to "ऐप में आई समस्याओं और उन्हें ठीक करने वाले अपडेट के बारे में कभी-कभार आने वाले संदेश।",
+            "broadcastLearnMore" to "और जानें",
+            "broadcastDismiss" to "ठीक है",
+            "rideSavedTitle" to "आपकी राइड सहेज ली गई",
+            "rideSavedBody" to "ऐप बंद होने से रिकॉर्डिंग %1\$s पर रुक गई। %2\$s सहेजा गया।",
+            "rideSavedBodyPlain" to "रिकॉर्डिंग के दौरान ऐप बंद हो गया, इसलिए राइड पूरी करके सहेज ली गई।",
+            "ridesSavedTitle" to "%1\$d राइड सहेजी गईं",
+            "ridesSavedBody" to "रिकॉर्डिंग के दौरान ऐप बंद हो गया। उन्हें पूरा करके सहेज लिया गया।",
+            "weeklyRecapNotificationTitle" to "पिछला हफ़्ता",
+            "weeklyRecapNotificationBody" to "%1\$d गतिविधियाँ, %2\$s।",
+            "bulletinTitle" to "नया क्या है",
+            "bulletinEmpty" to "बताने के लिए कुछ नहीं। TrackMe को जो कहना होगा वह यहाँ दिखेगा।",
+            "bulletinClear" to "साफ़ करें",
+            "bulletinLevelReached" to "आपने %1\$s हासिल किया",
+            "bulletinLevelReachedBody" to "आपके दर्ज किए गए सक्रिय मिनटों के आधार पर।",
+            "bulletinMilestone" to "%1\$d गतिविधियाँ दर्ज हुईं",
+            "bulletinMilestoneBody" to "एक उल्लेखनीय पड़ाव।",
+            "bulletinSyncProblem" to "क्लाउड बैकअप काम नहीं कर रहा",
+            "bulletinSyncProblemBody" to "%2\$s से %1\$d गतिविधियाँ आपके बैकअप तक नहीं पहुँचीं।",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d गतिविधियाँ आपके क्लाउड बैकअप तक नहीं पहुँचीं।",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "एक नया संस्करण उपलब्ध है।",
+            "sunsetSoon" to "%1\$d मिनट में सूर्यास्त",
+            "returnNoticeTitle" to "आपकी राइड्स यहीं हैं",
+            "returnNoticeBody" to "आपकी आखिरी दर्ज गतिविधि %1\$d दिन पहले थी। आपका दर्ज किया सब कुछ अब भी आपके फ़ोन में है।",
+            "returnNoticeStop" to "ये सूचनाएँ बंद करें",
             "groupAlertSetBody" to "%1\$s ने अपनी स्थिति %2\$s रखी",
             "groupAlertClearedBody" to "%1\$s ने %2\$s हटाया",
             "groupAlertViewGroup" to "समूह देखें",
@@ -3467,6 +3654,39 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s は未送信",
             "groupPillSent" to "%1\$s を送信",
             "groupAlertChannelName" to "グループライドの通知",
+            "channelRemindersName" to "リマインダー",
+            "channelRemindersDescription" to "自分で設定したリマインダーのみ。他の用途では使いません。",
+            "channelProgressName" to "あなたの記録",
+            "channelProgressDescription" to "週次まとめ。多くても週に1回です。内容はアプリ内でも確認できます。",
+            "channelDataName" to "同期とデータ",
+            "channelDataDescription" to "ライドが自動保存されたとき、バックアップが停止したとき、エクスポートの準備ができたとき。",
+            "channelOperatorName" to "アプリからのお知らせ",
+            "channelOperatorDescription" to "アプリ自体の不具合と、その修正アップデートに関するまれなお知らせ。",
+            "broadcastLearnMore" to "詳しく見る",
+            "broadcastDismiss" to "了解",
+            "rideSavedTitle" to "ライドを保存しました",
+            "rideSavedBody" to "アプリが終了したため %1\$s に記録が停止しました。%2\$s を保存しています。",
+            "rideSavedBodyPlain" to "記録中にアプリが終了したため、ライドを終了して保存しました。",
+            "ridesSavedTitle" to "%1\$d 件のライドを保存しました",
+            "ridesSavedBody" to "記録中にアプリが終了しました。すべて終了して保存しています。",
+            "weeklyRecapNotificationTitle" to "先週",
+            "weeklyRecapNotificationBody" to "%1\$d 件のアクティビティ、%2\$s。",
+            "bulletinTitle" to "お知らせ",
+            "bulletinEmpty" to "お知らせはありません。TrackMe からの連絡はここに表示されます。",
+            "bulletinClear" to "消去",
+            "bulletinLevelReached" to "%1\$s に到達しました",
+            "bulletinLevelReachedBody" to "記録された活動時間に基づいています。",
+            "bulletinMilestone" to "%1\$d 件のアクティビティを記録",
+            "bulletinMilestoneBody" to "記録に値する節目です。",
+            "bulletinSyncProblem" to "クラウドバックアップが機能していません",
+            "bulletinSyncProblemBody" to "%2\$s 以降、%1\$d 件のアクティビティがバックアップに届いていません。",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d 件のアクティビティがクラウドバックアップに届いていません。",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "新しいバージョンが利用できます。",
+            "sunsetSoon" to "あと %1\$d 分で日没",
+            "returnNoticeTitle" to "記録はそのまま残っています",
+            "returnNoticeBody" to "最後に記録したアクティビティは %1\$d 日前です。記録した内容はすべて端末に残っています。",
+            "returnNoticeStop" to "この通知を停止",
             "groupAlertSetBody" to "%1\$s さんが状態を「%2\$s」にしました",
             "groupAlertClearedBody" to "%1\$s さんが「%2\$s」を解除しました",
             "groupAlertViewGroup" to "グループを見る",
@@ -4094,6 +4314,39 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s 未发送",
             "groupPillSent" to "%1\$s 已发送",
             "groupAlertChannelName" to "群骑提醒",
+            "channelRemindersName" to "提醒",
+            "channelRemindersDescription" to "仅包含你自己设置的提醒，此渠道不作他用。",
+            "channelProgressName" to "你的进展",
+            "channelProgressDescription" to "每周回顾，最多每周一次。这些内容在应用内也能看到。",
+            "channelDataName" to "同步与数据",
+            "channelDataDescription" to "当系统为你保存了一次记录、备份停止工作，或导出已就绪时。",
+            "channelOperatorName" to "应用通知",
+            "channelOperatorDescription" to "关于应用自身问题及其修复更新的少量消息。",
+            "broadcastLearnMore" to "了解更多",
+            "broadcastDismiss" to "知道了",
+            "rideSavedTitle" to "你的记录已保存",
+            "rideSavedBody" to "应用关闭，记录于 %1\$s 停止。已保留 %2\$s。",
+            "rideSavedBodyPlain" to "记录期间应用关闭，已结束并保留这次记录。",
+            "ridesSavedTitle" to "已保存 %1\$d 次记录",
+            "ridesSavedBody" to "记录期间应用关闭，已全部结束并保留。",
+            "weeklyRecapNotificationTitle" to "上周",
+            "weeklyRecapNotificationBody" to "%1\$d 次活动，%2\$s。",
+            "bulletinTitle" to "最新动态",
+            "bulletinEmpty" to "暂无内容。TrackMe 需要告诉你的事情会显示在这里。",
+            "bulletinClear" to "清除",
+            "bulletinLevelReached" to "你达到了 %1\$s",
+            "bulletinLevelReachedBody" to "根据你记录的活动时长。",
+            "bulletinMilestone" to "已记录 %1\$d 次活动",
+            "bulletinMilestoneBody" to "一个值得记录的里程碑。",
+            "bulletinSyncProblem" to "云备份未在工作",
+            "bulletinSyncProblemBody" to "自 %2\$s 起，%1\$d 次活动尚未同步到你的备份。",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d 次活动尚未同步到你的云备份。",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "有新版本可用。",
+            "sunsetSoon" to "%1\$d 分钟后日落",
+            "returnNoticeTitle" to "你的记录都还在",
+            "returnNoticeBody" to "上次记录的活动是在 %1\$d 天前。你记录的一切仍保存在手机上。",
+            "returnNoticeStop" to "停止此类通知",
             "groupAlertSetBody" to "%1\$s 将状态设为%2\$s",
             "groupAlertClearedBody" to "%1\$s 清除了%2\$s",
             "groupAlertViewGroup" to "查看群组",

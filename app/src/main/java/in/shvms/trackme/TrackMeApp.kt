@@ -107,6 +107,27 @@ class TrackMeApp : Application() {
     lateinit var preferencesManager: AppPreferencesManager
         private set
 
+    /**
+     * SCOPE_1.8.7 §6.3 — operator broadcasts, and the durable record of them.
+     *
+     * Application-scoped because `TrackMeMessagingService` writes to it from a background delivery
+     * with no Activity alive, and the UI reads the same instance. Two instances would let a push
+     * and the foreground read disagree about what the user has already been shown.
+     */
+    lateinit var broadcastStore: `in`.shvms.trackme.data.local.BroadcastStore
+        private set
+
+    /**
+     * SCOPE_1.8.7 §6.1.7 — the bulletin, and the reason the one-per-week notification cap is a
+     * trade rather than a loss. Everything the budget refuses lands here instead.
+     *
+     * Application-scoped for the same reason as [broadcastStore]: background workers write to it
+     * with no Activity alive, and the UI must read the same instance or the badge will disagree
+     * with the feed.
+     */
+    lateinit var bulletinStore: `in`.shvms.trackme.data.local.BulletinStore
+        private set
+
     lateinit var ageSignalManager: `in`.shvms.trackme.data.AgeSignalManager
         private set
 
@@ -172,6 +193,24 @@ class TrackMeApp : Application() {
 
         errorLogger = CrashlyticsErrorLogger()
         errorLogger.init()
+        broadcastStore = `in`.shvms.trackme.data.local.BroadcastStore(this)
+        bulletinStore = `in`.shvms.trackme.data.local.BulletinStore(this)
+        // §6.3: the subscription follows the OS permission and never asks for it — TASK-284's rule
+        // still holds, so a broadcast arriving must not trigger a permission request. Run on every
+        // launch because this is the only thing that recovers the subscription after a reinstall,
+        // a restore, or the user turning notifications back on outside our settings.
+        `in`.shvms.trackme.service.notifications.BroadcastSubscription.sync(this, errorLogger)
+        // §6.3: push is the fast path, not the only one. Anyone the push missed — permission
+        // declined, device off, FCM dropped it, subscription not yet complete — picks the
+        // broadcast up here instead, silently, because the moment to interrupt has passed.
+        applicationScope.launch(Dispatchers.IO) {
+            `in`.shvms.trackme.data.remote.BroadcastReconciler.reconcile(
+                store = broadcastStore,
+                release = `in`.shvms.trackme.BuildConfig.VERSION_NAME,
+                errorLogger = errorLogger,
+                bulletin = bulletinStore,
+            )
+        }
         `in`.shvms.trackme.analytics.AnalyticsManager.init(this)
 
         // Install the Maps SDK's static delegates before any screen can reach for them.
@@ -237,6 +276,10 @@ class TrackMeApp : Application() {
         firestoreSyncManager = FirestoreSyncManager(database.rideDao(), authManager, errorLogger)
         appUpdateChecker = `in`.shvms.trackme.ui.update.AppUpdateChecker(this)
         `in`.shvms.trackme.data.remote.SyncWorker.schedulePeriodicSync(this)
+        // §6.1.2 scenario 8: the recap has to reach people who do not open the app, so it runs on a
+        // schedule rather than on foreground. Inexact and daily — nothing here needs an exact
+        // alarm, so SCHEDULE_EXACT_ALARM stays undeclared.
+        `in`.shvms.trackme.service.notifications.ProactiveNotificationWorker.schedule(this)
 
         applicationScope.launch(Dispatchers.IO) {
             seedOnboardingSampleRideIfNeeded()
@@ -260,6 +303,23 @@ class TrackMeApp : Application() {
                     )
                     if (summary.hasChanges) {
                         _recoveryNotice.value = summary
+                        // §6.1.7: one row per recovered ride. The notification says "3 rides were
+                        // saved" because it has one line; the feed has room to say which three, and
+                        // checking whether a particular ride survived is the reason to look.
+                        `in`.shvms.trackme.data.local.BulletinAdapters.from(summary)
+                            .forEach { bulletinStore.add(it) }
+                        // §6.1.1 scenario 1: the in-app banner above only fires if the app is
+                        // opened, and the people who most need this are the ones whose phone died
+                        // and have stopped expecting the ride to be there. Class A — never
+                        // rationed by the proactive budget.
+                        `in`.shvms.trackme.service.notifications.RecoveryNotifier.notify(
+                            context = this@TrackMeApp,
+                            summary = summary,
+                            strings = `in`.shvms.trackme.ui.localization.getAppStrings(
+                                preferencesManager.appLanguage.value
+                            ),
+                            imperialUnits = preferencesManager.unitSystem.value == "imperial",
+                        )
                     }
                 }
             } catch (e: Exception) {
@@ -296,6 +356,23 @@ class TrackMeApp : Application() {
      * UI layer; `HomeScreen` builds the equivalent moment from its already-collected UI state so
      * the dialog also disappears if the app leaves idle while a recap is queued.
      */
+    /**
+     * The running build number.
+     *
+     * `Int.MAX_VALUE` when it cannot be read: a device whose own version we cannot determine must
+     * never be told to update to fix a bug it may not have. Silence is the safe direction for a
+     * message about correctness.
+     */
+    fun appVersionCode(): Int = runCatching {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            info.longVersionCode.toInt()
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode
+        }
+    }.getOrDefault(Int.MAX_VALUE)
+
     fun currentCalmMoment(): `in`.shvms.trackme.domain.stats.CalmMomentGate.AppMoment =
         `in`.shvms.trackme.domain.stats.CalmMomentGate.AppMoment(
             isTrackingIdle = trackingManager.trackingState.value ==
