@@ -17,9 +17,12 @@ import `in`.shvms.trackme.ui.home.components.MemberMarkerPolicy
 import android.os.SystemClock
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
@@ -302,6 +305,17 @@ class CommunityViewModel(
 
     fun clearStatus() = groupSessionManager.clearStatus()
 
+    /**
+     * TASK-289 — emitted once when a group is created successfully, so creation can end on the
+     * share sheet rather than on a screen that merely contains a share button.
+     *
+     * A one-shot event, not state: replaying it would re-present the sheet on every configuration
+     * change, and a share sheet that reappears after you dismissed it is worse than one that never
+     * appeared. `extraBufferCapacity = 1` so an emit while the screen is recomposing is not lost.
+     */
+    private val _groupJustCreated = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val groupJustCreated: SharedFlow<Unit> = _groupJustCreated.asSharedFlow()
+
     fun createGroup(name: String, durationMinutes: Int, maxMembers: Int) = run {
         local.value = LocalState(busy = true)
         viewModelScope.launch {
@@ -313,6 +327,9 @@ class CommunityViewModel(
                 photoUrl = photoUrl(),
             )
             local.value = LocalState(error = result.exceptionOrNull()?.message)
+            // Only on success. Firing after a failed create would open a share sheet for a group
+            // that does not exist.
+            if (result.isSuccess) _groupJustCreated.tryEmit(Unit)
         }
     }
 

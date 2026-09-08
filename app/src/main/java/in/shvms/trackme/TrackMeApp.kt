@@ -12,9 +12,6 @@ import `in`.shvms.trackme.auth.AuthManager
 import `in`.shvms.trackme.data.local.AppPreferencesManager
 import `in`.shvms.trackme.data.remote.FirestoreSyncManager
 import `in`.shvms.trackme.data.remote.LiveShareManager
-import `in`.shvms.trackme.service.EmergencyManager
-import `in`.shvms.trackme.service.SosRemovalNoticePolicy
-import `in`.shvms.trackme.service.SosStateCleanup
 
 import `in`.shvms.trackme.utils.logger.ErrorLogger
 import `in`.shvms.trackme.utils.logger.CrashlyticsErrorLogger
@@ -35,7 +32,6 @@ class TrackMeApp : Application() {
     lateinit var trackingManager: TrackingManager
     internal lateinit var pipAlertStore: `in`.shvms.trackme.ui.home.components.PiPAlertStore
         private set
-    lateinit var emergencyManager: EmergencyManager
     lateinit var firestoreSyncManager: FirestoreSyncManager
         private set
 
@@ -111,6 +107,27 @@ class TrackMeApp : Application() {
     lateinit var preferencesManager: AppPreferencesManager
         private set
 
+    /**
+     * SCOPE_1.8.7 §6.3 — operator broadcasts, and the durable record of them.
+     *
+     * Application-scoped because `TrackMeMessagingService` writes to it from a background delivery
+     * with no Activity alive, and the UI reads the same instance. Two instances would let a push
+     * and the foreground read disagree about what the user has already been shown.
+     */
+    lateinit var broadcastStore: `in`.shvms.trackme.data.local.BroadcastStore
+        private set
+
+    /**
+     * SCOPE_1.8.7 §6.1.7 — the bulletin, and the reason the one-per-week notification cap is a
+     * trade rather than a loss. Everything the budget refuses lands here instead.
+     *
+     * Application-scoped for the same reason as [broadcastStore]: background workers write to it
+     * with no Activity alive, and the UI must read the same instance or the badge will disagree
+     * with the feed.
+     */
+    lateinit var bulletinStore: `in`.shvms.trackme.data.local.BulletinStore
+        private set
+
     lateinit var ageSignalManager: `in`.shvms.trackme.data.AgeSignalManager
         private set
 
@@ -128,14 +145,6 @@ class TrackMeApp : Application() {
     private val _recoveryNotice = MutableStateFlow<`in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.RecoverySummary?>(null)
     val recoveryNotice = _recoveryNotice.asStateFlow()
 
-    /**
-     * TG-A06 (1.6.4): true while an upgrading user who had completed SOS setup has not yet
-     * acknowledged the removal notice. Evaluated exactly once (per install) in [onCreate];
-     * users who never completed setup are grandfathered out so they never see it.
-     */
-    private val _sosRemovalNotice = MutableStateFlow(false)
-    val sosRemovalNotice = _sosRemovalNotice.asStateFlow()
-
     private val _locationPermissionRevokedNotice = MutableStateFlow(false)
     val locationPermissionRevokedNotice = _locationPermissionRevokedNotice.asStateFlow()
 
@@ -148,9 +157,10 @@ class TrackMeApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // FIRST. Not "early" — first. SosStateCleanup below commits a flag into trackme_prefs, so
-        // after it runs a brand-new install is indistinguishable from an upgrade by preference
-        // contents alone, and the walkthrough would never show for anyone. See OnboardingGate.
+        // FIRST. Not "early" — first. Almost everything below writes a preference sooner or
+        // later, and after any of them a brand-new install is indistinguishable from an upgrade by
+        // preference contents alone — so the walkthrough would never show for anyone. The gate
+        // has to read the file while it is still genuinely empty. See OnboardingGate.
         onboardingState = `in`.shvms.trackme.ui.onboarding.OnboardingGate.resolve(this)
 
         if (BuildConfig.STRICT_MODE) {
@@ -168,17 +178,11 @@ class TrackMeApp : Application() {
             )
         }
 
-        // TG-A05 / HAZARD-1: must run before EmergencyManager is constructed and before any
-        // UI reads the persisted SOS state. Synchronous by design — see SosStateCleanup.
-        SosStateCleanup.clearOnce(
-            getSharedPreferences(
-                `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
-                MODE_PRIVATE
-            )
-        )
-        // The SOS dispatch machinery is gone; drop its stale notification channel so
-        // "Emergency alerts" stops appearing in the system notification settings of
-        // upgraded installs. Deleting a nonexistent channel is a documented no-op.
+        // TASK-309: the SOS feature and every reader of its state are gone, but a notification
+        // channel outlives the code that created it — it survives until uninstall. Without this,
+        // an install upgraded from pre-1.6.4 still lists "Emergency alerts" under system
+        // notification settings for a feature the app no longer has. Deleting a channel that was
+        // never created is a documented no-op, so this is safe on every other install.
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             getSystemService(android.app.NotificationManager::class.java)
                 ?.deleteNotificationChannel("sos_channel")
@@ -189,6 +193,24 @@ class TrackMeApp : Application() {
 
         errorLogger = CrashlyticsErrorLogger()
         errorLogger.init()
+        broadcastStore = `in`.shvms.trackme.data.local.BroadcastStore(this)
+        bulletinStore = `in`.shvms.trackme.data.local.BulletinStore(this)
+        // §6.3: the subscription follows the OS permission and never asks for it — TASK-284's rule
+        // still holds, so a broadcast arriving must not trigger a permission request. Run on every
+        // launch because this is the only thing that recovers the subscription after a reinstall,
+        // a restore, or the user turning notifications back on outside our settings.
+        `in`.shvms.trackme.service.notifications.BroadcastSubscription.sync(this, errorLogger)
+        // §6.3: push is the fast path, not the only one. Anyone the push missed — permission
+        // declined, device off, FCM dropped it, subscription not yet complete — picks the
+        // broadcast up here instead, silently, because the moment to interrupt has passed.
+        applicationScope.launch(Dispatchers.IO) {
+            `in`.shvms.trackme.data.remote.BroadcastReconciler.reconcile(
+                store = broadcastStore,
+                release = `in`.shvms.trackme.BuildConfig.VERSION_NAME,
+                errorLogger = errorLogger,
+                bulletin = bulletinStore,
+            )
+        }
         `in`.shvms.trackme.analytics.AnalyticsManager.init(this)
 
         // Install the Maps SDK's static delegates before any screen can reach for them.
@@ -237,12 +259,6 @@ class TrackMeApp : Application() {
         
         trackingManager = TrackingManager()
         pipAlertStore = `in`.shvms.trackme.ui.home.components.PiPAlertStore(applicationScope)
-        emergencyManager = EmergencyManager(
-            getSharedPreferences(
-                `in`.shvms.trackme.service.TrackingService.TRACKING_PREFS,
-                MODE_PRIVATE
-            )
-        )
         authManager = AuthManager()
         liveShareManager = LiveShareManager()
         groupSessionStore = `in`.shvms.trackme.data.local.GroupSessionStore(this)
@@ -260,10 +276,18 @@ class TrackMeApp : Application() {
         firestoreSyncManager = FirestoreSyncManager(database.rideDao(), authManager, errorLogger)
         appUpdateChecker = `in`.shvms.trackme.ui.update.AppUpdateChecker(this)
         `in`.shvms.trackme.data.remote.SyncWorker.schedulePeriodicSync(this)
+        // §6.1.2 scenario 8: the recap has to reach people who do not open the app, so it runs on a
+        // schedule rather than on foreground. Inexact and daily — nothing here needs an exact
+        // alarm, so SCHEDULE_EXACT_ALARM stays undeclared.
+        `in`.shvms.trackme.service.notifications.ProactiveNotificationWorker.schedule(this)
+        // §6.1.3 #12a. Re-registered on launch because a reinstall or a "clear data" drops the
+        // WorkManager queue while `ActivityReminderStore` may still hold an enabled reminder —
+        // the worker itself is a no-op for anyone who has not set one, so this costs nothing for
+        // the population that never turns it on.
+        `in`.shvms.trackme.service.notifications.ActivityReminderWorker.schedule(this)
 
         applicationScope.launch(Dispatchers.IO) {
             seedOnboardingSampleRideIfNeeded()
-            evaluateSosRemovalNotice()
             `in`.shvms.trackme.service.EmergencyDataPurge.purgeOnce(
                 prefs = getSharedPreferences("trackme_prefs", MODE_PRIVATE),
                 authManager = authManager,
@@ -284,6 +308,23 @@ class TrackMeApp : Application() {
                     )
                     if (summary.hasChanges) {
                         _recoveryNotice.value = summary
+                        // §6.1.7: one row per recovered ride. The notification says "3 rides were
+                        // saved" because it has one line; the feed has room to say which three, and
+                        // checking whether a particular ride survived is the reason to look.
+                        `in`.shvms.trackme.data.local.BulletinAdapters.from(summary)
+                            .forEach { bulletinStore.add(it) }
+                        // §6.1.1 scenario 1: the in-app banner above only fires if the app is
+                        // opened, and the people who most need this are the ones whose phone died
+                        // and have stopped expecting the ride to be there. Class A — never
+                        // rationed by the proactive budget.
+                        `in`.shvms.trackme.service.notifications.RecoveryNotifier.notify(
+                            context = this@TrackMeApp,
+                            summary = summary,
+                            strings = `in`.shvms.trackme.ui.localization.getAppStrings(
+                                preferencesManager.appLanguage.value
+                            ),
+                            imperialUnits = preferencesManager.unitSystem.value == "imperial",
+                        )
                     }
                 }
             } catch (e: Exception) {
@@ -320,11 +361,27 @@ class TrackMeApp : Application() {
      * UI layer; `HomeScreen` builds the equivalent moment from its already-collected UI state so
      * the dialog also disappears if the app leaves idle while a recap is queued.
      */
+    /**
+     * The running build number.
+     *
+     * `Int.MAX_VALUE` when it cannot be read: a device whose own version we cannot determine must
+     * never be told to update to fix a bug it may not have. Silence is the safe direction for a
+     * message about correctness.
+     */
+    fun appVersionCode(): Int = runCatching {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            info.longVersionCode.toInt()
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode
+        }
+    }.getOrDefault(Int.MAX_VALUE)
+
     fun currentCalmMoment(): `in`.shvms.trackme.domain.stats.CalmMomentGate.AppMoment =
         `in`.shvms.trackme.domain.stats.CalmMomentGate.AppMoment(
             isTrackingIdle = trackingManager.trackingState.value ==
                 `in`.shvms.trackme.service.TrackingState.IDLE,
-            isEmergencyActive = emergencyManager.isEmergencyActive.value,
             hasPendingReveal = pendingRevealStore.pending.value != null
         )
 
@@ -334,7 +391,7 @@ class TrackMeApp : Application() {
      * the store computes weeks, this just surfaces the result. Idempotent while one is pending.
      *
      * TASK-119: prompt 09 requires this to fire only when the app is calmly idle. Foregrounding
-     * mid-ride, mid-SOS, or into a GPS-lost/storage-low state must skip the cycle. Skipping does
+     * mid-ride or into a GPS-lost/storage-low state must skip the cycle. Skipping does
      * NOT consume the recap — nothing is acknowledged here — so it stays eligible for the rest of
      * its week and surfaces on the next calm foreground.
      */
@@ -406,41 +463,6 @@ class TrackMeApp : Application() {
      */
     fun dismissLocationPermissionRevokedNoticeForSession() {
         _locationPermissionRevokedNotice.value = false
-    }
-
-    /**
-     * TG-A06: decide once whether this install needs the SOS-removal notice — see
-     * [SosRemovalNoticePolicy] for the eligibility rule and the read-failure handling.
-     *
-     * A `null` result means the answer is not known yet, so the notice state is left as-is for
-     * this launch: showing nothing is correct when the verdict is unknown, showing a wrong
-     * verdict is not.
-     *
-     * TG-A15–A21 (1.6.5): emergency tables are dropped by MIGRATION_9_10, so the setup-complete
-     * check can no longer query the database. Users already evaluated on 1.6.4 keep their
-     * stored verdict; unevaluated users who skip 1.6.4 never had SOS setup, so `false` is the
-     * correct answer.
-     */
-    private suspend fun evaluateSosRemovalNotice() {
-        val prefs = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
-        SosRemovalNoticePolicy.evaluateOnce(
-            prefs = prefs,
-            onReadFailure = { errorLogger.recordException(it) },
-        ) {
-            // The emergency_settings table was dropped in MIGRATION_9_10. Users who were
-            // already evaluated on 1.6.4 will not reach this lambda. Users upgrading
-            // directly from pre-1.6.4 to 1.6.5+ never had SOS setup complete, so `false`
-            // is the correct answer — they should not see the notice.
-            false
-        }?.let { shouldShow ->
-            _sosRemovalNotice.value = shouldShow
-        }
-    }
-
-    /** TG-A06: the notice is must-acknowledge; only an explicit tap clears it, permanently. */
-    fun acknowledgeSosRemovalNotice() {
-        _sosRemovalNotice.value = false
-        SosRemovalNoticePolicy.acknowledge(getSharedPreferences("trackme_prefs", MODE_PRIVATE))
     }
 
     /**

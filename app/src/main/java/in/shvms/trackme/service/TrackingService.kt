@@ -31,8 +31,12 @@ import `in`.shvms.trackme.data.remote.LiveShareStatus
 import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.utils.RideUtils
 import `in`.shvms.trackme.utils.StorageHealthMonitor
+import `in`.shvms.trackme.domain.notifications.ForgottenRideNotice
+import `in`.shvms.trackme.service.notifications.ForgottenRideNotifier
+import `in`.shvms.trackme.service.notifications.GroupPresenceNotifier
 import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.getAppStrings
+import java.util.Locale
 import `in`.shvms.trackme.ui.community.statusLabelForCode
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationResult
@@ -115,6 +119,13 @@ class TrackingService : Service() {
     private var lastNotifyElapsedMs = Long.MIN_VALUE
     private var lastNotifyDistanceMeters = 0f
     private var lastNotifyState: TrackingState? = null
+
+    // §6.1.1 #4. When the rider stopped moving, and whether this ride has already been asked about.
+    // The flag is per-ride and is never persisted: a ride restored after process death has by
+    // definition not been asked yet, and re-asking a rider whose phone crashed is the least of what
+    // has gone wrong for them.
+    private var stillnessStartedAtMillis: Long? = null
+    private var forgottenRideAsked = false
 
     private val adaptiveAutoPauseEngine = `in`.shvms.trackme.domain.processor.AdaptiveAutoPauseEngine()
     private lateinit var motionSensorManager: MotionSensorManager
@@ -208,6 +219,12 @@ class TrackingService : Service() {
                     effectiveSpeed = if (isStationaryDrift) 0f else rawSpeed
                     isPointPaused = false
                 }
+
+                // §6.1.1 #4. Deliberately derived from the raw stillness signal rather than from
+                // `isPointPaused`: auto-pause can be switched off, and a rider who turned it off is
+                // if anything *more* likely to end up with a ride running in a pocket, because
+                // nothing else is watching for stillness on their behalf.
+                updateStillness(isHardwareStill || isStationaryDrift, location.time)
 
                 trackingManager.updateSpeed(effectiveSpeed)
                 trackingManager.setAutoPaused(isPointPaused)
@@ -435,6 +452,17 @@ class TrackingService : Service() {
             ACTION_PAUSE_SERVICE -> pauseTracking()
             ACTION_STOP_SERVICE -> stopTracking()
             ACTION_DISCARD_NEAR_EMPTY_RIDE -> stopTracking(discardNearEmptyRide = true)
+            // §6.1.1 #4. "Finish ride" is routed through the ordinary stop path rather than a
+            // private one: a shortcut that skipped the save would turn a helpful question into the
+            // worst bug in the release.
+            ForgottenRideNotifier.ACTION_FINISH_RIDE -> {
+                ForgottenRideNotifier.cancel(this)
+                stopTracking()
+            }
+            // "Keep recording" only dismisses. The once-per-ride flag was already set when the
+            // question was asked, so there is no state to change — answering "yes I am still here"
+            // and answering nothing must lead to the same place.
+            ForgottenRideNotifier.ACTION_KEEP_RECORDING -> ForgottenRideNotifier.cancel(this)
             null -> {
                 // START_STICKY recreates the service with a null intent after process death.
                 // Only restore a session that was explicitly marked active by the service.
@@ -484,7 +512,6 @@ class TrackingService : Service() {
             try {
                 val restoredRide = restorePersistedRide()
                 if (!restoredRide) {
-                    (application as TrackMeApp).emergencyManager.beginRideSession()
                     val startTime = System.currentTimeMillis()
                     // TASK-232: was a group live when this ride began? A marker and a count,
                     // never a group id and never a name -- see RideEntity's note. The roster may
@@ -796,6 +823,51 @@ class TrackingService : Service() {
         stopSelf()
     }
 
+    /**
+     * SCOPE_1.8.7 §6.1.1 scenario 4 — track how long the rider has been still, and ask once.
+     *
+     * @param isStill the raw stillness signal for this fix.
+     * @param fixTimeMillis the location's own timestamp, not the wall clock. A batch of fixes
+     *   delivered late — which is exactly what happens when a dozing device flushes its queue —
+     *   would otherwise look like 45 minutes of stillness compressed into a second, and the rider
+     *   would be asked about a ride they are actively on.
+     */
+    private fun updateStillness(isStill: Boolean, fixTimeMillis: Long) {
+        if (!isStill) {
+            // Moving again. Reset the clock but keep [forgottenRideAsked]: the policy is once per
+            // ride, and a rider who moves, stops again and gets asked a second time is being
+            // argued with by an app that already had its answer.
+            stillnessStartedAtMillis = null
+            ForgottenRideNotifier.cancel(this)
+            return
+        }
+
+        val startedAt = stillnessStartedAtMillis ?: fixTimeMillis.also { stillnessStartedAtMillis = it }
+        val stillnessMillis = fixTimeMillis - startedAt
+        if (stillnessMillis < 0) return
+
+        if (!ForgottenRideNotice.shouldAsk(
+                stillnessMillis = stillnessMillis,
+                alreadyAsked = forgottenRideAsked,
+                isTracking = currentState == TrackingState.TRACKING,
+            )
+        ) return
+
+        forgottenRideAsked = true
+        ForgottenRideNotifier.notifyForgottenRide(
+            context = this,
+            elapsedMillis = elapsedWallClockDuration,
+            stillSinceMillis = startedAt,
+            // Formatting a time needs a locale and can throw on a device with a broken one. A
+            // failure here costs the clock time in the copy; the notifier has a body for that case.
+            // It must never cost the notification, which is about the rider's ride.
+            formattedStillSince = runCatching {
+                java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT, Locale.getDefault())
+                    .format(java.util.Date(startedAt))
+            }.getOrNull(),
+        )
+    }
+
     private fun handleLocationStartFailure() {
         val error = SecurityException("Location permission was revoked while starting ride tracking")
         val app = application as TrackMeApp
@@ -818,6 +890,13 @@ class TrackingService : Service() {
         val trackingV1Diagnostics = trackingV1DebugDiagnostics
         trackingV2StepSensor.stop()
         locationHelper.stopLocationTracking(locationCallback)
+
+        // §6.1.1 #4. The question is about a ride that is running; leaving it in the shade after
+        // the ride has ended makes the app look like it is still recording, which is the opposite
+        // of what this notification exists to prevent.
+        ForgottenRideNotifier.cancel(this)
+        stillnessStartedAtMillis = null
+        forgottenRideAsked = false
 
         val finalDistance = trackingManager.totalDistance.value.toDouble()
         val finalDuration = rideDuration
@@ -869,6 +948,20 @@ class TrackingService : Service() {
                     )
                 }
             }
+
+            // §6.1.4 #22. Evaluated after the ride is finalized, so "is a ride active" is settled
+            // rather than being read mid-teardown. A rider who finishes first and stays in the
+            // group for the back marker is doing something entirely ordinary — this tells them
+            // they are still visible and offers one tap out; it never leaves the group for them.
+            val groupNow = groupSessionManager.state.value
+            GroupPresenceNotifier.notifyIfStillLive(
+                context = this@TrackingService,
+                groupId = groupNow.groupId,
+                groupName = groupNow.groupName,
+                isGroupLive = groupNow.isActive,
+                isRideActive = false,
+            )
+
             if (!keepAliveForPresence) {
                 stopSelf()
             }
@@ -1296,11 +1389,6 @@ class TrackingService : Service() {
         trackingV2Final: TrackingV2Snapshot? = null,
         trackingV1Diagnostics: TrackingV1DebugDiagnostics = TrackingV1DebugDiagnostics(),
     ) {
-        // Consume the single per-ride SOS bit before any early return. History still records a
-        // valid ride, while the transition prevents B1 from creating a reveal (and therefore B4
-        // from chaining a review request) after an emergency flow.
-        val suppressPostRideCelebrations = (application as TrackMeApp).emergencyManager
-            .consumeRideSuppression()
         val rideWithPoints = rideDao.getRideWithPointsById(rideId)
         if (rideWithPoints != null) {
             val ride = rideWithPoints.ride
@@ -1417,8 +1505,7 @@ class TrackingService : Service() {
                             rideId = rideId,
                             finishedAtMillis = finishedRide.endTime ?: System.currentTimeMillis(),
                             durationMillis = activeTimeMs,
-                            distanceMeters = finalDistance,
-                            suppressPostRideCelebrations = suppressPostRideCelebrations
+                            distanceMeters = finalDistance
                         )
                     )
                     // B1: pick the bounded reveal from the transition and persist it as a durable

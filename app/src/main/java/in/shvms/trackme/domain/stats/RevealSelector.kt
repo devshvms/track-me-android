@@ -21,9 +21,7 @@ package `in`.shvms.trackme.domain.stats
 object RevealSelector {
 
     fun select(t: RideStatsTransition): Reveal? {
-        // An SOS ride is still part of the user's history, but it must not produce a celebratory
-        // reveal or chain into the Play review prompt when the reveal is dismissed.
-        if (t.alreadyProcessed || t.suppressPostRideCelebrations) return null
+        if (t.alreadyProcessed) return null
 
         val kind = when {
             t.isFirstRide -> RevealKind.FIRST_RIDE

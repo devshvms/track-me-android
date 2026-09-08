@@ -16,11 +16,9 @@ class CalmMomentGateTest {
 
     private fun moment(
         isTrackingIdle: Boolean = true,
-        isEmergencyActive: Boolean = false,
         hasPendingReveal: Boolean = false
     ) = CalmMomentGate.AppMoment(
         isTrackingIdle = isTrackingIdle,
-        isEmergencyActive = isEmergencyActive,
         hasPendingReveal = hasPendingReveal
     )
 
@@ -42,26 +40,14 @@ class CalmMomentGateTest {
     }
 
     @Test
-    fun `an active emergency is never calm even when tracking is idle`() {
-        // The SOS can outlive the ride (user stops tracking, SOS still in flight). Safety-critical:
-        // a celebration must never cover the emergency surface.
-        assertFalse(CalmMomentGate.isCalm(moment(isEmergencyActive = true)))
-    }
-
-    @Test
     fun `a pending post-ride reveal is never calm`() {
         assertFalse(CalmMomentGate.isCalm(moment(hasPendingReveal = true)))
     }
 
     @Test
     fun `every condition is independently blocking`() {
-        assertFalse(
-            CalmMomentGate.isCalm(
-                moment(isTrackingIdle = false, isEmergencyActive = true, hasPendingReveal = true)
-            )
-        )
-        assertFalse(CalmMomentGate.isCalm(moment(isTrackingIdle = false, isEmergencyActive = true)))
-        assertFalse(CalmMomentGate.isCalm(moment(isEmergencyActive = true, hasPendingReveal = true)))
         assertFalse(CalmMomentGate.isCalm(moment(isTrackingIdle = false, hasPendingReveal = true)))
+        assertFalse(CalmMomentGate.isCalm(moment(isTrackingIdle = false)))
+        assertFalse(CalmMomentGate.isCalm(moment(hasPendingReveal = true)))
     }
 }

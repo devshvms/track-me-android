@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import `in`.shvms.trackme.service.TrackingManager
 import `in`.shvms.trackme.service.TrackingService
 import `in`.shvms.trackme.service.TrackingState
-import `in`.shvms.trackme.service.EmergencyManager
 import `in`.shvms.trackme.auth.AuthManager
 import `in`.shvms.trackme.data.local.AppPreferencesManager
 import `in`.shvms.trackme.data.local.HomeDashboardRepository
@@ -63,7 +62,6 @@ data class HomeUiState(
     val speedText: String = "0.0 km/h",
     /** Meaningful only for personas where `usesPace` holds — walk and run. See [formatPace]. */
     val paceText: String = "--:-- /km",
-    val isEmergencyActive: Boolean = false,
     val timeSinceLastGps: Long = 0L,
     val liveShareState: LiveShareState = LiveShareState(),
     val isAutoPaused: Boolean = false,
@@ -83,7 +81,6 @@ data class HomeUiState(
 
 class HomeViewModel(
     private val trackingManager: TrackingManager,
-    private val emergencyManager: EmergencyManager,
     private val authManager: AuthManager,
     private val liveShareManager: LiveShareManager,
     private val preferencesManager: AppPreferencesManager,
@@ -216,18 +213,13 @@ class HomeViewModel(
 
     val trackingV2LastComparison = trackingManager.trackingV2LastComparison
 
-    // isEmergencyActive is retained solely for CalmMomentGate: a stranded pre-1.6.4 SOS
-    // state (cleared by SosStateCleanup, but belt-and-braces) must never be covered by a
-    // celebration surface. Nothing in the UI can set or render it any more.
     val uiState = combine(
         trackingStats,
-        emergencyManager.isEmergencyActive,
         liveShareManager.state,
         authManager.currentUser,
         dashboardState,
-    ) { stats, isEmergency, liveShare, user, dashboard ->
+    ) { stats, liveShare, user, dashboard ->
         stats.copy(
-            isEmergencyActive = isEmergency,
             liveShareState = liveShare,
             isAuthenticated = user != null,
             userName = user?.displayName,
@@ -349,7 +341,6 @@ class HomeViewModel(
 
 class HomeViewModelFactory(
     private val trackingManager: TrackingManager,
-    private val emergencyManager: EmergencyManager,
     private val authManager: AuthManager,
     private val liveShareManager: LiveShareManager,
     private val preferencesManager: AppPreferencesManager,
@@ -361,7 +352,6 @@ class HomeViewModelFactory(
             @Suppress("UNCHECKED_CAST")
             return HomeViewModel(
                 trackingManager,
-                emergencyManager,
                 authManager,
                 liveShareManager,
                 preferencesManager,

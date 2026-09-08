@@ -16,11 +16,23 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
         android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.TrackMe"
         tools:targetApi="31">
+
+        <!-- TASK-306: AppCompat persists the in-app choice below Android 13. On Android 13+
+             the same API is synchronized with the system's App language settings. -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
 
         <service
             android:name=".service.TrackingService"
@@ -96,6 +108,30 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- SCOPE_1.8.7 §6.3: operator broadcasts. Exported because FCM delivers to it; the
+             payload is data-only and every field is validated by OperatorBroadcast.parse before
+             anything is posted, so an unsigned message cannot reach the notification shade. -->
+        <service
+            android:name=".service.notifications.TrackMeMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- TASK-289: receives the chooser's EXTRA_CHOSEN_COMPONENT so group_invite_sent counts
+             actual sends rather than share-sheet presentations. Not exported: only the system
+             delivers to it, via the PendingIntent handed to createChooser. -->
+        <receiver
+            android:name=".ui.community.GroupInviteChosenReceiver"
+            android:exported="false" />
+
+        <!-- TASK-305: the same pattern for exported share artifacts, so `export_shared` counts
+             destinations actually chosen rather than share sheets opened. Not exported. -->
+        <receiver
+            android:name=".ui.history.ExportSharedReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

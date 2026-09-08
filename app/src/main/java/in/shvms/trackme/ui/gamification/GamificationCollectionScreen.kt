@@ -481,7 +481,12 @@ private fun androidx.compose.foundation.layout.BoxScope.LevelCard(
     val cardWidth = (boardWidth * 0.58f).coerceAtLeast(150f)
     val x = if (node.cardOnRight) node.position.x * scale + 18f
     else node.position.x * scale - 18f - cardWidth
-    val dateFormat = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
+    // TASK-283. Keyed on the default locale, not unkeyed. setAppLanguage() updates
+    // Locale.getDefault() for the process immediately, and the strings recompose with it — but an
+    // unkeyed remember kept the formatter built under the PREVIOUS locale for the rest of the
+    // composition's life. That is what put an English "Sep 2, 2026" inside a French sentence, and
+    // why it appeared to fix itself on the next cold start.
+    val dateFormat = remember(Locale.getDefault()) { DateFormat.getDateInstance(DateFormat.MEDIUM) }
 
     Surface(
         shape = RoundedCornerShape(13.dp),

@@ -140,6 +140,28 @@ fun CommunityScreen(
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
 
     var showCreate by remember { mutableStateOf(false) }
+
+    // TASK-289 — creation ends on the share sheet, not on a screen that contains a share button.
+    //
+    // Two effects rather than one, because the success callback and the session state land
+    // separately: `groupJustCreated` fires when createGroup() returns, but the join code arrives
+    // through GroupSessionManager's own flow a moment later, and sharing before it exists would
+    // present a sheet with no code in it. So the first effect records the intent and the second
+    // spends it once the code is actually there.
+    //
+    // The flag is cleared before sharing, so a dismissed sheet is a normal outcome: the group
+    // stays intact, nothing re-presents, and the in-place invite affordance in the roster remains
+    // the way back.
+    var shareAfterCreate by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        viewModel.groupJustCreated.collect { shareAfterCreate = true }
+    }
+    LaunchedEffect(shareAfterCreate, state.session.joinCode) {
+        if (shareAfterCreate && state.session.joinCode != null) {
+            shareAfterCreate = false
+            shareInvite(context, state, strings)
+        }
+    }
     var showJoin by remember { mutableStateOf(false) }
     // Removal is confirmed, unlike leaving. §3.5 keeps leaving free of confirmation guilt because
     // it is your own choice about yourself; removing someone else is a decision about another
@@ -705,13 +727,49 @@ private fun GroupRoster(
             }
         }
 
+        // TASK-289. This used to be a bare "You're the only one here." — a neutral label sitting
+        // where the one useful action belonged. 42 people created a group and 2 sent an invite;
+        // a group of one is not a feature, it is an empty room the user is standing in, and the
+        // empty state is now the invite prompt rather than a description of the emptiness.
+        //
+        // Not a blocking step: this is a card in the roster, not a dialog. A rider who wants a solo
+        // group scrolls past it, and it stays available for the rest of the session.
         if (state.aloneInGroup) {
             item {
-                Text(
-                    strings.groupOnlyOne,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            strings.groupOnlyOne,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            strings.groupInvitePrompt,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = onShare,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(
+                                Icons.Default.Share,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.size(8.dp))
+                            Text(strings.groupShare)
+                        }
+                    }
+                }
                 Spacer(Modifier.height(12.dp))
             }
         }
