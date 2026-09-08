@@ -12,6 +12,8 @@ import `in`.shvms.trackme.domain.model.RidePersona
 sealed interface TrackingV2ReplayEvent {
     data class Sample(val value: TrackingV2Sample) : TrackingV2ReplayEvent
     data object Discontinuity : TrackingV2ReplayEvent
+    data object Pause : TrackingV2ReplayEvent
+    data object Resume : TrackingV2ReplayEvent
 }
 
 data class TrackingV2ReplayScenario(
@@ -31,6 +33,8 @@ object TrackingV2ReplayHarness {
             when (event) {
                 is TrackingV2ReplayEvent.Sample -> estimator.add(event.value)
                 TrackingV2ReplayEvent.Discontinuity -> estimator.markDiscontinuity()
+                TrackingV2ReplayEvent.Pause -> estimator.pause()
+                TrackingV2ReplayEvent.Resume -> estimator.resume()
             }
         }
         return estimator.finish()

@@ -27,7 +27,7 @@ class TrackingV2ReplayFixtureTest {
         assertEquals("synthetic_local_metres", root.getString("coordinateSpace"))
 
         val scenarios = root.getJSONArray("scenarios")
-        assertTrue(scenarios.length() >= 7)
+        assertTrue(scenarios.length() >= 18)
         repeat(scenarios.length()) { index ->
             val encoded = scenarios.getJSONObject(index)
             val scenario = encoded.toScenario()
@@ -48,6 +48,31 @@ class TrackingV2ReplayFixtureTest {
             assertEquals(scenario.id, expected.getInt("degradedSampleCount"), result.degradedSampleCount)
             assertEquals(scenario.id, expected.getInt("rejectedOutlierCount"), result.rejectedOutlierCount)
             assertEquals(scenario.id, expected.getLong("detectedStepCount"), result.detectedStepCount)
+            expected.assertOptionalInt("manualPauseCount", result.manualPauseCount, scenario.id)
+            expected.assertOptionalInt(
+                "ignoredManualPauseSampleCount",
+                result.ignoredManualPauseSampleCount,
+                scenario.id,
+            )
+            expected.assertOptionalBoolean("manualPauseActive", result.manualPauseActive, scenario.id)
+            expected.assertOptionalLong("estimatedGapStepCount", result.estimatedGapStepCount, scenario.id)
+            expected.assertOptionalInt("personaMismatchCount", result.personaMismatchCount, scenario.id)
+            expected.assertOptionalInt("stationaryEntryCount", result.stationaryEntryCount, scenario.id)
+            if (expected.has("movingEntryCountMax")) {
+                assertTrue(scenario.id, result.movingEntryCount <= expected.getInt("movingEntryCountMax"))
+            }
+            if (expected.has("discardedImplausibleStepCountMin")) {
+                assertTrue(
+                    scenario.id,
+                    result.discardedImplausibleStepCount >= expected.getLong("discardedImplausibleStepCountMin"),
+                )
+            }
+            if (expected.has("cleanedRoutePointsMin")) {
+                assertTrue(
+                    scenario.id,
+                    result.routeSegments.flatten().size >= expected.getInt("cleanedRoutePointsMin"),
+                )
+            }
             assertTrue("${scenario.id} must finish", result.isPostProcessed)
         }
     }
@@ -60,6 +85,8 @@ class TrackingV2ReplayFixtureTest {
                 val event = encodedEvents.getJSONObject(index)
                 when (event.getString("kind")) {
                     "discontinuity" -> add(TrackingV2ReplayEvent.Discontinuity)
+                    "pause" -> add(TrackingV2ReplayEvent.Pause)
+                    "resume" -> add(TrackingV2ReplayEvent.Resume)
                     "sample" -> add(TrackingV2ReplayEvent.Sample(event.toSample(persona)))
                     else -> error("Unknown replay event kind in ${getString("id")}")
                 }
@@ -82,11 +109,14 @@ class TrackingV2ReplayFixtureTest {
             gpsSpeedMetersPerSecond = nullableDouble("gpsSpeedMps")?.toFloat(),
             gpsSpeedAccuracyMetersPerSecond = nullableDouble("gpsSpeedAccuracyMps")?.toFloat(),
             motionEnergyMetersPerSecondSquared = nullableDouble("motionEnergy")?.toFloat(),
-            motionSampleAgeMillis = nullableLong("motionAgeMillis"),
+            motionSampleAgeMillis = nullableLong("motionAgeMillis")
+                ?: motionEnergyMetersPerSecondSquaredDefaultAge(),
             cumulativeStepCount = nullableLong("steps"),
             stepAgeMillis = nullableLong("stepAgeMillis"),
             stepCadenceHz = nullableDouble("cadenceHz")?.toFloat(),
-            persona = persona,
+            persona = optString("samplePersona").takeIf { it.isNotEmpty() }
+                ?.let { RidePersona.valueOf(it) }
+                ?: persona,
             powerMode = TrackingV2PowerMode.valueOf(getString("powerMode")),
         )
     }
@@ -97,13 +127,29 @@ class TrackingV2ReplayFixtureTest {
     private fun JSONObject.nullableLong(key: String): Long? =
         if (isNull(key)) null else getLong(key)
 
+    /** Compact synthetic events may omit age when a motion sample is explicitly present. */
+    private fun JSONObject.motionEnergyMetersPerSecondSquaredDefaultAge(): Long? =
+        if (isNull("motionEnergy")) null else 0L
+
+    private fun JSONObject.assertOptionalInt(key: String, actual: Int, message: String) {
+        if (has(key)) assertEquals(message, getInt(key), actual)
+    }
+
+    private fun JSONObject.assertOptionalLong(key: String, actual: Long, message: String) {
+        if (has(key)) assertEquals(message, getLong(key), actual)
+    }
+
+    private fun JSONObject.assertOptionalBoolean(key: String, actual: Boolean, message: String) {
+        if (has(key)) assertEquals(message, getBoolean(key), actual)
+    }
+
     private fun ByteArray.sha256(): String = MessageDigest.getInstance("SHA-256")
         .digest(this)
         .joinToString("") { "%02x".format(it) }
 
     companion object {
         private const val FIXTURE_NAME = "tracking-v2-replay-v1.json"
-        private const val FIXTURE_SHA256 = "c42dc64345cca38385194bbc59abdda81832acb07aadfb2ab7240961a1f47a53"
+        private const val FIXTURE_SHA256 = "69831982809ced48420bc45e148c9be25614862ae3dbceb6d1f5d5d312bb7931"
         private const val BASE_LATITUDE = 0.0
         private const val BASE_LONGITUDE = 0.0
         private const val METERS_PER_DEGREE = 111_320.0

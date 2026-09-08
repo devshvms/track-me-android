@@ -61,6 +61,8 @@ data class TrackingV2Snapshot(
     val currentSpeedMetersPerSecond: Float = 0f,
     val movementState: TrackingV2MovementState = TrackingV2MovementState.UNKNOWN,
     val routeSegments: List<List<TrackingV2Point>> = emptyList(),
+    /** Admitted display points before finish-time presentation cleanup. */
+    val rawRouteSegments: List<List<TrackingV2Point>> = emptyList(),
     val sampleCount: Int = 0,
     val missingSpeedCount: Int = 0,
     /** Samples observed while Android reported a non-normal location/power mode. */
@@ -74,6 +76,14 @@ data class TrackingV2Snapshot(
     /** Compatibility aggregate: power-restricted or poor-accuracy samples. */
     val degradedSampleCount: Int = 0,
     val rejectedOutlierCount: Int = 0,
+    val manualPauseActive: Boolean = false,
+    val manualPauseCount: Int = 0,
+    val ignoredManualPauseSampleCount: Int = 0,
+    val estimatedGapStepCount: Long = 0L,
+    val estimatedGapDistanceMeters: Double = 0.0,
+    val personaMismatchCount: Int = 0,
+    val movingEntryCount: Int = 0,
+    val stationaryEntryCount: Int = 0,
     /** Calibrated step-only estimate. Kept beside the new named diagnostics for UI compatibility. */
     val stepDistanceMeters: Double = 0.0,
     /** GPS-only estimate from admitted coherent coordinate windows, independent of step evidence. */
@@ -106,6 +116,7 @@ data class TrackingV2Snapshot(
 class TrackingV2Estimator {
     private val window = ArrayDeque<TrackingV2Sample>()
     private val routeSegments = mutableListOf<MutableList<TrackingV2Point>>()
+    private val routeSegmentAccuracies = mutableListOf<MutableList<Float>>()
 
     /** GPS-confirmed hybrid distance. Unconfirmed recent steps are projected on top at publish. */
     private var hybridCommittedDistanceMeters = 0.0
@@ -121,6 +132,15 @@ class TrackingV2Estimator {
     private var maximumSampleIntervalMillis = 0L
     private var degradedSampleCount = 0
     private var rejectedOutlierCount = 0
+    private var manualPauseActive = false
+    private var manualPauseCount = 0
+    private var ignoredManualPauseSampleCount = 0
+    private var estimatedGapStepCount = 0L
+    private var estimatedGapDistanceMeters = 0.0
+    private var personaMismatchCount = 0
+    private var movingEntryCount = 0
+    private var stationaryEntryCount = 0
+    private var activePersona = RidePersona.AUTO
 
     private var lastSample: TrackingV2Sample? = null
     private var lastStepCount: Long? = null
@@ -143,6 +163,7 @@ class TrackingV2Estimator {
     fun reset(persona: RidePersona = RidePersona.AUTO) {
         window.clear()
         routeSegments.clear()
+        routeSegmentAccuracies.clear()
         hybridCommittedDistanceMeters = 0.0
         hybridBridgeStepCount = 0L
         coordinateDistanceMeters = 0.0
@@ -156,6 +177,15 @@ class TrackingV2Estimator {
         maximumSampleIntervalMillis = 0L
         degradedSampleCount = 0
         rejectedOutlierCount = 0
+        manualPauseActive = false
+        manualPauseCount = 0
+        ignoredManualPauseSampleCount = 0
+        estimatedGapStepCount = 0L
+        estimatedGapDistanceMeters = 0.0
+        personaMismatchCount = 0
+        movingEntryCount = 0
+        stationaryEntryCount = 0
+        activePersona = persona
         lastSample = null
         lastStepCount = null
         lastCoordinatePoint = null
@@ -178,8 +208,34 @@ class TrackingV2Estimator {
     /** Manual pause/resume and an unobserved long gap must start a new route segment. */
     fun markDiscontinuity() {
         freezeOpenStepBridge()
+        clearContinuityAnchors()
+    }
+
+    /** A manual pause freezes every estimator input until a matching resume. */
+    fun pause() {
+        if (manualPauseActive) return
+        manualPauseActive = true
+        manualPauseCount++
+        freezeOpenStepBridge()
+        clearContinuityAnchors()
+        lastSnapshot = lastSnapshot.copy(
+            manualPauseActive = true,
+            manualPauseCount = manualPauseCount,
+        )
+    }
+
+    /** Resume is idempotent and always starts with fresh GPS and step baselines. */
+    fun resume() {
+        if (!manualPauseActive) return
+        manualPauseActive = false
+        clearContinuityAnchors()
+        lastSnapshot = lastSnapshot.copy(manualPauseActive = false)
+    }
+
+    private fun clearContinuityAnchors() {
         window.clear()
         lastSample = null
+        lastStepCount = null
         lastCoordinatePoint = null
         lastCoordinateTimeMillis = null
         lastRoutePoint = null
@@ -191,7 +247,21 @@ class TrackingV2Estimator {
         calibrationAccuracyMeters = null
     }
 
-    fun add(sample: TrackingV2Sample): TrackingV2Snapshot {
+    fun add(incoming: TrackingV2Sample): TrackingV2Snapshot {
+        if (manualPauseActive) {
+            ignoredManualPauseSampleCount++
+            lastSnapshot = lastSnapshot.copy(
+                manualPauseActive = true,
+                ignoredManualPauseSampleCount = ignoredManualPauseSampleCount,
+            )
+            return lastSnapshot
+        }
+        val sample = if (incoming.persona == activePersona) {
+            incoming
+        } else {
+            personaMismatchCount++
+            incoming.copy(persona = activePersona)
+        }
         val previous = lastSample
         if (previous != null && sample.elapsedRealtimeMillis <= previous.elapsedRealtimeMillis) {
             rejectedOutlierCount++
@@ -226,7 +296,22 @@ class TrackingV2Estimator {
         val maxGapMillis = MAX_OBSERVED_GAP_MILLIS
         if (deltaMillis > maxGapMillis) {
             unobservedGapCount++
-            markDiscontinuity()
+            freezeOpenStepBridge()
+            val gapSteps = if (
+                isPedestrian(activePersona) &&
+                sample.stepAgeMillis?.let { it in 0..STEP_RECENCY_MILLIS } == true
+            ) {
+                stepDelta(previous, sample)
+            } else {
+                0L
+            }
+            if (gapSteps > 0L) {
+                val gapDistance = gapSteps * strideLengthMeters.toDouble()
+                estimatedGapStepCount += gapSteps
+                estimatedGapDistanceMeters += gapDistance
+                hybridCommittedDistanceMeters += gapDistance
+            }
+            clearContinuityAnchors()
             window.addLast(sample)
             lastSample = sample
             lastStepCount = sample.cumulativeStepCount
@@ -236,6 +321,12 @@ class TrackingV2Estimator {
             return publish(sample, TrackingV2MovementState.GPS_DEGRADED, sample.gpsSpeedMetersPerSecond ?: 0f)
         }
 
+        // Reject impossible raw jumps before they contaminate regression and turn detection.
+        // Keep the last credible fix so the next valid callback can recover immediately.
+        if (!isPlausibleSegment(haversineMeters(previous.point(), sample.point()), sample, previous.elapsedRealtimeMillis)) {
+            rejectedOutlierCount++
+            return publish(sample, TrackingV2MovementState.GPS_DEGRADED, 0f)
+        }
         window.addLast(sample)
         pruneWindow(sample)
         val evidence = movementEvidence(sample)
@@ -296,16 +387,25 @@ class TrackingV2Estimator {
 
     /** Route post-processing changes geometry density only; canonical V2 stats stay unchanged. */
     fun finish(): TrackingV2Snapshot {
-        val epsilonMeters = if (lastSnapshot.powerMode == TrackingV2PowerMode.NORMAL) 1.5 else 3.0
-        val compressed = routeSegments.mapNotNull { segment ->
+        val raw = routeSegments.map { it.toList() }
+        val compressed = routeSegments.mapIndexedNotNull { index, segment ->
             val copy = segment.toList()
+            val accuracies = routeSegmentAccuracies.getOrNull(index).orEmpty().sorted()
+            val medianAccuracy = accuracies.getOrNull(accuracies.size / 2)?.toDouble() ?: 6.0
+            val maximumEpsilon = if (lastSnapshot.powerMode == TrackingV2PowerMode.NORMAL) 5.0 else 8.0
+            val epsilonMeters = (medianAccuracy * 0.25).coerceIn(1.5, maximumEpsilon)
             when {
                 copy.isEmpty() -> null
                 copy.size <= 2 -> copy
                 else -> simplify(copy, epsilonMeters)
             }
         }
-        lastSnapshot = lastSnapshot.copy(routeSegments = compressed, isPostProcessed = true)
+        lastSnapshot = lastSnapshot.copy(
+            routeSegments = compressed,
+            rawRouteSegments = raw,
+            manualPauseActive = manualPauseActive,
+            isPostProcessed = true,
+        )
         return lastSnapshot
     }
 
@@ -454,8 +554,9 @@ class TrackingV2Estimator {
                 lastCoordinateTimeMillis = sample.elapsedRealtimeMillis
                 return admitted
             }
-            lastCoordinatePoint = point
-            lastCoordinateTimeMillis = sample.elapsedRealtimeMillis
+            // Do not poison the first coordinate anchor with a rejected spike. A later coherent
+            // window must be able to establish a fresh anchor and resume ordinary accumulation.
+            rejectedOutlierCount++
             return 0.0
         }
 
@@ -483,6 +584,9 @@ class TrackingV2Estimator {
             val segment = mutableListOf(origin)
             if (haversineMeters(origin, point) >= 0.5) segment += point
             routeSegments += segment
+            val accuracies = mutableListOf(window.firstOrNull()?.horizontalAccuracyMeters ?: sample.horizontalAccuracyMeters)
+            if (segment.size > 1) accuracies += sample.horizontalAccuracyMeters
+            routeSegmentAccuracies += accuracies
             lastRoutePoint = point
             lastRouteTimeMillis = sample.elapsedRealtimeMillis
             return
@@ -499,6 +603,10 @@ class TrackingV2Estimator {
         if (pendingRouteDistanceMeters >= routeThreshold || turnDetected) {
             if (routeSegments.isEmpty()) routeSegments += mutableListOf(previousPoint)
             routeSegments.last() += point
+            if (routeSegmentAccuracies.isEmpty()) {
+                routeSegmentAccuracies += mutableListOf(sample.horizontalAccuracyMeters)
+            }
+            routeSegmentAccuracies.last() += sample.horizontalAccuracyMeters
             pendingRouteDistanceMeters = 0.0
         }
         lastRoutePoint = point
@@ -620,17 +728,21 @@ class TrackingV2Estimator {
     }
 
     private fun smoothCurrentPoint(sample: TrackingV2Sample, turnDetected: Boolean): TrackingV2Point {
+        if (turnDetected) return sample.point()
         val points = window.toList()
         val maxPoints = when {
-            turnDetected -> 2
             sample.powerMode == TrackingV2PowerMode.NORMAL -> 5
             else -> 8
         }
         val selected = points.takeLast(maxPoints)
         if (selected.size < 2) return sample.point()
+        fun boundedPrediction(value: (TrackingV2Sample) -> Double): Double {
+            val values = selected.map(value)
+            return predictLatest(selected, value).coerceIn(values.min(), values.max())
+        }
         return TrackingV2Point(
-            latitude = predictLatest(selected) { it.latitude },
-            longitude = predictLatest(selected) { it.longitude },
+            latitude = boundedPrediction { it.latitude },
+            longitude = boundedPrediction { it.longitude },
         )
     }
 
@@ -738,11 +850,19 @@ class TrackingV2Estimator {
             coordinateDistanceMeters
         }
         val sortedCandidates = calibrationCandidates.sorted()
+        if (state == TrackingV2MovementState.MOVING && lastSnapshot.movementState != state) {
+            movingEntryCount++
+        }
+        if (state == TrackingV2MovementState.STATIONARY && lastSnapshot.movementState != state) {
+            stationaryEntryCount++
+        }
+        val rawRoute = routeSegments.map { it.toList() }
         lastSnapshot = TrackingV2Snapshot(
             distanceMeters = hybridDistance,
             currentSpeedMetersPerSecond = speed.coerceAtLeast(0f),
             movementState = state,
-            routeSegments = routeSegments.map { it.toList() },
+            routeSegments = rawRoute,
+            rawRouteSegments = rawRoute,
             sampleCount = sampleCount,
             missingSpeedCount = missingSpeedCount,
             powerRestrictedSampleCount = powerRestrictedSampleCount,
@@ -751,6 +871,14 @@ class TrackingV2Estimator {
             maximumSampleIntervalMillis = maximumSampleIntervalMillis,
             degradedSampleCount = degradedSampleCount,
             rejectedOutlierCount = rejectedOutlierCount,
+            manualPauseActive = manualPauseActive,
+            manualPauseCount = manualPauseCount,
+            ignoredManualPauseSampleCount = ignoredManualPauseSampleCount,
+            estimatedGapStepCount = estimatedGapStepCount,
+            estimatedGapDistanceMeters = estimatedGapDistanceMeters,
+            personaMismatchCount = personaMismatchCount,
+            movingEntryCount = movingEntryCount,
+            stationaryEntryCount = stationaryEntryCount,
             stepDistanceMeters = calibratedStepDistance,
             coordinateDistanceMeters = coordinateDistanceMeters,
             rawStepDistanceMeters = rawStepDistance,

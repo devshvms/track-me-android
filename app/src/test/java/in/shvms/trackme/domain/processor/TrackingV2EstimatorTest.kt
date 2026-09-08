@@ -151,6 +151,39 @@ class TrackingV2EstimatorTest {
     }
 
     @Test
+    fun `battery saver pedestrians retain coherent coordinate and step evidence`() {
+        listOf(RidePersona.WALK, RidePersona.RUN).forEach { persona ->
+            val estimator = TrackingV2Estimator()
+            estimator.reset(persona)
+
+            for (index in 0..10) {
+                estimator.add(
+                    sample(
+                        eastMeters = index * 10.0,
+                        elapsedMillis = index * 10_000L,
+                        persona = persona,
+                        accuracyMeters = 18f,
+                        gpsSpeed = 1f,
+                        motionEnergy = 0.25f,
+                        cumulativeSteps = index * 10L,
+                        stepAgeMillis = 0L,
+                        cadenceHz = 1f,
+                        powerMode = TrackingV2PowerMode.BATTERY_SAVER,
+                    )
+                )
+            }
+
+            val result = estimator.finish()
+            assertEquals(persona.name, TrackingV2MovementState.MOVING, result.movementState)
+            assertTrue("${persona.name} distance=${result.distanceMeters}", result.distanceMeters in 90.0..110.0)
+            assertEquals(persona.name, result.sampleCount, result.powerRestrictedSampleCount)
+            assertEquals(persona.name, 0, result.poorAccuracySampleCount)
+            assertEquals(persona.name, 0, result.unobservedGapCount)
+            assertEquals(persona.name, 100L, result.detectedStepCount)
+        }
+    }
+
+    @Test
     fun `screen off power mode separates power restriction from poor accuracy`() {
         val estimator = TrackingV2Estimator()
         estimator.reset(RidePersona.BIKE_DRIVE)
@@ -201,6 +234,35 @@ class TrackingV2EstimatorTest {
         val result = estimator.finish()
         assertEquals(0.0, result.distanceMeters, 0.01)
         assertTrue(result.routeSegments.flatten().size <= 1)
+    }
+
+    @Test
+    fun `isolated jump is rejected without poisoning later coordinate recovery`() {
+        val estimator = TrackingV2Estimator()
+        estimator.reset(RidePersona.CYCLING)
+        val eastCoordinates = listOf(0.0, 10.0, 20.0, 30.0, 500.0) +
+            (40..200 step 10).map(Int::toDouble)
+
+        eastCoordinates.forEachIndexed { index, east ->
+            estimator.add(
+                sample(
+                    eastMeters = east,
+                    elapsedMillis = index * 2_000L,
+                    persona = RidePersona.CYCLING,
+                    accuracyMeters = 5f,
+                    gpsSpeed = 4f,
+                    motionEnergy = 0.3f,
+                )
+            )
+        }
+
+        val result = estimator.finish()
+        assertTrue("rejected=${result.rejectedOutlierCount}", result.rejectedOutlierCount >= 1)
+        assertTrue("distance=${result.distanceMeters}", result.distanceMeters in 195.0..205.0)
+        assertEquals(TrackingV2MovementState.MOVING, result.movementState)
+        assertTrue(
+            TrackingV2Estimator.haversineMeters(result.routeSegments.last().last(), point(200.0, 0.0)) < 2.0
+        )
     }
 
     @Test
@@ -480,6 +542,217 @@ class TrackingV2EstimatorTest {
         assertEquals(0L, result.discardedImplausibleStepCount)
         assertEquals(14.4, result.rawStepDistanceMeters, 0.01)
         assertEquals(14.4, result.distanceMeters, 0.01)
+    }
+
+    @Test
+    fun `manual pause ignores fixes and steps until one idempotent resume`() {
+        val estimator = TrackingV2Estimator()
+        estimator.reset(RidePersona.WALK)
+        estimator.add(sample(0.0, elapsedMillis = 0L, persona = RidePersona.WALK, cumulativeSteps = 0L))
+        estimator.add(sample(7.2, elapsedMillis = 10_000L, persona = RidePersona.WALK, cumulativeSteps = 10L, stepAgeMillis = 0L))
+        val beforePause = estimator.snapshot().distanceMeters
+
+        estimator.pause()
+        estimator.pause()
+        estimator.add(
+            sample(
+                100.0,
+                elapsedMillis = 20_000L,
+                persona = RidePersona.WALK,
+                accuracyMeters = 40f,
+                cumulativeSteps = 30L,
+                stepAgeMillis = 0L,
+                powerMode = TrackingV2PowerMode.BATTERY_SAVER,
+            )
+        )
+        estimator.add(sample(200.0, elapsedMillis = 30_000L, persona = RidePersona.WALK, cumulativeSteps = 50L, stepAgeMillis = 0L))
+        assertEquals(beforePause, estimator.snapshot().distanceMeters, 0.001)
+        estimator.resume()
+        estimator.resume()
+        estimator.add(sample(500.0, elapsedMillis = 40_000L, persona = RidePersona.WALK, cumulativeSteps = 50L))
+        estimator.add(sample(507.2, elapsedMillis = 50_000L, persona = RidePersona.WALK, cumulativeSteps = 60L, stepAgeMillis = 0L))
+
+        val result = estimator.finish()
+        assertEquals(1, result.manualPauseCount)
+        assertEquals(2, result.ignoredManualPauseSampleCount)
+        assertEquals(0, result.degradedSampleCount)
+        assertEquals(0, result.powerRestrictedSampleCount)
+        assertEquals(0, result.poorAccuracySampleCount)
+        assertTrue(!result.manualPauseActive)
+        assertEquals(4, result.sampleCount)
+        assertTrue("distance=${result.distanceMeters}", result.distanceMeters < beforePause + 10.0)
+        assertEquals(2, result.rawRouteSegments.size)
+    }
+
+    @Test
+    fun `pause before first fix and stop while paused remain empty`() {
+        val estimator = TrackingV2Estimator()
+        estimator.reset(RidePersona.RUN)
+        estimator.pause()
+        estimator.add(sample(80.0, elapsedMillis = 10_000L, persona = RidePersona.RUN, cumulativeSteps = 40L, stepAgeMillis = 0L))
+
+        val result = estimator.finish()
+        assertEquals(0.0, result.distanceMeters, 0.0)
+        assertEquals(0, result.sampleCount)
+        assertEquals(1, result.ignoredManualPauseSampleCount)
+        assertTrue(result.manualPauseActive)
+        assertTrue(result.routeSegments.isEmpty())
+    }
+
+    @Test
+    fun `pedestrian steps bridge an unobserved callback gap but geometry stays split`() {
+        val estimator = TrackingV2Estimator()
+        estimator.reset(RidePersona.WALK)
+        estimator.add(sample(0.0, elapsedMillis = 0L, persona = RidePersona.WALK, cumulativeSteps = 0L))
+        estimator.add(sample(100.0, elapsedMillis = 20_000L, persona = RidePersona.WALK, cumulativeSteps = 20L, stepAgeMillis = 0L))
+        for (index in 1..4) {
+            estimator.add(sample(100.0 + index * 2.0, elapsedMillis = 20_000L + index * 2_000L, persona = RidePersona.WALK, cumulativeSteps = 20L + index, stepAgeMillis = 0L))
+        }
+
+        val result = estimator.finish()
+        assertEquals(1, result.unobservedGapCount)
+        assertEquals(20L, result.estimatedGapStepCount)
+        assertEquals(14.4, result.estimatedGapDistanceMeters, 0.01)
+        assertTrue("distance=${result.distanceMeters}", result.distanceMeters >= 14.4)
+        assertTrue(result.routeSegments.size <= 1 || result.routeSegments.zipWithNext().all { (a, b) ->
+            TrackingV2Estimator.haversineMeters(a.last(), b.first()) > 50.0
+        })
+    }
+
+    @Test
+    fun `gap without eligible steps never fabricates pedestrian or vehicle distance`() {
+        listOf(RidePersona.WALK, RidePersona.CYCLING, RidePersona.CAR_DRIVE).forEach { persona ->
+            val estimator = TrackingV2Estimator()
+            estimator.reset(persona)
+            estimator.add(sample(0.0, elapsedMillis = 0L, persona = persona, cumulativeSteps = null))
+            estimator.add(sample(500.0, elapsedMillis = 20_000L, persona = persona, cumulativeSteps = null))
+            val result = estimator.finish()
+            assertEquals(persona.name, 0.0, result.distanceMeters, 0.0)
+            assertEquals(persona.name, 0L, result.estimatedGapStepCount)
+        }
+    }
+
+    @Test
+    fun `explicit persona remains locked and non pedestrian distance never uses steps`() {
+        val estimator = TrackingV2Estimator()
+        estimator.reset(RidePersona.CYCLING)
+        repeat(8) { index ->
+            estimator.add(
+                sample(
+                    eastMeters = index * 10.0,
+                    elapsedMillis = index * 2_000L,
+                    persona = RidePersona.WALK,
+                    gpsSpeed = 5f,
+                    motionEnergy = 0.3f,
+                    cumulativeSteps = index * 8L,
+                    stepAgeMillis = 0L,
+                )
+            )
+        }
+        val result = estimator.finish()
+        assertEquals(8, result.personaMismatchCount)
+        assertEquals(result.coordinateDistanceMeters, result.distanceMeters, 0.001)
+        assertTrue(result.rawStepDistanceMeters > 0.0)
+    }
+
+    @Test
+    fun `auto pause has one stable stationary interval and resumes without drift distance`() {
+        val estimator = TrackingV2Estimator()
+        estimator.reset(RidePersona.CYCLING)
+        for (index in 0..5) estimator.add(movingCyclingSample(index * 10.0, index * 2_000L))
+        val beforeStop = estimator.snapshot().distanceMeters
+        for (index in 1..8) {
+            estimator.add(
+                sample(
+                    eastMeters = 50.0 + if (index % 2 == 0) 2.0 else -2.0,
+                    elapsedMillis = 10_000L + index * 2_000L,
+                    persona = RidePersona.CYCLING,
+                    gpsSpeed = 0f,
+                    motionEnergy = 0.02f,
+                )
+            )
+        }
+        val afterStop = estimator.snapshot().distanceMeters
+        for (index in 1..5) estimator.add(movingCyclingSample(50.0 + index * 10.0, 26_000L + index * 2_000L))
+
+        val result = estimator.finish()
+        assertEquals(1, result.stationaryEntryCount)
+        assertTrue(result.movingEntryCount <= 2)
+        assertTrue("drift=${afterStop - beforeStop}", afterStop - beforeStop <= 10.0)
+        assertEquals(1, result.routeSegments.size)
+        assertEquals(TrackingV2MovementState.MOVING, result.movementState)
+    }
+
+    @Test
+    fun `slow run and walking warmup stay moving while cadence burst is discarded`() {
+        val estimator = TrackingV2Estimator()
+        estimator.reset(RidePersona.RUN)
+        var steps = 0L
+        repeat(12) { index ->
+            if (index > 0) steps += if (index == 6) 100L else 2L
+            estimator.add(
+                sample(
+                    eastMeters = index * 2.0,
+                    elapsedMillis = index * 2_000L,
+                    persona = RidePersona.RUN,
+                    gpsSpeed = if (index < 3) 0.4f else 1.0f,
+                    motionEnergy = 0.22f,
+                    cumulativeSteps = steps,
+                    stepAgeMillis = 0L,
+                    cadenceHz = if (index < 3) 1.0f else 2.0f,
+                )
+            )
+        }
+        val result = estimator.finish()
+        assertEquals(TrackingV2MovementState.MOVING, result.movementState)
+        assertTrue(result.discardedImplausibleStepCount > 0L)
+        assertTrue(result.distanceMeters > 0.0)
+        assertEquals(1.05f, result.rawStepDistanceMeters.toFloat() / result.detectedStepCount, 0.01f)
+    }
+
+    @Test
+    fun `finish adapts route cleanup without changing canonical distance or boundaries`() {
+        val estimator = TrackingV2Estimator()
+        estimator.reset(RidePersona.CYCLING)
+        repeat(30) { index ->
+            estimator.add(
+                sample(
+                    eastMeters = index * 4.0,
+                    northMeters = if (index % 2 == 0) 2.0 else -2.0,
+                    elapsedMillis = index * 2_000L,
+                    persona = RidePersona.CYCLING,
+                    accuracyMeters = 16f,
+                    gpsSpeed = 2f,
+                    motionEnergy = 0.25f,
+                )
+            )
+        }
+        val live = estimator.snapshot()
+        val result = estimator.finish()
+        assertEquals(live.distanceMeters, result.distanceMeters, 0.0)
+        assertTrue(result.rawRouteSegments.flatten().size >= result.routeSegments.flatten().size)
+        assertEquals(result.rawRouteSegments.first().first(), result.routeSegments.first().first())
+        assertEquals(result.rawRouteSegments.last().last(), result.routeSegments.last().last())
+    }
+
+    @Test
+    fun `reset clears process local evidence before the next ride`() {
+        val estimator = TrackingV2Estimator()
+        estimator.reset(RidePersona.CYCLING)
+        repeat(8) { index ->
+            estimator.add(movingCyclingSample(index * 10.0, index * 2_000L))
+        }
+        estimator.pause()
+        assertTrue(estimator.snapshot().distanceMeters > 0.0)
+
+        estimator.reset(RidePersona.RUN)
+        val reset = estimator.finish()
+        assertEquals(0.0, reset.distanceMeters, 0.0)
+        assertEquals(0, reset.sampleCount)
+        assertEquals(0, reset.manualPauseCount)
+        assertTrue(!reset.manualPauseActive)
+        assertTrue(reset.routeSegments.isEmpty())
+        assertEquals(1.05f, reset.strideLengthMeters, 0.0f)
     }
 
     @Test

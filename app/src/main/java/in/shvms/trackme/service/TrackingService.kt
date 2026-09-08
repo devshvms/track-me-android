@@ -713,7 +713,7 @@ class TrackingService : Service() {
         isTimerEnabled = false
         motionSensorManager.stopListening()
         if (BuildConfig.DEBUG) {
-            trackingV2Estimator.markDiscontinuity()
+            trackingV2Estimator.pause()
             trackingV2StepSensor.stop()
         }
         setPersistedPausedSession(true)
@@ -763,7 +763,7 @@ class TrackingService : Service() {
         updateState(TrackingState.TRACKING)
         motionSensorManager.startListening()
         if (BuildConfig.DEBUG) {
-            trackingV2Estimator.markDiscontinuity()
+            trackingV2Estimator.resume()
             if (trackingManager.selectedPersona.value == `in`.shvms.trackme.domain.model.RidePersona.WALK ||
                 trackingManager.selectedPersona.value == `in`.shvms.trackme.domain.model.RidePersona.RUN
             ) {
