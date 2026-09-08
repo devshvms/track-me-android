@@ -1,7 +1,12 @@
 package `in`.shvms.trackme.data.local
 
+import android.app.LocaleManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
+import androidx.annotation.MainThread
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,7 +30,10 @@ class AppPreferencesManager(private val context: Context) {
     val telemetryEnabled: StateFlow<Boolean> = _telemetryEnabled.asStateFlow()
 
     // App language code: "en", "es", "fr", "de", "hi", "ja", "zh"
-    private val _appLanguage = MutableStateFlow(prefs.getString("app_language", "en") ?: "en")
+    private val _appLanguage = MutableStateFlow(
+        AppLanguageCatalog.normalize(prefs.getString(APP_LANGUAGE_KEY, DEFAULT_LANGUAGE))
+            ?: DEFAULT_LANGUAGE
+    )
     val appLanguage: StateFlow<String> = _appLanguage.asStateFlow()
 
     private val _unitSystem = MutableStateFlow(prefs.getString("unit_system", null) ?: defaultUnitFromLocale())
@@ -44,9 +52,7 @@ class AppPreferencesManager(private val context: Context) {
     )
     val lastStartedPersona: StateFlow<RidePersona> = _lastStartedPersona.asStateFlow()
 
-    init {
-        updateSystemLocale(_appLanguage.value)
-    }
+    init { updateProcessLocale(_appLanguage.value) }
 
     fun setThemeMode(mode: Int) {
         prefs.edit().putInt("theme_mode", mode).apply()
@@ -79,10 +85,68 @@ class AppPreferencesManager(private val context: Context) {
         _telemetryEnabled.value = enabled
     }
 
+    /**
+     * One-time handoff from TrackMe's pre-TASK-306 preference into Android's locale store.
+     * Called before AppCompatActivity.onCreate so the selected resources are attached immediately.
+     */
+    @MainThread
+    fun prepareApplicationLocale() {
+        if (prefs.getBoolean(APP_LANGUAGE_MIGRATED_KEY, false)) return
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Framework-backed locales are already attached before Activity.onCreate. Import a
+            // restored/system choice now; an empty first-run value is published after super.
+            val systemChoice = context.getSystemService(LocaleManager::class.java)
+                ?.applicationLocales
+                ?.get(0)
+                ?.toLanguageTag()
+            AppLanguageCatalog.normalize(systemChoice)?.let { restoredLanguage ->
+                storeLanguage(restoredLanguage)
+                markLanguageMigrated()
+            }
+            return
+        }
+
+        // Android 12 and lower need the custom preference before onCreate. AndroidX then owns its
+        // backward-compatible store through AppLocalesMetadataHolderService.
+        AppCompatDelegate.setApplicationLocales(
+            LocaleListCompat.forLanguageTags(_appLanguage.value)
+        )
+        markLanguageMigrated()
+    }
+
+    /** Imports an app-locale choice made outside TrackMe, including Android system Settings. */
+    @MainThread
+    fun reconcileApplicationLocale() {
+        val requestedTag = AppCompatDelegate.getApplicationLocales()
+            .get(0)
+            ?.toLanguageTag()
+        val requestedLanguage = AppLanguageCatalog.normalize(requestedTag)
+        if (requestedLanguage != null) {
+            storeLanguage(requestedLanguage)
+            markLanguageMigrated()
+            return
+        }
+
+        if (!prefs.getBoolean(APP_LANGUAGE_MIGRATED_KEY, false)) {
+            // Android 13+ requires an attached AppCompat delegate for the one-time framework
+            // handoff. This may recreate the Activity, which is AppCompat's documented behavior.
+            AppCompatDelegate.setApplicationLocales(
+                LocaleListCompat.forLanguageTags(_appLanguage.value)
+            )
+            markLanguageMigrated()
+            return
+        }
+
+        // Empty after migration means the user selected "System default" in Android Settings.
+        storeLanguage(effectiveSystemLanguage())
+    }
+
+    @MainThread
     fun setAppLanguage(lang: String) {
-        prefs.edit().putString("app_language", lang).apply()
-        _appLanguage.value = lang
-        updateSystemLocale(lang)
+        val normalized = AppLanguageCatalog.normalize(lang) ?: DEFAULT_LANGUAGE
+        storeLanguage(normalized)
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(normalized))
     }
 
     fun setUnitSystem(system: String) {
@@ -110,16 +174,34 @@ class AppPreferencesManager(private val context: Context) {
 
     private fun defaultUnitFromLocale(): String = if (Locale.getDefault().country.uppercase() in setOf("US", "GB", "MM", "LR")) "imperial" else "metric"
 
-    private fun updateSystemLocale(lang: String) {
-        try {
-            val locale = java.util.Locale.forLanguageTag(lang.ifBlank { "en" })
-            java.util.Locale.setDefault(locale)
-            val config = android.content.res.Configuration(context.resources.configuration)
-            config.setLocale(locale)
-            @Suppress("DEPRECATION")
-            context.resources.updateConfiguration(config, context.resources.displayMetrics)
-        } catch (e: Exception) {
-            e.printStackTrace()
+    private fun storeLanguage(language: String) {
+        if (_appLanguage.value != language || prefs.getString(APP_LANGUAGE_KEY, null) != language) {
+            prefs.edit().putString(APP_LANGUAGE_KEY, language).apply()
+            _appLanguage.value = language
         }
+        updateProcessLocale(language)
+    }
+
+    private fun effectiveSystemLanguage(): String {
+        val locale = context.resources.configuration.locales.get(0) ?: Locale.ENGLISH
+        return AppLanguageCatalog.normalize(locale.toLanguageTag()) ?: DEFAULT_LANGUAGE
+    }
+
+    private fun updateProcessLocale(language: String) {
+        Locale.setDefault(Locale.forLanguageTag(language))
+    }
+
+    private fun markLanguageMigrated() {
+        if (!prefs.getBoolean(APP_LANGUAGE_MIGRATED_KEY, false)) {
+            // commit() is intentional: AppCompat and Android's framework locale service consume
+            // this state during the same launch, and process death must not repeat the handoff.
+            prefs.edit().putBoolean(APP_LANGUAGE_MIGRATED_KEY, true).commit()
+        }
+    }
+
+    private companion object {
+        const val APP_LANGUAGE_KEY = "app_language"
+        const val APP_LANGUAGE_MIGRATED_KEY = "app_language_system_migrated"
+        const val DEFAULT_LANGUAGE = "en"
     }
 }

@@ -298,7 +298,7 @@ fun SettingsScreen(
         val telemetryEnabled by preferencesManager.telemetryEnabled.collectAsState()
         val unitSystem by preferencesManager.unitSystem.collectAsState()
         val pipDashboardEnabled by preferencesManager.pipDashboardEnabled.collectAsState()
-        var appLanguage by remember { mutableStateOf(prefs.getString("app_language", "en") ?: "en") }
+        val appLanguage by preferencesManager.appLanguage.collectAsState()
         var showLangDropdown by remember { mutableStateOf(false) }
 
         val languages = SUPPORTED_LANGUAGE_CODES.map { it to (languageDisplayNames[it] ?: it) }
@@ -356,10 +356,8 @@ fun SettingsScreen(
                                 DropdownMenuItem(
                                     text = { Text(name) },
                                     onClick = {
-                                        appLanguage = code
                                         showLangDropdown = false
-                                        prefs.edit().putString("app_language", code).apply()
-                                        (context.applicationContext as? TrackMeApp)?.preferencesManager?.setAppLanguage(code)
+                                        preferencesManager.setAppLanguage(code)
                                     }
                                 )
                             }
