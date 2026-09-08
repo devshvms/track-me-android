@@ -25,6 +25,13 @@ data class GamificationSnapshot(
     val currentActivityCount: Int,
     val currentThresholdMinutes: Long,
     val nextThresholdMinutes: Long?,
+    /**
+     * SCOPE_1.8.7 §6.1.2 #10b needs to *name* the next level, not just count minutes to it.
+     *
+     * Defaulted so the many existing constructions of this snapshot are untouched — and null at the
+     * maximum level, where [nextThresholdMinutes] is null too.
+     */
+    val nextLevelNameKey: String? = null,
     val progressNumeratorMinutes: Long,
     val progressDenominatorMinutes: Long,
     val latestUnlockedMilestoneId: String?,

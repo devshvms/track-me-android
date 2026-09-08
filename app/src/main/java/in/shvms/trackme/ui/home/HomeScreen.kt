@@ -77,6 +77,7 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberMarkerState
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.analytics.AnalyticsManager
+import `in`.shvms.trackme.domain.permissions.NotificationPermissionPolicy
 import `in`.shvms.trackme.analytics.RideStartAbortMethod
 import `in`.shvms.trackme.analytics.ActivityStartMethod
 import `in`.shvms.trackme.domain.home.HomePresentationMode
@@ -163,7 +164,6 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModelFactory(
             (LocalContext.current.applicationContext as TrackMeApp).trackingManager,
-            (LocalContext.current.applicationContext as TrackMeApp).emergencyManager,
             (LocalContext.current.applicationContext as TrackMeApp).authManager,
             (LocalContext.current.applicationContext as TrackMeApp).liveShareManager,
             (LocalContext.current.applicationContext as TrackMeApp).preferencesManager,
@@ -359,8 +359,41 @@ fun HomeScreen(
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = { /* Notification access is optional; ride tracking still proceeds. */ }
+        onResult = { granted ->
+            // Notification access is optional; ride tracking still proceeds. A grant in this
+            // running process must subscribe immediately, not wait for another cold launch.
+            if (granted) {
+                (context.applicationContext as? TrackMeApp)?.let { app ->
+                    `in`.shvms.trackme.service.notifications.BroadcastSubscription.sync(
+                        app,
+                        app.errorLogger,
+                    )
+                }
+            }
+        }
     )
+
+    // TASK-284. Both ride-start paths used to ask whenever the permission was not granted, i.e.
+    // on every single ride. Android 13+ makes the second denial permanent, so that nagged a rider
+    // twice and then silently stopped working. One decision function, consulted by both paths, and
+    // the ask is recorded the moment it is made — before the result comes back, because the rider
+    // has been interrupted either way and a dismissed dialog is still an ask they had to deal with.
+    //
+    // Ride start never waits on this: the caller launches and proceeds, exactly as before.
+    fun requestNotificationPermissionIfNeeded(): Boolean {
+        val prefs = (context.applicationContext as? TrackMeApp)?.preferencesManager
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val should = NotificationPermissionPolicy.shouldRequest(
+            sdkInt = Build.VERSION.SDK_INT,
+            isGranted = granted,
+            hasAskedBefore = prefs?.hasAskedNotificationPermission() ?: false,
+        )
+        if (should) prefs?.markNotificationPermissionAsked()
+        return should
+    }
 
     var pendingStartPersona by remember { mutableStateOf<RidePersona?>(null) }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -371,12 +404,7 @@ fun HomeScreen(
             val persona = pendingStartPersona
             pendingStartPersona = null
             if (granted && persona != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                    ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.POST_NOTIFICATIONS,
-                    ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-                ) {
+                if (requestNotificationPermissionIfNeeded()) {
                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 viewModel.startTracking(persona)
@@ -407,12 +435,76 @@ fun HomeScreen(
     }
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
+    // SCOPE_1.8.7 §6.1.6 #28 — sunset, from the coarse location the map already asked for.
+    //
+    // No network, no new permission and no new party receiving location: it follows from a date
+    // and a position the app already has. That is the whole reason it ships while weather and AQI
+    // (#29, #30) are deferred — those need a third-party call and a Data Safety change.
+    //
+    // Reuses the fix the camera already fetched rather than starting its own request. A second
+    // location subscription for a line of text would be exactly the kind of thing a privacy-first
+    // app should not do quietly.
+    var minutesUntilSunset by remember { mutableStateOf<Int?>(null) }
+
+    // §6.1.2 #10b — "This one takes you past Explorer."
+    //
+    // Recomputed when the chosen persona changes, because the answer depends on how long this rider
+    // typically rides *this* activity. Purely local: a Room read and two pure functions, no network
+    // and no new permission.
+    //
+    // In-app only, and that is a design constraint rather than an implementation detail. Scenario 10
+    // — the same sentence as a scheduled notification — was cut for implying "go exert yourself now,
+    // because the app is counting". The moment this line can reach someone who has not opened the
+    // app, it becomes that.
+    var startProximity by remember {
+        mutableStateOf<`in`.shvms.trackme.domain.notifications.StartButtonProximity.Line?>(null)
+    }
+    LaunchedEffect(
+        uiState.selectedDashboardPersona,
+        uiState.trackingState,
+        uiState.dashboardSummary.gamificationActiveDurationMillis,
+    ) {
+        startProximity = runCatching {
+            val app = context.applicationContext as TrackMeApp
+            val samples = `in`.shvms.trackme.data.local.RideHistoryProfileSource.samples(
+                app.database.rideDao()
+            )
+            // The *gamification* pair, not the dashboard pair — the same distinction
+            // `toGamificationFacts` makes. Imported rides appear everywhere else in the app and
+            // earn nothing here, so counting them would promise a level this ride cannot reach.
+            val snapshot = `in`.shvms.trackme.domain.gamification.GamificationEngine.deriveSnapshot(
+                `in`.shvms.trackme.domain.gamification.GamificationFacts(
+                    lifetimeActivityCount = uiState.dashboardSummary.gamificationActivityCount,
+                    lifetimeActiveDurationMillis = uiState.dashboardSummary.gamificationActiveDurationMillis,
+                )
+            )
+            `in`.shvms.trackme.domain.notifications.StartButtonProximity.line(
+                minutesToNextLevel = snapshot.nextThresholdMinutes?.minus(snapshot.currentMinutes),
+                nextLevelName = snapshot.nextLevelNameKey,
+                typicalActiveMinutes = `in`.shvms.trackme.domain.notifications.RideHistoryProfile
+                    .typicalActiveMinutes(samples, uiState.selectedDashboardPersona.name),
+            )
+        }.getOrNull()
+    }
+
     var hasCenteredOnLocation by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(hasLocationPermission, isInteractiveMap) {
         if (isInteractiveMap && hasLocationPermission && !hasCenteredOnLocation && uiState.pathPoints.isEmpty()) {
             try {
                 fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
                     if (loc != null) {
+                        val now = java.util.Calendar.getInstance()
+                        minutesUntilSunset = `in`.shvms.trackme.domain.notifications.SunsetCalculator
+                            .minutesUntilSunset(
+                                latitude = loc.latitude,
+                                longitude = loc.longitude,
+                                dayOfYear = now.get(java.util.Calendar.DAY_OF_YEAR),
+                                minutesAfterLocalMidnightNow =
+                                    now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
+                                        now.get(java.util.Calendar.MINUTE),
+                                utcOffsetMinutes = `in`.shvms.trackme.domain.notifications.SunsetCalculator
+                                    .utcOffsetMinutes(java.util.TimeZone.getDefault(), System.currentTimeMillis()),
+                            )
                         hasCenteredOnLocation = true
                         coroutineScope.launch {
                             cameraPositionState.animateSafely {
@@ -596,8 +688,8 @@ fun HomeScreen(
     }
 
     // B2/B3: weekly recap (with the streak line). Emitted once when actually shown, then acked.
-    // TASK-119: shown only while the app is calmly idle — never over a live/paused ride, an active
-    // SOS, a GPS-lost/storage-low state, or a post-ride reveal (prompt 09, "Trigger"). This is the
+    // TASK-119: shown only while the app is calmly idle — never over a live/paused ride, a
+    // GPS-lost/storage-low state, or a post-ride reveal (prompt 09, "Trigger"). This is the
     // render-time half of the gate; `TrackMeApp.checkWeeklyRecap()` is the check-time half. It has
     // to be re-evaluated here because the user can leave idle *after* a recap was queued. Skipping
     // never consumes the recap — it is acked only in `onDismiss` — so it returns on the next calm
@@ -606,7 +698,6 @@ fun HomeScreen(
         val isCalmMoment = `in`.shvms.trackme.domain.stats.CalmMomentGate.isCalm(
             `in`.shvms.trackme.domain.stats.CalmMomentGate.AppMoment(
                 isTrackingIdle = uiState.trackingState == TrackingState.IDLE,
-                isEmergencyActive = uiState.isEmergencyActive,
                 hasPendingReveal = pendingReveal != null
             )
         )
@@ -666,12 +757,7 @@ fun HomeScreen(
             pendingStartPersona = persona
             return
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) {
+        if (requestNotificationPermissionIfNeeded()) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         viewModel.startTracking(persona)
@@ -1411,6 +1497,33 @@ fun HomeScreen(
                 exit = if (animationsEnabled) fadeOut(tween(300)) else ExitTransition.None,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // §6.1.6 #28 — the one moment the fact is actionable: the rider has not set off
+                    // yet and is deciding. A fact and a number, no advice — whether that is enough
+                    // daylight is their call, and an app that adds "be careful" is saying something
+                    // it cannot know. Absent entirely when sunset is far away or already past.
+                    minutesUntilSunset?.let { minutes ->
+                        Text(
+                            text = String.format(java.util.Locale.getDefault(), strings.sunsetSoon, minutes),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    }
+                    // §6.1.2 #10b. Sits with the sunset line because both are the same kind of
+                    // thing: a fact that is only worth stating in the seconds before someone sets
+                    // off, stated once and never chased.
+                    startProximity?.let { proximity ->
+                        Text(
+                            text = String.format(
+                                java.util.Locale.getDefault(),
+                                strings.startProximityLine,
+                                proximity.levelName,
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    }
                     RadialStartRideButton(
                         onOpenAllPersonas = { showDashboardPersonaPicker = true },
                         onStartRide = { persona ->

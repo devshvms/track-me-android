@@ -13,10 +13,10 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Rational
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -55,7 +55,7 @@ import `in`.shvms.trackme.ui.home.components.PiPRideState
 import `in`.shvms.trackme.ui.home.components.PiPSessionDurationBucket
 import `in`.shvms.trackme.ui.home.components.toPiPRideState
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
   private var pipMode by mutableStateOf(false)
   private var pipEligible = false
@@ -74,9 +74,13 @@ class MainActivity : ComponentActivity() {
     registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { }
 
   override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-      handleGroupInvite(intent)
     val app = applicationContext as TrackMeApp
+    // The first call hands the legacy TrackMe preference to AndroidX before AppCompat attaches
+    // its resources. The second imports a choice made from Android's App language settings.
+    app.preferencesManager.prepareApplicationLocale()
+    super.onCreate(savedInstanceState)
+    app.preferencesManager.reconcileApplicationLocale()
+    handleGroupInvite(intent)
 
     pipDashboardStateSource = PiPDashboardStateSource(
       trackingManager = app.trackingManager,
@@ -98,11 +102,15 @@ class MainActivity : ComponentActivity() {
       val themeMode by app.preferencesManager.themeMode.collectAsState()
       val dynamicColor by app.preferencesManager.dynamicColor.collectAsState()
       val appLanguage by app.preferencesManager.appLanguage.collectAsState()
+      // SCOPE_1.8.7 §6.3: the in-app half of an operator broadcast. Collected here rather than
+      // inside Home because a broadcast is about the app, not about riding — it has to reach
+      // someone who opens straight into History or Settings too.
+      val storedBroadcasts by app.broadcastStore.broadcasts.collectAsState()
+      val lastSeenBroadcast by app.broadcastStore.lastSeenCreatedAt.collectAsState()
       val appStrings = remember(appLanguage) { getAppStrings(appLanguage) }
       val updatePrompt by app.appUpdateChecker.prompt.collectAsState()
       val updateReadyToInstall by app.appUpdateChecker.readyToInstall.collectAsState()
       val ageDecision by app.ageSignalManager.decision().collectAsState()
-      val sosRemovalNotice by app.sosRemovalNotice.collectAsState()
 
       CompositionLocalProvider(LocalAppStrings provides appStrings) {
         TrackMeTheme(themeMode = themeMode, dynamicColor = dynamicColor) {
@@ -118,9 +126,8 @@ class MainActivity : ComponentActivity() {
                 }
                 if (showOnboarding) {
                   // Everything below is deliberately not composed underneath this. A fresh install
-                  // has nothing to update from and no legacy SOS state to acknowledge, and a
-                  // dialog over the first screen someone ever sees would be its own answer to
-                  // "what is this app like".
+                  // has nothing to update from, and a dialog over the first screen someone ever
+                  // sees would be its own answer to "what is this app like".
                   `in`.shvms.trackme.ui.onboarding.OnboardingScreen(
                     onFinish = { outcome ->
                       app.completeOnboarding(outcome)
@@ -128,6 +135,17 @@ class MainActivity : ComponentActivity() {
                     }
                   )
                 } else {
+                // Only the newest unread one. A stack of banners is a wall, and an operator with
+                // three outstanding notices has a bigger problem than the UI can solve.
+                val broadcast = storedBroadcasts.firstOrNull {
+                  it.isUnread(lastSeenBroadcast) && it.appliesTo(`in`.shvms.trackme.BuildConfig.VERSION_NAME)
+                }
+                if (broadcast != null) {
+                  `in`.shvms.trackme.ui.notifications.BroadcastBanner(
+                    broadcast = broadcast,
+                    onDismiss = { app.broadcastStore.markSeen(broadcast.createdAtMillis) },
+                  )
+                }
                 MainNavigation()
                 updatePrompt?.let { prompt ->
                   `in`.shvms.trackme.ui.update.AppUpdateDialog(
@@ -146,28 +164,6 @@ class MainActivity : ComponentActivity() {
                   `in`.shvms.trackme.ui.update.UpdateReadyDialog(
                     onRestart = { app.appUpdateChecker.completeUpdate() },
                     onDismiss = { app.appUpdateChecker.dismissInstallPrompt() }
-                  )
-                }
-                // TG-A06: one-time, must-acknowledge notice for users who had completed
-                // SOS setup before 1.6.4. Back press / outside tap must not dismiss it —
-                // only the explicit acknowledgement clears it, permanently.
-                if (sosRemovalNotice) {
-                  androidx.compose.material3.AlertDialog(
-                    onDismissRequest = { /* must acknowledge */ },
-                    title = { androidx.compose.material3.Text(appStrings.sosRemovalNoticeTitle) },
-                    text = {
-                      androidx.compose.material3.Text(
-                        text = appStrings.sosRemovalNoticeBody,
-                        modifier = Modifier.verticalScroll(rememberScrollState())
-                      )
-                    },
-                    confirmButton = {
-                      androidx.compose.material3.TextButton(
-                        onClick = { app.acknowledgeSosRemovalNotice() }
-                      ) {
-                        androidx.compose.material3.Text(appStrings.sosRemovalNoticeAck)
-                      }
-                    }
                   )
                 }
                 }

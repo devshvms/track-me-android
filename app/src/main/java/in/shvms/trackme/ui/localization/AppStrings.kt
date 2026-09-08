@@ -138,9 +138,6 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val send: String = s("send", "Send")
     val copy: String = s("copy", "Copy")
     val sharePin: String = s("sharePin", "Share location pin")
-    val sosRemovalNoticeTitle: String = s("sosRemovalNoticeTitle", "The SOS button has been removed")
-    val sosRemovalNoticeBody: String = s("sosRemovalNoticeBody", "TrackMe no longer includes the in-app SOS button or its automatic SMS alerts. They depended on a restricted Google Play permission and could not promise that a message would actually arrive, so we removed them instead of offering protection we could not stand behind.\n\nYour saved emergency contacts have been removed from this device and from your cloud account as part of this change.\n\nFor real emergencies, use your phone's built-in Emergency SOS: open the system Settings app and search for \"Emergency SOS\" to set it up. It can call emergency services even when TrackMe cannot.")
-    val sosRemovalNoticeAck: String = s("sosRemovalNoticeAck", "I understand")
     val timelineScrubberAccessibility: String = s("timelineScrubberAccessibility", "Timeline scrubber. Adjust to inspect speed, altitude, and route position.")
     val newVersionAvailable: String = s("newVersionAvailable", "New version available")
     val updateAvailable: String = s("updateAvailable", "Update available")
@@ -229,6 +226,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupStatusNoLocation: String = s("groupStatusNoLocation", "No recent location")
     val groupLeaderBadge: String = s("groupLeaderBadge", "Leader")
     val groupOnlyOne: String = s("groupOnlyOne", "You're the only one here.")
+    /** TASK-289: the empty-member state is the invite prompt, not a neutral label. */
+    val groupInvitePrompt: String = s("groupInvitePrompt", "A group of one is just you. Invite someone and you'll see each other on the map.")
     val groupDegraded: String = s("groupDegraded", "Group sharing is temporarily unavailable — retrying.")
     val groupEnded: String = s("groupEnded", "This group has ended.")
     val groupExpired: String = s("groupExpired", "This invite has expired.")
@@ -328,6 +327,95 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
 
     // Alerting (§3.8)
     val groupAlertChannelName: String = s("groupAlertChannelName", "Group ride alerts")
+
+    // Track 2 (SCOPE_1.8.7 §6.2) — one channel per thing a user would switch off independently.
+    // The descriptions are the promise: a user reading system settings should be able to predict
+    // exactly what disabling each one costs them, without opening the app.
+    val channelRemindersName: String = s("channelRemindersName", "Reminders")
+    val channelRemindersDescription: String = s("channelRemindersDescription", "Only the reminders you set yourself. Nothing else uses this.")
+    val channelProgressName: String = s("channelProgressName", "Your progress")
+    val channelProgressDescription: String = s("channelProgressDescription", "Your weekly recap, at most once a week. Everything here is also in the app.")
+    val channelDataName: String = s("channelDataName", "Sync and data")
+    val channelDataDescription: String = s("channelDataDescription", "When a ride is saved for you, a backup stops working, or an export is ready.")
+    val channelOperatorName: String = s("channelOperatorName", "App notices")
+    val channelOperatorDescription: String = s("channelOperatorDescription", "Rare messages about problems with the app itself, and updates that fix them.")
+    val broadcastLearnMore: String = s("broadcastLearnMore", "Learn more")
+    val broadcastDismiss: String = s("broadcastDismiss", "Got it")
+
+    // SCOPE_1.8.7 §6.1.1 scenario 1. "Saved" rather than "recovered": the user did not lose
+    // anything and should not be told a word that implies they nearly did. %1$s is the end time,
+    // %2$s the distance — both already formatted by the caller.
+    val rideSavedTitle: String = s("rideSavedTitle", "Your ride was saved")
+    val rideSavedBody: String = s("rideSavedBody", "Recording stopped at %1\$s because the app was closed. %2\$s was kept.")
+    val rideSavedBodyPlain: String = s("rideSavedBodyPlain", "The app closed while you were recording, so the ride was finished and kept.")
+    val ridesSavedTitle: String = s("ridesSavedTitle", "%1\$d rides were saved")
+    val ridesSavedBody: String = s("ridesSavedBody", "The app closed while they were recording. They were finished and kept.")
+
+    // §6.1.2 scenario 8. Gain-framed and factual: a count and a distance the user actually covered.
+    // %1$d rides, %2$s distance.
+    val weeklyRecapNotificationTitle: String = s("weeklyRecapNotificationTitle", "Last week")
+    val weeklyRecapNotificationBody: String = s("weeklyRecapNotificationBody", "%1\$d activities, %2\$s.")
+
+    // §6.1.7 — the bulletin. Every row is a fact the app already knew; none of these sentences
+    // exists to make the user feel a way about it.
+    val bulletinTitle: String = s("bulletinTitle", "What's new")
+    val bulletinEmpty: String = s("bulletinEmpty", "Nothing to report. Anything TrackMe needs to tell you shows up here.")
+    val bulletinClear: String = s("bulletinClear", "Clear")
+    val bulletinLevelReached: String = s("bulletinLevelReached", "You reached %1\$s")
+    val bulletinLevelReachedBody: String = s("bulletinLevelReachedBody", "From the active minutes you have recorded.")
+    val bulletinMilestone: String = s("bulletinMilestone", "%1\$d activities recorded")
+    val bulletinMilestoneBody: String = s("bulletinMilestoneBody", "A milestone worth noting.")
+    val bulletinSyncProblem: String = s("bulletinSyncProblem", "Cloud backup is not working")
+    val bulletinSyncProblemBody: String = s("bulletinSyncProblemBody", "%1\$d activities have not reached your backup since %2\$s.")
+    // Used when there is no trustworthy last-success date. The first failing episode after an
+    // install or upgrade has none, and that is exactly the user who has never had a working backup.
+    val bulletinSyncProblemBodyNoDate: String = s("bulletinSyncProblemBodyNoDate", "%1\$d activities have not reached your cloud backup.")
+    val bulletinVersionNote: String = s("bulletinVersionNote", "TrackMe %1\$s")
+    val bulletinVersionNoteBody: String = s("bulletinVersionNoteBody", "A newer version is available.")
+
+    // §6.1.6 #28 — sunset. A fact and a number, no advice: whether that is enough daylight is the
+    // rider's call, and an app that says "be careful" is an app saying something it cannot know.
+    val sunsetSoon: String = s("sunsetSoon", "Sunset in %1\$d min")
+
+    // §6.1.3 #13. Gain-framed and factual — never "you have not ridden", which is the loss framing
+    // §4.2 N2 rules out. %1$d is whole days.
+    val returnNoticeTitle: String = s("returnNoticeTitle", "Your rides are still here")
+    val returnNoticeBody: String = s("returnNoticeBody", "Your last recorded activity was %1\$d days ago. Everything you recorded is still on your phone.")
+    val returnNoticeStop: String = s("returnNoticeStop", "Stop these")
+
+    // §6.1.1 #4 — the forgotten ride. A question, never an instruction, and never an announcement
+    // that the app has done something: it must not auto-stop, so the copy must not imply it might.
+    // %1$d is elapsed minutes of the whole ride; %2$s is a clock time.
+    val forgottenRideTitle: String = s("forgottenRideTitle", "Still recording")
+    val forgottenRideBody: String = s("forgottenRideBody", "%1\$d min recorded. No movement since %2\$s.")
+    val forgottenRideBodyNoTime: String = s("forgottenRideBodyNoTime", "%1\$d min recorded, with no movement for a while.")
+    val forgottenRideStop: String = s("forgottenRideStop", "Finish ride")
+    val forgottenRideKeepGoing: String = s("forgottenRideKeepGoing", "Keep recording")
+
+    // §6.1.4 #22 — still in a live group after the ride ended. States the disclosure and offers the
+    // way out; it does not leave the group, because staying is an ordinary thing to be doing.
+    val groupStillLiveTitle: String = s("groupStillLiveTitle", "You are still sharing with a group")
+    val groupStillLiveBody: String = s("groupStillLiveBody", "Your ride ended, but you are still visible in %1\$s.")
+    val groupStillLiveBodyNoName: String = s("groupStillLiveBodyNoName", "Your ride ended, but you are still visible in a live group.")
+    val groupStillLiveLeave: String = s("groupStillLiveLeave", "Leave group")
+
+    // §6.1.2 #10b — proximity at the start button. In-app only, never a notification: the moment
+    // this sentence can reach someone who has not opened the app it becomes the cut scenario 10.
+    val startProximityLine: String = s("startProximityLine", "This one takes you past %1\$s.")
+
+    // §6.1.3 #12a — a reminder the user sets. "Suggested from your history" is load-bearing copy:
+    // it is the sentence that makes the inference a courtesy rather than a decision.
+    val reminderSectionTitle: String = s("reminderSectionTitle", "Activity reminder")
+    val reminderSectionSubtitle: String = s("reminderSectionSubtitle", "One reminder a week, at a time you choose. Off unless you turn it on.")
+    val reminderEnable: String = s("reminderEnable", "Remind me weekly")
+    val reminderDay: String = s("reminderDay", "Day")
+    val reminderTime: String = s("reminderTime", "Time")
+    val reminderActivity: String = s("reminderActivity", "Activity")
+    val reminderSuggestion: String = s("reminderSuggestion", "Suggested from your history: %1\$s, %2\$s")
+    val reminderSuggestionApply: String = s("reminderSuggestionApply", "Use this")
+    val reminderNoHistory: String = s("reminderNoHistory", "Record a few activities and we can suggest a time.")
+    val reminderNotificationTitle: String = s("reminderNotificationTitle", "Your %1\$s reminder")
+    val reminderNotificationBody: String = s("reminderNotificationBody", "You asked to be reminded at this time.")
     val groupAlertSetBody: String = s("groupAlertSetBody", "%1\$s set their status to %2\$s")
     val groupAlertClearedBody: String = s("groupAlertClearedBody", "%1\$s cleared %2\$s")
     val groupAlertViewGroup: String = s("groupAlertViewGroup", "View group")
@@ -787,7 +875,8 @@ val LocalAppStrings = staticCompositionLocalOf { AppStrings() }
  * add its display name to the picker in `SettingsScreen.kt`. The coverage test enforces the
  * second of those and cross-checks the third.
  */
-val SUPPORTED_LANGUAGE_CODES: List<String> = listOf("en", "es", "fr", "de", "hi", "ja", "zh")
+val SUPPORTED_LANGUAGE_CODES: List<String> =
+    `in`.shvms.trackme.data.local.AppLanguageCatalog.supportedCodes
 
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
@@ -960,6 +1049,60 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s sin enviar",
             "groupPillSent" to "%1\$s enviado",
             "groupAlertChannelName" to "Avisos de ruta en grupo",
+            "channelRemindersName" to "Recordatorios",
+            "channelRemindersDescription" to "Solo los recordatorios que tú configuras. Nada más usa este canal.",
+            "channelProgressName" to "Tu progreso",
+            "channelProgressDescription" to "Tu resumen semanal, como máximo una vez por semana. Todo esto también está en la app.",
+            "channelDataName" to "Sincronización y datos",
+            "channelDataDescription" to "Cuando se guarda una ruta por ti, deja de funcionar una copia de seguridad o una exportación está lista.",
+            "channelOperatorName" to "Avisos de la app",
+            "channelOperatorDescription" to "Mensajes poco frecuentes sobre problemas de la propia app y las actualizaciones que los solucionan.",
+            "broadcastLearnMore" to "Más información",
+            "broadcastDismiss" to "Entendido",
+            "rideSavedTitle" to "Tu ruta se ha guardado",
+            "rideSavedBody" to "La grabación se detuvo a las %1\$s porque la app se cerró. Se conservaron %2\$s.",
+            "rideSavedBodyPlain" to "La app se cerró mientras grababas, así que la ruta se finalizó y se conservó.",
+            "ridesSavedTitle" to "Se guardaron %1\$d rutas",
+            "ridesSavedBody" to "La app se cerró mientras se grababan. Se finalizaron y se conservaron.",
+            "weeklyRecapNotificationTitle" to "La semana pasada",
+            "weeklyRecapNotificationBody" to "%1\$d actividades, %2\$s.",
+            "bulletinTitle" to "Novedades",
+            "bulletinEmpty" to "Nada que informar. Lo que TrackMe necesite decirte aparecerá aquí.",
+            "bulletinClear" to "Borrar",
+            "bulletinLevelReached" to "Alcanzaste %1\$s",
+            "bulletinLevelReachedBody" to "Según los minutos activos que has registrado.",
+            "bulletinMilestone" to "%1\$d actividades registradas",
+            "bulletinMilestoneBody" to "Un hito que vale la pena señalar.",
+            "bulletinSyncProblem" to "La copia en la nube no funciona",
+            "bulletinSyncProblemBody" to "%1\$d actividades no han llegado a tu copia desde %2\$s.",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d actividades no han llegado a tu copia en la nube.",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "Hay una versión más reciente disponible.",
+            "sunsetSoon" to "Anochece en %1\$d min",
+            "returnNoticeTitle" to "Tus rutas siguen aquí",
+            "returnNoticeBody" to "Tu última actividad registrada fue hace %1\$d días. Todo lo que grabaste sigue en tu teléfono.",
+            "returnNoticeStop" to "Detener estos avisos",
+            "forgottenRideTitle" to "Grabando todavía",
+            "forgottenRideBody" to "%1\$d min grabados. Sin movimiento desde las %2\$s.",
+            "forgottenRideBodyNoTime" to "%1\$d min grabados, sin movimiento desde hace un rato.",
+            "forgottenRideStop" to "Finalizar actividad",
+            "forgottenRideKeepGoing" to "Seguir grabando",
+            "groupStillLiveTitle" to "Sigues compartiendo con un grupo",
+            "groupStillLiveBody" to "Tu actividad terminó, pero sigues visible en %1\$s.",
+            "groupStillLiveBodyNoName" to "Tu actividad terminó, pero sigues visible en un grupo activo.",
+            "groupStillLiveLeave" to "Salir del grupo",
+            "startProximityLine" to "Esta te lleva más allá de %1\$s.",
+            "reminderSectionTitle" to "Recordatorio de actividad",
+            "reminderSectionSubtitle" to "Un recordatorio por semana, a la hora que elijas. Desactivado hasta que lo actives.",
+            "reminderEnable" to "Recordármelo cada semana",
+            "reminderDay" to "Día",
+            "reminderTime" to "Hora",
+            "reminderActivity" to "Actividad",
+            "reminderSuggestion" to "Sugerido a partir de tu historial: %1\$s, %2\$s",
+            "reminderSuggestionApply" to "Usar esto",
+            "reminderNoHistory" to "Graba algunas actividades y podremos sugerirte una hora.",
+            "reminderNotificationTitle" to "Tu recordatorio de %1\$s",
+            "reminderNotificationBody" to "Pediste que te recordáramos a esta hora.",
             "groupAlertSetBody" to "%1\$s ha puesto su estado en %2\$s",
             "groupAlertClearedBody" to "%1\$s ha quitado %2\$s",
             "groupAlertViewGroup" to "Ver grupo",
@@ -1009,6 +1152,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStatusNoLocation" to "Sin ubicación reciente",
             "groupLeaderBadge" to "Organizador",
             "groupOnlyOne" to "Eres el único aquí.",
+            "groupInvitePrompt" to "Un grupo de uno eres solo tú. Invita a alguien y os veréis en el mapa.",
             "groupDegraded" to "El uso compartido del grupo no está disponible temporalmente: reintentando.",
             "groupEnded" to "Este grupo ha terminado.",
             "groupExpired" to "Esta invitación ha caducado.",
@@ -1053,9 +1197,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "Enviar",
             "copy" to "Copiar",
             "sharePin" to "Compartir ubicación",
-            "sosRemovalNoticeTitle" to "El botón SOS se ha eliminado",
-            "sosRemovalNoticeBody" to "TrackMe ya no incluye el botón SOS ni sus alertas SMS automáticas. Dependían de un permiso restringido de Google Play y no podían asegurar que un mensaje llegara realmente, así que las eliminamos en lugar de ofrecer una protección que no podíamos respaldar.\n\nTus contactos de emergencia guardados se han eliminado de este dispositivo y de tu cuenta en la nube como parte de este cambio.\n\nPara emergencias reales, usa la función Emergencia SOS integrada de tu teléfono: abre los Ajustes del sistema y busca \"Emergencia SOS\" para configurarla. Puede llamar a los servicios de emergencia incluso cuando TrackMe no puede.",
-            "sosRemovalNoticeAck" to "Entendido",
             "timelineScrubberAccessibility" to "Control de línea de tiempo. Ajusta para consultar velocidad, altitud y posición de la ruta.",
             "newVersionAvailable" to "Nueva versión disponible",
             "updateAvailable" to "Actualización disponible",
@@ -1589,6 +1730,60 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s non envoyé",
             "groupPillSent" to "%1\$s envoyé",
             "groupAlertChannelName" to "Alertes de sortie en groupe",
+            "channelRemindersName" to "Rappels",
+            "channelRemindersDescription" to "Uniquement les rappels que vous définissez. Rien d'autre n'utilise ce canal.",
+            "channelProgressName" to "Votre progression",
+            "channelProgressDescription" to "Votre récapitulatif hebdomadaire, au maximum une fois par semaine. Tout cela est aussi dans l'app.",
+            "channelDataName" to "Synchronisation et données",
+            "channelDataDescription" to "Quand une sortie est enregistrée pour vous, qu'une sauvegarde cesse de fonctionner ou qu'un export est prêt.",
+            "channelOperatorName" to "Avis de l'app",
+            "channelOperatorDescription" to "Messages rares concernant des problèmes de l'app elle-même, et les mises à jour qui les corrigent.",
+            "broadcastLearnMore" to "En savoir plus",
+            "broadcastDismiss" to "J'ai compris",
+            "rideSavedTitle" to "Votre sortie a été enregistrée",
+            "rideSavedBody" to "L'enregistrement s'est arrêté à %1\$s car l'app s'est fermée. %2\$s ont été conservés.",
+            "rideSavedBodyPlain" to "L'app s'est fermée pendant l'enregistrement ; la sortie a été terminée et conservée.",
+            "ridesSavedTitle" to "%1\$d sorties ont été enregistrées",
+            "ridesSavedBody" to "L'app s'est fermée pendant l'enregistrement. Elles ont été terminées et conservées.",
+            "weeklyRecapNotificationTitle" to "La semaine dernière",
+            "weeklyRecapNotificationBody" to "%1\$d activités, %2\$s.",
+            "bulletinTitle" to "Nouveautés",
+            "bulletinEmpty" to "Rien à signaler. Ce que TrackMe doit vous dire apparaîtra ici.",
+            "bulletinClear" to "Effacer",
+            "bulletinLevelReached" to "Vous avez atteint %1\$s",
+            "bulletinLevelReachedBody" to "D'après les minutes actives que vous avez enregistrées.",
+            "bulletinMilestone" to "%1\$d activités enregistrées",
+            "bulletinMilestoneBody" to "Une étape qui mérite d'être notée.",
+            "bulletinSyncProblem" to "La sauvegarde cloud ne fonctionne pas",
+            "bulletinSyncProblemBody" to "%1\$d activités n'ont pas atteint votre sauvegarde depuis %2\$s.",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d activités n'ont pas atteint votre sauvegarde cloud.",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "Une version plus récente est disponible.",
+            "sunsetSoon" to "Coucher du soleil dans %1\$d min",
+            "returnNoticeTitle" to "Vos sorties sont toujours là",
+            "returnNoticeBody" to "Votre dernière activité enregistrée date de %1\$d jours. Tout ce que vous avez enregistré est toujours sur votre téléphone.",
+            "returnNoticeStop" to "Arrêter ces rappels",
+            "forgottenRideTitle" to "Enregistrement en cours",
+            "forgottenRideBody" to "%1\$d min enregistrées. Aucun mouvement depuis %2\$s.",
+            "forgottenRideBodyNoTime" to "%1\$d min enregistrées, sans mouvement depuis un moment.",
+            "forgottenRideStop" to "Terminer la sortie",
+            "forgottenRideKeepGoing" to "Continuer l'enregistrement",
+            "groupStillLiveTitle" to "Vous partagez toujours avec un groupe",
+            "groupStillLiveBody" to "Votre sortie est terminée, mais vous restez visible dans %1\$s.",
+            "groupStillLiveBodyNoName" to "Votre sortie est terminée, mais vous restez visible dans un groupe actif.",
+            "groupStillLiveLeave" to "Quitter le groupe",
+            "startProximityLine" to "Celle-ci vous fait dépasser %1\$s.",
+            "reminderSectionTitle" to "Rappel d'activité",
+            "reminderSectionSubtitle" to "Un rappel par semaine, à l'heure de votre choix. Désactivé tant que vous ne l'activez pas.",
+            "reminderEnable" to "Me rappeler chaque semaine",
+            "reminderDay" to "Jour",
+            "reminderTime" to "Heure",
+            "reminderActivity" to "Activité",
+            "reminderSuggestion" to "Suggéré d'après votre historique : %1\$s, %2\$s",
+            "reminderSuggestionApply" to "Utiliser",
+            "reminderNoHistory" to "Enregistrez quelques activités et nous pourrons vous suggérer une heure.",
+            "reminderNotificationTitle" to "Votre rappel %1\$s",
+            "reminderNotificationBody" to "Vous avez demandé un rappel à cette heure.",
             "groupAlertSetBody" to "%1\$s a défini son statut sur %2\$s",
             "groupAlertClearedBody" to "%1\$s a effacé %2\$s",
             "groupAlertViewGroup" to "Voir le groupe",
@@ -1638,6 +1833,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStatusNoLocation" to "Aucune position récente",
             "groupLeaderBadge" to "Organisateur",
             "groupOnlyOne" to "Vous êtes seul ici.",
+            "groupInvitePrompt" to "Un groupe d'une personne, c'est juste vous. Invitez quelqu'un et vous vous verrez sur la carte.",
             "groupDegraded" to "Le partage de groupe est temporairement indisponible — nouvelle tentative.",
             "groupEnded" to "Ce groupe est terminé.",
             "groupExpired" to "Cette invitation a expiré.",
@@ -1682,9 +1878,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "Envoyer",
             "copy" to "Copier",
             "sharePin" to "Partager la position",
-            "sosRemovalNoticeTitle" to "Le bouton SOS a été retiré",
-            "sosRemovalNoticeBody" to "TrackMe n'inclut plus le bouton SOS ni ses alertes SMS automatiques. Ils reposaient sur une autorisation restreinte de Google Play et ne pouvaient pas assurer qu'un message arrive réellement ; nous les avons donc retirés plutôt que de proposer une protection que nous ne pouvions pas tenir.\n\nVos contacts d'urgence enregistrés ont été supprimés de cet appareil et de votre compte cloud dans le cadre de cette modification.\n\nEn cas d'urgence réelle, utilisez la fonction Urgence SOS intégrée de votre téléphone : ouvrez les réglages du système et recherchez « Urgence SOS » pour la configurer. Elle peut appeler les secours même quand TrackMe ne le peut pas.",
-            "sosRemovalNoticeAck" to "J'ai compris",
             "timelineScrubberAccessibility" to "Curseur de chronologie. Ajustez-le pour inspecter la vitesse, l’altitude et la position sur l’itinéraire.",
             "newVersionAvailable" to "Nouvelle version disponible",
             "updateAvailable" to "Mise à jour disponible",
@@ -2218,6 +2411,60 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s nicht gesendet",
             "groupPillSent" to "%1\$s gesendet",
             "groupAlertChannelName" to "Gruppenfahrt-Warnungen",
+            "channelRemindersName" to "Erinnerungen",
+            "channelRemindersDescription" to "Nur die Erinnerungen, die Sie selbst einstellen. Sonst nutzt nichts diesen Kanal.",
+            "channelProgressName" to "Ihr Fortschritt",
+            "channelProgressDescription" to "Ihr Wochenrückblick, höchstens einmal pro Woche. Alles davon steht auch in der App.",
+            "channelDataName" to "Synchronisierung und Daten",
+            "channelDataDescription" to "Wenn eine Fahrt für Sie gespeichert wird, eine Sicherung nicht mehr funktioniert oder ein Export bereit ist.",
+            "channelOperatorName" to "App-Hinweise",
+            "channelOperatorDescription" to "Seltene Meldungen über Probleme mit der App selbst und die Updates, die sie beheben.",
+            "broadcastLearnMore" to "Mehr erfahren",
+            "broadcastDismiss" to "Verstanden",
+            "rideSavedTitle" to "Ihre Fahrt wurde gespeichert",
+            "rideSavedBody" to "Die Aufzeichnung endete um %1\$s, weil die App geschlossen wurde. %2\$s wurden behalten.",
+            "rideSavedBodyPlain" to "Die App wurde während der Aufzeichnung geschlossen, die Fahrt wurde beendet und behalten.",
+            "ridesSavedTitle" to "%1\$d Fahrten wurden gespeichert",
+            "ridesSavedBody" to "Die App wurde während der Aufzeichnung geschlossen. Sie wurden beendet und behalten.",
+            "weeklyRecapNotificationTitle" to "Letzte Woche",
+            "weeklyRecapNotificationBody" to "%1\$d Aktivitäten, %2\$s.",
+            "bulletinTitle" to "Neuigkeiten",
+            "bulletinEmpty" to "Nichts zu berichten. Was TrackMe Ihnen sagen muss, erscheint hier.",
+            "bulletinClear" to "Löschen",
+            "bulletinLevelReached" to "Sie haben %1\$s erreicht",
+            "bulletinLevelReachedBody" to "Aus den aktiven Minuten, die Sie aufgezeichnet haben.",
+            "bulletinMilestone" to "%1\$d Aktivitäten aufgezeichnet",
+            "bulletinMilestoneBody" to "Ein Meilenstein, der Erwähnung verdient.",
+            "bulletinSyncProblem" to "Die Cloud-Sicherung funktioniert nicht",
+            "bulletinSyncProblemBody" to "%1\$d Aktivitäten haben Ihre Sicherung seit %2\$s nicht erreicht.",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d Aktivitäten haben Ihre Cloud-Sicherung nicht erreicht.",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "Eine neuere Version ist verfügbar.",
+            "sunsetSoon" to "Sonnenuntergang in %1\$d Min",
+            "returnNoticeTitle" to "Ihre Fahrten sind noch da",
+            "returnNoticeBody" to "Ihre letzte aufgezeichnete Aktivität war vor %1\$d Tagen. Alles Aufgezeichnete ist weiterhin auf Ihrem Telefon.",
+            "returnNoticeStop" to "Diese Hinweise stoppen",
+            "forgottenRideTitle" to "Nimmt weiter auf",
+            "forgottenRideBody" to "%1\$d Min aufgezeichnet. Keine Bewegung seit %2\$s.",
+            "forgottenRideBodyNoTime" to "%1\$d Min aufgezeichnet, seit einer Weile ohne Bewegung.",
+            "forgottenRideStop" to "Aktivität beenden",
+            "forgottenRideKeepGoing" to "Weiter aufzeichnen",
+            "groupStillLiveTitle" to "Du teilst weiterhin mit einer Gruppe",
+            "groupStillLiveBody" to "Deine Aktivität ist beendet, aber du bist in %1\$s weiterhin sichtbar.",
+            "groupStillLiveBodyNoName" to "Deine Aktivität ist beendet, aber du bist in einer aktiven Gruppe weiterhin sichtbar.",
+            "groupStillLiveLeave" to "Gruppe verlassen",
+            "startProximityLine" to "Diese bringt dich über %1\$s hinaus.",
+            "reminderSectionTitle" to "Aktivitätserinnerung",
+            "reminderSectionSubtitle" to "Eine Erinnerung pro Woche, zu einer Zeit deiner Wahl. Aus, bis du sie einschaltest.",
+            "reminderEnable" to "Wöchentlich erinnern",
+            "reminderDay" to "Tag",
+            "reminderTime" to "Uhrzeit",
+            "reminderActivity" to "Aktivität",
+            "reminderSuggestion" to "Aus deinem Verlauf vorgeschlagen: %1\$s, %2\$s",
+            "reminderSuggestionApply" to "Übernehmen",
+            "reminderNoHistory" to "Zeichne ein paar Aktivitäten auf, dann können wir eine Zeit vorschlagen.",
+            "reminderNotificationTitle" to "Deine %1\$s-Erinnerung",
+            "reminderNotificationBody" to "Du hast um eine Erinnerung zu dieser Zeit gebeten.",
             "groupAlertSetBody" to "%1\$s hat den Status auf %2\$s gesetzt",
             "groupAlertClearedBody" to "%1\$s hat %2\$s entfernt",
             "groupAlertViewGroup" to "Gruppe ansehen",
@@ -2267,6 +2514,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStatusNoLocation" to "Kein aktueller Standort",
             "groupLeaderBadge" to "Leitung",
             "groupOnlyOne" to "Du bist allein hier.",
+            "groupInvitePrompt" to "Eine Gruppe aus einer Person bist nur du. Lade jemanden ein und ihr seht euch auf der Karte.",
             "groupDegraded" to "Gruppen-Sharing ist vorübergehend nicht verfügbar – wird erneut versucht.",
             "groupEnded" to "Diese Gruppe ist beendet.",
             "groupExpired" to "Diese Einladung ist abgelaufen.",
@@ -2311,9 +2559,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "Senden",
             "copy" to "Kopieren",
             "sharePin" to "Standort teilen",
-            "sosRemovalNoticeTitle" to "Die SOS-Taste wurde entfernt",
-            "sosRemovalNoticeBody" to "TrackMe enthält die SOS-Taste und ihre automatischen SMS-Warnungen nicht mehr. Sie beruhten auf einer eingeschränkten Google-Play-Berechtigung und konnten nicht zusichern, dass eine Nachricht wirklich ankommt. Deshalb haben wir sie entfernt, statt einen Schutz anzubieten, für den wir nicht einstehen können.\n\nIhre gespeicherten Notfallkontakte wurden im Rahmen dieser Änderung von diesem Gerät und aus Ihrem Cloud-Konto entfernt.\n\nNutzen Sie in echten Notfällen die im Telefon integrierte Notruf-SOS-Funktion: Öffnen Sie die System-Einstellungen und suchen Sie nach \"Notruf SOS\". Sie kann den Notruf auch dann erreichen, wenn TrackMe es nicht kann.",
-            "sosRemovalNoticeAck" to "Verstanden",
             "timelineScrubberAccessibility" to "Zeitleistenregler. Anpassen, um Geschwindigkeit, Höhe und Routenposition zu prüfen.",
             "newVersionAvailable" to "Neue Version verfügbar",
             "updateAvailable" to "Update verfügbar",
@@ -2847,6 +3092,60 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s भेजा नहीं गया",
             "groupPillSent" to "%1\$s भेजा गया",
             "groupAlertChannelName" to "समूह राइड अलर्ट",
+            "channelRemindersName" to "रिमाइंडर",
+            "channelRemindersDescription" to "सिर्फ़ वे रिमाइंडर जो आप खुद सेट करते हैं। इस चैनल का और कोई उपयोग नहीं है।",
+            "channelProgressName" to "आपकी प्रगति",
+            "channelProgressDescription" to "आपका साप्ताहिक सारांश, हफ़्ते में ज़्यादा से ज़्यादा एक बार। यह सब ऐप में भी मौजूद है।",
+            "channelDataName" to "सिंक और डेटा",
+            "channelDataDescription" to "जब आपके लिए कोई राइड सहेजी जाए, कोई बैकअप काम करना बंद कर दे, या कोई एक्सपोर्ट तैयार हो।",
+            "channelOperatorName" to "ऐप सूचनाएं",
+            "channelOperatorDescription" to "ऐप में आई समस्याओं और उन्हें ठीक करने वाले अपडेट के बारे में कभी-कभार आने वाले संदेश।",
+            "broadcastLearnMore" to "और जानें",
+            "broadcastDismiss" to "ठीक है",
+            "rideSavedTitle" to "आपकी राइड सहेज ली गई",
+            "rideSavedBody" to "ऐप बंद होने से रिकॉर्डिंग %1\$s पर रुक गई। %2\$s सहेजा गया।",
+            "rideSavedBodyPlain" to "रिकॉर्डिंग के दौरान ऐप बंद हो गया, इसलिए राइड पूरी करके सहेज ली गई।",
+            "ridesSavedTitle" to "%1\$d राइड सहेजी गईं",
+            "ridesSavedBody" to "रिकॉर्डिंग के दौरान ऐप बंद हो गया। उन्हें पूरा करके सहेज लिया गया।",
+            "weeklyRecapNotificationTitle" to "पिछला हफ़्ता",
+            "weeklyRecapNotificationBody" to "%1\$d गतिविधियाँ, %2\$s।",
+            "bulletinTitle" to "नया क्या है",
+            "bulletinEmpty" to "बताने के लिए कुछ नहीं। TrackMe को जो कहना होगा वह यहाँ दिखेगा।",
+            "bulletinClear" to "साफ़ करें",
+            "bulletinLevelReached" to "आपने %1\$s हासिल किया",
+            "bulletinLevelReachedBody" to "आपके दर्ज किए गए सक्रिय मिनटों के आधार पर।",
+            "bulletinMilestone" to "%1\$d गतिविधियाँ दर्ज हुईं",
+            "bulletinMilestoneBody" to "एक उल्लेखनीय पड़ाव।",
+            "bulletinSyncProblem" to "क्लाउड बैकअप काम नहीं कर रहा",
+            "bulletinSyncProblemBody" to "%2\$s से %1\$d गतिविधियाँ आपके बैकअप तक नहीं पहुँचीं।",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d गतिविधियाँ आपके क्लाउड बैकअप तक नहीं पहुँचीं।",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "एक नया संस्करण उपलब्ध है।",
+            "sunsetSoon" to "%1\$d मिनट में सूर्यास्त",
+            "returnNoticeTitle" to "आपकी राइड्स यहीं हैं",
+            "returnNoticeBody" to "आपकी आखिरी दर्ज गतिविधि %1\$d दिन पहले थी। आपका दर्ज किया सब कुछ अब भी आपके फ़ोन में है।",
+            "returnNoticeStop" to "ये सूचनाएँ बंद करें",
+            "forgottenRideTitle" to "अभी भी रिकॉर्ड हो रहा है",
+            "forgottenRideBody" to "%1\$d मिनट रिकॉर्ड हुए। %2\$s से कोई हलचल नहीं।",
+            "forgottenRideBodyNoTime" to "%1\$d मिनट रिकॉर्ड हुए, कुछ समय से कोई हलचल नहीं।",
+            "forgottenRideStop" to "गतिविधि समाप्त करें",
+            "forgottenRideKeepGoing" to "रिकॉर्डिंग जारी रखें",
+            "groupStillLiveTitle" to "आप अब भी एक समूह के साथ साझा कर रहे हैं",
+            "groupStillLiveBody" to "आपकी गतिविधि समाप्त हो गई, लेकिन आप %1\$s में अब भी दिख रहे हैं।",
+            "groupStillLiveBodyNoName" to "आपकी गतिविधि समाप्त हो गई, लेकिन आप एक सक्रिय समूह में अब भी दिख रहे हैं।",
+            "groupStillLiveLeave" to "समूह छोड़ें",
+            "startProximityLine" to "यह आपको %1\$s के पार ले जाएगी।",
+            "reminderSectionTitle" to "गतिविधि अनुस्मारक",
+            "reminderSectionSubtitle" to "सप्ताह में एक अनुस्मारक, आपके चुने समय पर। जब तक आप चालू न करें, बंद रहेगा।",
+            "reminderEnable" to "साप्ताहिक याद दिलाएँ",
+            "reminderDay" to "दिन",
+            "reminderTime" to "समय",
+            "reminderActivity" to "गतिविधि",
+            "reminderSuggestion" to "आपके इतिहास से सुझाया गया: %1\$s, %2\$s",
+            "reminderSuggestionApply" to "इसे उपयोग करें",
+            "reminderNoHistory" to "कुछ गतिविधियाँ रिकॉर्ड करें, फिर हम समय सुझा सकेंगे।",
+            "reminderNotificationTitle" to "आपका %1\$s अनुस्मारक",
+            "reminderNotificationBody" to "आपने इस समय याद दिलाने के लिए कहा था।",
             "groupAlertSetBody" to "%1\$s ने अपनी स्थिति %2\$s रखी",
             "groupAlertClearedBody" to "%1\$s ने %2\$s हटाया",
             "groupAlertViewGroup" to "समूह देखें",
@@ -2896,6 +3195,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStatusNoLocation" to "हाल का स्थान नहीं",
             "groupLeaderBadge" to "लीडर",
             "groupOnlyOne" to "यहाँ सिर्फ़ आप हैं।",
+            "groupInvitePrompt" to "एक व्यक्ति का समूह सिर्फ़ आप हैं। किसी को आमंत्रित करें और आप एक-दूसरे को मानचित्र पर देखेंगे।",
             "groupDegraded" to "ग्रुप शेयरिंग अस्थायी रूप से अनुपलब्ध है — फिर से कोशिश की जा रही है।",
             "groupEnded" to "यह ग्रुप समाप्त हो गया है।",
             "groupExpired" to "यह आमंत्रण समाप्त हो गया है।",
@@ -2940,9 +3240,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "भेजें",
             "copy" to "कॉपी करें",
             "sharePin" to "स्थान साझा करें",
-            "sosRemovalNoticeTitle" to "SOS बटन हटा दिया गया है",
-            "sosRemovalNoticeBody" to "TrackMe में अब ऐप के अंदर का SOS बटन और उसके अपने-आप भेजे जाने वाले SMS अलर्ट नहीं हैं। वे Google Play की प्रतिबंधित अनुमति पर निर्भर थे और यह पक्का नहीं कर सकते थे कि संदेश सचमुच पहुंचेगा, इसलिए हमने ऐसा सुरक्षा-वादा देने के बजाय उन्हें हटा दिया।\n\nइस बदलाव के तहत आपके सहेजे गए आपातकालीन संपर्क इस डिवाइस और आपके क्लाउड खाते से हटा दिए गए हैं।\n\nअसली आपात स्थिति के लिए फ़ोन की इनबिल्ट Emergency SOS सुविधा इस्तेमाल करें: सिस्टम सेटिंग्स खोलकर \"Emergency SOS\" खोजें और उसे सेट करें। वह आपातकालीन सेवाओं को तब भी कॉल कर सकती है जब TrackMe नहीं कर सकता।",
-            "sosRemovalNoticeAck" to "ठीक है",
             "timelineScrubberAccessibility" to "टाइमलाइन स्लाइडर। गति, ऊँचाई और मार्ग की स्थिति देखने के लिए समायोजित करें।",
             "newVersionAvailable" to "नया संस्करण उपलब्ध है",
             "updateAvailable" to "अपडेट उपलब्ध है",
@@ -3476,6 +3773,60 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s は未送信",
             "groupPillSent" to "%1\$s を送信",
             "groupAlertChannelName" to "グループライドの通知",
+            "channelRemindersName" to "リマインダー",
+            "channelRemindersDescription" to "自分で設定したリマインダーのみ。他の用途では使いません。",
+            "channelProgressName" to "あなたの記録",
+            "channelProgressDescription" to "週次まとめ。多くても週に1回です。内容はアプリ内でも確認できます。",
+            "channelDataName" to "同期とデータ",
+            "channelDataDescription" to "ライドが自動保存されたとき、バックアップが停止したとき、エクスポートの準備ができたとき。",
+            "channelOperatorName" to "アプリからのお知らせ",
+            "channelOperatorDescription" to "アプリ自体の不具合と、その修正アップデートに関するまれなお知らせ。",
+            "broadcastLearnMore" to "詳しく見る",
+            "broadcastDismiss" to "了解",
+            "rideSavedTitle" to "ライドを保存しました",
+            "rideSavedBody" to "アプリが終了したため %1\$s に記録が停止しました。%2\$s を保存しています。",
+            "rideSavedBodyPlain" to "記録中にアプリが終了したため、ライドを終了して保存しました。",
+            "ridesSavedTitle" to "%1\$d 件のライドを保存しました",
+            "ridesSavedBody" to "記録中にアプリが終了しました。すべて終了して保存しています。",
+            "weeklyRecapNotificationTitle" to "先週",
+            "weeklyRecapNotificationBody" to "%1\$d 件のアクティビティ、%2\$s。",
+            "bulletinTitle" to "お知らせ",
+            "bulletinEmpty" to "お知らせはありません。TrackMe からの連絡はここに表示されます。",
+            "bulletinClear" to "消去",
+            "bulletinLevelReached" to "%1\$s に到達しました",
+            "bulletinLevelReachedBody" to "記録された活動時間に基づいています。",
+            "bulletinMilestone" to "%1\$d 件のアクティビティを記録",
+            "bulletinMilestoneBody" to "記録に値する節目です。",
+            "bulletinSyncProblem" to "クラウドバックアップが機能していません",
+            "bulletinSyncProblemBody" to "%2\$s 以降、%1\$d 件のアクティビティがバックアップに届いていません。",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d 件のアクティビティがクラウドバックアップに届いていません。",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "新しいバージョンが利用できます。",
+            "sunsetSoon" to "あと %1\$d 分で日没",
+            "returnNoticeTitle" to "記録はそのまま残っています",
+            "returnNoticeBody" to "最後に記録したアクティビティは %1\$d 日前です。記録した内容はすべて端末に残っています。",
+            "returnNoticeStop" to "この通知を停止",
+            "forgottenRideTitle" to "記録を継続中",
+            "forgottenRideBody" to "%1\$d分を記録。%2\$sから動きがありません。",
+            "forgottenRideBodyNoTime" to "%1\$d分を記録。しばらく動きがありません。",
+            "forgottenRideStop" to "アクティビティを終了",
+            "forgottenRideKeepGoing" to "記録を続ける",
+            "groupStillLiveTitle" to "グループとの共有が続いています",
+            "groupStillLiveBody" to "アクティビティは終了しましたが、%1\$sではまだ表示されています。",
+            "groupStillLiveBodyNoName" to "アクティビティは終了しましたが、アクティブなグループではまだ表示されています。",
+            "groupStillLiveLeave" to "グループを退出",
+            "startProximityLine" to "これで%1\$sを超えます。",
+            "reminderSectionTitle" to "アクティビティのリマインダー",
+            "reminderSectionSubtitle" to "週に1回、選んだ時間に。オンにするまでは無効です。",
+            "reminderEnable" to "毎週リマインドする",
+            "reminderDay" to "曜日",
+            "reminderTime" to "時刻",
+            "reminderActivity" to "アクティビティ",
+            "reminderSuggestion" to "履歴からの提案: %1\$s %2\$s",
+            "reminderSuggestionApply" to "これを使う",
+            "reminderNoHistory" to "アクティビティをいくつか記録すると、時間を提案できます。",
+            "reminderNotificationTitle" to "%1\$sのリマインダー",
+            "reminderNotificationBody" to "この時間に通知するよう設定されています。",
             "groupAlertSetBody" to "%1\$s さんが状態を「%2\$s」にしました",
             "groupAlertClearedBody" to "%1\$s さんが「%2\$s」を解除しました",
             "groupAlertViewGroup" to "グループを見る",
@@ -3525,6 +3876,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStatusNoLocation" to "最近の位置情報なし",
             "groupLeaderBadge" to "リーダー",
             "groupOnlyOne" to "まだあなただけです。",
+            "groupInvitePrompt" to "1人のグループはあなただけです。誰かを招待すると、地図でお互いが見えます。",
             "groupDegraded" to "グループ共有は一時的に利用できません。再試行中です。",
             "groupEnded" to "このグループは終了しました。",
             "groupExpired" to "この招待は期限切れです。",
@@ -3569,9 +3921,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "送信",
             "copy" to "コピー",
             "sharePin" to "位置情報を共有",
-            "sosRemovalNoticeTitle" to "SOSボタンは削除されました",
-            "sosRemovalNoticeBody" to "TrackMe のアプリ内 SOS ボタンと自動 SMS 通知は廃止されました。これらは Google Play の制限付き権限に依存しており、メッセージが確実に届くとは言えなかったため、裏付けのない保護を提供し続けるのではなく削除しました。\n\nこの変更に伴い、保存されていた緊急連絡先はこの端末およびクラウドアカウントから削除されました。\n\n実際の緊急時には、スマートフォン本体の「緊急SOS」機能を使ってください。端末の設定アプリで「緊急SOS」を検索して設定できます。TrackMe が使えない状況でも緊急通報が可能です。",
-            "sosRemovalNoticeAck" to "理解しました",
             "timelineScrubberAccessibility" to "タイムラインスライダー。速度、高度、ルート上の位置を確認するには調整してください。",
             "newVersionAvailable" to "新しいバージョンがあります",
             "updateAvailable" to "アップデートがあります",
@@ -4105,6 +4454,60 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupPillNotSent" to "%1\$s 未发送",
             "groupPillSent" to "%1\$s 已发送",
             "groupAlertChannelName" to "群骑提醒",
+            "channelRemindersName" to "提醒",
+            "channelRemindersDescription" to "仅包含你自己设置的提醒，此渠道不作他用。",
+            "channelProgressName" to "你的进展",
+            "channelProgressDescription" to "每周回顾，最多每周一次。这些内容在应用内也能看到。",
+            "channelDataName" to "同步与数据",
+            "channelDataDescription" to "当系统为你保存了一次记录、备份停止工作，或导出已就绪时。",
+            "channelOperatorName" to "应用通知",
+            "channelOperatorDescription" to "关于应用自身问题及其修复更新的少量消息。",
+            "broadcastLearnMore" to "了解更多",
+            "broadcastDismiss" to "知道了",
+            "rideSavedTitle" to "你的记录已保存",
+            "rideSavedBody" to "应用关闭，记录于 %1\$s 停止。已保留 %2\$s。",
+            "rideSavedBodyPlain" to "记录期间应用关闭，已结束并保留这次记录。",
+            "ridesSavedTitle" to "已保存 %1\$d 次记录",
+            "ridesSavedBody" to "记录期间应用关闭，已全部结束并保留。",
+            "weeklyRecapNotificationTitle" to "上周",
+            "weeklyRecapNotificationBody" to "%1\$d 次活动，%2\$s。",
+            "bulletinTitle" to "最新动态",
+            "bulletinEmpty" to "暂无内容。TrackMe 需要告诉你的事情会显示在这里。",
+            "bulletinClear" to "清除",
+            "bulletinLevelReached" to "你达到了 %1\$s",
+            "bulletinLevelReachedBody" to "根据你记录的活动时长。",
+            "bulletinMilestone" to "已记录 %1\$d 次活动",
+            "bulletinMilestoneBody" to "一个值得记录的里程碑。",
+            "bulletinSyncProblem" to "云备份未在工作",
+            "bulletinSyncProblemBody" to "自 %2\$s 起，%1\$d 次活动尚未同步到你的备份。",
+            "bulletinSyncProblemBodyNoDate" to "%1\$d 次活动尚未同步到你的云备份。",
+            "bulletinVersionNote" to "TrackMe %1\$s",
+            "bulletinVersionNoteBody" to "有新版本可用。",
+            "sunsetSoon" to "%1\$d 分钟后日落",
+            "returnNoticeTitle" to "你的记录都还在",
+            "returnNoticeBody" to "上次记录的活动是在 %1\$d 天前。你记录的一切仍保存在手机上。",
+            "returnNoticeStop" to "停止此类通知",
+            "forgottenRideTitle" to "仍在记录",
+            "forgottenRideBody" to "已记录 %1\$d 分钟。自 %2\$s 起没有移动。",
+            "forgottenRideBodyNoTime" to "已记录 %1\$d 分钟，有一段时间没有移动。",
+            "forgottenRideStop" to "结束活动",
+            "forgottenRideKeepGoing" to "继续记录",
+            "groupStillLiveTitle" to "你仍在与群组共享位置",
+            "groupStillLiveBody" to "你的活动已结束，但在 %1\$s 中仍然可见。",
+            "groupStillLiveBodyNoName" to "你的活动已结束，但在活跃群组中仍然可见。",
+            "groupStillLiveLeave" to "退出群组",
+            "startProximityLine" to "这一次将带你越过 %1\$s。",
+            "reminderSectionTitle" to "活动提醒",
+            "reminderSectionSubtitle" to "每周一次提醒，时间由你选择。除非开启，否则不会发送。",
+            "reminderEnable" to "每周提醒我",
+            "reminderDay" to "星期",
+            "reminderTime" to "时间",
+            "reminderActivity" to "活动",
+            "reminderSuggestion" to "根据你的历史记录建议：%1\$s %2\$s",
+            "reminderSuggestionApply" to "使用此建议",
+            "reminderNoHistory" to "记录几次活动后，我们就能建议时间。",
+            "reminderNotificationTitle" to "你的%1\$s提醒",
+            "reminderNotificationBody" to "你设置了在此时间提醒。",
             "groupAlertSetBody" to "%1\$s 将状态设为%2\$s",
             "groupAlertClearedBody" to "%1\$s 清除了%2\$s",
             "groupAlertViewGroup" to "查看群组",
@@ -4154,6 +4557,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStatusNoLocation" to "没有最近的位置",
             "groupLeaderBadge" to "组织者",
             "groupOnlyOne" to "目前只有你一个人。",
+            "groupInvitePrompt" to "只有一个人的群组就只有你。邀请别人，你们就能在地图上看到彼此。",
             "groupDegraded" to "群组共享暂时不可用——正在重试。",
             "groupEnded" to "该群组已结束。",
             "groupExpired" to "该邀请已过期。",
@@ -4198,9 +4602,6 @@ fun getAppStrings(languageCode: String): AppStrings {
             "send" to "发送",
             "copy" to "复制",
             "sharePin" to "分享位置",
-            "sosRemovalNoticeTitle" to "SOS 按钮已移除",
-            "sosRemovalNoticeBody" to "TrackMe 已不再提供应用内的 SOS 按钮及其自动短信警报。它们依赖 Google Play 的受限权限，且无法确保消息真正送达，因此我们选择移除，而不是提供无法兑现的保护。\n\n作为此次变更的一部分，你保存的紧急联系人已从此设备和你的云账户中移除。\n\n遇到真正的紧急情况，请使用手机自带的紧急 SOS 功能：打开系统设置并搜索\"紧急 SOS\"进行设置。即使 TrackMe 无法工作，它也能拨打紧急服务电话。",
-            "sosRemovalNoticeAck" to "我知道了",
             "timelineScrubberAccessibility" to "时间轴滑块。调整以查看速度、海拔和路线位置。",
             "newVersionAvailable" to "有新版本可用",
             "updateAvailable" to "有可用更新",

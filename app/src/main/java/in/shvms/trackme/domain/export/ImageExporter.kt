@@ -38,6 +38,8 @@ data class ExportOptions(
     val showDate: Boolean = true,
     val routePoints: List<`in`.shvms.trackme.data.local.entity.GPSPointEntity>? = null,
     val includeTrackMeLockup: Boolean = true,
+    /** Public TrackMe route printed inside the lockup so a travelling image has a way back. */
+    val deepLink: String? = null,
     /**
      * The panel's figure lines, already formatted and ordered by the UI — **decided there, not
      * re-derived here.** Null falls back to the legacy in-exporter derivation.
@@ -146,7 +148,7 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
         canvas.drawBitmap(mapBitmap, 0f, 0f, null)
 
         if (options.includeTrackMeLockup) {
-            drawTrackMeLockup(canvas, context, realW, realH)
+            drawTrackMeLockup(canvas, context, realW, options.deepLink)
         }
         
         if (options.showStats) {
@@ -191,7 +193,7 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
         canvas.drawBitmap(mapSnapshot, 0f, 0f, null)
 
         if (options.includeTrackMeLockup) {
-            drawTrackMeLockup(canvas, context, finalW, finalH)
+            drawTrackMeLockup(canvas, context, finalW, options.deepLink)
         }
         
         if (options.showStats) {
@@ -345,7 +347,7 @@ private fun drawMapAttribution(canvas: Canvas, width: Int, height: Int) {
     canvas.drawText("TrackMe", width * 0.30f, height - shorterEdge * 0.022f, paint)
 }
 
-private fun drawTrackMeLockup(canvas: Canvas, context: Context, width: Int, height: Int) {
+private fun drawTrackMeLockup(canvas: Canvas, context: Context, width: Int, deepLink: String?) {
     val margin = (width * AppConfig.LOCKUP_MARGIN_RATIO).roundToInt().coerceAtLeast(8)
     val iconSize = (width * AppConfig.LOCKUP_ICON_RATIO).roundToInt().coerceAtLeast(32)
     val icon = BitmapFactory.decodeResource(context.resources, R.drawable.ic_trackme_logo) ?: return
@@ -360,9 +362,16 @@ private fun drawTrackMeLockup(canvas: Canvas, context: Context, width: Int, heig
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     }
     val text = "TrackMe"
+    val link = deepLink?.takeIf(::isTrackMeArtifactDeepLink)
+    val linkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.LTGRAY
+        textSize = iconSize * 0.22f
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+    }
     val textWidth = textPaint.measureText(text)
+    val linkWidth = link?.let(linkPaint::measureText) ?: 0f
     val gap = (iconSize * 0.18f).roundToInt()
-    val lockupWidth = iconSize + gap + textWidth
+    val lockupWidth = iconSize + gap + maxOf(textWidth, linkWidth)
     val left = (width - margin - lockupWidth).coerceAtLeast(margin.toFloat())
     val top = margin.toFloat()
 
@@ -383,8 +392,9 @@ private fun drawTrackMeLockup(canvas: Canvas, context: Context, width: Int, heig
     )
 
     canvas.drawBitmap(scaledIcon, left, top, null)
-    val baseline = top + iconSize * 0.68f
-    canvas.drawText(text, left + iconSize + gap, baseline, textPaint)
+    val textLeft = left + iconSize + gap
+    canvas.drawText(text, textLeft, top + iconSize * 0.48f, textPaint)
+    link?.let { canvas.drawText(it, textLeft, top + iconSize * 0.80f, linkPaint) }
 
     if (scaledIcon !== icon) scaledIcon.recycle()
     icon.recycle()

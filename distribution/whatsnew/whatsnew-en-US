@@ -1,6 +1,7 @@
-TrackMe 1.8.6 — clearer progress and more truthful route previews.
+TrackMe 1.8.7 — notifications worth keeping on.
 
-• Home now shows active duration across four weeks and a typed distance breakdown for every activity used this week.
-• My Progress adds six local-only levels and activity milestones, with no account, cloud or social ranking required.
-• Auto-pauses render as circles while manual or unknown route gaps remain dotted.
-• Ride detail, share preview and exported images now use the same route geometry and framing.
+• A new Activity bulletin collects everything the app has to say, in one place you read when you choose.
+• The app now interrupts you at most once a week, across every source combined.
+• New: a weekly recap, a sunset warning before you set off, and a check if a ride is still recording after you have stopped moving.
+• Set your own weekly reminder. Off unless you turn it on.
+• Pick TrackMe's language from Android settings.

@@ -24,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -85,7 +84,10 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
 
     var locationGranted by remember { mutableStateOf(hasLocation(context)) }
     var locationDeclined by remember { mutableStateOf(false) }
-    var notificationsGranted by remember { mutableStateOf(hasNotifications(context)) }
+    // Notification permission is intentionally not requested during onboarding. A fresh rider has
+    // not yet done anything that earns an interruption; the first ride start is the contextual,
+    // once-only request point owned by NotificationPermissionPolicy (TASK-284).
+    val notificationsGranted = hasNotifications(context)
     var analyticsEnabled by remember { mutableStateOf(defaultAnalytics(context)) }
     // CYCLING is what the *demo* illustrates, not what the rider asked for. Keep the two apart:
     // this seeds the sample ride and the persona picker's initial highlight, while
@@ -129,10 +131,6 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
             result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         locationDeclined = !locationGranted
     }
-    val notificationLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted -> notificationsGranted = granted }
-
     fun goTo(page: Int) = scope.launch { pager.animateScrollToPage(page) }
 
     Surface(color = MaterialTheme.colorScheme.background) {
@@ -187,7 +185,6 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
                             strings = strings,
                             locationGranted = locationGranted,
                             locationDeclined = locationDeclined,
-                            notificationsGranted = notificationsGranted,
                             onAllowLocation = {
                                 locationLauncher.launch(
                                     arrayOf(
@@ -195,11 +192,6 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
                                         Manifest.permission.ACCESS_COARSE_LOCATION,
                                     ),
                                 )
-                            },
-                            onAllowNotifications = {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                }
                             },
                         )
                         PAGE_READY -> ReadyPage(
@@ -448,9 +440,7 @@ private fun PermissionsPage(
     strings: AppStrings,
     locationGranted: Boolean,
     locationDeclined: Boolean,
-    notificationsGranted: Boolean,
     onAllowLocation: () -> Unit,
-    onAllowNotifications: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Text(
@@ -476,18 +466,6 @@ private fun PermissionsPage(
             grantedLabel = strings.obPermGranted,
             actionLabel = strings.obPermLocationCta,
             onAction = onAllowLocation,
-        )
-
-        PermissionCard(
-            icon = Icons.Default.Notifications,
-            title = strings.obPermNotifTitle,
-            body = strings.obPermNotifBody,
-            badge = strings.obPermRecommended,
-            badgeIsPrimary = false,
-            granted = notificationsGranted,
-            grantedLabel = strings.obPermGranted,
-            actionLabel = strings.obPermNotifCta,
-            onAction = onAllowNotifications,
         )
 
         AnimatedVisibility(visible = locationDeclined && !locationGranted) {

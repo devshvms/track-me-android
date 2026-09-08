@@ -298,7 +298,7 @@ fun SettingsScreen(
         val telemetryEnabled by preferencesManager.telemetryEnabled.collectAsState()
         val unitSystem by preferencesManager.unitSystem.collectAsState()
         val pipDashboardEnabled by preferencesManager.pipDashboardEnabled.collectAsState()
-        var appLanguage by remember { mutableStateOf(prefs.getString("app_language", "en") ?: "en") }
+        val appLanguage by preferencesManager.appLanguage.collectAsState()
         var showLangDropdown by remember { mutableStateOf(false) }
 
         val languages = SUPPORTED_LANGUAGE_CODES.map { it to (languageDisplayNames[it] ?: it) }
@@ -356,10 +356,8 @@ fun SettingsScreen(
                                 DropdownMenuItem(
                                     text = { Text(name) },
                                     onClick = {
-                                        appLanguage = code
                                         showLangDropdown = false
-                                        prefs.edit().putString("app_language", code).apply()
-                                        (context.applicationContext as? TrackMeApp)?.preferencesManager?.setAppLanguage(code)
+                                        preferencesManager.setAppLanguage(code)
                                     }
                                 )
                             }
@@ -378,6 +376,11 @@ fun SettingsScreen(
                 },
             )
         }
+
+        // SCOPE_1.8.7 §6.1.3 #12a. Placed above privacy rather than buried in Advanced: someone
+        // who wants to turn a reminder off should find it where they would look for it, and a
+        // setting the user cannot find is a setting they cannot revoke.
+        ActivityReminderSection(strings)
 
         SettingsGroup(title = strings.privacyAndAnalytics) {
             SettingsSwitchRow(
@@ -513,6 +516,29 @@ fun SettingsScreen(
             )
         }
         
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // SCOPE_1.8.7 §6.1.7 — the way in to the bulletin.
+        //
+        // In Settings rather than as a fifth tab: the bar already carries four, and a permanent tab
+        // for a surface that is empty most weeks would advertise itself far more loudly than
+        // "subtle unread badge" allows. The badge on this tab is what makes it discoverable when
+        // there is something in it, and invisible when there is not.
+        SettingsGroup(title = strings.bulletinTitle) {
+            SettingsRow(
+                title = strings.bulletinTitle,
+                supportingText = strings.bulletinEmpty,
+                trailingContent = {
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                onClick = { navController?.navigate("bulletin") },
+            )
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // A navigating row rather than a card wrapping a full-width button. Same destination,

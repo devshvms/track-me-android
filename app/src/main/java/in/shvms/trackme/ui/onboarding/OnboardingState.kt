@@ -62,11 +62,12 @@ fun shouldShowStartRideHint(state: OnboardingState, hintAlreadySeen: Boolean): B
 /**
  * Reads and persists the state, once.
  *
- * **[resolve] must be the first thing `TrackMeApp.onCreate` does.** `SosStateCleanup.clearOnce`
- * runs near the top of that method and unconditionally commits a flag into the same preference
- * file — so anything checking "were there already preferences?" after it has run sees a non-empty
- * file on a brand-new install, classifies it [OnboardingState.LEGACY], and the walkthrough is
- * never shown to anyone. Resolving first is what makes the emptiness check mean what it says.
+ * **[resolve] must be the first thing `TrackMeApp.onCreate` does.** Most of what follows in that
+ * method writes a preference eventually — so anything checking "were there already preferences?"
+ * afterwards sees a non-empty file on a brand-new install, classifies it [OnboardingState.LEGACY],
+ * and the walkthrough is never shown to anyone. Resolving first is what makes the emptiness check
+ * mean what it says. `OnboardingStateTest` asserts the ordering from source, because the symptom
+ * of getting it wrong is a screen that silently never appears.
  */
 object OnboardingGate {
     private const val PREFS = "trackme_prefs"

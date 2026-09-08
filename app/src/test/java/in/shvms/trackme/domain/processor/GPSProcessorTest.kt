@@ -125,6 +125,11 @@ class GPSProcessorTest {
         }
         override suspend fun getPointsForRideSync(rideId: Long): List<GPSPointEntity> = rideWithPoints?.points.orEmpty()
         override suspend fun deleteRide(rideId: Long): Int = 1
+        // §6.1.5 #23: these fakes have no sync concept, so nothing is ever waiting. Zero is
+        // also the answer that keeps the sync-failure notice silent, which is right for a
+        // test about something else entirely.
+        override suspend fun countUnsyncedRides(): Int = 0
+        override suspend fun recentHistorySamples(limit: Int): List<`in`.shvms.trackme.data.local.dao.RideHistoryRow> = emptyList()
         override suspend fun deletePointsForRide(rideId: Long): Int = 1
         override suspend fun setPendingDelete(rideId: Long, pending: Boolean): Int = 1
         override suspend fun getPendingDeleteRides(): List<RideEntity> = emptyList()

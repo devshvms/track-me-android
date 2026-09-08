@@ -35,6 +35,7 @@ object GamificationEngine {
             currentActivityCount = activityCount,
             currentThresholdMinutes = current.thresholdMinutes,
             nextThresholdMinutes = next?.thresholdMinutes,
+            nextLevelNameKey = next?.nameKey,
             progressNumeratorMinutes = progressNumerator,
             progressDenominatorMinutes = progressDenominator,
             latestUnlockedMilestoneId = unlocked.lastOrNull()?.id,
