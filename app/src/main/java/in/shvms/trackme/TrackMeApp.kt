@@ -280,6 +280,11 @@ class TrackMeApp : Application() {
         // schedule rather than on foreground. Inexact and daily — nothing here needs an exact
         // alarm, so SCHEDULE_EXACT_ALARM stays undeclared.
         `in`.shvms.trackme.service.notifications.ProactiveNotificationWorker.schedule(this)
+        // §6.1.3 #12a. Re-registered on launch because a reinstall or a "clear data" drops the
+        // WorkManager queue while `ActivityReminderStore` may still hold an enabled reminder —
+        // the worker itself is a no-op for anyone who has not set one, so this costs nothing for
+        // the population that never turns it on.
+        `in`.shvms.trackme.service.notifications.ActivityReminderWorker.schedule(this)
 
         applicationScope.launch(Dispatchers.IO) {
             seedOnboardingSampleRideIfNeeded()

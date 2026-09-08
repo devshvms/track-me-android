@@ -382,6 +382,40 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val returnNoticeTitle: String = s("returnNoticeTitle", "Your rides are still here")
     val returnNoticeBody: String = s("returnNoticeBody", "Your last recorded activity was %1\$d days ago. Everything you recorded is still on your phone.")
     val returnNoticeStop: String = s("returnNoticeStop", "Stop these")
+
+    // §6.1.1 #4 — the forgotten ride. A question, never an instruction, and never an announcement
+    // that the app has done something: it must not auto-stop, so the copy must not imply it might.
+    // %1$d is elapsed minutes of the whole ride; %2$s is a clock time.
+    val forgottenRideTitle: String = s("forgottenRideTitle", "Still recording")
+    val forgottenRideBody: String = s("forgottenRideBody", "%1\$d min recorded. No movement since %2\$s.")
+    val forgottenRideBodyNoTime: String = s("forgottenRideBodyNoTime", "%1\$d min recorded, with no movement for a while.")
+    val forgottenRideStop: String = s("forgottenRideStop", "Finish ride")
+    val forgottenRideKeepGoing: String = s("forgottenRideKeepGoing", "Keep recording")
+
+    // §6.1.4 #22 — still in a live group after the ride ended. States the disclosure and offers the
+    // way out; it does not leave the group, because staying is an ordinary thing to be doing.
+    val groupStillLiveTitle: String = s("groupStillLiveTitle", "You are still sharing with a group")
+    val groupStillLiveBody: String = s("groupStillLiveBody", "Your ride ended, but you are still visible in %1\$s.")
+    val groupStillLiveBodyNoName: String = s("groupStillLiveBodyNoName", "Your ride ended, but you are still visible in a live group.")
+    val groupStillLiveLeave: String = s("groupStillLiveLeave", "Leave group")
+
+    // §6.1.2 #10b — proximity at the start button. In-app only, never a notification: the moment
+    // this sentence can reach someone who has not opened the app it becomes the cut scenario 10.
+    val startProximityLine: String = s("startProximityLine", "This one takes you past %1\$s.")
+
+    // §6.1.3 #12a — a reminder the user sets. "Suggested from your history" is load-bearing copy:
+    // it is the sentence that makes the inference a courtesy rather than a decision.
+    val reminderSectionTitle: String = s("reminderSectionTitle", "Activity reminder")
+    val reminderSectionSubtitle: String = s("reminderSectionSubtitle", "One reminder a week, at a time you choose. Off unless you turn it on.")
+    val reminderEnable: String = s("reminderEnable", "Remind me weekly")
+    val reminderDay: String = s("reminderDay", "Day")
+    val reminderTime: String = s("reminderTime", "Time")
+    val reminderActivity: String = s("reminderActivity", "Activity")
+    val reminderSuggestion: String = s("reminderSuggestion", "Suggested from your history: %1\$s, %2\$s")
+    val reminderSuggestionApply: String = s("reminderSuggestionApply", "Use this")
+    val reminderNoHistory: String = s("reminderNoHistory", "Record a few activities and we can suggest a time.")
+    val reminderNotificationTitle: String = s("reminderNotificationTitle", "Your %1\$s reminder")
+    val reminderNotificationBody: String = s("reminderNotificationBody", "You asked to be reminded at this time.")
     val groupAlertSetBody: String = s("groupAlertSetBody", "%1\$s set their status to %2\$s")
     val groupAlertClearedBody: String = s("groupAlertClearedBody", "%1\$s cleared %2\$s")
     val groupAlertViewGroup: String = s("groupAlertViewGroup", "View group")
@@ -1047,6 +1081,27 @@ fun getAppStrings(languageCode: String): AppStrings {
             "returnNoticeTitle" to "Tus rutas siguen aquí",
             "returnNoticeBody" to "Tu última actividad registrada fue hace %1\$d días. Todo lo que grabaste sigue en tu teléfono.",
             "returnNoticeStop" to "Detener estos avisos",
+            "forgottenRideTitle" to "Grabando todavía",
+            "forgottenRideBody" to "%1\$d min grabados. Sin movimiento desde las %2\$s.",
+            "forgottenRideBodyNoTime" to "%1\$d min grabados, sin movimiento desde hace un rato.",
+            "forgottenRideStop" to "Finalizar actividad",
+            "forgottenRideKeepGoing" to "Seguir grabando",
+            "groupStillLiveTitle" to "Sigues compartiendo con un grupo",
+            "groupStillLiveBody" to "Tu actividad terminó, pero sigues visible en %1\$s.",
+            "groupStillLiveBodyNoName" to "Tu actividad terminó, pero sigues visible en un grupo activo.",
+            "groupStillLiveLeave" to "Salir del grupo",
+            "startProximityLine" to "Esta te lleva más allá de %1\$s.",
+            "reminderSectionTitle" to "Recordatorio de actividad",
+            "reminderSectionSubtitle" to "Un recordatorio por semana, a la hora que elijas. Desactivado hasta que lo actives.",
+            "reminderEnable" to "Recordármelo cada semana",
+            "reminderDay" to "Día",
+            "reminderTime" to "Hora",
+            "reminderActivity" to "Actividad",
+            "reminderSuggestion" to "Sugerido a partir de tu historial: %1\$s, %2\$s",
+            "reminderSuggestionApply" to "Usar esto",
+            "reminderNoHistory" to "Graba algunas actividades y podremos sugerirte una hora.",
+            "reminderNotificationTitle" to "Tu recordatorio de %1\$s",
+            "reminderNotificationBody" to "Pediste que te recordáramos a esta hora.",
             "groupAlertSetBody" to "%1\$s ha puesto su estado en %2\$s",
             "groupAlertClearedBody" to "%1\$s ha quitado %2\$s",
             "groupAlertViewGroup" to "Ver grupo",
@@ -1707,6 +1762,27 @@ fun getAppStrings(languageCode: String): AppStrings {
             "returnNoticeTitle" to "Vos sorties sont toujours là",
             "returnNoticeBody" to "Votre dernière activité enregistrée date de %1\$d jours. Tout ce que vous avez enregistré est toujours sur votre téléphone.",
             "returnNoticeStop" to "Arrêter ces rappels",
+            "forgottenRideTitle" to "Enregistrement en cours",
+            "forgottenRideBody" to "%1\$d min enregistrées. Aucun mouvement depuis %2\$s.",
+            "forgottenRideBodyNoTime" to "%1\$d min enregistrées, sans mouvement depuis un moment.",
+            "forgottenRideStop" to "Terminer la sortie",
+            "forgottenRideKeepGoing" to "Continuer l'enregistrement",
+            "groupStillLiveTitle" to "Vous partagez toujours avec un groupe",
+            "groupStillLiveBody" to "Votre sortie est terminée, mais vous restez visible dans %1\$s.",
+            "groupStillLiveBodyNoName" to "Votre sortie est terminée, mais vous restez visible dans un groupe actif.",
+            "groupStillLiveLeave" to "Quitter le groupe",
+            "startProximityLine" to "Celle-ci vous fait dépasser %1\$s.",
+            "reminderSectionTitle" to "Rappel d'activité",
+            "reminderSectionSubtitle" to "Un rappel par semaine, à l'heure de votre choix. Désactivé tant que vous ne l'activez pas.",
+            "reminderEnable" to "Me rappeler chaque semaine",
+            "reminderDay" to "Jour",
+            "reminderTime" to "Heure",
+            "reminderActivity" to "Activité",
+            "reminderSuggestion" to "Suggéré d'après votre historique : %1\$s, %2\$s",
+            "reminderSuggestionApply" to "Utiliser",
+            "reminderNoHistory" to "Enregistrez quelques activités et nous pourrons vous suggérer une heure.",
+            "reminderNotificationTitle" to "Votre rappel %1\$s",
+            "reminderNotificationBody" to "Vous avez demandé un rappel à cette heure.",
             "groupAlertSetBody" to "%1\$s a défini son statut sur %2\$s",
             "groupAlertClearedBody" to "%1\$s a effacé %2\$s",
             "groupAlertViewGroup" to "Voir le groupe",
@@ -2367,6 +2443,27 @@ fun getAppStrings(languageCode: String): AppStrings {
             "returnNoticeTitle" to "Ihre Fahrten sind noch da",
             "returnNoticeBody" to "Ihre letzte aufgezeichnete Aktivität war vor %1\$d Tagen. Alles Aufgezeichnete ist weiterhin auf Ihrem Telefon.",
             "returnNoticeStop" to "Diese Hinweise stoppen",
+            "forgottenRideTitle" to "Nimmt weiter auf",
+            "forgottenRideBody" to "%1\$d Min aufgezeichnet. Keine Bewegung seit %2\$s.",
+            "forgottenRideBodyNoTime" to "%1\$d Min aufgezeichnet, seit einer Weile ohne Bewegung.",
+            "forgottenRideStop" to "Aktivität beenden",
+            "forgottenRideKeepGoing" to "Weiter aufzeichnen",
+            "groupStillLiveTitle" to "Du teilst weiterhin mit einer Gruppe",
+            "groupStillLiveBody" to "Deine Aktivität ist beendet, aber du bist in %1\$s weiterhin sichtbar.",
+            "groupStillLiveBodyNoName" to "Deine Aktivität ist beendet, aber du bist in einer aktiven Gruppe weiterhin sichtbar.",
+            "groupStillLiveLeave" to "Gruppe verlassen",
+            "startProximityLine" to "Diese bringt dich über %1\$s hinaus.",
+            "reminderSectionTitle" to "Aktivitätserinnerung",
+            "reminderSectionSubtitle" to "Eine Erinnerung pro Woche, zu einer Zeit deiner Wahl. Aus, bis du sie einschaltest.",
+            "reminderEnable" to "Wöchentlich erinnern",
+            "reminderDay" to "Tag",
+            "reminderTime" to "Uhrzeit",
+            "reminderActivity" to "Aktivität",
+            "reminderSuggestion" to "Aus deinem Verlauf vorgeschlagen: %1\$s, %2\$s",
+            "reminderSuggestionApply" to "Übernehmen",
+            "reminderNoHistory" to "Zeichne ein paar Aktivitäten auf, dann können wir eine Zeit vorschlagen.",
+            "reminderNotificationTitle" to "Deine %1\$s-Erinnerung",
+            "reminderNotificationBody" to "Du hast um eine Erinnerung zu dieser Zeit gebeten.",
             "groupAlertSetBody" to "%1\$s hat den Status auf %2\$s gesetzt",
             "groupAlertClearedBody" to "%1\$s hat %2\$s entfernt",
             "groupAlertViewGroup" to "Gruppe ansehen",
@@ -3027,6 +3124,27 @@ fun getAppStrings(languageCode: String): AppStrings {
             "returnNoticeTitle" to "आपकी राइड्स यहीं हैं",
             "returnNoticeBody" to "आपकी आखिरी दर्ज गतिविधि %1\$d दिन पहले थी। आपका दर्ज किया सब कुछ अब भी आपके फ़ोन में है।",
             "returnNoticeStop" to "ये सूचनाएँ बंद करें",
+            "forgottenRideTitle" to "अभी भी रिकॉर्ड हो रहा है",
+            "forgottenRideBody" to "%1\$d मिनट रिकॉर्ड हुए। %2\$s से कोई हलचल नहीं।",
+            "forgottenRideBodyNoTime" to "%1\$d मिनट रिकॉर्ड हुए, कुछ समय से कोई हलचल नहीं।",
+            "forgottenRideStop" to "गतिविधि समाप्त करें",
+            "forgottenRideKeepGoing" to "रिकॉर्डिंग जारी रखें",
+            "groupStillLiveTitle" to "आप अब भी एक समूह के साथ साझा कर रहे हैं",
+            "groupStillLiveBody" to "आपकी गतिविधि समाप्त हो गई, लेकिन आप %1\$s में अब भी दिख रहे हैं।",
+            "groupStillLiveBodyNoName" to "आपकी गतिविधि समाप्त हो गई, लेकिन आप एक सक्रिय समूह में अब भी दिख रहे हैं।",
+            "groupStillLiveLeave" to "समूह छोड़ें",
+            "startProximityLine" to "यह आपको %1\$s के पार ले जाएगी।",
+            "reminderSectionTitle" to "गतिविधि अनुस्मारक",
+            "reminderSectionSubtitle" to "सप्ताह में एक अनुस्मारक, आपके चुने समय पर। जब तक आप चालू न करें, बंद रहेगा।",
+            "reminderEnable" to "साप्ताहिक याद दिलाएँ",
+            "reminderDay" to "दिन",
+            "reminderTime" to "समय",
+            "reminderActivity" to "गतिविधि",
+            "reminderSuggestion" to "आपके इतिहास से सुझाया गया: %1\$s, %2\$s",
+            "reminderSuggestionApply" to "इसे उपयोग करें",
+            "reminderNoHistory" to "कुछ गतिविधियाँ रिकॉर्ड करें, फिर हम समय सुझा सकेंगे।",
+            "reminderNotificationTitle" to "आपका %1\$s अनुस्मारक",
+            "reminderNotificationBody" to "आपने इस समय याद दिलाने के लिए कहा था।",
             "groupAlertSetBody" to "%1\$s ने अपनी स्थिति %2\$s रखी",
             "groupAlertClearedBody" to "%1\$s ने %2\$s हटाया",
             "groupAlertViewGroup" to "समूह देखें",
@@ -3687,6 +3805,27 @@ fun getAppStrings(languageCode: String): AppStrings {
             "returnNoticeTitle" to "記録はそのまま残っています",
             "returnNoticeBody" to "最後に記録したアクティビティは %1\$d 日前です。記録した内容はすべて端末に残っています。",
             "returnNoticeStop" to "この通知を停止",
+            "forgottenRideTitle" to "記録を継続中",
+            "forgottenRideBody" to "%1\$d分を記録。%2\$sから動きがありません。",
+            "forgottenRideBodyNoTime" to "%1\$d分を記録。しばらく動きがありません。",
+            "forgottenRideStop" to "アクティビティを終了",
+            "forgottenRideKeepGoing" to "記録を続ける",
+            "groupStillLiveTitle" to "グループとの共有が続いています",
+            "groupStillLiveBody" to "アクティビティは終了しましたが、%1\$sではまだ表示されています。",
+            "groupStillLiveBodyNoName" to "アクティビティは終了しましたが、アクティブなグループではまだ表示されています。",
+            "groupStillLiveLeave" to "グループを退出",
+            "startProximityLine" to "これで%1\$sを超えます。",
+            "reminderSectionTitle" to "アクティビティのリマインダー",
+            "reminderSectionSubtitle" to "週に1回、選んだ時間に。オンにするまでは無効です。",
+            "reminderEnable" to "毎週リマインドする",
+            "reminderDay" to "曜日",
+            "reminderTime" to "時刻",
+            "reminderActivity" to "アクティビティ",
+            "reminderSuggestion" to "履歴からの提案: %1\$s %2\$s",
+            "reminderSuggestionApply" to "これを使う",
+            "reminderNoHistory" to "アクティビティをいくつか記録すると、時間を提案できます。",
+            "reminderNotificationTitle" to "%1\$sのリマインダー",
+            "reminderNotificationBody" to "この時間に通知するよう設定されています。",
             "groupAlertSetBody" to "%1\$s さんが状態を「%2\$s」にしました",
             "groupAlertClearedBody" to "%1\$s さんが「%2\$s」を解除しました",
             "groupAlertViewGroup" to "グループを見る",
@@ -4347,6 +4486,27 @@ fun getAppStrings(languageCode: String): AppStrings {
             "returnNoticeTitle" to "你的记录都还在",
             "returnNoticeBody" to "上次记录的活动是在 %1\$d 天前。你记录的一切仍保存在手机上。",
             "returnNoticeStop" to "停止此类通知",
+            "forgottenRideTitle" to "仍在记录",
+            "forgottenRideBody" to "已记录 %1\$d 分钟。自 %2\$s 起没有移动。",
+            "forgottenRideBodyNoTime" to "已记录 %1\$d 分钟，有一段时间没有移动。",
+            "forgottenRideStop" to "结束活动",
+            "forgottenRideKeepGoing" to "继续记录",
+            "groupStillLiveTitle" to "你仍在与群组共享位置",
+            "groupStillLiveBody" to "你的活动已结束，但在 %1\$s 中仍然可见。",
+            "groupStillLiveBodyNoName" to "你的活动已结束，但在活跃群组中仍然可见。",
+            "groupStillLiveLeave" to "退出群组",
+            "startProximityLine" to "这一次将带你越过 %1\$s。",
+            "reminderSectionTitle" to "活动提醒",
+            "reminderSectionSubtitle" to "每周一次提醒，时间由你选择。除非开启，否则不会发送。",
+            "reminderEnable" to "每周提醒我",
+            "reminderDay" to "星期",
+            "reminderTime" to "时间",
+            "reminderActivity" to "活动",
+            "reminderSuggestion" to "根据你的历史记录建议：%1\$s %2\$s",
+            "reminderSuggestionApply" to "使用此建议",
+            "reminderNoHistory" to "记录几次活动后，我们就能建议时间。",
+            "reminderNotificationTitle" to "你的%1\$s提醒",
+            "reminderNotificationBody" to "你设置了在此时间提醒。",
             "groupAlertSetBody" to "%1\$s 将状态设为%2\$s",
             "groupAlertClearedBody" to "%1\$s 清除了%2\$s",
             "groupAlertViewGroup" to "查看群组",

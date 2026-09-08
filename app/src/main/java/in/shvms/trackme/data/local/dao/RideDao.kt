@@ -11,6 +11,19 @@ import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * SCOPE_1.8.7 §6.1.3 #12a / §6.1.2 #10b — the three columns the history-derived features need.
+ *
+ * A projection rather than `RideEntity` on purpose: these features read the rider's whole recent
+ * history at once, and pulling full rows (route polylines included) to look at a weekday would make
+ * a settings screen pay for data it never touches.
+ */
+data class RideHistoryRow(
+    val startTime: Long,
+    val dashboardActiveDurationMillis: Long,
+    val persona: String,
+)
+
 /** History-list projection. Deliberately excludes the relation to gps_points. */
 data class HistoryRideSummary(
     val id: Long,
@@ -155,6 +168,28 @@ interface RideDao {
      */
     @Query("SELECT COUNT(*) FROM rides WHERE isSynced = 0 AND pendingDelete = 0 AND isSample = 0")
     suspend fun countUnsyncedRides(): Int
+
+    /**
+     * SCOPE_1.8.7 §6.1.3 #12a and §6.1.2 #10b: the rider's own history, as the few columns those
+     * two need and nothing else.
+     *
+     * `qualifiesForStats = 1` reuses the bar the rest of the app already applies to "is this a real
+     * activity" — a 40-second accidental start should not get a vote on when someone usually rides.
+     * `isSample = 0` keeps the first-run fixture out: suggesting a slot derived from demo data would
+     * be the app inventing a routine and attributing it to the user, which is the exact failure
+     * scenario 12 was cut for.
+     *
+     * Bounded and newest-first. A rider's routine two years ago is not their routine, and an
+     * unbounded scan on the main history table for a settings screen is a jank source.
+     */
+    @Query(
+        """
+        SELECT startTime, dashboardActiveDurationMillis, persona FROM rides
+        WHERE qualifiesForStats = 1 AND pendingDelete = 0 AND isSample = 0
+        ORDER BY startTime DESC LIMIT :limit
+        """
+    )
+    suspend fun recentHistorySamples(limit: Int = 60): List<RideHistoryRow>
 
     @Query("DELETE FROM gps_points WHERE rideId IN (SELECT id FROM rides WHERE isSynced = 1)")
     suspend fun deleteSyncedPoints(): Int

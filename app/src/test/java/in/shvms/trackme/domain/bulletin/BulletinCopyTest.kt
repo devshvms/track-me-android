@@ -32,7 +32,15 @@ class BulletinCopyTest {
         override val versionNoteBody = "See what changed."
         override fun syncProblemBodyNoDate(unsynced: Int) = "$unsynced not backed up."
         override val returnNoticeTitle = "Your rides are still here"
-        override fun returnNoticeBody(days: Int) = "Last activity $days days ago." 
+        override fun returnNoticeBody(days: Int) = "Last activity $days days ago."
+        override val forgottenRideTitle = "Still recording"
+        override fun forgottenRideBody(elapsedMinutes: Int, stillSince: String) =
+            "$elapsedMinutes min recorded. No movement since $stillSince."
+        override fun forgottenRideBodyNoTime(elapsedMinutes: Int) =
+            "$elapsedMinutes min recorded, with no movement for a while."
+        override val groupStillLiveTitle = "Still sharing"
+        override fun groupStillLiveBody(groupName: String) = "Still visible in $groupName."
+        override val groupStillLiveBodyNoName = "Still visible in a live group."
     }
 
     private fun entry(kind: BulletinKind, facts: Map<String, String>) =

@@ -71,6 +71,9 @@ data class BulletinEntry(
         const val FACT_UNSYNCED_COUNT = "unsynced_count"
         const val FACT_SINCE_MILLIS = "since_millis"
         const val FACT_DAYS_AWAY = "days_away"
+        const val FACT_ELAPSED_MINUTES = "elapsed_minutes"
+        const val FACT_STILL_SINCE_MILLIS = "still_since_millis"
+        const val FACT_GROUP_NAME = "group_name"
     }
 }
 
@@ -109,7 +112,25 @@ enum class BulletinKind {
      * notice that interrupted someone and then cannot be found in the feed is the exact failure the
      * bulletin exists to prevent — they saw it, swiped it, and it is gone.
      */
-    RETURN_NOTICE;
+    RETURN_NOTICE,
+
+    /**
+     * §6.1.1 #4 — the app asked whether a still, still-recording ride was over.
+     *
+     * Kept because the answer matters after the fact: a rider who missed the notification and
+     * finds a six-hour ride in their history is owed the record of when the app noticed and what
+     * it asked.
+     */
+    FORGOTTEN_RIDE,
+
+    /**
+     * §6.1.4 #22 — the rider was still in a live group after their ride ended.
+     *
+     * The one row here that is about *disclosure* rather than about data. It stays in the feed
+     * because "when was I visible, and to which group" is a question someone may want to answer
+     * later, and a swiped notification answers nothing.
+     */
+    GROUP_STILL_LIVE;
 
     companion object {
         /** Exact match only, for the same reason `BroadcastTag.parse` is strict. */
