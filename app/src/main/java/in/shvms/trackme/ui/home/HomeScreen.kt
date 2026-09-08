@@ -446,6 +446,47 @@ fun HomeScreen(
     // app should not do quietly.
     var minutesUntilSunset by remember { mutableStateOf<Int?>(null) }
 
+    // §6.1.2 #10b — "This one takes you past Explorer."
+    //
+    // Recomputed when the chosen persona changes, because the answer depends on how long this rider
+    // typically rides *this* activity. Purely local: a Room read and two pure functions, no network
+    // and no new permission.
+    //
+    // In-app only, and that is a design constraint rather than an implementation detail. Scenario 10
+    // — the same sentence as a scheduled notification — was cut for implying "go exert yourself now,
+    // because the app is counting". The moment this line can reach someone who has not opened the
+    // app, it becomes that.
+    var startProximity by remember {
+        mutableStateOf<`in`.shvms.trackme.domain.notifications.StartButtonProximity.Line?>(null)
+    }
+    LaunchedEffect(
+        uiState.selectedDashboardPersona,
+        uiState.trackingState,
+        uiState.dashboardSummary.gamificationActiveDurationMillis,
+    ) {
+        startProximity = runCatching {
+            val app = context.applicationContext as TrackMeApp
+            val samples = `in`.shvms.trackme.data.local.RideHistoryProfileSource.samples(
+                app.database.rideDao()
+            )
+            // The *gamification* pair, not the dashboard pair — the same distinction
+            // `toGamificationFacts` makes. Imported rides appear everywhere else in the app and
+            // earn nothing here, so counting them would promise a level this ride cannot reach.
+            val snapshot = `in`.shvms.trackme.domain.gamification.GamificationEngine.deriveSnapshot(
+                `in`.shvms.trackme.domain.gamification.GamificationFacts(
+                    lifetimeActivityCount = uiState.dashboardSummary.gamificationActivityCount,
+                    lifetimeActiveDurationMillis = uiState.dashboardSummary.gamificationActiveDurationMillis,
+                )
+            )
+            `in`.shvms.trackme.domain.notifications.StartButtonProximity.line(
+                minutesToNextLevel = snapshot.nextThresholdMinutes?.minus(snapshot.currentMinutes),
+                nextLevelName = snapshot.nextLevelNameKey,
+                typicalActiveMinutes = `in`.shvms.trackme.domain.notifications.RideHistoryProfile
+                    .typicalActiveMinutes(samples, uiState.selectedDashboardPersona.name),
+            )
+        }.getOrNull()
+    }
+
     var hasCenteredOnLocation by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(hasLocationPermission, isInteractiveMap) {
         if (isInteractiveMap && hasLocationPermission && !hasCenteredOnLocation && uiState.pathPoints.isEmpty()) {
@@ -1463,6 +1504,21 @@ fun HomeScreen(
                     minutesUntilSunset?.let { minutes ->
                         Text(
                             text = String.format(java.util.Locale.getDefault(), strings.sunsetSoon, minutes),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    }
+                    // §6.1.2 #10b. Sits with the sunset line because both are the same kind of
+                    // thing: a fact that is only worth stating in the seconds before someone sets
+                    // off, stated once and never chased.
+                    startProximity?.let { proximity ->
+                        Text(
+                            text = String.format(
+                                java.util.Locale.getDefault(),
+                                strings.startProximityLine,
+                                proximity.levelName,
+                            ),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 8.dp),

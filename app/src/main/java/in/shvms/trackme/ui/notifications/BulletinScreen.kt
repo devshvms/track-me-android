@@ -177,4 +177,13 @@ private class AppStringsBulletinCopy(private val s: AppStrings) : BulletinCopy.S
     override val returnNoticeTitle get() = s.returnNoticeTitle
     override fun returnNoticeBody(days: Int) =
         String.format(Locale.getDefault(), s.returnNoticeBody, days)
+    override val forgottenRideTitle get() = s.forgottenRideTitle
+    override fun forgottenRideBody(elapsedMinutes: Int, stillSince: String) =
+        String.format(Locale.getDefault(), s.forgottenRideBody, elapsedMinutes, stillSince)
+    override fun forgottenRideBodyNoTime(elapsedMinutes: Int) =
+        String.format(Locale.getDefault(), s.forgottenRideBodyNoTime, elapsedMinutes)
+    override val groupStillLiveTitle get() = s.groupStillLiveTitle
+    override fun groupStillLiveBody(groupName: String) =
+        String.format(Locale.getDefault(), s.groupStillLiveBody, groupName)
+    override val groupStillLiveBodyNoName get() = s.groupStillLiveBodyNoName
 }

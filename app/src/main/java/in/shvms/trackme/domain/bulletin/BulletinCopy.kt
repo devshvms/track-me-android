@@ -89,6 +89,32 @@ object BulletinCopy {
                 val version = entry.fact(BulletinEntry.FACT_TITLE) ?: return null
                 Row(strings.versionNoteTitle(version), strings.versionNoteBody)
             }
+
+            BulletinKind.FORGOTTEN_RIDE -> {
+                val elapsed = entry.intFact(BulletinEntry.FACT_ELAPSED_MINUTES) ?: return null
+                // Same shape as SYNC_PROBLEM: the clock time is the useful half — "no movement
+                // since 15:10" is what lets someone reconstruct what happened — but a row that
+                // vanishes because a timestamp would not format is a row that fails exactly when
+                // the ride it describes was strangest.
+                val since = entry.fact(FORMATTED_SINCE)
+                if (since != null) {
+                    Row(strings.forgottenRideTitle, strings.forgottenRideBody(elapsed, since))
+                } else {
+                    Row(strings.forgottenRideTitle, strings.forgottenRideBodyNoTime(elapsed))
+                }
+            }
+
+            BulletinKind.GROUP_STILL_LIVE -> {
+                // The group name is stored because it is the only way to tell two groups apart
+                // months later, and it is text the user already sees. A group whose name did not
+                // survive still gets a row: "which group" is less important than "you were live".
+                val name = entry.fact(BulletinEntry.FACT_GROUP_NAME)
+                if (name != null) {
+                    Row(strings.groupStillLiveTitle, strings.groupStillLiveBody(name))
+                } else {
+                    Row(strings.groupStillLiveTitle, strings.groupStillLiveBodyNoName)
+                }
+            }
         }
     }
 
@@ -128,5 +154,12 @@ object BulletinCopy {
         val versionNoteBody: String
         val returnNoticeTitle: String
         fun returnNoticeBody(days: Int): String
+        val forgottenRideTitle: String
+        fun forgottenRideBody(elapsedMinutes: Int, stillSince: String): String
+        /** Used when the stillness start cannot be formatted — see the FORGOTTEN_RIDE branch. */
+        fun forgottenRideBodyNoTime(elapsedMinutes: Int): String
+        val groupStillLiveTitle: String
+        fun groupStillLiveBody(groupName: String): String
+        val groupStillLiveBodyNoName: String
     }
 }

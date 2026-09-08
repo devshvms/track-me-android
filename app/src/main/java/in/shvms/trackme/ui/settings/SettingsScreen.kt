@@ -377,6 +377,11 @@ fun SettingsScreen(
             )
         }
 
+        // SCOPE_1.8.7 §6.1.3 #12a. Placed above privacy rather than buried in Advanced: someone
+        // who wants to turn a reminder off should find it where they would look for it, and a
+        // setting the user cannot find is a setting they cannot revoke.
+        ActivityReminderSection(strings)
+
         SettingsGroup(title = strings.privacyAndAnalytics) {
             SettingsSwitchRow(
                 title = strings.shareAnalyticsData,
