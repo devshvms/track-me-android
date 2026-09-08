@@ -149,6 +149,46 @@ class BulletinCopyTest {
     }
 
     @Test
+    fun `a forgotten-ride row falls back when the clock time is missing`() {
+        // Same shape as the sync-problem fallback: the clock time is the useful half, but a row
+        // that vanishes because a timestamp would not format fails exactly when the ride it
+        // describes was strangest.
+        assertEquals(
+            BulletinCopy.Row("Still recording", "222 min recorded. No movement since 15:10."),
+            BulletinCopy.render(
+                entry(BulletinKind.FORGOTTEN_RIDE, mapOf(
+                    BulletinEntry.FACT_ELAPSED_MINUTES to "222",
+                    BulletinCopy.FORMATTED_SINCE to "15:10",
+                )),
+                FakeStrings,
+            ),
+        )
+        assertEquals(
+            BulletinCopy.Row("Still recording", "222 min recorded, with no movement for a while."),
+            BulletinCopy.render(
+                entry(BulletinKind.FORGOTTEN_RIDE, mapOf(BulletinEntry.FACT_ELAPSED_MINUTES to "222")),
+                FakeStrings,
+            ),
+        )
+    }
+
+    @Test
+    fun `a group-presence row renders with or without the group name`() {
+        // "Which group" is less important than "you were live", so a lost name still gets a row.
+        assertEquals(
+            BulletinCopy.Row("Still sharing", "Still visible in Sunday Riders."),
+            BulletinCopy.render(
+                entry(BulletinKind.GROUP_STILL_LIVE, mapOf(BulletinEntry.FACT_GROUP_NAME to "Sunday Riders")),
+                FakeStrings,
+            ),
+        )
+        assertEquals(
+            BulletinCopy.Row("Still sharing", "Still visible in a live group."),
+            BulletinCopy.render(entry(BulletinKind.GROUP_STILL_LIVE, emptyMap()), FakeStrings),
+        )
+    }
+
+    @Test
     fun `every kind either renders or is dropped, and none of them crashes`() {
         // Exhaustive over the vocabulary. A kind added later without a branch here would be a
         // silent blank row, which is the failure mode a feed is least likely to have noticed.
@@ -167,9 +207,28 @@ class BulletinCopyTest {
             BulletinKind.VERSION_NOTE,
             BulletinKind.WEEKLY_RECAP,
             BulletinKind.RETURN_NOTICE,
+            // GROUP_STILL_LIVE is deliberately absent: it renders without a group name, because
+            // "which group" is less important than "you were live".
+            BulletinKind.FORGOTTEN_RIDE,
         ).forEach { kind ->
             assertNull(kind.name, BulletinCopy.render(entry(kind, emptyMap()), FakeStrings))
         }
+    }
+
+    /**
+     * The raw values are the persisted format, and the iOS twin pins the identical list. A rename
+     * on one platform would silently drop every stored row of that kind on the other after a
+     * restore — and pinning it on only one side means only one side's rename is caught.
+     */
+    @Test
+    fun `the kind vocabulary matches iOS exactly`() {
+        assertEquals(
+            listOf(
+                "BROADCAST", "RIDE_SAVED", "SYNC_PROBLEM", "WEEKLY_RECAP", "LEVEL_REACHED",
+                "MILESTONE", "VERSION_NOTE", "RETURN_NOTICE", "FORGOTTEN_RIDE", "GROUP_STILL_LIVE",
+            ),
+            BulletinKind.entries.map { it.name },
+        )
     }
 
     @Test
