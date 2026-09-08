@@ -147,4 +147,23 @@ object NotificationBudget {
         if (nowMillis < last) return false
         return nowMillis - last >= RETURN_NOTICE_INTERVAL_MILLIS
     }
+
+    /**
+     * A 90-day timer alone would notify repeatedly about the same old ride. The product contract is
+     * stricter: a second return notice requires a ride recorded after the first notice.
+     *
+     * For ledgers written by the pre-fix build, [lastReturnNoticeActivityAtMillis] is absent. Using
+     * the send time as the migration fallback is conservative and correct: the activity described
+     * by that notice necessarily happened before it.
+     */
+    fun hasInterveningActivity(
+        lastActivityAtMillis: Long?,
+        lastReturnNoticeAtMillis: Long?,
+        lastReturnNoticeActivityAtMillis: Long?,
+    ): Boolean {
+        val activity = lastActivityAtMillis ?: return false
+        val sent = lastReturnNoticeAtMillis ?: return true
+        val describedActivity = lastReturnNoticeActivityAtMillis ?: sent
+        return activity > describedActivity
+    }
 }

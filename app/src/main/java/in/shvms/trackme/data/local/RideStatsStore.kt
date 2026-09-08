@@ -94,6 +94,10 @@ class RideStatsStore(context: Context) {
         return ((nowMillis - last) / 86_400_000L).toInt()
     }
 
+    /** Exact activity marker used to ensure one absence episode can produce only one notice. */
+    fun lastActivityFinishedAtMillis(): Long? =
+        _stats.value.lastRideFinishedAtMillis.takeIf { it > 0L }
+
     /** B2: mark the recap for [weekStartEpochDay] presented, so it never shows again. */
     suspend fun acknowledgeWeeklyRecap(weekStartEpochDay: Long) = mutex.withLock {
         val s = _stats.value

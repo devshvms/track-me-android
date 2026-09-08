@@ -26,6 +26,14 @@ class ProactiveLedger(context: Context) {
     val lastReturnNoticeAtMillis: Long?
         get() = if (prefs.contains(KEY_LAST_RETURN)) prefs.getLong(KEY_LAST_RETURN, 0L) else null
 
+    /** The activity that the last return notice referred to. */
+    val lastReturnNoticeActivityAtMillis: Long?
+        get() = if (prefs.contains(KEY_LAST_RETURN_ACTIVITY)) {
+            prefs.getLong(KEY_LAST_RETURN_ACTIVITY, 0L)
+        } else {
+            null
+        }
+
     /** The last completed week whose recap was notified, so a week is never announced twice. */
     val lastRecapWeekStartEpochDay: Long?
         get() = if (prefs.contains(KEY_LAST_RECAP_WEEK)) prefs.getLong(KEY_LAST_RECAP_WEEK, 0L) else null
@@ -44,8 +52,11 @@ class ProactiveLedger(context: Context) {
         prefs.edit().putLong(KEY_LAST_SENT, updated).apply()
     }
 
-    fun recordReturnNoticeSent(sentAtMillis: Long) {
-        prefs.edit().putLong(KEY_LAST_RETURN, sentAtMillis).apply()
+    fun recordReturnNoticeSent(sentAtMillis: Long, activityAtMillis: Long) {
+        prefs.edit()
+            .putLong(KEY_LAST_RETURN, sentAtMillis)
+            .putLong(KEY_LAST_RETURN_ACTIVITY, activityAtMillis)
+            .apply()
     }
 
     fun recordRecapNotified(weekStartEpochDay: Long) {
@@ -56,6 +67,7 @@ class ProactiveLedger(context: Context) {
         const val PREFS = "trackme_proactive_ledger"
         const val KEY_LAST_SENT = "last_proactive_sent_at"
         const val KEY_LAST_RETURN = "last_return_notice_at"
+        const val KEY_LAST_RETURN_ACTIVITY = "last_return_notice_activity_at"
         const val KEY_LAST_RECAP_WEEK = "last_recap_week_start_epoch_day"
     }
 }

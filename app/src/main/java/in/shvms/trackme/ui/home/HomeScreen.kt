@@ -359,7 +359,18 @@ fun HomeScreen(
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = { /* Notification access is optional; ride tracking still proceeds. */ }
+        onResult = { granted ->
+            // Notification access is optional; ride tracking still proceeds. A grant in this
+            // running process must subscribe immediately, not wait for another cold launch.
+            if (granted) {
+                (context.applicationContext as? TrackMeApp)?.let { app ->
+                    `in`.shvms.trackme.service.notifications.BroadcastSubscription.sync(
+                        app,
+                        app.errorLogger,
+                    )
+                }
+            }
+        }
     )
 
     // TASK-284. Both ride-start paths used to ask whenever the permission was not granted, i.e.

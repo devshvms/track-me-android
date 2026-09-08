@@ -167,14 +167,22 @@ object ReleaseVersion {
 
     private val PATTERN = Regex("^\\d+(\\.\\d+)*$")
 
+    const val MAX_LENGTH = 64
+
+    const val MAX_COMPONENT = Int.MAX_VALUE
+
     /** Dotted digits and nothing else. A ceiling the platforms might parse differently is worse than none. */
-    fun isValid(value: String): Boolean = PATTERN.matches(value)
+    fun isValid(value: String): Boolean =
+        value.isNotEmpty() &&
+            value.length <= MAX_LENGTH &&
+            PATTERN.matches(value) &&
+            value.split(".").all { it.toIntOrNull()?.let { part -> part <= MAX_COMPONENT } == true }
 
     /** -1, 0 or 1. Returns 0 for anything unparseable, so a malformed pair never excludes anyone. */
     fun compare(left: String, right: String): Int {
         if (!isValid(left) || !isValid(right)) return 0
-        val a = left.split(".").map { it.toIntOrNull() ?: 0 }
-        val b = right.split(".").map { it.toIntOrNull() ?: 0 }
+        val a = left.split(".").map(String::toInt)
+        val b = right.split(".").map(String::toInt)
         for (i in 0 until maxOf(a.size, b.size)) {
             val x = a.getOrElse(i) { 0 }
             val y = b.getOrElse(i) { 0 }

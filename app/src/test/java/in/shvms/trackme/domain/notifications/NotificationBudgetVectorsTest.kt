@@ -150,6 +150,44 @@ class NotificationBudgetVectorsTest {
     }
 
     @Test
+    fun `a second return notice requires an intervening activity`() {
+        val activityDescribedByFirstNotice = 1_000L
+        val firstNoticeSentAt = 2_000L
+
+        assertTrue(
+            NotificationBudget.hasInterveningActivity(
+                lastActivityAtMillis = activityDescribedByFirstNotice,
+                lastReturnNoticeAtMillis = null,
+                lastReturnNoticeActivityAtMillis = null,
+            )
+        )
+        assertEquals(
+            false,
+            NotificationBudget.hasInterveningActivity(
+                lastActivityAtMillis = activityDescribedByFirstNotice,
+                lastReturnNoticeAtMillis = firstNoticeSentAt,
+                lastReturnNoticeActivityAtMillis = activityDescribedByFirstNotice,
+            )
+        )
+        assertTrue(
+            NotificationBudget.hasInterveningActivity(
+                lastActivityAtMillis = 3_000L,
+                lastReturnNoticeAtMillis = firstNoticeSentAt,
+                lastReturnNoticeActivityAtMillis = activityDescribedByFirstNotice,
+            )
+        )
+        assertEquals(
+            "a pre-fix ledger with no activity marker must fail closed",
+            false,
+            NotificationBudget.hasInterveningActivity(
+                lastActivityAtMillis = activityDescribedByFirstNotice,
+                lastReturnNoticeAtMillis = firstNoticeSentAt,
+                lastReturnNoticeActivityAtMillis = null,
+            )
+        )
+    }
+
+    @Test
     fun `a refused proactive notification is not consumed`() {
         // The property the whole cap rests on, and the one no single vector states: querying the
         // budget must never change it. A cap that lost notifications instead of deferring them

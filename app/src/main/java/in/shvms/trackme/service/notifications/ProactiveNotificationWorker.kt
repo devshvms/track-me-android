@@ -4,6 +4,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -70,8 +73,6 @@ class ProactiveNotificationWorker(
      * every time.
      */
     private fun deliverProactive(app: TrackMeApp) {
-        if (!BroadcastSubscription.hasNotificationPermission(applicationContext)) return
-
         val ledger = ProactiveLedger(applicationContext)
         val now = System.currentTimeMillis()
         val recap = app.rideStatsStore.pendingWeeklyRecap()
@@ -84,6 +85,11 @@ class ProactiveNotificationWorker(
             app.bulletinStore.add(`in`.shvms.trackme.data.local.BulletinAdapters.from(it))
         }
 
+        // The bulletin is useful specifically when notification permission is off. Keep the OS
+        // permission guard after the unconditional row above, or a denied permission erases the
+        // very fallback §6.1.7 promises.
+        if (!BroadcastSubscription.hasNotificationPermission(applicationContext)) return
+
         val eligible = buildSet {
             if (WeeklyRecapNotice.shouldNotify(
                     recap = recap,
@@ -94,7 +100,13 @@ class ProactiveNotificationWorker(
             ) add(NotificationBudget.ProactiveKind.WEEKLY_RECAP)
 
             val daysAway = app.rideStatsStore.daysSinceLastActivity()
+            val lastActivity = app.rideStatsStore.lastActivityFinishedAtMillis()
             if (daysAway != null &&
+                NotificationBudget.hasInterveningActivity(
+                    lastActivityAtMillis = lastActivity,
+                    lastReturnNoticeAtMillis = ledger.lastReturnNoticeAtMillis,
+                    lastReturnNoticeActivityAtMillis = ledger.lastReturnNoticeActivityAtMillis,
+                ) &&
                 NotificationBudget.allows(
                     NotificationBudget.Klass.PROACTIVE, now, ledger.lastProactiveSentAtMillis
                 ) &&
@@ -178,6 +190,7 @@ class ProactiveNotificationWorker(
      */
     private fun deliverReturnNotice(app: TrackMeApp, ledger: ProactiveLedger, now: Long) {
         val days = app.rideStatsStore.daysSinceLastActivity() ?: return
+        val lastActivity = app.rideStatsStore.lastActivityFinishedAtMillis() ?: return
         val strings = getAppStrings(app.preferencesManager.appLanguage.value)
         val body = String.format(Locale.getDefault(), strings.returnNoticeBody, days)
 
@@ -196,6 +209,7 @@ class ProactiveNotificationWorker(
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(open)
             .setAutoCancel(true)
+            .addAction(0, strings.returnNoticeStop, progressNotificationSettingsIntent())
             // LOW, like the recap. The most intrusive thing this app may say gets the quietest
             // delivery it can have while still being visible.
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -208,7 +222,7 @@ class ProactiveNotificationWorker(
             // Both ledgers: the shared budget closes the week for every C source, and the return
             // ledger closes the quarter for this one.
             ledger.recordProactiveSent(now)
-            ledger.recordReturnNoticeSent(now)
+            ledger.recordReturnNoticeSent(now, lastActivity)
             // §6.1.7: "a copy of every notification actually sent". A Class C notice that
             // interrupted someone and cannot then be found in the feed is the exact failure the
             // bulletin exists to prevent.
@@ -226,9 +240,27 @@ class ProactiveNotificationWorker(
         }
     }
 
+    private fun progressNotificationSettingsIntent(): PendingIntent {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, applicationContext.packageName)
+                .putExtra(Settings.EXTRA_CHANNEL_ID, NotificationChannels.PROGRESS)
+        } else {
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                .setData(Uri.parse("package:${applicationContext.packageName}"))
+        }
+        return PendingIntent.getActivity(
+            applicationContext,
+            RETURN_SETTINGS_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
     companion object {
         private const val NOTIFICATION_ID = 4302
         private const val RETURN_NOTIFICATION_ID = 4304
+        private const val RETURN_SETTINGS_REQUEST_CODE = 4305
         const val WORK_NAME = "TrackMeProactiveNotifications"
 
         /**
