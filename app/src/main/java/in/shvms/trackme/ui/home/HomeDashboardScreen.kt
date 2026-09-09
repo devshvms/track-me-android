@@ -459,20 +459,9 @@ private fun GroupRideCard(
         )
     ) {
         Column(Modifier.fillMaxWidth().heightIn(min = 180.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(Icons.Default.Groups, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Groups, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = if (groupActive) {
-                        "${strings.dashboardGroupActive} • " +
-                            String.format(Locale.getDefault(), strings.dashboardGroupMembers, groupMemberCount)
-                    } else {
-                        strings.dashboardGroupHeading
-                    },
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
+                Icon(Icons.Default.Groups, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.weight(1f))
                 if (!groupActive) {
                     IconButton(onClick = { showHowItWorks = !showHowItWorks }) {
                         Icon(
@@ -483,6 +472,13 @@ private fun GroupRideCard(
                     }
                 }
             }
+
+            Text(
+                text = if (groupActive) "${strings.dashboardGroupActive} • " +
+                    String.format(Locale.getDefault(), strings.dashboardGroupMembers, groupMemberCount)
+                    else strings.dashboardGroupHeading,
+                fontWeight = FontWeight.SemiBold,
+            )
 
             if (!groupActive && showHowItWorks) {
                 Text(

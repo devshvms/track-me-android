@@ -212,6 +212,12 @@ fun RadialStartRideButton(
             .height(260.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
+        if (!interactionState.isPressed && interactionState.pendingLaunch == null) {
+            TextButton(onClick = onOpenAllPersonas,
+                modifier = Modifier.align(Alignment.BottomCenter).offset(y = (-96).dp)) {
+                Text(strings.personaLabel(preselectedPersona) + " ▾")
+            }
+        }
         // Semicircle Persona options
         personas.forEachIndexed { idx, persona ->
             val isHovered = interactionState.hoveredPersona == persona

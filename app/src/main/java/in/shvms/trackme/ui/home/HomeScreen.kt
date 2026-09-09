@@ -1608,9 +1608,6 @@ fun HomeScreen(
                             modifier = Modifier.padding(bottom = 8.dp),
                         )
                     }
-                    TextButton(onClick = { showDashboardPersonaPicker = true }) {
-                        Text(strings.personaLabel(uiState.selectedDashboardPersona) + " ▾")
-                    }
                     RadialStartRideButton(
                         onOpenAllPersonas = { showDashboardPersonaPicker = true },
                         onStartRide = { persona ->
