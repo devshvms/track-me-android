@@ -37,6 +37,7 @@ import java.util.Locale
 import java.util.UUID
 import kotlin.coroutines.coroutineContext
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.atan2
 
 data class ReplayExportConfig(
@@ -139,9 +140,6 @@ interface ReplayExporter {
  * thread and be encoded offline.
  */
 class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRenderer {
-    private val watermarkDrawable: Drawable? = appContext?.let {
-        ContextCompat.getDrawable(it, R.drawable.ic_trackme_logo_transparent)
-    }
     private val watermarkTypeface: Typeface = appContext?.let {
         ResourcesCompat.getFont(it, R.font.inter_variable)
     } ?: Typeface.DEFAULT_BOLD
@@ -227,10 +225,6 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
             canvas.restore()
         }
 
-        // The lockup and the link are not chrome the user opted into — they are what makes the
-        // artifact traceable back to the app. They are drawn whatever the panel setting is.
-        drawTrackMeLockup(canvas, width.toInt())
-
         if (overlay.drawsPanel) {
             drawStatsPanel(
                 canvas = canvas,
@@ -241,12 +235,23 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
             )
         }
 
+        // The link is not chrome the user opted into — it is what makes the artifact traceable
+        // back to the app, so it is drawn whatever the panel setting is. The icon-and-wordmark
+        // badge that used to sit beside it in the top-right is gone: a shared video of someone's
+        // ride is theirs, and a branded box in the corner is the app inserting itself into it. The
+        // link alone does the job the badge was justified by.
+        //
+        // Bottom-**right**, matching the still exporter, and for the same reason: the map's own
+        // Google attribution runs along the bottom-left and must not be crowded.
         deepLink?.takeIf { it.startsWith(AppConfig.REPLAY_DEEP_LINK_BASE_URL) }?.let {
             val linkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = if (overlay.darkTheme) Color.LTGRAY else Color.DKGRAY
-                textSize = max(12f, width * 0.018f)
+                // Roughly half the previous size, matching the still exporter's ratio against the
+                // shorter edge so a portrait video and a landscape still agree.
+                textSize = max(9f, min(width, height) * 0.014f)
+                textAlign = Paint.Align.RIGHT
             }
-            canvas.drawText(it, width * 0.06f, height * 0.965f, linkPaint)
+            canvas.drawText(it, width - min(width, height) * 0.022f, height - min(width, height) * 0.022f, linkPaint)
         }
     }
 
@@ -381,31 +386,6 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
         canvas.drawCircle(point.first, point.second, radius + ring.strokeWidth * 0.5f, ring)
     }
 
-    private fun drawTrackMeLockup(canvas: Canvas, width: Int) {
-        val icon = watermarkDrawable ?: return
-        val margin = (width * 0.045f).toInt().coerceAtLeast(8)
-        val iconSize = (width * 0.075f).toInt().coerceAtLeast(32)
-        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = iconSize * 0.42f
-            typeface = watermarkTypeface
-        }
-        val textWidth = textPaint.measureText("TrackMe")
-        val gap = (iconSize * 0.18f).toInt()
-        val lockupWidth = iconSize + gap + textWidth
-        val left = (width - margin - lockupWidth).coerceAtLeast(margin.toFloat())
-        val top = margin.toFloat()
-        val padding = (iconSize * 0.16f).toInt().coerceAtLeast(4)
-        canvas.drawRoundRect(
-            RectF(left - padding, top - padding, left + lockupWidth + padding, top + iconSize + padding),
-            padding.toFloat(),
-            padding.toFloat(),
-            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(220, 18, 22, 28) }
-        )
-        icon.setBounds(left.toInt(), top.toInt(), left.toInt() + iconSize, top.toInt() + iconSize)
-        icon.draw(canvas)
-        canvas.drawText("TrackMe", left + iconSize + gap, top + iconSize * 0.68f, textPaint)
-    }
 
     private fun project(points: List<GPSPointEntity>, width: Float, height: Float, fullFrame: Boolean): List<Pair<Float, Float>> {
         if (points.isEmpty()) return emptyList()

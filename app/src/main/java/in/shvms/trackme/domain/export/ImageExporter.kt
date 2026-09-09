@@ -37,8 +37,17 @@ data class ExportOptions(
     val showDuration: Boolean = true,
     val showDate: Boolean = true,
     val routePoints: List<`in`.shvms.trackme.data.local.entity.GPSPointEntity>? = null,
-    val includeTrackMeLockup: Boolean = true,
-    /** Public TrackMe route printed inside the lockup so a travelling image has a way back. */
+    /**
+     * Burn the public TrackMe route into the artifact.
+     *
+     * Was `includeTrackMeLockup`, which drew an icon-and-wordmark badge with the link tucked under
+     * it. The badge is gone: a shared photo of someone's ride is theirs, and a branded box in the
+     * corner of it is the app inserting itself into their picture. The link alone does the one job
+     * the badge was justified by — giving a travelling image a way back — and does it without
+     * claiming a corner of the frame.
+     */
+    val includeArtifactLink: Boolean = true,
+    /** The public TrackMe route, printed small in the bottom corner. */
     val deepLink: String? = null,
     /**
      * The panel's figure lines, already formatted and ordered by the UI — **decided there, not
@@ -52,8 +61,6 @@ data class ExportOptions(
      * There is deliberately **no title field**: the panel carries figures only (§8.3).
      */
     val overlayFigures: List<String>? = null,
-    /** Draw the TrackMe wordmark beside the map's Google attribution, as the preview does. */
-    val includeMapAttribution: Boolean = true
 )
 
 /**
@@ -147,16 +154,12 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
         val canvas = Canvas(finalBitmap)
         canvas.drawBitmap(mapBitmap, 0f, 0f, null)
 
-        if (options.includeTrackMeLockup) {
-            drawTrackMeLockup(canvas, context, realW, options.deepLink)
+        if (options.includeArtifactLink) {
+            drawArtifactLink(canvas, realW, realH, options.deepLink)
         }
         
         if (options.showStats) {
             drawStatsPanel(canvas, context, rideWithPoints, options, realW, realH)
-        }
-
-        if (options.includeMapAttribution) {
-            drawMapAttribution(canvas, realW, realH)
         }
 
         val exportsDir = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME)
@@ -192,16 +195,12 @@ class NativeSnapshotImageExporterImpl : ImageExporter {
         // Draw the map
         canvas.drawBitmap(mapSnapshot, 0f, 0f, null)
 
-        if (options.includeTrackMeLockup) {
-            drawTrackMeLockup(canvas, context, finalW, options.deepLink)
+        if (options.includeArtifactLink) {
+            drawArtifactLink(canvas, finalW, finalH, options.deepLink)
         }
         
         if (options.showStats) {
             drawStatsPanel(canvas, context, rideWithPoints, options, finalW, finalH)
-        }
-
-        if (options.includeMapAttribution) {
-            drawMapAttribution(canvas, finalW, finalH)
         }
 
         
@@ -328,74 +327,34 @@ internal fun ellipsise(text: String, paint: Paint, maxWidth: Float): String {
     while (end > 0 && paint.measureText(text.substring(0, end) + ellipsis) > maxWidth) end--
     return if (end <= 0) ellipsis else text.substring(0, end) + ellipsis
 }
-
 /**
- * The TrackMe wordmark beside the map's own Google attribution.
+ * The public route, printed small in the bottom-right corner.
  *
- * The preview has always drawn this and the file never did, so the preview was wrong in this
- * direction too (§8.1). Beside the Google mark, never over it — covering another party's required
- * attribution is not ours to do.
+ * This replaced two things: an icon-and-wordmark badge in the top-right, and a second "TrackMe"
+ * wordmark drawn along the bottom beside the map's Google attribution. Between them the app signed
+ * a user's photograph twice, in a picture that is theirs and not ours. What the badge was actually
+ * justified by is the link — an image travels far from the app that made it, and a way back is a
+ * courtesy. That survives; the branding does not.
+ *
+ * Bottom-**right** rather than bottom-left: Google's own attribution is drawn into the map snapshot
+ * along the bottom-left, and it is a required mark that must not be crowded or covered. The right
+ * corner is the one place a second line of text can sit without competing with it.
+ *
+ * Deliberately quiet — small, grey, no background plate. A link nobody notices until they want it
+ * is doing its job; a link that draws the eye is an advert on someone else's photo.
  */
-private fun drawMapAttribution(canvas: Canvas, width: Int, height: Int) {
+private fun drawArtifactLink(canvas: Canvas, width: Int, height: Int, deepLink: String?) {
+    val link = deepLink?.takeIf(::isTrackMeArtifactDeepLink) ?: return
     val shorterEdge = minOf(width, height).toFloat()
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = android.graphics.Color.WHITE
-        textSize = shorterEdge * 0.026f
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        setShadowLayer(shorterEdge * 0.006f, 0f, 0f, android.graphics.Color.argb(180, 0, 0, 0))
-    }
-    canvas.drawText("TrackMe", width * 0.30f, height - shorterEdge * 0.022f, paint)
-}
-
-private fun drawTrackMeLockup(canvas: Canvas, context: Context, width: Int, deepLink: String?) {
-    val margin = (width * AppConfig.LOCKUP_MARGIN_RATIO).roundToInt().coerceAtLeast(8)
-    val iconSize = (width * AppConfig.LOCKUP_ICON_RATIO).roundToInt().coerceAtLeast(32)
-    val icon = BitmapFactory.decodeResource(context.resources, R.drawable.ic_trackme_logo) ?: return
-    val scaledIcon = if (icon.width == iconSize && icon.height == iconSize) {
-        icon
-    } else {
-        Bitmap.createScaledBitmap(icon, iconSize, iconSize, true)
-    }
-    val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = android.graphics.Color.WHITE
-        textSize = iconSize * 0.42f
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-    }
-    val text = "TrackMe"
-    val link = deepLink?.takeIf(::isTrackMeArtifactDeepLink)
-    val linkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = android.graphics.Color.LTGRAY
-        textSize = iconSize * 0.22f
+        color = android.graphics.Color.argb(200, 235, 235, 235)
+        // Roughly half the old wordmark. Legible when the viewer looks for it, unobtrusive otherwise.
+        textSize = shorterEdge * 0.014f
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        textAlign = Paint.Align.RIGHT
+        // The shadow is what makes this readable over both a bright snow route and a dark
+        // satellite one without a plate behind it.
+        setShadowLayer(shorterEdge * 0.004f, 0f, 0f, android.graphics.Color.argb(200, 0, 0, 0))
     }
-    val textWidth = textPaint.measureText(text)
-    val linkWidth = link?.let(linkPaint::measureText) ?: 0f
-    val gap = (iconSize * 0.18f).roundToInt()
-    val lockupWidth = iconSize + gap + maxOf(textWidth, linkWidth)
-    val left = (width - margin - lockupWidth).coerceAtLeast(margin.toFloat())
-    val top = margin.toFloat()
-
-    val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = android.graphics.Color.argb(220, 18, 22, 28)
-    }
-    val lockupPadding = (iconSize * 0.16f).roundToInt()
-    canvas.drawRoundRect(
-        android.graphics.RectF(
-            left - lockupPadding,
-            top - lockupPadding,
-            left + lockupWidth + lockupPadding,
-            top + iconSize + lockupPadding
-        ),
-        lockupPadding.toFloat(),
-        lockupPadding.toFloat(),
-        backgroundPaint
-    )
-
-    canvas.drawBitmap(scaledIcon, left, top, null)
-    val textLeft = left + iconSize + gap
-    canvas.drawText(text, textLeft, top + iconSize * 0.48f, textPaint)
-    link?.let { canvas.drawText(it, textLeft, top + iconSize * 0.80f, linkPaint) }
-
-    if (scaledIcon !== icon) scaledIcon.recycle()
-    icon.recycle()
+    canvas.drawText(link, width - shorterEdge * 0.022f, height - shorterEdge * 0.022f, paint)
 }
