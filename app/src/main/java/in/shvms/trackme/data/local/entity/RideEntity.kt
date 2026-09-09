@@ -50,6 +50,8 @@ data class RideEntity(
      * and deliberately retain the historical device-zone fallback at read time.
      */
     val startZoneId: String? = null,
+    /** Null is legacy. Only newly recorded 1.8.8 rides set this to 2. */
+    val trackingAlgorithmVersion: Int? = null,
     /**
      * First-run sample rides are full local rides for replay/export, but are deliberately excluded
      * from cloud sync and retention aggregates. Defaults to false for every pre-1.8.2 row.

@@ -14,6 +14,12 @@ import java.io.FileInputStream
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,7 +67,6 @@ import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.domain.export.GPXExporterImpl
 import `in`.shvms.trackme.domain.export.NativeSnapshotImageExporterImpl
 import `in`.shvms.trackme.domain.export.trimGpsPointsForExport
-import `in`.shvms.trackme.service.TrackingV2DebugComparison
 import `in`.shvms.trackme.ui.home.components.MapLayerHorizontalDrawerButton
 import `in`.shvms.trackme.config.AppConfig
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -220,8 +225,6 @@ fun RideDetailScreen(
     val messenger = rememberMessenger()
     val mapStyle = rememberMapStyle()
     val app = context.applicationContext as `in`.shvms.trackme.TrackMeApp
-    val trackingV2Comparison by app.trackingManager.trackingV2LastComparison.collectAsState()
-    val rideTrackingV2Comparison = trackingV2Comparison?.takeIf { it.rideId == rideId }
     val unitSystem by app.preferencesManager.unitSystem.collectAsState()
     val imperial = unitSystem == "imperial"
     val coroutineScope = rememberCoroutineScope()
@@ -584,21 +587,7 @@ fun RideDetailScreen(
                                 )
                             }
 
-                            if (BuildConfig.DEBUG) {
-                                rideTrackingV2Comparison?.v2Final?.routeSegments.orEmpty()
-                                    .forEach { segment ->
-                                        if (segment.size >= 2) {
-                                            Polyline(
-                                                points = segment.map { point ->
-                                                    LatLng(point.latitude, point.longitude)
-                                                },
-                                                color = Color.Magenta.copy(alpha = 0.88f),
-                                                width = 6f,
-                                                zIndex = 2f,
-                                            )
-                                        }
-                                    }
-                            }
+
 
                             renderPlan.pauseMarkers.forEach { location ->
                                 Marker(
@@ -795,19 +784,22 @@ fun RideDetailScreen(
                         // C1: chart hues encode data series, not brand or state.
                         speedColor = ChartSpeed,
                         altColor = ChartAltitude,
-                        scrubIndex = scrubIndex,
+                        scrubIndex = (scrubIndex ?: points.lastIndex).coerceIn(points.indices),
+                        onScrub = { scrubIndex = it },
                         imperial = imperial,
                         modifier = Modifier.fillMaxWidth().height(160.dp).padding(horizontal = 16.dp)
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    val indexToShow = scrubIndex ?: (points.size - 1)
+                    val indexToShow = (scrubIndex ?: points.lastIndex).coerceIn(points.indices)
                     val elapsedMs = points[indexToShow].timestamp - ride.startTime
                     val elapsedFormatted = formatDuration(elapsedMs)
                     val authoritativeDistKm = ((ride.postRideCalculation?.distance ?: 0.0) / 1000.0).toFloat()
                     val lastCumDist = cumulativeDistances.lastOrNull()?.takeIf { it > 0.01f } ?: 1f
-                    val distKm = if (scrubIndex == null || scrubIndex == points.size - 1) {
+                    val distKm = if (points[indexToShow].cumulativeDistanceMeters != null) {
+                        (points[indexToShow].cumulativeDistanceMeters!! / 1000.0).toFloat()
+                    } else if (scrubIndex == null || scrubIndex == points.size - 1) {
                         authoritativeDistKm
                     } else {
                         (cumulativeDistances[indexToShow] / lastCumDist) * authoritativeDistKm
@@ -822,22 +814,6 @@ fun RideDetailScreen(
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                     
-                    Slider(
-                        value = scrubIndex?.toFloat() ?: 0f,
-                        onValueChange = { scrubIndex = it.toInt() },
-                        valueRange = 0f..(points.size - 1).toFloat(),
-                        colors = SliderDefaults.colors(
-                            thumbColor = TrackMeBlue,
-                            activeTrackColor = TrackMeBlue,
-                            inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .semantics {
-                                contentDescription = strings.timelineScrubberAccessibility
-                            }
-                    )
                     
                     Spacer(modifier = Modifier.height(16.dp))
                 } else if (points.isNotEmpty()) {
@@ -852,10 +828,7 @@ fun RideDetailScreen(
                     )
                 }
                 
-                if (BuildConfig.DEBUG && rideTrackingV2Comparison != null) {
-                    TrackingV2ComparisonCard(rideTrackingV2Comparison)
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
+
 
                 RecordingDetailsCard(
                     ride = ride,
@@ -1584,98 +1557,7 @@ private fun RideSummaryCard(
     }
 }
 
-@Composable
-private fun TrackingV2ComparisonCard(comparison: TrackingV2DebugComparison) {
-    Card(
-        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-        ),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            Text("TASK-274 · V2 diagnostic", style = MaterialTheme.typography.titleSmall)
-            Text(
-                String.format(
-                    java.util.Locale.US,
-                    "Live: V1 %.3f km · hybrid %.3f km",
-                    comparison.v1LiveDistanceMeters / 1_000.0,
-                    comparison.v2Live.distanceMeters / 1_000.0,
-                )
-            )
-            Text(
-                String.format(
-                    java.util.Locale.US,
-                    "V2−V1: live %+.1f m · final %+.1f m",
-                    comparison.v2Live.distanceMeters - comparison.v1LiveDistanceMeters,
-                    comparison.v2Final.distanceMeters - comparison.v1FinalDistanceMeters,
-                ),
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Text(
-                String.format(
-                    java.util.Locale.US,
-                    "Final: V1 %.3f km · hybrid %.3f km",
-                    comparison.v1FinalDistanceMeters / 1_000.0,
-                    comparison.v2Final.distanceMeters / 1_000.0,
-                )
-            )
-            Text(
-                String.format(
-                    java.util.Locale.US,
-                    "V2 GPS %.3f · steps raw %.3f · calibrated %.3f km",
-                    comparison.v2Final.coordinateDistanceMeters / 1_000.0,
-                    comparison.v2Final.rawStepDistanceMeters / 1_000.0,
-                    comparison.v2Final.calibratedStepDistanceMeters / 1_000.0,
-                ),
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Text(
-                String.format(
-                    java.util.Locale.US,
-                    "V2 %s · %s\n" +
-                        "%d fixes · %d missing speed\n" +
-                        "%d power-restricted · %d accuracy >25 m\n" +
-                        "%d unobserved gaps · max interval %.1f s · %d outliers\n" +
-                        "%d steps · stride %.2f m · cal %d/%d",
-                    comparison.v2Final.movementState,
-                    comparison.v2Final.powerMode,
-                    comparison.v2Final.sampleCount,
-                    comparison.v2Final.missingSpeedCount,
-                    comparison.v2Final.powerRestrictedSampleCount,
-                    comparison.v2Final.poorAccuracySampleCount,
-                    comparison.v2Final.unobservedGapCount,
-                    comparison.v2Final.maximumSampleIntervalMillis / 1_000.0,
-                    comparison.v2Final.rejectedOutlierCount,
-                    comparison.v2Final.detectedStepCount,
-                    comparison.v2Final.strideLengthMeters,
-                    comparison.v2Final.calibrationAcceptedCount,
-                    comparison.v2Final.calibrationAttemptCount,
-                ),
-                style = MaterialTheme.typography.bodySmall,
-            )
-            val v1 = comparison.v1Diagnostics
-            Text(
-                String.format(
-                    java.util.Locale.US,
-                    "V1 drops: accuracy %d · pause %.1f m · short %.1f m · speed %.1f m",
-                    v1.accuracyRejectedFixCount,
-                    v1.pausedRejectedDistanceMeters,
-                    v1.shortRejectedDistanceMeters,
-                    v1.speedRejectedDistanceMeters,
-                ),
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Text(
-                "Magenta = V2 final route. Process-local debug evidence; not persisted or synced.",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onTertiaryContainer,
-            )
-        }
-    }
-}
+
 
 @Composable
 private fun RecordingDetailsCard(
@@ -1750,6 +1632,7 @@ fun CombinedMetricLineChart(
     speedColor: Color,
     altColor: Color,
     scrubIndex: Int? = null,
+    onScrub: ((Int) -> Unit)? = null,
     imperial: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -1824,10 +1707,35 @@ fun CombinedMetricLineChart(
         shape = RoundedCornerShape(8.dp),
         modifier = modifier.semantics {
             contentDescription = buildChartAccessibilityDescription(points, imperial)
+            if (onScrub != null) {
+                val index = (scrubIndex ?: points.lastIndex).coerceIn(points.indices)
+                progressBarRangeInfo = ProgressBarRangeInfo(index.toFloat(), 0f..points.lastIndex.toFloat(),
+                    (points.size - 2).coerceAtLeast(0))
+                stateDescription = formatDuration(points[index].timestamp - points.first().timestamp)
+                setProgress { value ->
+                    onScrub(value.toInt().coerceIn(points.indices))
+                    true
+                }
+            }
         },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        Canvas(modifier = Modifier.fillMaxSize()
+            .pointerInput(plotData, onScrub) {
+                if (onScrub != null) detectTapGestures { offset ->
+                    val target = offset.x.coerceIn(0f, size.width.toFloat()) /
+                        size.width.coerceAtLeast(1) * plotData.last().second
+                    onScrub(plotData.indices.minByOrNull { kotlin.math.abs(plotData[it].second - target) } ?: 0)
+                }
+            }
+            .pointerInput(plotData, onScrub) {
+                if (onScrub != null) detectHorizontalDragGestures { change, _ ->
+                    change.consume()
+                    val target = change.position.x.coerceIn(0f, size.width.toFloat()) /
+                        size.width.coerceAtLeast(1) * plotData.last().second
+                    onScrub(plotData.indices.minByOrNull { kotlin.math.abs(plotData[it].second - target) } ?: 0)
+                }
+            }) {
             val width = size.width
             val height = size.height
             val topPadding = 36f

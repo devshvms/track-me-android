@@ -5,6 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -109,6 +112,8 @@ internal fun HomeDashboardScreen(
     onOpenSettings: () -> Unit,
     onDismissPermissionNotice: () -> Unit,
     scrollToTopRequest: Int = 0,
+    onOpenLiveSharing: () -> Unit = {},
+    liveSharingActive: Boolean = false,
 ) {
     val strings = LocalAppStrings.current
     // A first Room emission can still be an empty projection while legacy metadata is being
@@ -159,13 +164,31 @@ internal fun HomeDashboardScreen(
             }
 
             item {
-                GroupRideCard(
+                BoxWithConstraints {
+                    val stacked = LocalDensity.current.fontScale > 1.3f || maxWidth < 300.dp
+                    val tileWidth = if (stacked) maxWidth else (maxWidth - 12.dp) / 2
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp), maxItemsInEachRow = 2) {
+                    Box(Modifier.width(tileWidth)) { GroupRideCard(
                     groupActive = groupActive,
                     groupMemberCount = groupMemberCount,
                     strings = strings,
                     onOpenCommunity = onOpenCommunity,
                     onOpenGroupMap = onOpenGroupMap,
-                )
+                    ) }
+                    Card(modifier = Modifier.width(tileWidth),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                        Column(Modifier.fillMaxWidth().heightIn(min = 180.dp).padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Icon(Icons.Default.Route, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                            Text(strings.homeLiveSharing, style = MaterialTheme.typography.titleMedium)
+                            FilledTonalButton(onClick = onOpenLiveSharing) {
+                                Text(if (liveSharingActive) strings.homeManageSharing else strings.homeSetUpSharing)
+                            }
+                        }
+                    }
+                    }
+                }
             }
 
             if (summary.lifetimeActivityCount > 0) {
@@ -185,9 +208,6 @@ internal fun HomeDashboardScreen(
                 }
             }
 
-            summary.insight?.let { insight ->
-                item { InsightCard(insight, imperial, strings) }
-            }
 
             item {
                 val facts = summary.toGamificationFacts()
@@ -438,7 +458,8 @@ private fun GroupRideCard(
             else MaterialTheme.colorScheme.surfaceContainerLow
         )
     ) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxWidth().heightIn(min = 180.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(Icons.Default.Groups, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Groups, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(10.dp))
@@ -475,7 +496,7 @@ private fun GroupRideCard(
                 if (groupActive) {
                     FilledTonalButton(onClick = onOpenGroupMap) { Text(strings.dashboardViewLiveMap) }
                 } else {
-                    FilledTonalButton(onClick = onOpenCommunity) { Text(strings.dashboardGroupHeading) }
+                    FilledTonalButton(onClick = onOpenCommunity) { Text(strings.homeOpenGroups) }
                 }
             }
         }

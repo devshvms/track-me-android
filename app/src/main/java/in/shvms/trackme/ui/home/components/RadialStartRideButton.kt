@@ -562,21 +562,6 @@ fun RadialStartRideButton(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                } else if (preselectedPersona != RidePersona.AUTO) {
-                    Icon(
-                        imageVector = preselectedPersona.icon(),
-                        contentDescription = null,
-                        tint = onStartButton,
-                        modifier = Modifier.size(28.dp),
-                    )
-                    Text(
-                        text = strings.personaLabel(preselectedPersona),
-                        color = onStartButton,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
                 } else {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,

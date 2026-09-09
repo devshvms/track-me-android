@@ -6,6 +6,7 @@ import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.ui.components.rememberMessenger
 import `in`.shvms.trackme.ui.components.rememberMapStyle
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
@@ -177,6 +178,7 @@ fun HomeScreen(
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    var showHomeSharing by rememberSaveable { mutableStateOf(false) }
     val messenger = rememberMessenger()
     val mapStyle = rememberMapStyle()
     val app = context.applicationContext as TrackMeApp
@@ -190,7 +192,6 @@ fun HomeScreen(
     var dashboardSelectionCameFromPicker by rememberSaveable { mutableStateOf(false) }
     var hasRequestedStartRideUndo by remember { mutableStateOf(false) }
     var showV2MotionPermissionPrimer by rememberSaveable { mutableStateOf(false) }
-    var dismissedV2ComparisonRideId by rememberSaveable { mutableStateOf<Long?>(null) }
     var hasLocationPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -200,7 +201,6 @@ fun HomeScreen(
         )
     }
     val uiState by viewModel.uiState.collectAsState()
-    val trackingV2Comparison by viewModel.trackingV2LastComparison.collectAsState()
     val dashboardRoute by viewModel.dashboardRoute.collectAsState()
     val groupSession by app.groupSessionManager.state.collectAsState()
     val isOffline = rememberIsOffline()
@@ -763,15 +763,6 @@ fun HomeScreen(
             dashboardEntryTracked = true
         }
     }
-    LaunchedEffect(presentationMode, uiState.dashboardSummary.insight?.analyticsValue) {
-        val type = uiState.dashboardSummary.insight?.analyticsValue
-        if (presentationMode == HomePresentationMode.IDLE_DASHBOARD &&
-            type != null && dashboardInsightTracked != type
-        ) {
-            AnalyticsManager.trackHomeInsightShown(type)
-            dashboardInsightTracked = type
-        }
-    }
     LaunchedEffect(presentationMode, uiState.dashboardSummary.latestActivity?.localId) {
         if (presentationMode == HomePresentationMode.IDLE_DASHBOARD) {
             uiState.dashboardSummary.latestActivity?.localId?.let(viewModel::loadDashboardRoute)
@@ -846,123 +837,7 @@ fun HomeScreen(
         )
     }
 
-    val comparison = trackingV2Comparison
-    if (BuildConfig.DEBUG && comparison != null &&
-        dismissedV2ComparisonRideId != comparison.rideId &&
-        pendingReveal == null && weeklyRecap == null && !showV2MotionPermissionPrimer
-    ) {
-        AlertDialog(
-            onDismissRequest = { dismissedV2ComparisonRideId = comparison.rideId },
-            title = { Text("TASK-274 · V2 diagnostic") },
-            text = {
-                Column(
-                    modifier = Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        String.format(
-                            java.util.Locale.US,
-                            "Live distance   V1 %.3f km  |  hybrid %.3f km",
-                            comparison.v1LiveDistanceMeters / 1_000.0,
-                            comparison.v2Live.distanceMeters / 1_000.0,
-                        )
-                    )
-                    Text(
-                        String.format(
-                            java.util.Locale.US,
-                            "V2−V1 delta   live %+.1f m  |  final %+.1f m",
-                            comparison.v2Live.distanceMeters - comparison.v1LiveDistanceMeters,
-                            comparison.v2Final.distanceMeters - comparison.v1FinalDistanceMeters,
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Text(
-                        String.format(
-                            java.util.Locale.US,
-                            "Final distance   V1 %.3f km  |  hybrid %.3f km",
-                            comparison.v1FinalDistanceMeters / 1_000.0,
-                            comparison.v2Final.distanceMeters / 1_000.0,
-                        )
-                    )
-                    Text(
-                        String.format(
-                            java.util.Locale.US,
-                            "V2 independent   GPS %.3f km | steps raw %.3f | calibrated %.3f",
-                            comparison.v2Final.coordinateDistanceMeters / 1_000.0,
-                            comparison.v2Final.rawStepDistanceMeters / 1_000.0,
-                            comparison.v2Final.calibratedStepDistanceMeters / 1_000.0,
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Text(
-                        String.format(
-                            java.util.Locale.US,
-                            "V2 %s · %s\n" +
-                                "%d fixes · %d missing speed\n" +
-                                "%d power-restricted · %d accuracy >25 m\n" +
-                                "%d unobserved gaps · max interval %.1f s · %d outliers\n" +
-                                "steps %d (discarded %d) · stride %.2f m",
-                            comparison.v2Final.movementState,
-                            comparison.v2Final.powerMode,
-                            comparison.v2Final.sampleCount,
-                            comparison.v2Final.missingSpeedCount,
-                            comparison.v2Final.powerRestrictedSampleCount,
-                            comparison.v2Final.poorAccuracySampleCount,
-                            comparison.v2Final.unobservedGapCount,
-                            comparison.v2Final.maximumSampleIntervalMillis / 1_000.0,
-                            comparison.v2Final.rejectedOutlierCount,
-                            comparison.v2Final.detectedStepCount,
-                            comparison.v2Final.discardedImplausibleStepCount,
-                            comparison.v2Final.strideLengthMeters,
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    val calibration = comparison.v2Final
-                    Text(
-                        String.format(
-                            java.util.Locale.US,
-                            "Stride calibration %d/%d accepted · candidates %s / %s / %s m",
-                            calibration.calibrationAcceptedCount,
-                            calibration.calibrationAttemptCount,
-                            calibration.calibrationCandidateMinMeters?.let { "%.2f".format(java.util.Locale.US, it) } ?: "—",
-                            calibration.calibrationCandidateMedianMeters?.let { "%.2f".format(java.util.Locale.US, it) } ?: "—",
-                            calibration.calibrationCandidateMaxMeters?.let { "%.2f".format(java.util.Locale.US, it) } ?: "—",
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    val v1 = comparison.v1Diagnostics
-                    Text(
-                        "V1 fix rejection: accuracy ${v1.accuracyRejectedFixCount}\n" +
-                            "V1 paused fixes: hardware ${v1.hardwareStillPausedFixCount} · " +
-                            "drift ${v1.stationaryDriftPausedFixCount} · adaptive ${v1.adaptivePausedFixCount}",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Text(
-                        String.format(
-                            java.util.Locale.US,
-                            "V1 segment metres: observed %.1f · admitted %.1f\nrejected: pause %.1f · short %.1f · speed %.1f",
-                            v1.observedSegmentDistanceMeters,
-                            v1.admittedDistanceMeters,
-                            v1.pausedRejectedDistanceMeters,
-                            v1.shortRejectedDistanceMeters,
-                            v1.speedRejectedDistanceMeters,
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Text(
-                        "Debug process-local evidence only; physical ground truth is still required.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { dismissedV2ComparisonRideId = comparison.rideId }) {
-                    Text("Dismiss")
-                }
-            },
-        )
-    }
+
 
     if (showDashboardPersonaPicker) {
         AlertDialog(
@@ -993,6 +868,36 @@ fun HomeScreen(
                 }
             },
         )
+    }
+
+    if (showHomeSharing) {
+        val active = uiState.liveShareState.status == LiveShareStatus.ACTIVE
+        AlertDialog(onDismissRequest = { showHomeSharing = false },
+            title = { Text(strings.homeLiveSharing) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(if (groupSession.isActive) strings.groupLiveShareBlocked else strings.homeSharingExplanation)
+                    if (active) {
+                        TextButton(onClick = {
+                            uiState.liveShareState.shareLink?.let { link ->
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, link)
+                                }
+                                context.startActivity(Intent.createChooser(intent, strings.share))
+                            }
+                        }) { Text(strings.shareLink) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !groupSession.isActive, onClick = {
+                    if (active) viewModel.stopLiveShare()
+                    else viewModel.startLiveShare(durationMinutes = 30, stopOnRideEnd = true)
+                    showHomeSharing = false
+                }) { Text(if (active) strings.homeStopSharing else strings.homeStartSharing) }
+            },
+            dismissButton = { TextButton(onClick = { showHomeSharing = false }) { Text(strings.close) } })
     }
 
     Scaffold(
@@ -1096,23 +1001,7 @@ fun HomeScreen(
                             width = 10f
                         )
                     }
-                    if (BuildConfig.DEBUG) {
-                        uiState.debugTrackingV2?.routeSegments.orEmpty().forEach { segment ->
-                            if (segment.size >= 2) {
-                                Polyline(
-                                    points = segment.map { point ->
-                                        com.google.android.gms.maps.model.LatLng(
-                                            point.latitude,
-                                            point.longitude,
-                                        )
-                                    },
-                                    color = Color.Magenta.copy(alpha = 0.88f),
-                                    width = 6f,
-                                    zIndex = 2f,
-                                )
-                            }
-                        }
-                    }
+
 
                     // --- Destination pin (§2.9) ---
                     //
@@ -1553,7 +1442,6 @@ fun HomeScreen(
                     paceText = uiState.paceText,
                     v1DistanceMeters = uiState.distanceMeters,
                     v1SpeedMetersPerSecond = uiState.speedMetersPerSecond,
-                    debugV2Snapshot = uiState.debugTrackingV2,
                     selectedPersona = uiState.selectedPersona,
                     isAutoPaused = uiState.isAutoPaused,
                     timeSinceLastGps = uiState.timeSinceLastGps,
@@ -1681,6 +1569,8 @@ fun HomeScreen(
                     onOpenSettings = { openAppSettings(context) },
                     onDismissPermissionNotice = app::dismissLocationPermissionRevokedNoticeForSession,
                     scrollToTopRequest = scrollToTopRequest,
+                    onOpenLiveSharing = { showHomeSharing = true },
+                    liveSharingActive = uiState.liveShareState.status == LiveShareStatus.ACTIVE,
                 )
             }
 
@@ -1717,6 +1607,9 @@ fun HomeScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 8.dp),
                         )
+                    }
+                    TextButton(onClick = { showDashboardPersonaPicker = true }) {
+                        Text(strings.personaLabel(uiState.selectedDashboardPersona) + " ▾")
                     }
                     RadialStartRideButton(
                         onOpenAllPersonas = { showDashboardPersonaPicker = true },

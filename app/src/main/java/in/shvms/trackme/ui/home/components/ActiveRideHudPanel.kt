@@ -323,14 +323,14 @@ fun ActiveRideHudPanel(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(14.dp),
+                    .padding(10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Stats Row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 14.dp),
+                        .padding(bottom = 8.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     StatItem(label = strings.distance, value = distanceText)
@@ -354,57 +354,6 @@ fun ActiveRideHudPanel(
                     }
                 }
 
-                if (BuildConfig.DEBUG && debugV2Snapshot != null) {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 10.dp),
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.82f),
-                    ) {
-                        Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
-                            Text(
-                                text = "TASK-274 · process-local shadow",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                            )
-                            Text(
-                                text = String.format(
-                                    java.util.Locale.US,
-                                    "V1 %.3f km · %.2f m/s   |   hybrid %.3f km · %.2f m/s",
-                                    v1DistanceMeters / 1_000f,
-                                    v1SpeedMetersPerSecond,
-                                    debugV2Snapshot.distanceMeters / 1_000.0,
-                                    debugV2Snapshot.currentSpeedMetersPerSecond,
-                                ),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                            )
-                            Text(
-                                text = String.format(
-                                    java.util.Locale.US,
-                                    "GPS %.3f · steps raw %.3f · cal %.3f km",
-                                    debugV2Snapshot.coordinateDistanceMeters / 1_000.0,
-                                    debugV2Snapshot.rawStepDistanceMeters / 1_000.0,
-                                    debugV2Snapshot.calibratedStepDistanceMeters / 1_000.0,
-                                ),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                            )
-                            Text(
-                                text = "${debugV2Snapshot.movementState} · ${debugV2Snapshot.powerMode}" +
-                                    " · ${debugV2Snapshot.sampleCount} fixes · ${debugV2Snapshot.detectedStepCount} steps",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                            )
-                            Text(
-                                text = "Blue route = V1 · Magenta route = V2",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                            )
-                        }
-                    }
-                }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
                 Spacer(modifier = Modifier.height(12.dp))

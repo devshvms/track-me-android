@@ -37,10 +37,14 @@ object ActivityReminder {
         val hour: Int = DEFAULT_HOUR,
         val minute: Int = 0,
         val persona: String = DEFAULT_PERSONA,
+        // Null migrates the legacy single weekday without enabling anything.
+        val daysOfWeek: Set<Int>? = null,
     ) {
+        val selectedDays: Set<Int> get() = daysOfWeek ?: setOf(dayOfWeek)
         /** Whether these settings describe something schedulable. */
         val isValid: Boolean
-            get() = dayOfWeek in 1..7 && hour in 0..23 && minute in 0..59
+            get() = selectedDays.isNotEmpty() && selectedDays.all { it in 1..7 } &&
+                hour in 0..23 && minute in 0..59
 
         companion object {
             /**
@@ -90,7 +94,7 @@ object ActivityReminder {
     ): Boolean {
         if (!settings.enabled) return false
         if (!settings.isValid) return false
-        if (nowDayOfWeek != settings.dayOfWeek) return false
+        if (nowDayOfWeek !in settings.selectedDays) return false
         if (lastFiredEpochDay != null && lastFiredEpochDay >= nowEpochDay) return false
         return true
     }

@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -60,6 +61,7 @@ fun ActivityReminderSection(strings: AppStrings) {
     val context = LocalContext.current
     val store = remember { ActivityReminderStore(context) }
     val settings by store.settings.collectAsState()
+    var expanded by rememberSaveable { mutableStateOf(false) }
 
     var suggestion by remember { mutableStateOf<RideHistoryProfile.SuggestedSlot?>(null) }
     var historyLoaded by remember { mutableStateOf(false) }
@@ -79,6 +81,18 @@ fun ActivityReminderSection(strings: AppStrings) {
     }
 
     SettingsGroup(title = strings.reminderSectionTitle) {
+        SettingsRow(
+            title = strings.reminderSectionTitle,
+            supportingText = if (settings.enabled) {
+                settings.selectedDays.sorted().joinToString(", ") { weekdayShortName(it) } +
+                    " · " + formatTime(context, settings.hour, settings.minute) +
+                    " · " + strings.personaLabel(
+                        runCatching { RidePersona.valueOf(settings.persona) }.getOrDefault(RidePersona.AUTO)
+                    )
+            } else strings.reminderOff,
+            onClick = { expanded = !expanded },
+        )
+        if (expanded) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Text(
                 strings.reminderSectionSubtitle,
@@ -92,7 +106,7 @@ fun ActivityReminderSection(strings: AppStrings) {
             title = strings.reminderEnable,
             supportingText = null,
             checked = settings.enabled,
-            onCheckedChange = { persist(settings.copy(enabled = it)) },
+            onCheckedChange = { persist(settings.copy(enabled = it && settings.isValid)) },
         )
 
         // The suggestion sits above the pickers and outside the enabled gate: it is the reason
@@ -143,8 +157,13 @@ fun ActivityReminderSection(strings: AppStrings) {
             ) {
                 (1..7).forEach { iso ->
                     FilterChip(
-                        selected = settings.dayOfWeek == iso,
-                        onClick = { persist(settings.copy(dayOfWeek = iso)) },
+                        selected = iso in settings.selectedDays,
+                        onClick = {
+                            val days = if (iso in settings.selectedDays) settings.selectedDays - iso
+                                else settings.selectedDays + iso
+                            // Keep at least one selection; disabling is an explicit separate action.
+                            if (days.isNotEmpty()) persist(settings.copy(daysOfWeek = days))
+                        },
                         label = {
                             Text(weekdayShortName(iso), style = MaterialTheme.typography.labelSmall)
                         },
@@ -188,6 +207,7 @@ fun ActivityReminderSection(strings: AppStrings) {
                     )
                 }
             }
+        }
         }
     }
 }

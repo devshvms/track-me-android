@@ -406,7 +406,15 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     // §6.1.3 #12a — a reminder the user sets. "Suggested from your history" is load-bearing copy:
     // it is the sentence that makes the inference a courtesy rather than a decision.
     val reminderSectionTitle: String = s("reminderSectionTitle", "Activity reminder")
-    val reminderSectionSubtitle: String = s("reminderSectionSubtitle", "One reminder a week, at a time you choose. Off unless you turn it on.")
+    val homeOpenGroups: String = s("homeOpenGroups", "Open groups")
+    val homeLiveSharing: String = s("homeLiveSharing", "Live sharing")
+    val homeSetUpSharing: String = s("homeSetUpSharing", "Set up sharing")
+    val homeManageSharing: String = s("homeManageSharing", "Manage sharing")
+    val homeStartSharing: String = s("homeStartSharing", "Start sharing")
+    val homeStopSharing: String = s("homeStopSharing", "Stop sharing")
+    val homeSharingExplanation: String = s("homeSharingExplanation", "Prepare a link valid for 30 minutes. Your location appears while recording. Anyone with the link can view it. Opening this page shares nothing.")
+    val reminderOff: String = s("reminderOff", "Off")
+    val reminderSectionSubtitle: String = s("reminderSectionSubtitle", "Reminders on the days and at the time you choose. Off unless you turn them on.")
     val reminderEnable: String = s("reminderEnable", "Remind me weekly")
     val reminderDay: String = s("reminderDay", "Day")
     val reminderTime: String = s("reminderTime", "Time")
@@ -1104,7 +1112,15 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStillLiveLeave" to "Salir del grupo",
             "startProximityLine" to "Esta te lleva más allá de %1\$s.",
             "reminderSectionTitle" to "Recordatorio de actividad",
-            "reminderSectionSubtitle" to "Un recordatorio por semana, a la hora que elijas. Desactivado hasta que lo actives.",
+            "homeOpenGroups" to "Abrir grupos",
+            "homeLiveSharing" to "Ubicación en directo",
+            "homeSetUpSharing" to "Configurar",
+            "homeManageSharing" to "Administrar",
+            "homeStartSharing" to "Empezar a compartir",
+            "homeStopSharing" to "Dejar de compartir",
+            "homeSharingExplanation" to "Prepara un enlace válido durante 30 minutos. Tu ubicación aparece al grabar. Cualquiera con el enlace puede verla. Abrir esta página no comparte nada.",
+            "reminderOff" to "Desactivado",
+            "reminderSectionSubtitle" to "Recordatorios los días y a la hora que elijas. Desactivados hasta que los actives.",
             "reminderEnable" to "Recordármelo cada semana",
             "reminderDay" to "Día",
             "reminderTime" to "Hora",
@@ -1796,7 +1812,15 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStillLiveLeave" to "Quitter le groupe",
             "startProximityLine" to "Celle-ci vous fait dépasser %1\$s.",
             "reminderSectionTitle" to "Rappel d'activité",
-            "reminderSectionSubtitle" to "Un rappel par semaine, à l'heure de votre choix. Désactivé tant que vous ne l'activez pas.",
+            "homeOpenGroups" to "Ouvrir les groupes",
+            "homeLiveSharing" to "Partage en direct",
+            "homeSetUpSharing" to "Configurer",
+            "homeManageSharing" to "Gérer le partage",
+            "homeStartSharing" to "Démarrer le partage",
+            "homeStopSharing" to "Arrêter le partage",
+            "homeSharingExplanation" to "Préparez un lien valable 30 minutes. Votre position apparaît pendant l’enregistrement. Toute personne ayant le lien peut la voir. Ouvrir cette page ne partage rien.",
+            "reminderOff" to "Désactivé",
+            "reminderSectionSubtitle" to "Des rappels aux jours et à l’heure de votre choix. Désactivés tant que vous ne les activez pas.",
             "reminderEnable" to "Me rappeler chaque semaine",
             "reminderDay" to "Jour",
             "reminderTime" to "Heure",
@@ -2488,7 +2512,15 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStillLiveLeave" to "Gruppe verlassen",
             "startProximityLine" to "Diese bringt dich über %1\$s hinaus.",
             "reminderSectionTitle" to "Aktivitätserinnerung",
-            "reminderSectionSubtitle" to "Eine Erinnerung pro Woche, zu einer Zeit deiner Wahl. Aus, bis du sie einschaltest.",
+            "homeOpenGroups" to "Gruppen öffnen",
+            "homeLiveSharing" to "Live-Freigabe",
+            "homeSetUpSharing" to "Einrichten",
+            "homeManageSharing" to "Freigabe verwalten",
+            "homeStartSharing" to "Freigabe starten",
+            "homeStopSharing" to "Freigabe beenden",
+            "homeSharingExplanation" to "Erstelle einen Link für 30 Minuten. Dein Standort erscheint während der Aufzeichnung. Jeder mit dem Link kann ihn sehen. Das Öffnen dieser Seite teilt nichts.",
+            "reminderOff" to "Aus",
+            "reminderSectionSubtitle" to "Erinnerungen an den gewählten Tagen und zur gewählten Uhrzeit. Aus, bis du sie einschaltest.",
             "reminderEnable" to "Wöchentlich erinnern",
             "reminderDay" to "Tag",
             "reminderTime" to "Uhrzeit",
@@ -3180,7 +3212,15 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStillLiveLeave" to "समूह छोड़ें",
             "startProximityLine" to "यह आपको %1\$s के पार ले जाएगी।",
             "reminderSectionTitle" to "गतिविधि अनुस्मारक",
-            "reminderSectionSubtitle" to "सप्ताह में एक अनुस्मारक, आपके चुने समय पर। जब तक आप चालू न करें, बंद रहेगा।",
+            "homeOpenGroups" to "समूह खोलें",
+            "homeLiveSharing" to "लाइव साझा करना",
+            "homeSetUpSharing" to "साझा करना सेट करें",
+            "homeManageSharing" to "साझा करना प्रबंधित करें",
+            "homeStartSharing" to "साझा करना शुरू करें",
+            "homeStopSharing" to "साझा करना बंद करें",
+            "homeSharingExplanation" to "30 मिनट के लिए मान्य लिंक बनाएँ। रिकॉर्डिंग के दौरान आपका स्थान दिखेगा। लिंक वाला कोई भी व्यक्ति देख सकता है। यह पेज खोलने से कुछ साझा नहीं होता।",
+            "reminderOff" to "बंद",
+            "reminderSectionSubtitle" to "आपके चुने दिनों और समय पर अनुस्मारक। चालू करने तक बंद रहेंगे।",
             "reminderEnable" to "साप्ताहिक याद दिलाएँ",
             "reminderDay" to "दिन",
             "reminderTime" to "समय",
@@ -3872,7 +3912,15 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStillLiveLeave" to "グループを退出",
             "startProximityLine" to "これで%1\$sを超えます。",
             "reminderSectionTitle" to "アクティビティのリマインダー",
-            "reminderSectionSubtitle" to "週に1回、選んだ時間に。オンにするまでは無効です。",
+            "homeOpenGroups" to "グループを開く",
+            "homeLiveSharing" to "ライブ共有",
+            "homeSetUpSharing" to "共有を設定",
+            "homeManageSharing" to "共有を管理",
+            "homeStartSharing" to "共有を開始",
+            "homeStopSharing" to "共有を停止",
+            "homeSharingExplanation" to "30分間有効なリンクを準備します。記録中に位置が表示され、リンクを持つ人が閲覧できます。このページを開くだけでは共有されません。",
+            "reminderOff" to "オフ",
+            "reminderSectionSubtitle" to "選んだ曜日と時間にリマインドします。オンにするまでは無効です。",
             "reminderEnable" to "毎週リマインドする",
             "reminderDay" to "曜日",
             "reminderTime" to "時刻",
@@ -4564,7 +4612,15 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStillLiveLeave" to "退出群组",
             "startProximityLine" to "这一次将带你越过 %1\$s。",
             "reminderSectionTitle" to "活动提醒",
-            "reminderSectionSubtitle" to "每周一次提醒，时间由你选择。除非开启，否则不会发送。",
+            "homeOpenGroups" to "打开群组",
+            "homeLiveSharing" to "实时共享",
+            "homeSetUpSharing" to "设置共享",
+            "homeManageSharing" to "管理共享",
+            "homeStartSharing" to "开始共享",
+            "homeStopSharing" to "停止共享",
+            "homeSharingExplanation" to "准备一个有效期为30分钟的链接。记录时显示你的位置，持有链接的人均可查看。打开此页面不会共享任何内容。",
+            "reminderOff" to "关闭",
+            "reminderSectionSubtitle" to "在你选择的日期和时间提醒。开启后才会发送。",
             "reminderEnable" to "每周提醒我",
             "reminderDay" to "星期",
             "reminderTime" to "时间",

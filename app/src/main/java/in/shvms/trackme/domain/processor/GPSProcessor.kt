@@ -29,6 +29,9 @@ class DefaultGPSProcessor(
 ) : GPSProcessor {
     override suspend fun processRide(rideId: Long, rideDao: RideDao, isEnabled: Boolean) {
         if (!isEnabled) return
+        // V2 totals are committed at recording time. Legacy post-processing must never overwrite
+        // them or replace the retained evidence with geometry-derived distances.
+        if (rideDao.getRideWithPointsById(rideId)?.ride?.trackingAlgorithmVersion == 2) return
         
         val rawPoints = rideDao.getPointsForRide(rideId).firstOrNull() ?: return
         if (rawPoints.isEmpty()) return

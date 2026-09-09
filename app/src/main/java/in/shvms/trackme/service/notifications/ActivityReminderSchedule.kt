@@ -40,9 +40,10 @@ object ActivityReminderSchedule {
     ): Long? {
         if (!settings.enabled || !settings.isValid) return null
 
+        return settings.selectedDays.minOf { day ->
         val next = Calendar.getInstance(timeZone).apply {
             timeInMillis = nowMillis
-            set(Calendar.DAY_OF_WEEK, RideHistoryProfileSource.calendarDayOfWeek(settings.dayOfWeek))
+            set(Calendar.DAY_OF_WEEK, RideHistoryProfileSource.calendarDayOfWeek(day))
             set(Calendar.HOUR_OF_DAY, settings.hour)
             set(Calendar.MINUTE, settings.minute)
             set(Calendar.SECOND, 0)
@@ -57,6 +58,7 @@ object ActivityReminderSchedule {
             next.add(Calendar.DAY_OF_YEAR, 7)
         }
 
-        return next.timeInMillis - nowMillis
+        next.timeInMillis - nowMillis
+        }
     }
 }

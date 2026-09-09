@@ -34,6 +34,42 @@ import java.io.File
 @Config(application = Application::class, sdk = [34])
 class AppDatabaseUpgradeTest {
 
+    @Test fun `V2 migration preserves legacy data and leaves authority unset`() {
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(
+                ApplicationProvider.getApplicationContext()
+            ).name(null).callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(19) {
+                override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    db.execSQL("CREATE TABLE rides (id INTEGER PRIMARY KEY, distance REAL)")
+                    db.execSQL("CREATE TABLE gps_points (id INTEGER PRIMARY KEY, latitude REAL)")
+                    db.execSQL("INSERT INTO rides VALUES (1, 4633.0)")
+                    db.execSQL("INSERT INTO gps_points VALUES (1, 12.9)")
+                }
+                override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+            }).build()
+        )
+        try {
+            val db = helper.writableDatabase
+            AppDatabase.MIGRATION_19_20.migrate(db)
+            db.query("SELECT distance, trackingAlgorithmVersion FROM rides WHERE id=1").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(4633.0, it.getDouble(0), 0.0)
+                assertTrue(it.isNull(1))
+            }
+            db.query("SELECT latitude, cumulativeDistanceMeters FROM gps_points WHERE id=1").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(12.9, it.getDouble(0), 0.0)
+                assertTrue(it.isNull(1))
+            }
+            db.execSQL("UPDATE rides SET trackingAlgorithmVersion=2 WHERE id=1")
+            db.execSQL("UPDATE gps_points SET cumulativeDistanceMeters=12.5 WHERE id=1")
+            db.query("SELECT cumulativeDistanceMeters FROM gps_points WHERE id=1").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(12.5, it.getDouble(0), 0.0)
+            }
+        } finally { helper.close() }
+    }
+
     /**
      * Every version between the oldest supported database and the current one must be reachable.
      *
@@ -55,7 +91,7 @@ class AppDatabaseUpgradeTest {
         val declared = Regex("""version\s*=\s*(\d+)""")
             .find(source("data/local/AppDatabase.kt"))
             ?.groupValues?.get(1)?.toInt()
-        assertEquals("could not read the @Database version", 19, declared)
+        assertEquals("could not read the @Database version", 20, declared)
 
         val oldest = registered.minOf { it.first }
         val reachable = registered.toMap()
