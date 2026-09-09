@@ -75,6 +75,10 @@ object RideGaps {
         persona: RidePersona,
     ): Boolean {
         val elapsedMillis = current.timestamp - previous.timestamp
+        // V2 checkpoints identify its point stream. Its estimator never claims
+        // a coordinate path through an unobserved interval, even at plausible speed.
+        if (previous.cumulativeDistanceMeters != null && current.cumulativeDistanceMeters != null &&
+            elapsedMillis > 15_000L) return true
         if (elapsedMillis <= GAP_THRESHOLD_MILLIS) return false
 
         // Non-positive time cannot imply a speed; treat it as ordinary rather than inventing one.
