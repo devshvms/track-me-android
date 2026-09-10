@@ -697,6 +697,22 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
         "dashboardGroupHowItWorks",
         "Everyone in the group sees everyone else while the group is live. Nobody sees where you have been, and nothing is saved.",
     )
+    /**
+     * The button's label, distinct from the paragraph it opens.
+     *
+     * These were the same string, so TalkBack announced two sentences of explanation as the name
+     * of a control. A label names the thing; the body is what the thing says.
+     */
+    val dashboardGroupHowItWorksLabel: String = s("dashboardGroupHowItWorksLabel", "How group rides work")
+    // Assembled from copy the app already ships: the live-share sheet's "Your location appears
+    // while recording. Anyone with the link can view it", and the FAQ's "Anyone with the link can
+    // see it until the session expires. Only the signed-in owner can start, update, or stop the
+    // session." Identical wording to the iOS twin, deliberately.
+    val dashboardLiveSharingHowItWorks: String = s(
+        "dashboardLiveSharingHowItWorks",
+        "Anyone with the link sees your location while you are recording. The link expires when the session does, and only you can start or stop it.",
+    )
+    val dashboardLiveSharingHowItWorksLabel: String = s("dashboardLiveSharingHowItWorksLabel", "How live sharing works")
     val recordingDetails: String = s("recordingDetails", "Recording details")
     val startTime: String = s("startTime", "Start time")
     val discardRideTitle: String = s("discardRideTitle", "Discard this ride?")
@@ -1240,6 +1256,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardGroupCreate" to "Crear un grupo",
             "dashboardGroupJoin" to "Unirse con un código",
             "dashboardGroupHowItWorks" to "Todos en el grupo se ven mientras el grupo está activo. Nadie ve dónde has estado y no se guarda nada.",
+            "dashboardGroupHowItWorksLabel" to "Cómo funcionan las salidas en grupo",
+            "dashboardLiveSharingHowItWorks" to "Cualquier persona con el enlace ve tu ubicación mientras grabas. El enlace caduca cuando termina la sesión y solo tú puedes iniciarla o detenerla.",
+            "dashboardLiveSharingHowItWorksLabel" to "Cómo funciona el uso compartido en vivo",
             "recordingDetails" to "Detalles de grabación",
             "startTime" to "Hora de inicio",
             "discardRideTitle" to "¿Descartar este viaje?",
@@ -1940,6 +1959,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardGroupCreate" to "Créer un groupe",
             "dashboardGroupJoin" to "Rejoindre avec un code",
             "dashboardGroupHowItWorks" to "Tous les membres se voient tant que le groupe est actif. Personne ne voit où vous êtes allé, et rien n'est conservé.",
+            "dashboardGroupHowItWorksLabel" to "Comment fonctionnent les sorties en groupe",
+            "dashboardLiveSharingHowItWorks" to "Toute personne disposant du lien voit votre position pendant l'enregistrement. Le lien expire avec la session, et vous seul pouvez la démarrer ou l'arrêter.",
+            "dashboardLiveSharingHowItWorksLabel" to "Comment fonctionne le partage en direct",
             "recordingDetails" to "Détails de l'enregistrement",
             "startTime" to "Heure de début",
             "discardRideTitle" to "Supprimer ce trajet ?",
@@ -2640,6 +2662,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardGroupCreate" to "Gruppe erstellen",
             "dashboardGroupJoin" to "Mit Code beitreten",
             "dashboardGroupHowItWorks" to "Alle in der Gruppe sehen einander, solange die Gruppe aktiv ist. Niemand sieht, wo du warst, und nichts wird gespeichert.",
+            "dashboardGroupHowItWorksLabel" to "So funktionieren Gruppenfahrten",
+            "dashboardLiveSharingHowItWorks" to "Alle mit dem Link sehen deinen Standort, während du aufzeichnest. Der Link läuft mit der Sitzung ab, und nur du kannst sie starten oder beenden.",
+            "dashboardLiveSharingHowItWorksLabel" to "So funktioniert Live-Teilen",
             "recordingDetails" to "Aufnahmedetails",
             "startTime" to "Startzeit",
             "discardRideTitle" to "Diese Fahrt verwerfen?",
@@ -3340,6 +3365,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardGroupCreate" to "समूह बनाएं",
             "dashboardGroupJoin" to "कोड से जुड़ें",
             "dashboardGroupHowItWorks" to "समूह के सक्रिय रहने तक सभी सदस्य एक-दूसरे को देख सकते हैं। आप कहाँ गए थे यह कोई नहीं देखता, और कुछ भी सहेजा नहीं जाता।",
+            "dashboardGroupHowItWorksLabel" to "समूह राइड कैसे काम करती है",
+            "dashboardLiveSharingHowItWorks" to "लिंक रखने वाला कोई भी व्यक्ति रिकॉर्डिंग के दौरान आपका स्थान देख सकता है। सत्र समाप्त होने पर लिंक भी समाप्त हो जाता है, और केवल आप ही इसे शुरू या बंद कर सकते हैं।",
+            "dashboardLiveSharingHowItWorksLabel" to "लाइव शेयरिंग कैसे काम करती है",
             "recordingDetails" to "रिकॉर्डिंग विवरण",
             "startTime" to "प्रारंभ समय",
             "discardRideTitle" to "इस यात्रा को हटाएं?",
@@ -4040,6 +4068,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardGroupCreate" to "グループを作成",
             "dashboardGroupJoin" to "コードで参加",
             "dashboardGroupHowItWorks" to "グループが有効な間、メンバー同士がお互いを見られます。走った場所は誰にも見られず、何も保存されません。",
+            "dashboardGroupHowItWorksLabel" to "グループライドの仕組み",
+            "dashboardLiveSharingHowItWorks" to "リンクを知っている人は、記録中のあなたの位置を見ることができます。リンクはセッションの終了とともに無効になり、開始と停止はあなただけが行えます。",
+            "dashboardLiveSharingHowItWorksLabel" to "ライブ共有の仕組み",
             "recordingDetails" to "記録の詳細",
             "startTime" to "開始時刻",
             "discardRideTitle" to "この記録を破棄しますか？",
@@ -4740,6 +4771,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardGroupCreate" to "创建群组",
             "dashboardGroupJoin" to "用代码加入",
             "dashboardGroupHowItWorks" to "群组活跃期间，成员之间可以互相看到。没有人能看到你去过哪里，也不会保存任何记录。",
+            "dashboardGroupHowItWorksLabel" to "群组骑行如何运作",
+            "dashboardLiveSharingHowItWorks" to "任何拥有该链接的人都能在你记录时看到你的位置。链接会随会话一起失效，只有你可以开始或停止。",
+            "dashboardLiveSharingHowItWorksLabel" to "实时共享的工作方式",
             "recordingDetails" to "记录详情",
             "startTime" to "开始时间",
             "discardRideTitle" to "丢弃此次行程？",

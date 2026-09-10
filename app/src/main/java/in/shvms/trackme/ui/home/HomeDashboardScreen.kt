@@ -87,6 +87,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.layout.widthIn
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -180,7 +184,18 @@ internal fun HomeDashboardScreen(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
                         Column(Modifier.fillMaxWidth().heightIn(min = 180.dp).padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Icon(Icons.Default.Route, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Route, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.weight(1f))
+                                // Mirrors the group tile: hidden while sharing is active, so the
+                                // pair stays symmetrical in the state a rider sees most often.
+                                if (!liveSharingActive) {
+                                    CardInfoButton(
+                                        label = strings.dashboardLiveSharingHowItWorksLabel,
+                                        body = strings.dashboardLiveSharingHowItWorks,
+                                    )
+                                }
+                            }
                             Text(strings.homeLiveSharing, style = MaterialTheme.typography.titleMedium)
                             FilledTonalButton(onClick = onOpenLiveSharing) {
                                 Text(if (liveSharingActive) strings.homeManageSharing else strings.homeSetUpSharing)
@@ -442,6 +457,58 @@ private fun ContextCard(
  * prominence on the empty state because it is the reason people trust this feature — so the entry
  * point carries it too, rather than making the promise only where the rider has already committed.
  */
+/**
+ * The `(i)` on a dashboard tile, and the explanation it opens.
+ *
+ * The explanation is an anchored [Popup], **not** a line inserted into the card. The two tiles
+ * share a row, so a card that grows by a paragraph moves its neighbour and unbalances the pair —
+ * on the iOS twin, whose row equalises heights, it stretched the other card into a mostly-empty
+ * box. A popup costs the layout nothing at all.
+ *
+ * One composable rather than one per card, because "the same control implemented twice" is how
+ * these two tiles came to disagree in the first place.
+ *
+ * @param label names the control, for TalkBack. Deliberately not the same string as [body]:
+ *   announcing two sentences of explanation as a control's name is not a label.
+ */
+@Composable
+private fun CardInfoButton(label: String, body: String) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    Box {
+        IconButton(onClick = { expanded = !expanded }) {
+            Icon(
+                Icons.Outlined.Info,
+                contentDescription = label,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (expanded) {
+            Popup(
+                alignment = Alignment.TopEnd,
+                offset = IntOffset(0, with(LocalDensity.current) { 44.dp.roundToPx() }),
+                onDismissRequest = { expanded = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    tonalElevation = 3.dp,
+                    shadowElevation = 6.dp,
+                ) {
+                    Text(
+                        body,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.widthIn(max = 260.dp).padding(14.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun GroupRideCard(
     groupActive: Boolean,
@@ -450,8 +517,6 @@ private fun GroupRideCard(
     onOpenCommunity: () -> Unit,
     onOpenGroupMap: () -> Unit,
 ) {
-    var showHowItWorks by rememberSaveable { mutableStateOf(false) }
-
     Card(
         colors = CardDefaults.cardColors(
             containerColor = if (groupActive) MaterialTheme.colorScheme.surfaceContainerHigh
@@ -463,13 +528,10 @@ private fun GroupRideCard(
                 Icon(Icons.Default.Groups, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.weight(1f))
                 if (!groupActive) {
-                    IconButton(onClick = { showHowItWorks = !showHowItWorks }) {
-                        Icon(
-                            Icons.Outlined.Info,
-                            contentDescription = strings.dashboardGroupHowItWorks,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    CardInfoButton(
+                        label = strings.dashboardGroupHowItWorksLabel,
+                        body = strings.dashboardGroupHowItWorks,
+                    )
                 }
             }
 
@@ -479,14 +541,6 @@ private fun GroupRideCard(
                     else strings.dashboardGroupHeading,
                 fontWeight = FontWeight.SemiBold,
             )
-
-            if (!groupActive && showHowItWorks) {
-                Text(
-                    strings.dashboardGroupHowItWorks,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (groupActive) {
