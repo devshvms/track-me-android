@@ -16,6 +16,12 @@ import java.util.TimeZone
  * reminder that is evaluated at the wrong moment does not arrive late, it does not arrive at all.
  */
 class ActivityReminderScheduleTest {
+    @Test fun `nearest selected day wins and elapsed slots do not immediately rearm`() {
+        val settings = ActivityReminder.Settings(enabled = true, daysOfWeek = setOf(1, 3, 5), hour = 8)
+        val now = at(2026, Calendar.SEPTEMBER, 2, 8)
+        assertEquals(at(2026, Calendar.SEPTEMBER, 4, 8) - now,
+            ActivityReminderSchedule.millisUntilNext(settings, now, utc))
+    }
 
     private val utc = TimeZone.getTimeZone("UTC")
 

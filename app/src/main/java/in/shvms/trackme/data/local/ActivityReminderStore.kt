@@ -30,6 +30,7 @@ class ActivityReminderStore(context: Context) {
         prefs.edit()
             .putBoolean(KEY_ENABLED, settings.enabled)
             .putInt(KEY_DAY, settings.dayOfWeek)
+            .putStringSet(KEY_DAYS, settings.selectedDays.map { it.toString() }.toSet())
             .putInt(KEY_HOUR, settings.hour)
             .putInt(KEY_MINUTE, settings.minute)
             .putString(KEY_PERSONA, settings.persona)
@@ -44,6 +45,7 @@ class ActivityReminderStore(context: Context) {
     private fun load(): ActivityReminder.Settings = ActivityReminder.Settings(
         enabled = prefs.getBoolean(KEY_ENABLED, false),
         dayOfWeek = prefs.getInt(KEY_DAY, ActivityReminder.Settings.DEFAULT_DAY),
+        daysOfWeek = prefs.getStringSet(KEY_DAYS, null)?.map { it.toIntOrNull() ?: 0 }?.toSet(),
         hour = prefs.getInt(KEY_HOUR, ActivityReminder.Settings.DEFAULT_HOUR),
         minute = prefs.getInt(KEY_MINUTE, 0),
         persona = prefs.getString(KEY_PERSONA, ActivityReminder.Settings.DEFAULT_PERSONA)
@@ -54,6 +56,7 @@ class ActivityReminderStore(context: Context) {
         const val PREFS = "trackme_activity_reminder"
         const val KEY_ENABLED = "enabled"
         const val KEY_DAY = "day_of_week"
+        const val KEY_DAYS = "days_of_week"
         const val KEY_HOUR = "hour"
         const val KEY_MINUTE = "minute"
         const val KEY_PERSONA = "persona"

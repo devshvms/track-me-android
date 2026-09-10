@@ -406,7 +406,23 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     // §6.1.3 #12a — a reminder the user sets. "Suggested from your history" is load-bearing copy:
     // it is the sentence that makes the inference a courtesy rather than a decision.
     val reminderSectionTitle: String = s("reminderSectionTitle", "Activity reminder")
-    val reminderSectionSubtitle: String = s("reminderSectionSubtitle", "One reminder a week, at a time you choose. Off unless you turn it on.")
+    val homeOpenGroups: String = s("homeOpenGroups", "Open groups")
+    val homeLiveSharing: String = s("homeLiveSharing", "Live sharing")
+    // Bare verbs, because the tile is already titled "Live sharing" and repeating the object
+    // wrapped the button onto two lines. This is not a new convention: es/fr/de translators had
+    // already dropped it ("Configurar", "Configurer", "Einrichten") — English was the outlier.
+    //
+    // The visible text is short; [homeSetUpSharingLabel] and [homeManageSharingLabel] keep the
+    // full phrase for TalkBack, which reads a control's name without the heading above it.
+    val homeSetUpSharing: String = s("homeSetUpSharing", "Set up")
+    val homeManageSharing: String = s("homeManageSharing", "Manage")
+    val homeSetUpSharingLabel: String = s("homeSetUpSharingLabel", "Set up live sharing")
+    val homeManageSharingLabel: String = s("homeManageSharingLabel", "Manage live sharing")
+    val homeStartSharing: String = s("homeStartSharing", "Start sharing")
+    val homeStopSharing: String = s("homeStopSharing", "Stop sharing")
+    val homeSharingExplanation: String = s("homeSharingExplanation", "Prepare a link valid for 30 minutes. Your location appears while recording. Anyone with the link can view it. Opening this page shares nothing.")
+    val reminderOff: String = s("reminderOff", "Off")
+    val reminderSectionSubtitle: String = s("reminderSectionSubtitle", "Reminders on the days and at the time you choose. Off unless you turn them on.")
     val reminderEnable: String = s("reminderEnable", "Remind me weekly")
     val reminderDay: String = s("reminderDay", "Day")
     val reminderTime: String = s("reminderTime", "Time")
@@ -520,6 +536,14 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val gpsPostProcessingInfo: String = s("gpsPostProcessingInfo", "This feature uses advanced algorithms to clean up your raw GPS data immediately after a ride finishes.\n\n• Filters out GPS 'teleportation' glitches.\n• Smooths out noisy altitude and speed readings.\n• Detects when you were stopped and retroactively pauses the ride.\n• Compresses the total amount of data to save storage space and speed up cloud syncing, without losing the shape of your route on the map.")
     val liveShareInfoTitle: String = s("liveShareInfoTitle", "Live Location Data Sharing")
     val liveShareInfoText: String = s("liveShareInfoText", "When you start a Live Share session, the following information is periodically sent to our secure servers and made available to anyone with the link:\n\n• Exact GPS Coordinates (Latitude & Longitude)\n• Current Speed & Heading (Direction)\n• Phone Battery Level\n• Timestamp of the GPS reading\n• Maximum Viewers: Handled dynamically by server capability (Default: 10 viewers)\n\nAll shared data expires when the session ends.")
+    val debugSettingsTitle: String = s("debugSettingsTitle", "Debug Settings")
+    val debugSettingsDescription: String = s("debugSettingsDescription", "Diagnostic controls for controlled TrackMe testing")
+    val debugModeTitle: String = s("debugModeTitle", "Debug mode")
+    val debugModeDisableDescription: String = s("debugModeDisableDescription", "Turning this off restores diagnostic settings to defaults and removes this page.")
+    val debugTrackingControlsTitle: String = s("debugTrackingControlsTitle", "Tracking controls")
+    val intelligentAutoPauseTitle: String = s("intelligentAutoPauseTitle", "Intelligent Auto-Pause")
+    val intelligentAutoPauseDescription: String = s("intelligentAutoPauseDescription", "Dynamically pauses moving time based on the activity speed profile.")
+    val debugModeEnabledMessage: String = s("debugModeEnabledMessage", "Debug mode is enabled")
     // Help & Feedback
     val helpFeedbackTitle: String = s("helpFeedbackTitle", "Help & Feedback")
     val helpFeedbackDescription: String = s("helpFeedbackDescription", "Find quick answers or send an editable support report.")
@@ -533,15 +557,18 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val helpFaqRecordingQuestion: String = s("helpFaqRecordingQuestion", "My ride stopped recording when the screen was off.")
     val helpFaqRecordingAnswer: String = s("helpFaqRecordingAnswer", "Allow TrackMe to run in the background and exclude it from battery optimization. Android may stop background GPS when the system restricts the app.")
     val helpFaqBatteryQuestion: String = s("helpFaqBatteryQuestion", "TrackMe drains my battery.")
-    val helpFaqBatteryAnswer: String = s("helpFaqBatteryAnswer", "GPS uses power while a ride is recording. The ongoing notification confirms recording is active; auto-pause and GPS post-processing in Advanced Settings can reduce unnecessary work.")
+    val helpFaqBatteryAnswer: String = s("helpFaqBatteryAnswer", "GPS uses power while a ride is recording. The ongoing notification confirms recording is active; TrackMe applies auto-pause automatically to reduce unnecessary work.")
     val helpFaqDistanceQuestion: String = s("helpFaqDistanceQuestion", "The distance looks wrong.")
-    val helpFaqDistanceAnswer: String = s("helpFaqDistanceAnswer", "GPS drift while stopped, tunnels, and urban canyons can affect distance. GPS post-processing in Advanced Settings helps; a signal gap is shown as a straight line.")
+    val helpFaqDistanceAnswer: String = s("helpFaqDistanceAnswer", "GPS drift while stopped, tunnels, and urban canyons can affect distance. TrackMe cleans eligible fixes after a ride; a signal gap is shown as a straight line.")
     val helpFaqOfflineQuestion: String = s("helpFaqOfflineQuestion", "Will tracking work without mobile data?")
     val helpFaqOfflineAnswer: String = s("helpFaqOfflineAnswer", "Yes. Recording is local-first. A connection is needed only for cloud sync and live sharing.")
     val helpFaqShareQuestion: String = s("helpFaqShareQuestion", "Who can see a live-share link?")
     val helpFaqShareAnswer: String = s("helpFaqShareAnswer", "Anyone with the link can see it until the session expires. Only the signed-in owner can start, update, or stop the session.")
     val helpFaqDataQuestion: String = s("helpFaqDataQuestion", "How do I get my data out, or delete it?")
     val helpFaqDataAnswer: String = s("helpFaqDataAnswer", "Open Settings → Account Management to export your data or delete your account and cloud data.")
+    val helpFaqProCustomizationQuestion: String = s("helpFaqProCustomizationQuestion", "How do I get Pro data customizations?")
+    val helpFaqProCustomizationAnswer: String = s("helpFaqProCustomizationAnswer", "Pro data customizations are not available yet. Debug controls are for controlled testing and can reduce tracking accuracy.")
+    val helpEnableDebugMode: String = s("helpEnableDebugMode", "Enable debug mode (tap 5 times)")
     val helpLocationPreciseBackground: String = s("helpLocationPreciseBackground", "precise, background allowed")
     val helpLocationPrecise: String = s("helpLocationPrecise", "precise, background denied")
     val helpLocationApproximate: String = s("helpLocationApproximate", "approximate")
@@ -678,6 +705,22 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
         "dashboardGroupHowItWorks",
         "Everyone in the group sees everyone else while the group is live. Nobody sees where you have been, and nothing is saved.",
     )
+    /**
+     * The button's label, distinct from the paragraph it opens.
+     *
+     * These were the same string, so TalkBack announced two sentences of explanation as the name
+     * of a control. A label names the thing; the body is what the thing says.
+     */
+    val dashboardGroupHowItWorksLabel: String = s("dashboardGroupHowItWorksLabel", "How group rides work")
+    // Assembled from copy the app already ships: the live-share sheet's "Your location appears
+    // while recording. Anyone with the link can view it", and the FAQ's "Anyone with the link can
+    // see it until the session expires. Only the signed-in owner can start, update, or stop the
+    // session." Identical wording to the iOS twin, deliberately.
+    val dashboardLiveSharingHowItWorks: String = s(
+        "dashboardLiveSharingHowItWorks",
+        "Anyone with the link sees your location while you are recording. The link expires when the session does, and only you can start or stop it.",
+    )
+    val dashboardLiveSharingHowItWorksLabel: String = s("dashboardLiveSharingHowItWorksLabel", "How live sharing works")
     val recordingDetails: String = s("recordingDetails", "Recording details")
     val startTime: String = s("startTime", "Start time")
     val discardRideTitle: String = s("discardRideTitle", "Discard this ride?")
@@ -1093,7 +1136,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStillLiveLeave" to "Salir del grupo",
             "startProximityLine" to "Esta te lleva más allá de %1\$s.",
             "reminderSectionTitle" to "Recordatorio de actividad",
-            "reminderSectionSubtitle" to "Un recordatorio por semana, a la hora que elijas. Desactivado hasta que lo actives.",
+            "homeOpenGroups" to "Abrir grupos",
+            "homeLiveSharing" to "Ubicación en directo",
+            "homeSetUpSharing" to "Configurar",
+            "homeManageSharing" to "Administrar",
+            "homeSetUpSharingLabel" to "Configurar uso compartido en vivo",
+            "homeManageSharingLabel" to "Administrar uso compartido en vivo",
+            "homeStartSharing" to "Empezar a compartir",
+            "homeStopSharing" to "Dejar de compartir",
+            "homeSharingExplanation" to "Prepara un enlace válido durante 30 minutos. Tu ubicación aparece al grabar. Cualquiera con el enlace puede verla. Abrir esta página no comparte nada.",
+            "reminderOff" to "Desactivado",
+            "reminderSectionSubtitle" to "Recordatorios los días y a la hora que elijas. Desactivados hasta que los actives.",
             "reminderEnable" to "Recordármelo cada semana",
             "reminderDay" to "Día",
             "reminderTime" to "Hora",
@@ -1213,6 +1266,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardGroupCreate" to "Crear un grupo",
             "dashboardGroupJoin" to "Unirse con un código",
             "dashboardGroupHowItWorks" to "Todos en el grupo se ven mientras el grupo está activo. Nadie ve dónde has estado y no se guarda nada.",
+            "dashboardGroupHowItWorksLabel" to "Cómo funcionan las salidas en grupo",
+            "dashboardLiveSharingHowItWorks" to "Cualquier persona con el enlace ve tu ubicación mientras grabas. El enlace caduca cuando termina la sesión y solo tú puedes iniciarla o detenerla.",
+            "dashboardLiveSharingHowItWorksLabel" to "Cómo funciona el uso compartido en vivo",
             "recordingDetails" to "Detalles de grabación",
             "startTime" to "Hora de inicio",
             "discardRideTitle" to "¿Descartar este viaje?",
@@ -1524,6 +1580,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFeedbackTitle" to "Ayuda y comentarios",
             "helpFeedbackDescription" to "Encuentra respuestas rápidas o envía un informe editable.",
             "helpFeedbackOpen" to "Abrir Ayuda y comentarios",
+            "debugSettingsTitle" to "Ajustes de depuración",
+            "debugSettingsDescription" to "Controles de diagnóstico para pruebas controladas de TrackMe",
+            "debugModeTitle" to "Modo de depuración",
+            "debugModeDisableDescription" to "Al desactivarlo, se restauran los ajustes de diagnóstico y se elimina esta página.",
+            "debugTrackingControlsTitle" to "Controles de seguimiento",
+            "intelligentAutoPauseTitle" to "Pausa automática inteligente",
+            "intelligentAutoPauseDescription" to "Pausa dinámicamente el tiempo en movimiento según el perfil de velocidad de la actividad.",
+            "debugModeEnabledMessage" to "El modo de depuración está activado",
             "contactSupport" to "Contactar con soporte",
             "contactSupportSubject" to "Soporte de TrackMe",
             "contactSupportCopied" to "Dirección y detalles copiados",
@@ -1533,15 +1597,18 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFaqRecordingQuestion" to "Mi viaje dejó de grabarse con la pantalla apagada.",
             "helpFaqRecordingAnswer" to "Permite que TrackMe funcione en segundo plano y exclúyelo de la optimización de batería. Android puede detener el GPS cuando el sistema limita la aplicación.",
             "helpFaqBatteryQuestion" to "TrackMe consume mucha batería.",
-            "helpFaqBatteryAnswer" to "El GPS consume energía mientras se graba. La notificación indica que la grabación está activa; la pausa automática y el posprocesado GPS de Ajustes avanzados pueden reducir el trabajo innecesario.",
+            "helpFaqBatteryAnswer" to "El GPS consume energía mientras se graba. La notificación indica que la grabación está activa; TrackMe aplica la pausa automática para reducir el trabajo innecesario.",
             "helpFaqDistanceQuestion" to "La distancia parece incorrecta.",
-            "helpFaqDistanceAnswer" to "La deriva GPS al estar detenido, los túneles y los cañones urbanos pueden afectar la distancia. El posprocesado GPS ayuda; un hueco de señal aparece como una línea recta.",
+            "helpFaqDistanceAnswer" to "La deriva GPS al estar detenido, los túneles y los cañones urbanos pueden afectar la distancia. TrackMe limpia los puntos válidos al terminar; un hueco de señal aparece como una línea recta.",
             "helpFaqOfflineQuestion" to "¿Funcionará el seguimiento sin datos móviles?",
             "helpFaqOfflineAnswer" to "Sí. La grabación es local. Solo necesitas conexión para sincronización en la nube y compartir en directo.",
             "helpFaqShareQuestion" to "¿Quién puede ver un enlace de compartir en directo?",
             "helpFaqShareAnswer" to "Cualquiera con el enlace puede verlo hasta que expire la sesión. Solo el propietario conectado puede iniciar, actualizar o detener la sesión.",
             "helpFaqDataQuestion" to "¿Cómo exporto o elimino mis datos?",
             "helpFaqDataAnswer" to "Abre Ajustes → Gestión de cuenta para exportar tus datos o eliminar tu cuenta y sus datos en la nube.",
+            "helpFaqProCustomizationQuestion" to "¿Cómo obtengo personalizaciones de datos Pro?",
+            "helpFaqProCustomizationAnswer" to "Las personalizaciones de datos Pro aún no están disponibles. Los controles de depuración son para pruebas controladas y pueden reducir la precisión del seguimiento.",
+            "helpEnableDebugMode" to "Activar el modo de depuración (toca 5 veces)",
             "helpLocationPreciseBackground" to "precisa, segundo plano permitido",
             "helpLocationPrecise" to "precisa, segundo plano denegado",
             "helpLocationApproximate" to "aproximada",
@@ -1774,7 +1841,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStillLiveLeave" to "Quitter le groupe",
             "startProximityLine" to "Celle-ci vous fait dépasser %1\$s.",
             "reminderSectionTitle" to "Rappel d'activité",
-            "reminderSectionSubtitle" to "Un rappel par semaine, à l'heure de votre choix. Désactivé tant que vous ne l'activez pas.",
+            "homeOpenGroups" to "Ouvrir les groupes",
+            "homeLiveSharing" to "Partage en direct",
+            "homeSetUpSharing" to "Configurer",
+            "homeManageSharing" to "Gérer",
+            "homeSetUpSharingLabel" to "Configurer le partage en direct",
+            "homeManageSharingLabel" to "Gérer le partage en direct",
+            "homeStartSharing" to "Démarrer le partage",
+            "homeStopSharing" to "Arrêter le partage",
+            "homeSharingExplanation" to "Préparez un lien valable 30 minutes. Votre position apparaît pendant l’enregistrement. Toute personne ayant le lien peut la voir. Ouvrir cette page ne partage rien.",
+            "reminderOff" to "Désactivé",
+            "reminderSectionSubtitle" to "Des rappels aux jours et à l’heure de votre choix. Désactivés tant que vous ne les activez pas.",
             "reminderEnable" to "Me rappeler chaque semaine",
             "reminderDay" to "Jour",
             "reminderTime" to "Heure",
@@ -1894,6 +1971,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardGroupCreate" to "Créer un groupe",
             "dashboardGroupJoin" to "Rejoindre avec un code",
             "dashboardGroupHowItWorks" to "Tous les membres se voient tant que le groupe est actif. Personne ne voit où vous êtes allé, et rien n'est conservé.",
+            "dashboardGroupHowItWorksLabel" to "Comment fonctionnent les sorties en groupe",
+            "dashboardLiveSharingHowItWorks" to "Toute personne disposant du lien voit votre position pendant l'enregistrement. Le lien expire avec la session, et vous seul pouvez la démarrer ou l'arrêter.",
+            "dashboardLiveSharingHowItWorksLabel" to "Comment fonctionne le partage en direct",
             "recordingDetails" to "Détails de l'enregistrement",
             "startTime" to "Heure de début",
             "discardRideTitle" to "Supprimer ce trajet ?",
@@ -2205,6 +2285,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFeedbackTitle" to "Aide et commentaires",
             "helpFeedbackDescription" to "Trouvez des réponses rapides ou envoyez un rapport modifiable.",
             "helpFeedbackOpen" to "Ouvrir l’aide et les commentaires",
+            "debugSettingsTitle" to "Réglages de débogage",
+            "debugSettingsDescription" to "Commandes de diagnostic pour les tests contrôlés de TrackMe",
+            "debugModeTitle" to "Mode débogage",
+            "debugModeDisableDescription" to "Sa désactivation rétablit les réglages de diagnostic par défaut et supprime cette page.",
+            "debugTrackingControlsTitle" to "Commandes de suivi",
+            "intelligentAutoPauseTitle" to "Pause automatique intelligente",
+            "intelligentAutoPauseDescription" to "Met dynamiquement en pause le temps de déplacement selon le profil de vitesse de l’activité.",
+            "debugModeEnabledMessage" to "Le mode débogage est activé",
             "contactSupport" to "Contacter l’assistance",
             "contactSupportSubject" to "Assistance TrackMe",
             "contactSupportCopied" to "Adresse et détails copiés",
@@ -2214,15 +2302,18 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFaqRecordingQuestion" to "Mon trajet s’est arrêté lorsque l’écran était éteint.",
             "helpFaqRecordingAnswer" to "Autorisez TrackMe à fonctionner en arrière-plan et excluez-le de l’optimisation de batterie. Android peut arrêter le GPS lorsque le système limite l’application.",
             "helpFaqBatteryQuestion" to "TrackMe décharge ma batterie.",
-            "helpFaqBatteryAnswer" to "Le GPS consomme de l’énergie pendant l’enregistrement. La notification confirme que l’enregistrement est actif ; la pause automatique et le post-traitement GPS des réglages avancés réduisent le travail inutile.",
+            "helpFaqBatteryAnswer" to "Le GPS consomme de l’énergie pendant l’enregistrement. La notification confirme que l’enregistrement est actif ; TrackMe applique automatiquement la pause pour réduire le travail inutile.",
             "helpFaqDistanceQuestion" to "La distance semble incorrecte.",
-            "helpFaqDistanceAnswer" to "La dérive GPS à l’arrêt, les tunnels et les canyons urbains peuvent modifier la distance. Le post-traitement GPS aide ; un trou de signal apparaît comme une ligne droite.",
+            "helpFaqDistanceAnswer" to "La dérive GPS à l’arrêt, les tunnels et les canyons urbains peuvent modifier la distance. TrackMe nettoie les points admissibles après l’activité ; un trou de signal apparaît comme une ligne droite.",
             "helpFaqOfflineQuestion" to "Le suivi fonctionne-t-il sans données mobiles ?",
             "helpFaqOfflineAnswer" to "Oui. L’enregistrement est local. Une connexion est nécessaire seulement pour la synchronisation cloud et le partage en direct.",
             "helpFaqShareQuestion" to "Qui peut voir un lien de partage en direct ?",
             "helpFaqShareAnswer" to "Toute personne possédant le lien peut le voir jusqu’à l’expiration de la session. Seul le propriétaire connecté peut démarrer, modifier ou arrêter la session.",
             "helpFaqDataQuestion" to "Comment exporter ou supprimer mes données ?",
             "helpFaqDataAnswer" to "Ouvrez Réglages → Gestion du compte pour exporter vos données ou supprimer votre compte et ses données cloud.",
+            "helpFaqProCustomizationQuestion" to "Comment obtenir les personnalisations de données Pro ?",
+            "helpFaqProCustomizationAnswer" to "Les personnalisations de données Pro ne sont pas encore disponibles. Les commandes de débogage servent aux tests contrôlés et peuvent réduire la précision du suivi.",
+            "helpEnableDebugMode" to "Activer le mode débogage (touchez 5 fois)",
             "helpLocationPreciseBackground" to "précise, arrière-plan autorisé",
             "helpLocationPrecise" to "précise, arrière-plan refusé",
             "helpLocationApproximate" to "approximative",
@@ -2455,7 +2546,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStillLiveLeave" to "Gruppe verlassen",
             "startProximityLine" to "Diese bringt dich über %1\$s hinaus.",
             "reminderSectionTitle" to "Aktivitätserinnerung",
-            "reminderSectionSubtitle" to "Eine Erinnerung pro Woche, zu einer Zeit deiner Wahl. Aus, bis du sie einschaltest.",
+            "homeOpenGroups" to "Gruppen öffnen",
+            "homeLiveSharing" to "Live-Freigabe",
+            "homeSetUpSharing" to "Einrichten",
+            "homeManageSharing" to "Verwalten",
+            "homeSetUpSharingLabel" to "Live-Teilen einrichten",
+            "homeManageSharingLabel" to "Live-Teilen verwalten",
+            "homeStartSharing" to "Freigabe starten",
+            "homeStopSharing" to "Freigabe beenden",
+            "homeSharingExplanation" to "Erstelle einen Link für 30 Minuten. Dein Standort erscheint während der Aufzeichnung. Jeder mit dem Link kann ihn sehen. Das Öffnen dieser Seite teilt nichts.",
+            "reminderOff" to "Aus",
+            "reminderSectionSubtitle" to "Erinnerungen an den gewählten Tagen und zur gewählten Uhrzeit. Aus, bis du sie einschaltest.",
             "reminderEnable" to "Wöchentlich erinnern",
             "reminderDay" to "Tag",
             "reminderTime" to "Uhrzeit",
@@ -2575,6 +2676,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardGroupCreate" to "Gruppe erstellen",
             "dashboardGroupJoin" to "Mit Code beitreten",
             "dashboardGroupHowItWorks" to "Alle in der Gruppe sehen einander, solange die Gruppe aktiv ist. Niemand sieht, wo du warst, und nichts wird gespeichert.",
+            "dashboardGroupHowItWorksLabel" to "So funktionieren Gruppenfahrten",
+            "dashboardLiveSharingHowItWorks" to "Alle mit dem Link sehen deinen Standort, während du aufzeichnest. Der Link läuft mit der Sitzung ab, und nur du kannst sie starten oder beenden.",
+            "dashboardLiveSharingHowItWorksLabel" to "So funktioniert Live-Teilen",
             "recordingDetails" to "Aufnahmedetails",
             "startTime" to "Startzeit",
             "discardRideTitle" to "Diese Fahrt verwerfen?",
@@ -2886,6 +2990,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFeedbackTitle" to "Hilfe und Feedback",
             "helpFeedbackDescription" to "Finde schnelle Antworten oder sende einen bearbeitbaren Supportbericht.",
             "helpFeedbackOpen" to "Hilfe und Feedback öffnen",
+            "debugSettingsTitle" to "Debug-Einstellungen",
+            "debugSettingsDescription" to "Diagnosesteuerung für kontrollierte TrackMe-Tests",
+            "debugModeTitle" to "Debug-Modus",
+            "debugModeDisableDescription" to "Beim Ausschalten werden die Diagnoseeinstellungen zurückgesetzt und diese Seite entfernt.",
+            "debugTrackingControlsTitle" to "Tracking-Steuerung",
+            "intelligentAutoPauseTitle" to "Intelligente automatische Pause",
+            "intelligentAutoPauseDescription" to "Pausiert die Bewegungszeit dynamisch anhand des Geschwindigkeitsprofils der Aktivität.",
+            "debugModeEnabledMessage" to "Der Debug-Modus ist aktiviert",
             "contactSupport" to "Support kontaktieren",
             "contactSupportSubject" to "TrackMe-Support",
             "contactSupportCopied" to "Supportadresse und Details kopiert",
@@ -2895,15 +3007,18 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFaqRecordingQuestion" to "Meine Aufzeichnung stoppte bei ausgeschaltetem Bildschirm.",
             "helpFaqRecordingAnswer" to "Erlaube TrackMe die Ausführung im Hintergrund und schließe es von der Akkuoptimierung aus. Android kann GPS stoppen, wenn das System die App einschränkt.",
             "helpFaqBatteryQuestion" to "TrackMe verbraucht meinen Akku.",
-            "helpFaqBatteryAnswer" to "GPS benötigt beim Aufzeichnen Energie. Die laufende Benachrichtigung bestätigt die Aufzeichnung; automatische Pause und GPS-Nachbearbeitung unter Erweiterte Einstellungen können unnötige Arbeit verringern.",
+            "helpFaqBatteryAnswer" to "GPS benötigt beim Aufzeichnen Energie. Die laufende Benachrichtigung bestätigt die Aufzeichnung; TrackMe verwendet die automatische Pause, um unnötige Arbeit zu verringern.",
             "helpFaqDistanceQuestion" to "Die Entfernung scheint falsch.",
-            "helpFaqDistanceAnswer" to "GPS-Drift im Stillstand, Tunnel und Häuserschluchten können die Entfernung beeinflussen. GPS-Nachbearbeitung hilft; eine Signallücke wird als gerade Linie angezeigt.",
+            "helpFaqDistanceAnswer" to "GPS-Drift im Stillstand, Tunnel und Häuserschluchten können die Entfernung beeinflussen. TrackMe bereinigt geeignete Punkte nach der Aktivität; eine Signallücke wird als gerade Linie angezeigt.",
             "helpFaqOfflineQuestion" to "Funktioniert Tracking ohne mobile Daten?",
             "helpFaqOfflineAnswer" to "Ja. Die Aufzeichnung erfolgt lokal. Eine Verbindung ist nur für Cloud-Sync und Live-Sharing nötig.",
             "helpFaqShareQuestion" to "Wer kann einen Live-Sharing-Link sehen?",
             "helpFaqShareAnswer" to "Jede Person mit dem Link kann ihn bis zum Ablauf der Sitzung sehen. Nur der angemeldete Besitzer kann die Sitzung starten, aktualisieren oder beenden.",
             "helpFaqDataQuestion" to "Wie exportiere oder lösche ich meine Daten?",
             "helpFaqDataAnswer" to "Öffne Einstellungen → Kontoverwaltung, um deine Daten zu exportieren oder Konto und Cloud-Daten zu löschen.",
+            "helpFaqProCustomizationQuestion" to "Wie erhalte ich Pro-Datenanpassungen?",
+            "helpFaqProCustomizationAnswer" to "Pro-Datenanpassungen sind noch nicht verfügbar. Debug-Steuerungen dienen kontrollierten Tests und können die Tracking-Genauigkeit verringern.",
+            "helpEnableDebugMode" to "Debug-Modus aktivieren (5-mal tippen)",
             "helpLocationPreciseBackground" to "präzise, Hintergrund erlaubt",
             "helpLocationPrecise" to "präzise, Hintergrund abgelehnt",
             "helpLocationApproximate" to "ungefähr",
@@ -3136,7 +3251,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStillLiveLeave" to "समूह छोड़ें",
             "startProximityLine" to "यह आपको %1\$s के पार ले जाएगी।",
             "reminderSectionTitle" to "गतिविधि अनुस्मारक",
-            "reminderSectionSubtitle" to "सप्ताह में एक अनुस्मारक, आपके चुने समय पर। जब तक आप चालू न करें, बंद रहेगा।",
+            "homeOpenGroups" to "समूह खोलें",
+            "homeLiveSharing" to "लाइव साझा करना",
+            "homeSetUpSharing" to "सेट अप",
+            "homeManageSharing" to "प्रबंधित करें",
+            "homeSetUpSharingLabel" to "लाइव शेयरिंग सेट अप करें",
+            "homeManageSharingLabel" to "लाइव शेयरिंग प्रबंधित करें",
+            "homeStartSharing" to "साझा करना शुरू करें",
+            "homeStopSharing" to "साझा करना बंद करें",
+            "homeSharingExplanation" to "30 मिनट के लिए मान्य लिंक बनाएँ। रिकॉर्डिंग के दौरान आपका स्थान दिखेगा। लिंक वाला कोई भी व्यक्ति देख सकता है। यह पेज खोलने से कुछ साझा नहीं होता।",
+            "reminderOff" to "बंद",
+            "reminderSectionSubtitle" to "आपके चुने दिनों और समय पर अनुस्मारक। चालू करने तक बंद रहेंगे।",
             "reminderEnable" to "साप्ताहिक याद दिलाएँ",
             "reminderDay" to "दिन",
             "reminderTime" to "समय",
@@ -3256,6 +3381,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardGroupCreate" to "समूह बनाएं",
             "dashboardGroupJoin" to "कोड से जुड़ें",
             "dashboardGroupHowItWorks" to "समूह के सक्रिय रहने तक सभी सदस्य एक-दूसरे को देख सकते हैं। आप कहाँ गए थे यह कोई नहीं देखता, और कुछ भी सहेजा नहीं जाता।",
+            "dashboardGroupHowItWorksLabel" to "समूह राइड कैसे काम करती है",
+            "dashboardLiveSharingHowItWorks" to "लिंक रखने वाला कोई भी व्यक्ति रिकॉर्डिंग के दौरान आपका स्थान देख सकता है। सत्र समाप्त होने पर लिंक भी समाप्त हो जाता है, और केवल आप ही इसे शुरू या बंद कर सकते हैं।",
+            "dashboardLiveSharingHowItWorksLabel" to "लाइव शेयरिंग कैसे काम करती है",
             "recordingDetails" to "रिकॉर्डिंग विवरण",
             "startTime" to "प्रारंभ समय",
             "discardRideTitle" to "इस यात्रा को हटाएं?",
@@ -3567,6 +3695,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFeedbackTitle" to "मदद और प्रतिक्रिया",
             "helpFeedbackDescription" to "त्वरित उत्तर पाएं या संपादन योग्य सहायता रिपोर्ट भेजें।",
             "helpFeedbackOpen" to "मदद और प्रतिक्रिया खोलें",
+            "debugSettingsTitle" to "डीबग सेटिंग्स",
+            "debugSettingsDescription" to "नियंत्रित TrackMe परीक्षण के लिए डायग्नोस्टिक कंट्रोल",
+            "debugModeTitle" to "डीबग मोड",
+            "debugModeDisableDescription" to "इसे बंद करने पर डायग्नोस्टिक सेटिंग्स डिफ़ॉल्ट हो जाएंगी और यह पेज हट जाएगा।",
+            "debugTrackingControlsTitle" to "ट्रैकिंग कंट्रोल",
+            "intelligentAutoPauseTitle" to "स्मार्ट ऑटो-पॉज़",
+            "intelligentAutoPauseDescription" to "गतिविधि की गति प्रोफ़ाइल के अनुसार चलते समय को अपने-आप रोकता है।",
+            "debugModeEnabledMessage" to "डीबग मोड चालू है",
             "contactSupport" to "सहायता से संपर्क करें",
             "contactSupportSubject" to "TrackMe सहायता",
             "contactSupportCopied" to "सहायता पता और विवरण कॉपी किए गए",
@@ -3576,15 +3712,18 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFaqRecordingQuestion" to "स्क्रीन बंद होने पर मेरी राइड रिकॉर्ड होना बंद हो गई।",
             "helpFaqRecordingAnswer" to "TrackMe को बैकग्राउंड में चलने दें और बैटरी ऑप्टिमाइज़ेशन से बाहर रखें। सिस्टम ऐप को सीमित करने पर Android बैकग्राउंड GPS रोक सकता है।",
             "helpFaqBatteryQuestion" to "TrackMe की बैटरी बहुत खर्च होती है।",
-            "helpFaqBatteryAnswer" to "राइड रिकॉर्ड करते समय GPS ऊर्जा लेता है। चल रही सूचना बताती है कि रिकॉर्डिंग सक्रिय है; Advanced Settings में ऑटो-पॉज़ और GPS पोस्ट-प्रोसेसिंग अनावश्यक काम घटा सकते हैं।",
+            "helpFaqBatteryAnswer" to "राइड रिकॉर्ड करते समय GPS ऊर्जा लेता है। चल रही सूचना बताती है कि रिकॉर्डिंग सक्रिय है; TrackMe अनावश्यक काम घटाने के लिए ऑटो-पॉज़ अपने-आप लागू करता है।",
             "helpFaqDistanceQuestion" to "दूरी गलत लगती है।",
-            "helpFaqDistanceAnswer" to "रुके रहने पर GPS ड्रिफ्ट, सुरंग और ऊंची इमारतें दूरी बदल सकती हैं। GPS पोस्ट-प्रोसेसिंग मदद करती है; सिग्नल गैप चार्ट पर सीधी रेखा दिखता है।",
+            "helpFaqDistanceAnswer" to "रुके रहने पर GPS ड्रिफ्ट, सुरंग और ऊंची इमारतें दूरी बदल सकती हैं। TrackMe राइड के बाद योग्य पॉइंट साफ करता है; सिग्नल गैप सीधी रेखा दिखता है।",
             "helpFaqOfflineQuestion" to "क्या मोबाइल डेटा के बिना ट्रैकिंग चलेगी?",
             "helpFaqOfflineAnswer" to "हां। रिकॉर्डिंग स्थानीय है। कनेक्शन केवल क्लाउड सिंक और लाइव शेयरिंग के लिए चाहिए।",
             "helpFaqShareQuestion" to "लाइव शेयर लिंक कौन देख सकता है?",
             "helpFaqShareAnswer" to "लिंक वाला कोई भी व्यक्ति सत्र समाप्त होने तक देख सकता है। केवल साइन-इन मालिक सत्र शुरू, अपडेट या बंद कर सकता है।",
             "helpFaqDataQuestion" to "मैं अपना डेटा कैसे निकालूं या हटाऊं?",
             "helpFaqDataAnswer" to "डेटा एक्सपोर्ट करने या खाते और क्लाउड डेटा को हटाने के लिए सेटिंग्स → खाता प्रबंधन खोलें।",
+            "helpFaqProCustomizationQuestion" to "Pro डेटा कस्टमाइज़ेशन कैसे मिलेगा?",
+            "helpFaqProCustomizationAnswer" to "Pro डेटा कस्टमाइज़ेशन अभी उपलब्ध नहीं है। डीबग कंट्रोल केवल नियंत्रित परीक्षण के लिए हैं और ट्रैकिंग की सटीकता घटा सकते हैं।",
+            "helpEnableDebugMode" to "डीबग मोड चालू करें (5 बार टैप करें)",
             "helpLocationPreciseBackground" to "सटीक, बैकग्राउंड की अनुमति",
             "helpLocationPrecise" to "सटीक, बैकग्राउंड अस्वीकृत",
             "helpLocationApproximate" to "अनुमानित",
@@ -3817,7 +3956,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStillLiveLeave" to "グループを退出",
             "startProximityLine" to "これで%1\$sを超えます。",
             "reminderSectionTitle" to "アクティビティのリマインダー",
-            "reminderSectionSubtitle" to "週に1回、選んだ時間に。オンにするまでは無効です。",
+            "homeOpenGroups" to "グループを開く",
+            "homeLiveSharing" to "ライブ共有",
+            "homeSetUpSharing" to "設定",
+            "homeManageSharing" to "管理",
+            "homeSetUpSharingLabel" to "ライブ共有を設定",
+            "homeManageSharingLabel" to "ライブ共有を管理",
+            "homeStartSharing" to "共有を開始",
+            "homeStopSharing" to "共有を停止",
+            "homeSharingExplanation" to "30分間有効なリンクを準備します。記録中に位置が表示され、リンクを持つ人が閲覧できます。このページを開くだけでは共有されません。",
+            "reminderOff" to "オフ",
+            "reminderSectionSubtitle" to "選んだ曜日と時間にリマインドします。オンにするまでは無効です。",
             "reminderEnable" to "毎週リマインドする",
             "reminderDay" to "曜日",
             "reminderTime" to "時刻",
@@ -3937,6 +4086,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardGroupCreate" to "グループを作成",
             "dashboardGroupJoin" to "コードで参加",
             "dashboardGroupHowItWorks" to "グループが有効な間、メンバー同士がお互いを見られます。走った場所は誰にも見られず、何も保存されません。",
+            "dashboardGroupHowItWorksLabel" to "グループライドの仕組み",
+            "dashboardLiveSharingHowItWorks" to "リンクを知っている人は、記録中のあなたの位置を見ることができます。リンクはセッションの終了とともに無効になり、開始と停止はあなただけが行えます。",
+            "dashboardLiveSharingHowItWorksLabel" to "ライブ共有の仕組み",
             "recordingDetails" to "記録の詳細",
             "startTime" to "開始時刻",
             "discardRideTitle" to "この記録を破棄しますか？",
@@ -4248,6 +4400,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFeedbackTitle" to "ヘルプとフィードバック",
             "helpFeedbackDescription" to "すぐに答えを確認するか、編集できるサポートレポートを送信します。",
             "helpFeedbackOpen" to "ヘルプとフィードバックを開く",
+            "debugSettingsTitle" to "デバッグ設定",
+            "debugSettingsDescription" to "TrackMeの管理されたテスト用診断コントロール",
+            "debugModeTitle" to "デバッグモード",
+            "debugModeDisableDescription" to "オフにすると診断設定が初期値に戻り、このページが削除されます。",
+            "debugTrackingControlsTitle" to "追跡コントロール",
+            "intelligentAutoPauseTitle" to "インテリジェント自動一時停止",
+            "intelligentAutoPauseDescription" to "アクティビティの速度特性に応じて移動時間を自動的に一時停止します。",
+            "debugModeEnabledMessage" to "デバッグモードが有効になりました",
             "contactSupport" to "サポートに連絡",
             "contactSupportSubject" to "TrackMeサポート",
             "contactSupportCopied" to "サポートの宛先と詳細をコピーしました",
@@ -4257,15 +4417,18 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFaqRecordingQuestion" to "画面をオフにすると記録が停止しました。",
             "helpFaqRecordingAnswer" to "TrackMeのバックグラウンド実行を許可し、バッテリー最適化の対象外にしてください。システムがアプリを制限すると、AndroidはバックグラウンドGPSを停止することがあります。",
             "helpFaqBatteryQuestion" to "TrackMeでバッテリーが減ります。",
-            "helpFaqBatteryAnswer" to "記録中はGPSが電力を使います。通知が表示される間は記録中です。自動一時停止と詳細設定のGPS後処理で不要な処理を減らせます。",
+            "helpFaqBatteryAnswer" to "記録中はGPSが電力を使います。通知が表示される間は記録中です。TrackMeは自動一時停止を適用して不要な処理を減らします。",
             "helpFaqDistanceQuestion" to "距離が正しくないようです。",
-            "helpFaqDistanceAnswer" to "停止中のGPSドリフト、トンネル、高層ビルで距離が変わることがあります。GPS後処理が役立ち、信号の空白はチャート上で直線になります。",
+            "helpFaqDistanceAnswer" to "停止中のGPSドリフト、トンネル、高層ビルで距離が変わることがあります。TrackMeは終了後に対象の位置情報を補正し、信号の空白は直線で表示します。",
             "helpFaqOfflineQuestion" to "モバイルデータなしで追跡できますか？",
             "helpFaqOfflineAnswer" to "はい。記録は端末内で行われます。クラウド同期とライブ共有だけ接続が必要です。",
             "helpFaqShareQuestion" to "ライブ共有リンクは誰が見られますか？",
             "helpFaqShareAnswer" to "リンクを持つ人はセッション終了まで見られます。セッションを開始・更新・停止できるのはログイン中の所有者だけです。",
             "helpFaqDataQuestion" to "データを取り出す、または削除するには？",
             "helpFaqDataAnswer" to "設定 → アカウント管理を開き、データをエクスポートするかアカウントとクラウドデータを削除してください。",
+            "helpFaqProCustomizationQuestion" to "Proデータカスタマイズを利用するには？",
+            "helpFaqProCustomizationAnswer" to "Proデータカスタマイズはまだ利用できません。デバッグコントロールは管理されたテスト用で、追跡精度を下げる場合があります。",
+            "helpEnableDebugMode" to "デバッグモードを有効化（5回タップ）",
             "helpLocationPreciseBackground" to "正確、バックグラウンド許可",
             "helpLocationPrecise" to "正確、バックグラウンド拒否",
             "helpLocationApproximate" to "おおよそ",
@@ -4498,7 +4661,17 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupStillLiveLeave" to "退出群组",
             "startProximityLine" to "这一次将带你越过 %1\$s。",
             "reminderSectionTitle" to "活动提醒",
-            "reminderSectionSubtitle" to "每周一次提醒，时间由你选择。除非开启，否则不会发送。",
+            "homeOpenGroups" to "打开群组",
+            "homeLiveSharing" to "实时共享",
+            "homeSetUpSharing" to "设置",
+            "homeManageSharing" to "管理",
+            "homeSetUpSharingLabel" to "设置实时共享",
+            "homeManageSharingLabel" to "管理实时共享",
+            "homeStartSharing" to "开始共享",
+            "homeStopSharing" to "停止共享",
+            "homeSharingExplanation" to "准备一个有效期为30分钟的链接。记录时显示你的位置，持有链接的人均可查看。打开此页面不会共享任何内容。",
+            "reminderOff" to "关闭",
+            "reminderSectionSubtitle" to "在你选择的日期和时间提醒。开启后才会发送。",
             "reminderEnable" to "每周提醒我",
             "reminderDay" to "星期",
             "reminderTime" to "时间",
@@ -4618,6 +4791,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "dashboardGroupCreate" to "创建群组",
             "dashboardGroupJoin" to "用代码加入",
             "dashboardGroupHowItWorks" to "群组活跃期间，成员之间可以互相看到。没有人能看到你去过哪里，也不会保存任何记录。",
+            "dashboardGroupHowItWorksLabel" to "群组骑行如何运作",
+            "dashboardLiveSharingHowItWorks" to "任何拥有该链接的人都能在你记录时看到你的位置。链接会随会话一起失效，只有你可以开始或停止。",
+            "dashboardLiveSharingHowItWorksLabel" to "实时共享的工作方式",
             "recordingDetails" to "记录详情",
             "startTime" to "开始时间",
             "discardRideTitle" to "丢弃此次行程？",
@@ -4929,6 +5105,14 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFeedbackTitle" to "帮助与反馈",
             "helpFeedbackDescription" to "查找快速答案，或发送可编辑的支持报告。",
             "helpFeedbackOpen" to "打开帮助与反馈",
+            "debugSettingsTitle" to "调试设置",
+            "debugSettingsDescription" to "用于 TrackMe 受控测试的诊断控制",
+            "debugModeTitle" to "调试模式",
+            "debugModeDisableDescription" to "关闭后会恢复诊断设置默认值，并移除此页面。",
+            "debugTrackingControlsTitle" to "跟踪控制",
+            "intelligentAutoPauseTitle" to "智能自动暂停",
+            "intelligentAutoPauseDescription" to "根据活动速度特征动态暂停移动计时。",
+            "debugModeEnabledMessage" to "调试模式已启用",
             "contactSupport" to "联系支持",
             "contactSupportSubject" to "TrackMe 支持",
             "contactSupportCopied" to "支持地址和详情已复制",
@@ -4938,15 +5122,18 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpFaqRecordingQuestion" to "屏幕关闭时我的行程停止记录。",
             "helpFaqRecordingAnswer" to "允许 TrackMe 在后台运行，并将其排除在电池优化之外。系统限制应用时，Android 可能会停止后台 GPS。",
             "helpFaqBatteryQuestion" to "TrackMe 消耗电池。",
-            "helpFaqBatteryAnswer" to "记录行程时 GPS 会耗电。持续通知表示正在记录；高级设置中的自动暂停和 GPS 后处理可以减少不必要的工作。",
+            "helpFaqBatteryAnswer" to "记录行程时 GPS 会耗电。持续通知表示正在记录；TrackMe 会自动应用自动暂停以减少不必要的工作。",
             "helpFaqDistanceQuestion" to "距离看起来不对。",
-            "helpFaqDistanceAnswer" to "静止时的 GPS 漂移、隧道和城市高楼可能影响距离。GPS 后处理会有所帮助；信号中断会在图表上显示为直线。",
+            "helpFaqDistanceAnswer" to "静止时的 GPS 漂移、隧道和城市高楼可能影响距离。TrackMe 会在行程后清理符合条件的定位点；信号中断会显示为直线。",
             "helpFaqOfflineQuestion" to "没有移动数据时可以跟踪吗？",
             "helpFaqOfflineAnswer" to "可以。记录优先保存在本地。只有云同步和实时共享需要网络连接。",
             "helpFaqShareQuestion" to "谁可以看到实时共享链接？",
             "helpFaqShareAnswer" to "拥有链接的人都可以看到，直到会话过期。只有已登录的所有者可以开始、更新或停止会话。",
             "helpFaqDataQuestion" to "如何导出或删除我的数据？",
             "helpFaqDataAnswer" to "打开设置 → 账户管理，导出数据或删除账户及云端数据。",
+            "helpFaqProCustomizationQuestion" to "如何获得 Pro 数据自定义？",
+            "helpFaqProCustomizationAnswer" to "Pro 数据自定义尚未开放。调试控制仅用于受控测试，并可能降低跟踪准确性。",
+            "helpEnableDebugMode" to "启用调试模式（点按 5 次）",
             "helpLocationPreciseBackground" to "精确，允许后台",
             "helpLocationPrecise" to "精确，拒绝后台",
             "helpLocationApproximate" to "大致位置",

@@ -95,6 +95,7 @@ internal fun isRideEligibleForCloudSync(ride: RideEntity): Boolean =
 internal fun dashboardCloudMetadata(ride: RideEntity, pointCount: Int): Map<String, Any?> = buildMap {
     put("rawPointCount", pointCount.coerceAtLeast(0))
     put("startZoneId", ride.startZoneId)
+    put("trackingAlgorithmVersion", ride.trackingAlgorithmVersion)
     // A pre-v2 row's zero is a migration placeholder, not an observed active duration. Omitting the
     // field lets another client reconstruct it from points instead of freezing that placeholder.
     if (ride.dashboardMetadataVersion >= HOME_DASHBOARD_METADATA_VERSION) {
@@ -473,6 +474,7 @@ class FirestoreSyncManager(
                     timestamp = coerceEpochMillis(map["timestamp"]) ?: (startTime + index * 1000L),
                     isPaused = (map["isPaused"] as? Boolean) ?: false,
                     pauseOrigin = PauseOrigin.fromStoredValue(map["pauseOrigin"] as? String),
+                    cumulativeDistanceMeters = (map["cumulativeDistanceMeters"] as? Number)?.toDouble(),
                 )
             }
 
@@ -512,6 +514,7 @@ class FirestoreSyncManager(
                 title = title,
                 persona = persona,
                 startZoneId = doc.getString("startZoneId"),
+                trackingAlgorithmVersion = doc.getLong("trackingAlgorithmVersion")?.toInt(),
                 postRideCalculation = calc
             )
             val reconstructedActiveDuration =
@@ -578,6 +581,7 @@ class FirestoreSyncManager(
         put("timestamp", point.timestamp)
         put("isPaused", point.isPaused)
         point.pauseOrigin?.let { put("pauseOrigin", it.name) }
+        point.cumulativeDistanceMeters?.let { put("cumulativeDistanceMeters", it) }
     }
 
     /**

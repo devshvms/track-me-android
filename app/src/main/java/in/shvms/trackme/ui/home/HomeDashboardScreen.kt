@@ -5,6 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -84,6 +87,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.layout.widthIn
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -109,6 +116,8 @@ internal fun HomeDashboardScreen(
     onOpenSettings: () -> Unit,
     onDismissPermissionNotice: () -> Unit,
     scrollToTopRequest: Int = 0,
+    onOpenLiveSharing: () -> Unit = {},
+    liveSharingActive: Boolean = false,
 ) {
     val strings = LocalAppStrings.current
     // A first Room emission can still be an empty projection while legacy metadata is being
@@ -159,13 +168,59 @@ internal fun HomeDashboardScreen(
             }
 
             item {
-                GroupRideCard(
+                BoxWithConstraints {
+                    val stacked = LocalDensity.current.fontScale > 1.3f || maxWidth < 300.dp
+                    val tileWidth = if (stacked) maxWidth else (maxWidth - 12.dp) / 2
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp), maxItemsInEachRow = 2) {
+                    Box(Modifier.width(tileWidth)) { GroupRideCard(
                     groupActive = groupActive,
                     groupMemberCount = groupMemberCount,
                     strings = strings,
                     onOpenCommunity = onOpenCommunity,
                     onOpenGroupMap = onOpenGroupMap,
-                )
+                    ) }
+                    Card(modifier = Modifier.width(tileWidth),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                        Column(Modifier.fillMaxWidth().heightIn(min = 180.dp).padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Route, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.weight(1f))
+                                // Mirrors the group tile: hidden while sharing is active, so the
+                                // pair stays symmetrical in the state a rider sees most often.
+                                if (!liveSharingActive) {
+                                    CardInfoButton(
+                                        label = strings.dashboardLiveSharingHowItWorksLabel,
+                                        body = strings.dashboardLiveSharingHowItWorks,
+                                    )
+                                }
+                            }
+                            Text(strings.homeLiveSharing, style = MaterialTheme.typography.titleMedium)
+                            FilledTonalButton(
+                                onClick = onOpenLiveSharing,
+                                // The visible text is a bare verb; the control still needs a name
+                                // that means something read on its own, without the tile's title.
+                                modifier = Modifier.semantics {
+                                    contentDescription = if (liveSharingActive) {
+                                        strings.homeManageSharingLabel
+                                    } else {
+                                        strings.homeSetUpSharingLabel
+                                    }
+                                },
+                            ) {
+                                Text(
+                                    if (liveSharingActive) strings.homeManageSharing else strings.homeSetUpSharing,
+                                    // A label that still outgrows the tile in some language should
+                                    // shorten, not reflow the button into two lines.
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                    }
+                }
             }
 
             if (summary.lifetimeActivityCount > 0) {
@@ -185,9 +240,6 @@ internal fun HomeDashboardScreen(
                 }
             }
 
-            summary.insight?.let { insight ->
-                item { InsightCard(insight, imperial, strings) }
-            }
 
             item {
                 val facts = summary.toGamificationFacts()
@@ -422,6 +474,58 @@ private fun ContextCard(
  * prominence on the empty state because it is the reason people trust this feature — so the entry
  * point carries it too, rather than making the promise only where the rider has already committed.
  */
+/**
+ * The `(i)` on a dashboard tile, and the explanation it opens.
+ *
+ * The explanation is an anchored [Popup], **not** a line inserted into the card. The two tiles
+ * share a row, so a card that grows by a paragraph moves its neighbour and unbalances the pair —
+ * on the iOS twin, whose row equalises heights, it stretched the other card into a mostly-empty
+ * box. A popup costs the layout nothing at all.
+ *
+ * One composable rather than one per card, because "the same control implemented twice" is how
+ * these two tiles came to disagree in the first place.
+ *
+ * @param label names the control, for TalkBack. Deliberately not the same string as [body]:
+ *   announcing two sentences of explanation as a control's name is not a label.
+ */
+@Composable
+private fun CardInfoButton(label: String, body: String) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    Box {
+        IconButton(onClick = { expanded = !expanded }) {
+            Icon(
+                Icons.Outlined.Info,
+                contentDescription = label,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (expanded) {
+            Popup(
+                alignment = Alignment.TopEnd,
+                offset = IntOffset(0, with(LocalDensity.current) { 44.dp.roundToPx() }),
+                onDismissRequest = { expanded = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    tonalElevation = 3.dp,
+                    shadowElevation = 6.dp,
+                ) {
+                    Text(
+                        body,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.widthIn(max = 260.dp).padding(14.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun GroupRideCard(
     groupActive: Boolean,
@@ -430,52 +534,36 @@ private fun GroupRideCard(
     onOpenCommunity: () -> Unit,
     onOpenGroupMap: () -> Unit,
 ) {
-    var showHowItWorks by rememberSaveable { mutableStateOf(false) }
-
     Card(
         colors = CardDefaults.cardColors(
             containerColor = if (groupActive) MaterialTheme.colorScheme.surfaceContainerHigh
             else MaterialTheme.colorScheme.surfaceContainerLow
         )
     ) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxWidth().heightIn(min = 180.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Groups, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = if (groupActive) {
-                        "${strings.dashboardGroupActive} • " +
-                            String.format(Locale.getDefault(), strings.dashboardGroupMembers, groupMemberCount)
-                    } else {
-                        strings.dashboardGroupHeading
-                    },
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
+                Icon(Icons.Default.Groups, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.weight(1f))
                 if (!groupActive) {
-                    IconButton(onClick = { showHowItWorks = !showHowItWorks }) {
-                        Icon(
-                            Icons.Outlined.Info,
-                            contentDescription = strings.dashboardGroupHowItWorks,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    CardInfoButton(
+                        label = strings.dashboardGroupHowItWorksLabel,
+                        body = strings.dashboardGroupHowItWorks,
+                    )
                 }
             }
 
-            if (!groupActive && showHowItWorks) {
-                Text(
-                    strings.dashboardGroupHowItWorks,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                text = if (groupActive) "${strings.dashboardGroupActive} • " +
+                    String.format(Locale.getDefault(), strings.dashboardGroupMembers, groupMemberCount)
+                    else strings.dashboardGroupHeading,
+                fontWeight = FontWeight.SemiBold,
+            )
 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (groupActive) {
                     FilledTonalButton(onClick = onOpenGroupMap) { Text(strings.dashboardViewLiveMap) }
                 } else {
-                    FilledTonalButton(onClick = onOpenCommunity) { Text(strings.dashboardGroupHeading) }
+                    FilledTonalButton(onClick = onOpenCommunity) { Text(strings.homeOpenGroups) }
                 }
             }
         }

@@ -18,10 +18,10 @@ import androidx.navigation.NavController
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Sync
 import `in`.shvms.trackme.TrackMeApp
+import `in`.shvms.trackme.settings.DebugSettings
 import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.data.remote.SyncResult
 import kotlinx.coroutines.launch
@@ -288,6 +288,18 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         val prefs = context.getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
+        var debugModeEnabled by remember(prefs) {
+            mutableStateOf(DebugSettings.isEnabled(prefs))
+        }
+        DisposableEffect(prefs) {
+            val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { shared, key ->
+                if (key == DebugSettings.MODE_ENABLED_KEY) {
+                    debugModeEnabled = DebugSettings.isEnabled(shared)
+                }
+            }
+            prefs.registerOnSharedPreferenceChangeListener(listener)
+            onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+        }
         val preferencesManager = remember(context) {
             (context.applicationContext as TrackMeApp).preferencesManager
         }
@@ -394,59 +406,32 @@ fun SettingsScreen(
             )
         }
 
-        // Advanced Settings
-        var disablePostProcessing by remember { 
-            mutableStateOf(prefs.getBoolean("disable_gps_post_processing", false)) 
-        }
-        var intelligentAutoPause by remember {
-            mutableStateOf(prefs.getBoolean("intelligent_auto_pause", true))
-        }
-        var showGpsInfo by remember { mutableStateOf(false) }
-
+        // PiP changes presentation, so it remains a normal customer preference. Tracking-algorithm
+        // overrides live on the separately unlocked Debug Settings page.
         SettingsGroup(title = strings.advancedSettings) {
-            SettingsSwitchRow(
-                title = "Intelligent Auto-Pause",
-                supportingText = "Dynamically pauses moving timer at traffic signals or stops based on vehicle/activity speed profile",
-                checked = intelligentAutoPause,
-                onCheckedChange = { checked ->
-                    intelligentAutoPause = checked
-                    prefs.edit().putBoolean("intelligent_auto_pause", checked).apply()
-                },
-            )
-            SettingsDivider()
             SettingsSwitchRow(
                 title = strings.pipDashboardTitle,
                 supportingText = strings.pipDashboardDescription,
                 checked = pipDashboardEnabled,
                 onCheckedChange = preferencesManager::setPiPDashboardEnabled,
             )
-            SettingsDivider()
-            SettingsSwitchRow(
-                title = strings.disableGpsPostProcessing,
-                supportingText = strings.disableGpsDesc,
-                checked = disablePostProcessing,
-                onCheckedChange = { checked ->
-                    disablePostProcessing = checked
-                    prefs.edit().putBoolean("disable_gps_post_processing", checked).apply()
-                },
-                onInfoClick = { showGpsInfo = true },
-                infoDescription = strings.info,
-            )
         }
 
-        if (showGpsInfo) {
-            AlertDialog(
-                onDismissRequest = { showGpsInfo = false },
-                title = { Text(strings.gpsPostProcessingTitle) },
-                text = { 
-                    Text(strings.gpsPostProcessingInfo) 
-                },
-                confirmButton = {
-                    TextButton(onClick = { showGpsInfo = false }) {
-                        Text(strings.gotIt)
-                    }
-                }
-            )
+        if (debugModeEnabled) {
+            SettingsGroup(title = strings.debugSettingsTitle) {
+                SettingsRow(
+                    title = strings.debugSettingsTitle,
+                    supportingText = strings.debugSettingsDescription,
+                    trailingContent = {
+                        Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    onClick = { navController?.navigate("debug_settings") },
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(16.dp))

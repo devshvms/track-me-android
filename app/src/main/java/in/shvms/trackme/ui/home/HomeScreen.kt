@@ -6,11 +6,14 @@ import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.ui.components.rememberMessenger
 import `in`.shvms.trackme.ui.components.rememberMapStyle
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.content.ContextCompat
 import `in`.shvms.trackme.TrackMeApp
+import `in`.shvms.trackme.BuildConfig
 import `in`.shvms.trackme.service.TrackingState
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -174,6 +178,7 @@ fun HomeScreen(
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    var showHomeSharing by rememberSaveable { mutableStateOf(false) }
     val messenger = rememberMessenger()
     val mapStyle = rememberMapStyle()
     val app = context.applicationContext as TrackMeApp
@@ -186,6 +191,7 @@ fun HomeScreen(
     var showDashboardPersonaPicker by rememberSaveable { mutableStateOf(false) }
     var dashboardSelectionCameFromPicker by rememberSaveable { mutableStateOf(false) }
     var hasRequestedStartRideUndo by remember { mutableStateOf(false) }
+    var showV2MotionPermissionPrimer by rememberSaveable { mutableStateOf(false) }
     var hasLocationPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -372,6 +378,27 @@ fun HomeScreen(
             }
         }
     )
+
+    val activityRecognitionPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { /* V2 remains usable with GPS + motion when pedometer access is declined. */ },
+    )
+
+    LaunchedEffect(uiState.trackingState, uiState.selectedPersona) {
+        if (!BuildConfig.DEBUG || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return@LaunchedEffect
+        val pedestrianRide = uiState.selectedPersona == RidePersona.WALK ||
+            uiState.selectedPersona == RidePersona.RUN
+        val alreadyAsked = uiPreferences.getBoolean("debug_v2_activity_recognition_asked", false)
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACTIVITY_RECOGNITION,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (uiState.trackingState == TrackingState.TRACKING && pedestrianRide &&
+            !alreadyAsked && !granted
+        ) {
+            showV2MotionPermissionPrimer = true
+        }
+    }
 
     // TASK-284. Both ride-start paths used to ask whenever the permission was not granted, i.e.
     // on every single ride. Android 13+ makes the second denial permanent, so that nagged a rider
@@ -736,15 +763,6 @@ fun HomeScreen(
             dashboardEntryTracked = true
         }
     }
-    LaunchedEffect(presentationMode, uiState.dashboardSummary.insight?.analyticsValue) {
-        val type = uiState.dashboardSummary.insight?.analyticsValue
-        if (presentationMode == HomePresentationMode.IDLE_DASHBOARD &&
-            type != null && dashboardInsightTracked != type
-        ) {
-            AnalyticsManager.trackHomeInsightShown(type)
-            dashboardInsightTracked = type
-        }
-    }
     LaunchedEffect(presentationMode, uiState.dashboardSummary.latestActivity?.localId) {
         if (presentationMode == HomePresentationMode.IDLE_DASHBOARD) {
             uiState.dashboardSummary.latestActivity?.localId?.let(viewModel::loadDashboardRoute)
@@ -790,6 +808,37 @@ fun HomeScreen(
         )
     }
 
+    if (BuildConfig.DEBUG && showV2MotionPermissionPrimer) {
+        AlertDialog(
+            onDismissRequest = {
+                uiPreferences.edit().putBoolean("debug_v2_activity_recognition_asked", true).apply()
+                showV2MotionPermissionPrimer = false
+            },
+            title = { Text("Tracking V2 walking evidence") },
+            text = {
+                Text(
+                    "Allow physical-activity access so the debug-only V2 comparison can use " +
+                        "step evidence for walking/running. V1 is unchanged if you decline."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    uiPreferences.edit().putBoolean("debug_v2_activity_recognition_asked", true).apply()
+                    showV2MotionPermissionPrimer = false
+                    activityRecognitionPermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                }) { Text("Allow") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    uiPreferences.edit().putBoolean("debug_v2_activity_recognition_asked", true).apply()
+                    showV2MotionPermissionPrimer = false
+                }) { Text("Not now") }
+            },
+        )
+    }
+
+
+
     if (showDashboardPersonaPicker) {
         AlertDialog(
             onDismissRequest = { showDashboardPersonaPicker = false },
@@ -819,6 +868,36 @@ fun HomeScreen(
                 }
             },
         )
+    }
+
+    if (showHomeSharing) {
+        val active = uiState.liveShareState.status == LiveShareStatus.ACTIVE
+        AlertDialog(onDismissRequest = { showHomeSharing = false },
+            title = { Text(strings.homeLiveSharing) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(if (groupSession.isActive) strings.groupLiveShareBlocked else strings.homeSharingExplanation)
+                    if (active) {
+                        TextButton(onClick = {
+                            uiState.liveShareState.shareLink?.let { link ->
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, link)
+                                }
+                                context.startActivity(Intent.createChooser(intent, strings.share))
+                            }
+                        }) { Text(strings.shareLink) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !groupSession.isActive, onClick = {
+                    if (active) viewModel.stopLiveShare()
+                    else viewModel.startLiveShare(durationMinutes = 30, stopOnRideEnd = true)
+                    showHomeSharing = false
+                }) { Text(if (active) strings.homeStopSharing else strings.homeStartSharing) }
+            },
+            dismissButton = { TextButton(onClick = { showHomeSharing = false }) { Text(strings.close) } })
     }
 
     Scaffold(
@@ -922,6 +1001,7 @@ fun HomeScreen(
                             width = 10f
                         )
                     }
+
 
                     // --- Destination pin (§2.9) ---
                     //
@@ -1360,6 +1440,8 @@ fun HomeScreen(
                     elapsedDurationText = uiState.elapsedDurationText,
                     speedText = uiState.speedText,
                     paceText = uiState.paceText,
+                    v1DistanceMeters = uiState.distanceMeters,
+                    v1SpeedMetersPerSecond = uiState.speedMetersPerSecond,
                     selectedPersona = uiState.selectedPersona,
                     isAutoPaused = uiState.isAutoPaused,
                     timeSinceLastGps = uiState.timeSinceLastGps,
@@ -1487,6 +1569,8 @@ fun HomeScreen(
                     onOpenSettings = { openAppSettings(context) },
                     onDismissPermissionNotice = app::dismissLocationPermissionRevokedNoticeForSession,
                     scrollToTopRequest = scrollToTopRequest,
+                    onOpenLiveSharing = { showHomeSharing = true },
+                    liveSharingActive = uiState.liveShareState.status == LiveShareStatus.ACTIVE,
                 )
             }
 

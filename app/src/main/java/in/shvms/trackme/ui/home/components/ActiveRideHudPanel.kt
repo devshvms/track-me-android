@@ -1,6 +1,7 @@
 package `in`.shvms.trackme.ui.home.components
 
 import `in`.shvms.trackme.theme.LocalTrackMeElevation
+import `in`.shvms.trackme.BuildConfig
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.domain.model.usesPace
+import `in`.shvms.trackme.domain.processor.TrackingV2Snapshot
 import `in`.shvms.trackme.ui.components.icon
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
@@ -162,6 +164,9 @@ fun ActiveRideHudPanel(
     speedText: String,
     /** Shown instead of [speedText] for personas where [usesPace] holds — walk and run. */
     paceText: String,
+    v1DistanceMeters: Float = 0f,
+    v1SpeedMetersPerSecond: Float = 0f,
+    debugV2Snapshot: TrackingV2Snapshot? = null,
     selectedPersona: RidePersona,
     isAutoPaused: Boolean,
     timeSinceLastGps: Long,
@@ -318,14 +323,14 @@ fun ActiveRideHudPanel(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(14.dp),
+                    .padding(10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Stats Row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 14.dp),
+                        .padding(bottom = 8.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     StatItem(label = strings.distance, value = distanceText)
@@ -348,6 +353,7 @@ fun ActiveRideHudPanel(
                         StatItem(label = strings.speed, value = speedText)
                     }
                 }
+
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
                 Spacer(modifier = Modifier.height(12.dp))

@@ -16,4 +16,5 @@ data class GPSPointEntity(
     val timestamp: Long,
     val isPaused: Boolean,
     val pauseOrigin: PauseOrigin? = null,
+    val cumulativeDistanceMeters: Double? = null,
 )

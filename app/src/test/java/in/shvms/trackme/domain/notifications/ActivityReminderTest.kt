@@ -14,6 +14,21 @@ import org.junit.Test
  * was written to obey.
  */
 class ActivityReminderTest {
+    @Test fun `multiple selected days fire but not intervening days`() {
+        val settings = ActivityReminder.Settings(enabled = true, daysOfWeek = setOf(1, 3, 5))
+        (1..7).forEach { day ->
+            assertEquals(day in setOf(1, 3, 5), ActivityReminder.shouldFire(settings, day, 100, null))
+        }
+        assertFalse(ActivityReminder.shouldFire(settings, 3, 100, 100))
+        assertFalse(settings.copy(daysOfWeek = emptySet()).isValid)
+        assertFalse(settings.copy(daysOfWeek = setOf(0, 1)).isValid)
+    }
+
+    @Test fun `legacy single day and disabled state are preserved`() {
+        val settings = ActivityReminder.Settings(dayOfWeek = 2)
+        assertEquals(setOf(2), settings.selectedDays)
+        assertFalse(settings.enabled)
+    }
 
     @Test
     fun `a reminder is off until someone turns it on`() {

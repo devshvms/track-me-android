@@ -212,6 +212,12 @@ fun RadialStartRideButton(
             .height(260.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
+        if (!interactionState.isPressed && interactionState.pendingLaunch == null) {
+            TextButton(onClick = onOpenAllPersonas,
+                modifier = Modifier.align(Alignment.BottomCenter).offset(y = (-96).dp)) {
+                Text(strings.personaLabel(preselectedPersona) + " ▾")
+            }
+        }
         // Semicircle Persona options
         personas.forEachIndexed { idx, persona ->
             val isHovered = interactionState.hoveredPersona == persona
@@ -562,21 +568,6 @@ fun RadialStartRideButton(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                } else if (preselectedPersona != RidePersona.AUTO) {
-                    Icon(
-                        imageVector = preselectedPersona.icon(),
-                        contentDescription = null,
-                        tint = onStartButton,
-                        modifier = Modifier.size(28.dp),
-                    )
-                    Text(
-                        text = strings.personaLabel(preselectedPersona),
-                        color = onStartButton,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
                 } else {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,

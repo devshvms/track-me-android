@@ -18,6 +18,14 @@ import org.junit.Test
  */
 class RideGapsTest {
 
+    @Test fun `V2 gaps split display without changing legacy interpretation`() {
+        val a = point(0, 12.97, 77.59)
+        val b = northOf(a, 20.0, 20)
+        assertFalse(RideGaps.isUnrecordedGap(a, b, RidePersona.WALK))
+        assertTrue(RideGaps.isUnrecordedGap(a.copy(cumulativeDistanceMeters = 0.0),
+            b.copy(cumulativeDistanceMeters = 0.0), RidePersona.WALK))
+    }
+
     private fun point(
         second: Long,
         lat: Double,

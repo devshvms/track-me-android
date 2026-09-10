@@ -14,11 +14,18 @@ import java.io.FileInputStream
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.res.painterResource
 import `in`.shvms.trackme.R
+import `in`.shvms.trackme.BuildConfig
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -580,6 +587,8 @@ fun RideDetailScreen(
                                 )
                             }
 
+
+
                             renderPlan.pauseMarkers.forEach { location ->
                                 Marker(
                                     state = MarkerState(position = LatLng(location.latitude, location.longitude)),
@@ -775,19 +784,22 @@ fun RideDetailScreen(
                         // C1: chart hues encode data series, not brand or state.
                         speedColor = ChartSpeed,
                         altColor = ChartAltitude,
-                        scrubIndex = scrubIndex,
+                        scrubIndex = (scrubIndex ?: points.lastIndex).coerceIn(points.indices),
+                        onScrub = { scrubIndex = it },
                         imperial = imperial,
                         modifier = Modifier.fillMaxWidth().height(160.dp).padding(horizontal = 16.dp)
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    val indexToShow = scrubIndex ?: (points.size - 1)
+                    val indexToShow = (scrubIndex ?: points.lastIndex).coerceIn(points.indices)
                     val elapsedMs = points[indexToShow].timestamp - ride.startTime
                     val elapsedFormatted = formatDuration(elapsedMs)
                     val authoritativeDistKm = ((ride.postRideCalculation?.distance ?: 0.0) / 1000.0).toFloat()
                     val lastCumDist = cumulativeDistances.lastOrNull()?.takeIf { it > 0.01f } ?: 1f
-                    val distKm = if (scrubIndex == null || scrubIndex == points.size - 1) {
+                    val distKm = if (points[indexToShow].cumulativeDistanceMeters != null) {
+                        (points[indexToShow].cumulativeDistanceMeters!! / 1000.0).toFloat()
+                    } else if (scrubIndex == null || scrubIndex == points.size - 1) {
                         authoritativeDistKm
                     } else {
                         (cumulativeDistances[indexToShow] / lastCumDist) * authoritativeDistKm
@@ -802,22 +814,6 @@ fun RideDetailScreen(
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                     
-                    Slider(
-                        value = scrubIndex?.toFloat() ?: 0f,
-                        onValueChange = { scrubIndex = it.toInt() },
-                        valueRange = 0f..(points.size - 1).toFloat(),
-                        colors = SliderDefaults.colors(
-                            thumbColor = TrackMeBlue,
-                            activeTrackColor = TrackMeBlue,
-                            inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .semantics {
-                                contentDescription = strings.timelineScrubberAccessibility
-                            }
-                    )
                     
                     Spacer(modifier = Modifier.height(16.dp))
                 } else if (points.isNotEmpty()) {
@@ -832,6 +828,8 @@ fun RideDetailScreen(
                     )
                 }
                 
+
+
                 RecordingDetailsCard(
                     ride = ride,
                     // TASK-253: the full recording. This card is a diagnostic about what the device
@@ -1559,6 +1557,8 @@ private fun RideSummaryCard(
     }
 }
 
+
+
 @Composable
 private fun RecordingDetailsCard(
     ride: RideEntity,
@@ -1632,6 +1632,7 @@ fun CombinedMetricLineChart(
     speedColor: Color,
     altColor: Color,
     scrubIndex: Int? = null,
+    onScrub: ((Int) -> Unit)? = null,
     imperial: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -1706,10 +1707,35 @@ fun CombinedMetricLineChart(
         shape = RoundedCornerShape(8.dp),
         modifier = modifier.semantics {
             contentDescription = buildChartAccessibilityDescription(points, imperial)
+            if (onScrub != null) {
+                val index = (scrubIndex ?: points.lastIndex).coerceIn(points.indices)
+                progressBarRangeInfo = ProgressBarRangeInfo(index.toFloat(), 0f..points.lastIndex.toFloat(),
+                    (points.size - 2).coerceAtLeast(0))
+                stateDescription = formatDuration(points[index].timestamp - points.first().timestamp)
+                setProgress { value ->
+                    onScrub(value.toInt().coerceIn(points.indices))
+                    true
+                }
+            }
         },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        Canvas(modifier = Modifier.fillMaxSize()
+            .pointerInput(plotData, onScrub) {
+                if (onScrub != null) detectTapGestures { offset ->
+                    val target = offset.x.coerceIn(0f, size.width.toFloat()) /
+                        size.width.coerceAtLeast(1) * plotData.last().second
+                    onScrub(plotData.indices.minByOrNull { kotlin.math.abs(plotData[it].second - target) } ?: 0)
+                }
+            }
+            .pointerInput(plotData, onScrub) {
+                if (onScrub != null) detectHorizontalDragGestures { change, _ ->
+                    change.consume()
+                    val target = change.position.x.coerceIn(0f, size.width.toFloat()) /
+                        size.width.coerceAtLeast(1) * plotData.last().second
+                    onScrub(plotData.indices.minByOrNull { kotlin.math.abs(plotData[it].second - target) } ?: 0)
+                }
+            }) {
             val width = size.width
             val height = size.height
             val topPadding = 36f

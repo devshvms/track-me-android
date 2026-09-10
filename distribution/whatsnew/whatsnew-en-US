@@ -1,7 +1,5 @@
-TrackMe 1.8.7 — notifications worth keeping on.
+TrackMe 1.8.8 — a more accurate recording, and a tidier home.
 
-• A new Activity bulletin collects everything the app has to say, in one place you read when you choose.
-• The app now interrupts you at most once a week, across every source combined.
-• New: a weekly recap, a sunset warning before you set off, and a check if a ride is still recording after you have stopped moving.
-• Set your own weekly reminder. Off unless you turn it on.
-• Pick TrackMe's language from Android settings.
+• Rebuilt distance and pace estimation. Walking and running are measured more accurately, pauses are detected more reliably, and stretches with no GPS are shown as gaps rather than guessed at.
+• Routes no longer draw a straight line through a section the app could not see.
+• Home cards explain themselves without pushing the page around, and Live sharing now says who can see your location.

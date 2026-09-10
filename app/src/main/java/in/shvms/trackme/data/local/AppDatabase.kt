@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RideEntity::class, 
         GPSPointEntity::class
     ], 
-    version = 19,
+    version = 20,
     exportSchema = false
 )
 @TypeConverters(PauseOriginConverters::class)
@@ -26,6 +26,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun homeDashboardDao(): HomeDashboardDao
 
     companion object {
+        val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE rides ADD COLUMN trackingAlgorithmVersion INTEGER")
+                database.execSQL("ALTER TABLE gps_points ADD COLUMN cumulativeDistanceMeters REAL")
+            }
+        }
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE rides ADD COLUMN title TEXT DEFAULT NULL")

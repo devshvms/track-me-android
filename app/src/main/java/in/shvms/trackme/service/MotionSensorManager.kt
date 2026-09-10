@@ -5,6 +5,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.SystemClock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +39,7 @@ class MotionSensorManager(context: Context) : SensorEventListener {
     private var gravityY = 0f
     private var gravityZ = 0f
     private var hasReceivedSample = false
+    private var lastSampleElapsedRealtimeMs: Long? = null
 
     fun startListening() {
         linearAccelerationSensor?.let { sensor ->
@@ -53,12 +55,14 @@ class MotionSensorManager(context: Context) : SensorEventListener {
         sensorManager.unregisterListener(this)
         emaEnergy = 0f
         hasReceivedSample = false
+        lastSampleElapsedRealtimeMs = null
         _motionEnergy.value = 0f
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
         event ?: return
         hasReceivedSample = true
+        lastSampleElapsedRealtimeMs = SystemClock.elapsedRealtime()
 
         val now = System.currentTimeMillis()
         val linearX: Float
@@ -103,6 +107,12 @@ class MotionSensorManager(context: Context) : SensorEventListener {
     fun isDeviceStationary(): Boolean {
         return shouldTreatDeviceAsStationary(hasMotionSensor, hasReceivedSample, emaEnergy)
     }
+
+    /** Raw debug-shadow evidence. V1's stationary policy remains unchanged. */
+    fun currentMotionEnergy(): Float? = emaEnergy.takeIf { hasMotionSensor && hasReceivedSample }
+
+    fun motionSampleAgeMillis(nowElapsedRealtimeMillis: Long = SystemClock.elapsedRealtime()): Long? =
+        lastSampleElapsedRealtimeMs?.let { (nowElapsedRealtimeMillis - it).coerceAtLeast(0L) }
 }
 
 internal fun shouldTreatDeviceAsStationary(

@@ -100,8 +100,13 @@ object OrphanedRideRecoveryManager {
             val startTime = ride.startTime
             val endTime = points.last().timestamp
             val durationMillis = (endTime - startTime).coerceAtLeast(0L)
-            val activeDurationMillis =
-                `in`.shvms.trackme.data.local.dashboardActiveDurationFromPoints(points) ?: 0L
+            val checkpoint = ride.postRideCalculation.takeIf { ride.trackingAlgorithmVersion == 2 }
+            if (checkpoint != null) {
+                totalDistance = checkpoint.distance
+                maxSpeed = checkpoint.maxSpeed
+            }
+            val activeDurationMillis = if (checkpoint != null) ride.dashboardActiveDurationMillis
+                else `in`.shvms.trackme.data.local.dashboardActiveDurationFromPoints(points) ?: 0L
             val avgSpeed = if (activeDurationMillis > 0L) {
                 (totalDistance / (activeDurationMillis / 1000f)).toFloat()
             } else {
