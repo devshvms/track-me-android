@@ -35,6 +35,14 @@ import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.Icons
 
 /**
  * SCOPE_1.8.7 §6.1.7 scenario 32 — the bulletin.
@@ -49,8 +57,9 @@ import java.util.Locale
  * list, and a to-do list is an obligation — which is the opposite of what a surface designed to
  * absorb an interruption budget should feel like.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BulletinScreen(modifier: Modifier = Modifier) {
+fun BulletinScreen(modifier: Modifier = Modifier, onBack: (() -> Unit)? = null) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
     val app = context.applicationContext as TrackMeApp
@@ -63,6 +72,75 @@ fun BulletinScreen(modifier: Modifier = Modifier) {
 
     val copyStrings = remember(strings) { AppStringsBulletinCopy(strings) }
 
+    // A Scaffold, like every other pushed route in the app. Without one this screen had no title
+    // and no way back, and — the part that actually looked broken — no window insets, so the first
+    // row rendered underneath the status bar and read as unformatted text floating at the top.
+    BulletinScaffold(
+        modifier = modifier,
+        onBack = onBack,
+        entries = entries,
+        imperial = imperial,
+        strings = strings,
+        copyStrings = copyStrings,
+        onClear = { app.bulletinStore.clear() },
+    )
+}
+
+/**
+ * The chrome and the feed, with no dependency on [TrackMeApp].
+ *
+ * Split out so the app bar can be rendered in a Robolectric test. [BulletinScreen] reads the store
+ * from the application object, which a JVM test has no instance of — and the defect this screen was
+ * reported for was *the absence of this chrome*, so the chrome is exactly the part worth pinning.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun BulletinScaffold(
+    modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
+    entries: List<BulletinEntry>,
+    imperial: Boolean,
+    strings: AppStrings,
+    copyStrings: BulletinCopy.Strings,
+    onClear: () -> Unit,
+) {
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text(strings.bulletinTitle) },
+                navigationIcon = {
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.back)
+                        }
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        BulletinContent(
+            modifier = Modifier.padding(padding),
+            entries = entries,
+            imperial = imperial,
+            strings = strings,
+            copyStrings = copyStrings,
+            onClear = onClear,
+        )
+    }
+}
+
+@Composable
+private fun BulletinContent(
+    modifier: Modifier,
+    entries: List<BulletinEntry>,
+    imperial: Boolean,
+    strings: AppStrings,
+    copyStrings: BulletinCopy.Strings,
+    onClear: () -> Unit,
+) {
+    val context = LocalContext.current
+
     if (entries.isEmpty()) {
         Column(
             modifier = modifier.fillMaxSize().padding(32.dp),
@@ -73,6 +151,7 @@ fun BulletinScreen(modifier: Modifier = Modifier) {
                 text = strings.bulletinEmpty,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
             )
         }
         return
@@ -122,7 +201,7 @@ fun BulletinScreen(modifier: Modifier = Modifier) {
         }
         item {
             Row(Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.Center) {
-                TextButton(onClick = { app.bulletinStore.clear() }) { Text(strings.bulletinClear) }
+                TextButton(onClick = onClear) { Text(strings.bulletinClear) }
             }
         }
     }
@@ -135,7 +214,7 @@ fun BulletinScreen(modifier: Modifier = Modifier) {
  * these strings are produced fresh on every draw, so switching the app's language or unit system
  * re-renders the whole feed rather than leaving old rows frozen in the language they were written.
  */
-private fun BulletinEntry.withFormattedFacts(imperial: Boolean): BulletinEntry {
+internal fun BulletinEntry.withFormattedFacts(imperial: Boolean): BulletinEntry {
     val extra = mutableMapOf<String, String>()
     doubleFact(BulletinEntry.FACT_DISTANCE_METERS)?.let {
         extra[BulletinCopy.FORMATTED_DISTANCE] = UnitFormatter.rideDistance(it, imperial)
@@ -152,7 +231,7 @@ private fun BulletinEntry.withFormattedFacts(imperial: Boolean): BulletinEntry {
 }
 
 /** Adapts the app's localisation table to the narrow interface `BulletinCopy` asks for. */
-private class AppStringsBulletinCopy(private val s: AppStrings) : BulletinCopy.Strings {
+internal class AppStringsBulletinCopy(private val s: AppStrings) : BulletinCopy.Strings {
     override val rideSavedTitle get() = s.rideSavedTitle
     override val rideSavedBodyPlain get() = s.rideSavedBodyPlain
     override fun rideSavedBody(endedAt: String, distance: String) =
