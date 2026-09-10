@@ -1,6 +1,5 @@
-TrackMe 1.8.8 — GPS V2 validation build.
+TrackMe 1.8.8 — a more accurate recording, and a tidier home.
 
-• Keeps the shipped V1 tracker authoritative while comparing V2 locally.
-• Separates GPS-only, step-derived, calibrated and hybrid distance evidence.
-• Supports repeat testing for walking, running, pause/resume, GPS loss and power-saving scenarios.
-• Debug comparison evidence stays on the device and is not synced or used for production ride totals.
+• Rebuilt distance and pace estimation. Walking and running are measured more accurately, pauses are detected more reliably, and stretches with no GPS are shown as gaps rather than guessed at.
+• Routes no longer draw a straight line through a section the app could not see.
+• Home cards explain themselves without pushing the page around, and Live sharing now says who can see your location.
