@@ -408,8 +408,16 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val reminderSectionTitle: String = s("reminderSectionTitle", "Activity reminder")
     val homeOpenGroups: String = s("homeOpenGroups", "Open groups")
     val homeLiveSharing: String = s("homeLiveSharing", "Live sharing")
-    val homeSetUpSharing: String = s("homeSetUpSharing", "Set up sharing")
-    val homeManageSharing: String = s("homeManageSharing", "Manage sharing")
+    // Bare verbs, because the tile is already titled "Live sharing" and repeating the object
+    // wrapped the button onto two lines. This is not a new convention: es/fr/de translators had
+    // already dropped it ("Configurar", "Configurer", "Einrichten") — English was the outlier.
+    //
+    // The visible text is short; [homeSetUpSharingLabel] and [homeManageSharingLabel] keep the
+    // full phrase for TalkBack, which reads a control's name without the heading above it.
+    val homeSetUpSharing: String = s("homeSetUpSharing", "Set up")
+    val homeManageSharing: String = s("homeManageSharing", "Manage")
+    val homeSetUpSharingLabel: String = s("homeSetUpSharingLabel", "Set up live sharing")
+    val homeManageSharingLabel: String = s("homeManageSharingLabel", "Manage live sharing")
     val homeStartSharing: String = s("homeStartSharing", "Start sharing")
     val homeStopSharing: String = s("homeStopSharing", "Stop sharing")
     val homeSharingExplanation: String = s("homeSharingExplanation", "Prepare a link valid for 30 minutes. Your location appears while recording. Anyone with the link can view it. Opening this page shares nothing.")
@@ -1132,6 +1140,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "homeLiveSharing" to "Ubicación en directo",
             "homeSetUpSharing" to "Configurar",
             "homeManageSharing" to "Administrar",
+            "homeSetUpSharingLabel" to "Configurar uso compartido en vivo",
+            "homeManageSharingLabel" to "Administrar uso compartido en vivo",
             "homeStartSharing" to "Empezar a compartir",
             "homeStopSharing" to "Dejar de compartir",
             "homeSharingExplanation" to "Prepara un enlace válido durante 30 minutos. Tu ubicación aparece al grabar. Cualquiera con el enlace puede verla. Abrir esta página no comparte nada.",
@@ -1834,7 +1844,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "homeOpenGroups" to "Ouvrir les groupes",
             "homeLiveSharing" to "Partage en direct",
             "homeSetUpSharing" to "Configurer",
-            "homeManageSharing" to "Gérer le partage",
+            "homeManageSharing" to "Gérer",
+            "homeSetUpSharingLabel" to "Configurer le partage en direct",
+            "homeManageSharingLabel" to "Gérer le partage en direct",
             "homeStartSharing" to "Démarrer le partage",
             "homeStopSharing" to "Arrêter le partage",
             "homeSharingExplanation" to "Préparez un lien valable 30 minutes. Votre position apparaît pendant l’enregistrement. Toute personne ayant le lien peut la voir. Ouvrir cette page ne partage rien.",
@@ -2537,7 +2549,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "homeOpenGroups" to "Gruppen öffnen",
             "homeLiveSharing" to "Live-Freigabe",
             "homeSetUpSharing" to "Einrichten",
-            "homeManageSharing" to "Freigabe verwalten",
+            "homeManageSharing" to "Verwalten",
+            "homeSetUpSharingLabel" to "Live-Teilen einrichten",
+            "homeManageSharingLabel" to "Live-Teilen verwalten",
             "homeStartSharing" to "Freigabe starten",
             "homeStopSharing" to "Freigabe beenden",
             "homeSharingExplanation" to "Erstelle einen Link für 30 Minuten. Dein Standort erscheint während der Aufzeichnung. Jeder mit dem Link kann ihn sehen. Das Öffnen dieser Seite teilt nichts.",
@@ -3239,8 +3253,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "reminderSectionTitle" to "गतिविधि अनुस्मारक",
             "homeOpenGroups" to "समूह खोलें",
             "homeLiveSharing" to "लाइव साझा करना",
-            "homeSetUpSharing" to "साझा करना सेट करें",
-            "homeManageSharing" to "साझा करना प्रबंधित करें",
+            "homeSetUpSharing" to "सेट अप",
+            "homeManageSharing" to "प्रबंधित करें",
+            "homeSetUpSharingLabel" to "लाइव शेयरिंग सेट अप करें",
+            "homeManageSharingLabel" to "लाइव शेयरिंग प्रबंधित करें",
             "homeStartSharing" to "साझा करना शुरू करें",
             "homeStopSharing" to "साझा करना बंद करें",
             "homeSharingExplanation" to "30 मिनट के लिए मान्य लिंक बनाएँ। रिकॉर्डिंग के दौरान आपका स्थान दिखेगा। लिंक वाला कोई भी व्यक्ति देख सकता है। यह पेज खोलने से कुछ साझा नहीं होता।",
@@ -3942,8 +3958,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "reminderSectionTitle" to "アクティビティのリマインダー",
             "homeOpenGroups" to "グループを開く",
             "homeLiveSharing" to "ライブ共有",
-            "homeSetUpSharing" to "共有を設定",
-            "homeManageSharing" to "共有を管理",
+            "homeSetUpSharing" to "設定",
+            "homeManageSharing" to "管理",
+            "homeSetUpSharingLabel" to "ライブ共有を設定",
+            "homeManageSharingLabel" to "ライブ共有を管理",
             "homeStartSharing" to "共有を開始",
             "homeStopSharing" to "共有を停止",
             "homeSharingExplanation" to "30分間有効なリンクを準備します。記録中に位置が表示され、リンクを持つ人が閲覧できます。このページを開くだけでは共有されません。",
@@ -4645,8 +4663,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "reminderSectionTitle" to "活动提醒",
             "homeOpenGroups" to "打开群组",
             "homeLiveSharing" to "实时共享",
-            "homeSetUpSharing" to "设置共享",
-            "homeManageSharing" to "管理共享",
+            "homeSetUpSharing" to "设置",
+            "homeManageSharing" to "管理",
+            "homeSetUpSharingLabel" to "设置实时共享",
+            "homeManageSharingLabel" to "管理实时共享",
             "homeStartSharing" to "开始共享",
             "homeStopSharing" to "停止共享",
             "homeSharingExplanation" to "准备一个有效期为30分钟的链接。记录时显示你的位置，持有链接的人均可查看。打开此页面不会共享任何内容。",

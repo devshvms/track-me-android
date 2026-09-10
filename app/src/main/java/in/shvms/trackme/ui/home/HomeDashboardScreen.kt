@@ -197,8 +197,25 @@ internal fun HomeDashboardScreen(
                                 }
                             }
                             Text(strings.homeLiveSharing, style = MaterialTheme.typography.titleMedium)
-                            FilledTonalButton(onClick = onOpenLiveSharing) {
-                                Text(if (liveSharingActive) strings.homeManageSharing else strings.homeSetUpSharing)
+                            FilledTonalButton(
+                                onClick = onOpenLiveSharing,
+                                // The visible text is a bare verb; the control still needs a name
+                                // that means something read on its own, without the tile's title.
+                                modifier = Modifier.semantics {
+                                    contentDescription = if (liveSharingActive) {
+                                        strings.homeManageSharingLabel
+                                    } else {
+                                        strings.homeSetUpSharingLabel
+                                    }
+                                },
+                            ) {
+                                Text(
+                                    if (liveSharingActive) strings.homeManageSharing else strings.homeSetUpSharing,
+                                    // A label that still outgrows the tile in some language should
+                                    // shorten, not reflow the button into two lines.
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             }
                         }
                     }
