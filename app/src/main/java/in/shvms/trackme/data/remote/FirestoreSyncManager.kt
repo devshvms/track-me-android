@@ -475,6 +475,8 @@ class FirestoreSyncManager(
                     isPaused = (map["isPaused"] as? Boolean) ?: false,
                     pauseOrigin = PauseOrigin.fromStoredValue(map["pauseOrigin"] as? String),
                     cumulativeDistanceMeters = (map["cumulativeDistanceMeters"] as? Number)?.toDouble(),
+                    displayLatitude = (map["displayLat"] as? Number)?.toDouble(),
+                    displayLongitude = (map["displayLng"] as? Number)?.toDouble(),
                 )
             }
 
@@ -585,6 +587,8 @@ class FirestoreSyncManager(
         put("isPaused", point.isPaused)
         point.pauseOrigin?.let { put("pauseOrigin", it.name) }
         point.cumulativeDistanceMeters?.let { put("cumulativeDistanceMeters", it) }
+        point.displayLatitude?.let { put("displayLat", it) }
+        point.displayLongitude?.let { put("displayLng", it) }
     }
 
     /**

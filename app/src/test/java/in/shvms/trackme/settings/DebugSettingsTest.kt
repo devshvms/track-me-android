@@ -60,7 +60,6 @@ class DebugSettingsTest {
         preferences.edit()
             .putBoolean(DebugSettings.MODE_ENABLED_KEY, true)
             .putBoolean(DebugSettings.AUTO_PAUSE_KEY, false)
-            .putBoolean(DebugSettings.DISABLE_POST_PROCESSING_KEY, true)
             .putString("app_language", "fr")
             .commit()
 
@@ -68,7 +67,6 @@ class DebugSettingsTest {
 
         assertFalse(DebugSettings.isEnabled(preferences))
         assertTrue(preferences.getBoolean(DebugSettings.AUTO_PAUSE_KEY, false))
-        assertFalse(preferences.getBoolean(DebugSettings.DISABLE_POST_PROCESSING_KEY, true))
         assertTrue(preferences.getString("app_language", null) == "fr")
     }
 }

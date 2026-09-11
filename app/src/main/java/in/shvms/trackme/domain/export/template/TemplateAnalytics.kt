@@ -1,6 +1,8 @@
 package `in`.shvms.trackme.domain.export.template
 
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.presentationLatitude
+import `in`.shvms.trackme.data.local.entity.presentationLongitude
 import `in`.shvms.trackme.domain.RideSplit
 import `in`.shvms.trackme.domain.fastestSplit
 import `in`.shvms.trackme.domain.haversineMeters
@@ -181,7 +183,7 @@ internal fun fastestSplitSegment(
     val visibleTo = drawn.maxOf { it.timestamp }
     val segment = points.subList(first, last + 1)
         .filter { it.timestamp in visibleFrom..visibleTo }
-        .map { RouteCoordinate(it.latitude, it.longitude) }
+        .map { RouteCoordinate(it.presentationLatitude, it.presentationLongitude) }
     return segment.takeIf { it.size >= 2 }
 }
 

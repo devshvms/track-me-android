@@ -110,6 +110,33 @@ class AppDatabaseUpgradeTest {
         } finally { helper.close() }
     }
 
+    @Test fun `V2 display route migration preserves raw evidence`() {
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(
+                ApplicationProvider.getApplicationContext()
+            ).name(null).callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(21) {
+                override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    db.execSQL("CREATE TABLE gps_points (id INTEGER PRIMARY KEY, latitude REAL, longitude REAL)")
+                    db.execSQL("INSERT INTO gps_points VALUES (1, 12.9, 77.6)")
+                }
+                override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+            }).build()
+        )
+        try {
+            val db = helper.writableDatabase
+            AppDatabase.MIGRATION_21_22.migrate(db)
+            db.query(
+                "SELECT latitude, longitude, displayLatitude, displayLongitude FROM gps_points WHERE id=1"
+            ).use {
+                assertTrue(it.moveToFirst())
+                assertEquals(12.9, it.getDouble(0), 0.0)
+                assertEquals(77.6, it.getDouble(1), 0.0)
+                assertTrue(it.isNull(2))
+                assertTrue(it.isNull(3))
+            }
+        } finally { helper.close() }
+    }
+
     /**
      * Every version between the oldest supported database and the current one must be reachable.
      *
@@ -131,7 +158,7 @@ class AppDatabaseUpgradeTest {
         val declared = Regex("""version\s*=\s*(\d+)""")
             .find(source("data/local/AppDatabase.kt"))
             ?.groupValues?.get(1)?.toInt()
-        assertEquals("could not read the @Database version", 21, declared)
+        assertEquals("could not read the @Database version", 22, declared)
 
         val oldest = registered.minOf { it.first }
         val reachable = registered.toMap()

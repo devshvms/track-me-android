@@ -59,6 +59,8 @@ import com.google.android.gms.maps.model.PolylineOptions
 import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.domain.export.artifactDeepLink
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
+import `in`.shvms.trackme.data.local.entity.presentationLatitude
+import `in`.shvms.trackme.data.local.entity.presentationLongitude
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.domain.replay.MediaCodecReplayExporter
 import `in`.shvms.trackme.domain.replay.ReplayExportConfig
@@ -478,7 +480,7 @@ private fun captureRouteSnapshot(
         onResult(captured)
     }
     mapView.getMapAsync { map ->
-        val latLngs = points.map { LatLng(it.latitude, it.longitude) }
+        val latLngs = points.map { LatLng(it.presentationLatitude, it.presentationLongitude) }
         val bounds = LatLngBounds.builder().apply { latLngs.forEach(::include) }.build()
         map.uiSettings.isMapToolbarEnabled = false
         map.uiSettings.isZoomControlsEnabled = false

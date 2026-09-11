@@ -13,12 +13,6 @@ class TrackingAlgorithmControlPolicyTest {
                 storedEnabled = false,
             ),
         )
-        assertTrue(
-            TrackingAlgorithmControlPolicy.postProcessingEnabled(
-                debugModeEnabled = false,
-                storedDisabled = true,
-            ),
-        )
     }
 
     @Test
@@ -29,26 +23,14 @@ class TrackingAlgorithmControlPolicyTest {
                 storedEnabled = false,
             ),
         )
-        assertFalse(
-            TrackingAlgorithmControlPolicy.postProcessingEnabled(
-                debugModeEnabled = true,
-                storedDisabled = true,
-            ),
-        )
     }
 
     @Test
-    fun `unlocked defaults keep both algorithms enabled`() {
+    fun `unlocked default keeps auto pause enabled`() {
         assertTrue(
             TrackingAlgorithmControlPolicy.autoPauseEnabled(
                 debugModeEnabled = true,
                 storedEnabled = true,
-            ),
-        )
-        assertTrue(
-            TrackingAlgorithmControlPolicy.postProcessingEnabled(
-                debugModeEnabled = true,
-                storedDisabled = false,
             ),
         )
     }

@@ -2,6 +2,8 @@ package `in`.shvms.trackme.domain.processor
 
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.isExplicitAutoPause
+import `in`.shvms.trackme.data.local.entity.presentationLatitude
+import `in`.shvms.trackme.data.local.entity.presentationLongitude
 
 /** Returns exactly one marker for every contiguous automatic-pause interval. */
 internal fun autoPauseMarkerLocations(points: List<GPSPointEntity>): List<RouteCoordinate> {
@@ -13,8 +15,8 @@ internal fun autoPauseMarkerLocations(points: List<GPSPointEntity>): List<RouteC
     fun flushCluster() {
         if (cluster.isEmpty()) return
         markers += RouteCoordinate(
-            latitude = cluster.map { it.latitude }.average(),
-            longitude = cluster.map { it.longitude }.average(),
+            latitude = cluster.map { it.presentationLatitude }.average(),
+            longitude = cluster.map { it.presentationLongitude }.average(),
         )
         cluster.clear()
     }

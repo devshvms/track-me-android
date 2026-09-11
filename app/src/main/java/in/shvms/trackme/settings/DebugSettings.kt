@@ -6,7 +6,6 @@ import android.content.SharedPreferences
 internal object DebugSettings {
     const val MODE_ENABLED_KEY = "debug_mode_enabled"
     const val AUTO_PAUSE_KEY = "intelligent_auto_pause"
-    const val DISABLE_POST_PROCESSING_KEY = "disable_gps_post_processing"
 
     fun isEnabled(preferences: SharedPreferences): Boolean =
         preferences.getBoolean(MODE_ENABLED_KEY, false)
@@ -23,7 +22,6 @@ internal object DebugSettings {
         preferences.edit()
             .putBoolean(MODE_ENABLED_KEY, false)
             .putBoolean(AUTO_PAUSE_KEY, true)
-            .putBoolean(DISABLE_POST_PROCESSING_KEY, false)
             .apply()
     }
 }
