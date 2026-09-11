@@ -4,7 +4,12 @@ import android.graphics.Color
 
 object AppConfig {
     // Map Rendering Constants
-    const val MAP_LINE_COLOR = "0x0000ff"
+    /**
+     * The route on the Static Maps fallback. Was pure `0x0000ff` — the one TrackMe route that did not
+     * read as TrackMe (SCOPE_1.8.9 §2.5, TASK-319). Cyan/deep, because the Static Maps basemap is
+     * light and BRAND_SYSTEM.md puts cyan/deep on light surfaces.
+     */
+    const val MAP_LINE_COLOR = "0x0277B6"
     const val MAP_LINE_WEIGHT = 4
     
     // Static Maps API Base

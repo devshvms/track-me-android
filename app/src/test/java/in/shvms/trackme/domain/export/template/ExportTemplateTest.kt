@@ -47,6 +47,15 @@ class ExportTemplateTest {
     }
 
     @Test
+    fun `the ratio chips keep one order, not each template's native-first list`() {
+        val fixed = listOf(TemplateCanvas.STORY, TemplateCanvas.PORTRAIT, TemplateCanvas.SQUARE)
+        // The Instrument lists 4:5 first; the chips must not follow it.
+        assertEquals(fixed, ExportTemplates.canvasChoices(ExportTemplateId.INSTRUMENT))
+        assertEquals(fixed, ExportTemplates.canvasChoices(ExportTemplateId.TRACE))
+        assertEquals(listOf(TemplateCanvas.CARD), ExportTemplates.canvasChoices(ExportTemplateId.STICKER))
+    }
+
+    @Test
     fun `every canvas is drawn at the destination's real width`() {
         TemplateCanvas.entries.forEach { assertEquals(it.name, 1080, it.widthPx) }
         assertEquals(1920, TemplateCanvas.STORY.heightPx)

@@ -3,8 +3,12 @@ package `in`.shvms.trackme.domain.export.template
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.Typeface
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.graphics.applyCanvas
+import androidx.core.graphics.createBitmap
 import androidx.test.core.app.ApplicationProvider
 import `in`.shvms.trackme.R
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
@@ -74,7 +78,8 @@ class TemplateRendererTest {
             figures = listOf(
                 TemplateFigure(FigureRole.DURATION, "TIME", "48min"),
                 TemplateFigure(FigureRole.ELEVATION, "ELEVATION", "312 m"),
-                TemplateFigure(FigureRole.EFFORT, "AVG PACE", "3:53 /km"),
+                // The widest real case: a cycling speed, not a running pace.
+                TemplateFigure(FigureRole.EFFORT, "AVG SPEED", "15.5 km/h"),
             ),
             dateLine = "SAT 6 SEP · 06:14 · CYCLING",
             placeLine = place,
@@ -165,6 +170,26 @@ class TemplateRendererTest {
         val bitmap = TemplateRenderer.render(ExportTemplateId.INSTRUMENT, TemplateCanvas.PORTRAIT, bare, typeface)
         save(bitmap, "instrument_portrait_no_elevation_no_splits")
         assertEquals(1350, bitmap.height)
+        // Without a band the summary line carries elevation too: the case that cut the speed short.
+        save(TemplateRenderer.render(ExportTemplateId.INSTRUMENT, TemplateCanvas.SQUARE, bare, typeface), "instrument_square_no_elevation_no_splits")
+    }
+
+    @Test
+    fun `the basemap's shade is lifted off the logo in its corner and nowhere else`() {
+        val width = 540
+        val height = (width / TemplateCanvas.PORTRAIT.aspect).toInt()
+        // A grey map with a white mark bottom-left, where the SDK draws its logo.
+        val mark = RectF(8f, height - 34f, 74f, height - 8f)
+        val map = createBitmap(width, height).applyCanvas {
+            drawColor(Color.rgb(128, 128, 128))
+            drawRect(mark, Paint().apply { color = Color.WHITE })
+        }
+        val backdrop = MapBackdrop(map, emptyList(), emptyList(), attributionWidthPx = 200f, attributionHeightPx = 72f)
+        val bitmap = TemplateRenderer.render(ExportTemplateId.TRACE, TemplateCanvas.PORTRAIT, content(place = null), typeface, width, backdrop)
+        save(bitmap, "trace_portrait_basemap_corner")
+        fun brightness(x: Float, y: Float) = bitmap.getPixel(x.toInt(), y.toInt()).let { (Color.red(it) + Color.green(it) + Color.blue(it)) / (3 * 255f) }
+        assertTrue("the logo shows at full strength", brightness(mark.centerX(), mark.centerY()) > 0.9f)
+        assertTrue("the map elsewhere stays shaded", brightness(width * 0.85f, height * 0.2f) < 0.3f)
     }
 
     @Test

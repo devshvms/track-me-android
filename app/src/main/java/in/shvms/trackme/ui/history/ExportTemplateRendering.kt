@@ -138,8 +138,11 @@ private suspend fun captureTraceBackdrop(
                         bitmap = bitmap,
                         runs = content.runs.map(::place),
                         joins = content.joins.map(::place),
-                        attributionHeightPx = 40f * density,
-                        attributionWidthPx = 120f * density,
+                        // Radii of the lifted ellipse about the corner where the Maps SDK draws its
+                        // logo at default padding. Not yet measured on a device, unlike iOS's — whose
+                        // first guess was wrong, so check it on the first device pass.
+                        attributionHeightPx = 72f * density,
+                        attributionWidthPx = 200f * density,
                     )
                 } else {
                     null
