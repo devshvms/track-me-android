@@ -7,11 +7,15 @@ import android.graphics.DashPathEffect
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
 import android.os.Build
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withTranslation
 import `in`.shvms.trackme.domain.export.drawArtifactLink
 import `in`.shvms.trackme.domain.export.isTrackMeArtifactDeepLink
 import kotlin.math.max
@@ -25,7 +29,7 @@ internal class MapBackdrop(
     val bitmap: Bitmap,
     val runs: List<List<PixelPoint>>,
     val joins: List<List<PixelPoint>>,
-    /** Google's logo corner, bottom-left, in the bitmap's pixels — re-drawn unveiled. */
+    /** Radii of the ellipse about the bottom-left corner, in the bitmap's pixels, where the shade is lifted off Google's logo. */
     val attributionWidthPx: Float = 0f,
     val attributionHeightPx: Float = 0f,
 )
@@ -58,7 +62,7 @@ internal object TemplateRenderer {
     ): Bitmap {
         val width = widthPx.coerceAtLeast(1)
         val height = (width / canvasSpec.aspect).toInt().coerceAtLeast(1)
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(width, height)
         val scope = DrawScope(Canvas(bitmap), width, height, width / DESIGN_WIDTH, canvasSpec, typeface)
         when (template) {
             ExportTemplateId.TRACE -> scope.drawTrace(content, backdrop)
@@ -223,6 +227,22 @@ private class DrawScope(
         canvas.drawRect(0f, px(fromY), width.toFloat(), height.toFloat(), paint)
     }
 
+    /**
+     * Erases the shade drawn so far in the current layer, in an ellipse about ([cx], [cy]): wholly out
+     * to 60 % of the radii, where the mark sits, then feathered so the corner has no edge.
+     */
+    fun liftShade(cx: Float, cy: Float, radiusX: Float, radiusY: Float) {
+        if (radiusX <= 0f || radiusY <= 0f) return
+        val erase = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = RadialGradient(0f, 0f, 1f, intArrayOf(Color.BLACK, Color.BLACK, Color.TRANSPARENT), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP)
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
+        }
+        canvas.withTranslation(cx, cy) {
+            scale(radiusX, radiusY)
+            drawCircle(0f, 0f, 1f, erase)
+        }
+    }
+
     /** The hero number with its unit on the same baseline, shrunk until the pair fits [maxWidth]. */
     fun hero(value: String, unit: String, x: Float, baseline: Float, size: Float, color: Int, unitColor: Int, maxWidth: Float) {
         var heroSize = size
@@ -249,13 +269,25 @@ private class DrawScope(
         return candidate
     }
 
+    /** The largest size from [size] down to 60 % of it at which [value] fits [maxWidth]. */
+    fun fitSize(value: String, size: Float, maxWidth: Float, make: (Float) -> Paint): Float {
+        var current = size
+        while (current > size * 0.6f && make(current).measureText(value) > px(maxWidth)) current *= 0.95f
+        return current
+    }
+
     /** Up to three quiet columns: a small label over its value. */
     fun figureColumns(figures: List<TemplateFigure>, left: Float, right: Float, labelBaseline: Float, valueBaseline: Float, valueSize: Float, labelColor: Int, valueColor: Int) {
         if (figures.isEmpty()) return
         val shown = figures.take(3)
         val column = (right - left) / 3f
-        val labelPaint = paint(28f, labelColor, weight = 600, tracking = 0.12f)
-        val valuePaint = paint(valueSize, valueColor, weight = 500, tabular = true)
+        // One size for the whole row, the largest at which every value fits its column: "15.5 km/h"
+        // does not fit where "3:53 /km" does, and an ellipsis inside a number is not a figure.
+        val fitWidth = column - 16f
+        val labelSize = shown.minOf { fitSize(it.label, 28f, fitWidth) { size -> paint(size, labelColor, weight = 600, tracking = 0.12f) } }
+        val valueFitSize = shown.minOf { fitSize(it.value, valueSize, fitWidth) { size -> paint(size, valueColor, weight = 500, tabular = true) } }
+        val labelPaint = paint(labelSize, labelColor, weight = 600, tracking = 0.12f)
+        val valuePaint = paint(valueFitSize, valueColor, weight = 500, tabular = true)
         shown.forEachIndexed { index, figure ->
             val x = left + column * index
             text(figure.label, x, labelBaseline, labelPaint, column - 16f)
@@ -384,22 +416,18 @@ private class DrawScope(
         val geometry: Pair<List<List<PixelPoint>>, List<List<PixelPoint>>>?
         if (backdrop != null) {
             canvas.drawBitmap(backdrop.bitmap, null, RectF(0f, 0f, width.toFloat(), height.toFloat()), Paint(Paint.FILTER_BITMAP_FLAG))
-            // "Lite shade": the map is texture, not subject. One even veil keeps its shapes; a heavier
-            // fall toward the figures keeps them legible whatever the map is doing underneath.
-            canvas.drawColor(Color.argb(168, 12, 18, 24))
-            fadeToward(0xFF080D11.toInt(), layout.place - 180f, bottomAlpha = 225)
             val sx = width / backdrop.bitmap.width.toFloat()
             val sy = height / backdrop.bitmap.height.toFloat()
-            // Google's logo is a required mark, and the veil above would bury it — so its corner is
-            // drawn again, unveiled, before any text goes on top.
+            // "Lite shade": the map is texture, not subject. One even veil keeps its shapes; a heavier
+            // fall toward the figures keeps them legible whatever the map is doing underneath. One
+            // layer, so it can be lifted off Google's logo — a required mark the shade would bury.
+            val shade = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
+            canvas.drawColor(Color.argb(168, 12, 18, 24))
+            fadeToward(0xFF080D11.toInt(), layout.place - 180f, bottomAlpha = 225)
             if (backdrop.attributionWidthPx > 0f && backdrop.attributionHeightPx > 0f) {
-                val source = android.graphics.Rect(
-                    0, (backdrop.bitmap.height - backdrop.attributionHeightPx).toInt().coerceAtLeast(0),
-                    backdrop.attributionWidthPx.toInt().coerceAtMost(backdrop.bitmap.width), backdrop.bitmap.height,
-                )
-                val target = RectF(0f, height - backdrop.attributionHeightPx * sy, backdrop.attributionWidthPx * sx, height.toFloat())
-                canvas.drawBitmap(backdrop.bitmap, source, target, Paint(Paint.FILTER_BITMAP_FLAG))
+                liftShade(0f, height.toFloat(), backdrop.attributionWidthPx * sx, backdrop.attributionHeightPx * sy)
             }
+            canvas.restoreToCount(shade)
             fun scaled(lines: List<List<PixelPoint>>) = lines.map { l -> l.map { PixelPoint(it.x * sx, it.y * sy) } }
             geometry = scaled(backdrop.runs) to scaled(backdrop.joins)
         } else {
@@ -490,7 +518,10 @@ private class DrawScope(
         val figuresLine = content.figures
             .filterNot { it.role == FigureRole.ELEVATION && content.elevation != null }
             .joinToString("  ·  ") { it.value }
-        text(figuresLine, 560f, summaryBaseline - 6f, paint(38f, 0xFFA9BAC5.toInt(), weight = 500, tabular = true), right - 560f)
+        // Shrunk to fit rather than cut: without a band the line carries elevation too, and
+        // "19.7 k…" is not a speed.
+        val figuresPaint = { size: Float -> paint(size, 0xFFA9BAC5.toInt(), weight = 500, tabular = true) }
+        text(figuresLine, 560f, summaryBaseline - 6f, figuresPaint(fitSize(figuresLine, 38f, right - 560f, figuresPaint)), right - 560f)
         text(content.dateLine, left, dateBaseline, paint(26f, 0xFF4E606C.toInt(), weight = 500, tracking = 0.08f), right - left)
         link(content.link)
     }
@@ -664,7 +695,9 @@ private class DrawScope(
         sun(content.light, palette, layout)
         fadeToward(palette.scrim, designHeight * 0.5f, bottomAlpha = 220)
         project(content, box(layout.route[0], layout.route[1], layout.route[2], layout.route[3]))?.let { (runs, joins) ->
-            route(runs, joins, null, layout.stroke, { withAlpha(palette.route, 245) }, groundAt = { skyAt(palette.sky, it) })
+            // Opaque on purpose: a translucent line picks up extra coverage where the stroke's joins
+            // overlap, which shows as brighter beads along the route (seen on iOS, fixed on both).
+            route(runs, joins, null, layout.stroke, { palette.route }, groundAt = { skyAt(palette.sky, it) })
         }
         text(content.lightLine, 120f, layout.eyebrow, paint(34f, palette.eyebrow, weight = 600, tracking = 0.16f), 840f)
         hero(content.heroValue, content.heroUnit, 120f, layout.hero, layout.heroSize, palette.hero, palette.unit, 840f)

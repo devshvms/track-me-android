@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import `in`.shvms.trackme.domain.export.template.ExportTemplateId
 import `in`.shvms.trackme.domain.export.template.ExportTemplates
 import `in`.shvms.trackme.domain.export.template.LightPhase
@@ -237,7 +238,7 @@ internal fun TemplateOptionsRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (spec.canvases.size > 1) {
-                spec.canvases.forEach { option -> OptionChip(option.label, option == canvas) { onCanvas(option) } }
+                ExportTemplates.canvasChoices(choice.id).forEach { option -> OptionChip(option.label, option == canvas) { onCanvas(option) } }
             }
             OptionChip(strings.privacyTrim, privacyTrim) { onPrivacyTrim(!privacyTrim) }
             if (supportsPlace) {
@@ -321,6 +322,6 @@ internal object TemplateMemory {
     }
 
     fun remember(context: android.content.Context, id: ExportTemplateId) {
-        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putString(KEY, id.name).apply()
+        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit { putString(KEY, id.name) }
     }
 }

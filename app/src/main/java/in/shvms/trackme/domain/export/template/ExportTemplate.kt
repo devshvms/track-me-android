@@ -82,4 +82,10 @@ object ExportTemplates {
         val spec = spec(id)
         return preferred?.takeIf { it in spec.canvases } ?: spec.defaultCanvas
     }
+
+    /**
+     * The ratios offered for [id], in one fixed order for every template. The spec lists its native
+     * canvas first; chips that reshuffle under the thumb on each template change read as new options.
+     */
+    fun canvasChoices(id: ExportTemplateId): List<TemplateCanvas> = TemplateCanvas.entries.filter { it in spec(id).canvases }
 }

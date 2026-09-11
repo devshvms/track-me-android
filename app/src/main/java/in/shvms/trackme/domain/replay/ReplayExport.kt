@@ -22,7 +22,10 @@ import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import `in`.shvms.trackme.domain.UnitFormatter
 import `in`.shvms.trackme.domain.export.gpsDistanceMeters
+import `in`.shvms.trackme.domain.export.template.PixelBox
+import `in`.shvms.trackme.domain.export.template.RouteProjection
 import `in`.shvms.trackme.domain.model.RidePersona
+import `in`.shvms.trackme.domain.processor.RouteCoordinate
 import `in`.shvms.trackme.ui.history.OverlayContent
 import `in`.shvms.trackme.ui.history.OverlayMetrics
 import `in`.shvms.trackme.ui.history.StatsOverlayStyle
@@ -387,24 +390,34 @@ class CanvasReplayFrameRenderer(appContext: Context? = null) : ReplayFrameRender
     }
 
 
-    private fun project(points: List<GPSPointEntity>, width: Float, height: Float, fullFrame: Boolean): List<Pair<Float, Float>> {
-        if (points.isEmpty()) return emptyList()
-        val minLat = points.minOf { it.latitude }
-        val maxLat = points.maxOf { it.latitude }
-        val minLng = points.minOf { it.longitude }
-        val maxLng = points.maxOf { it.longitude }
-        val latSpan = (maxLat - minLat).takeIf { it > 0.00001 } ?: 0.001
-        val lngSpan = (maxLng - minLng).takeIf { it > 0.00001 } ?: 0.001
-        val left = if (fullFrame) 0f else width * 0.08f
-        val right = if (fullFrame) width else width * 0.92f
-        val top = if (fullFrame) 0f else height * 0.18f
-        val bottom = if (fullFrame) height else height * 0.84f
-        return points.map { point ->
-            val x = left + ((point.longitude - minLng) / lngSpan).toFloat() * (right - left)
-            val y = bottom - ((point.latitude - minLat) / latSpan).toFloat() * (bottom - top)
-            x to y
-        }
+    private fun project(points: List<GPSPointEntity>, width: Float, height: Float, fullFrame: Boolean): List<Pair<Float, Float>> =
+        replayFallbackRoute(points, width, height, fullFrame)
+}
+
+/**
+ * Where the replay's route sits when there is no map to ask — TASK-319.
+ *
+ * This used to stretch longitude and latitude independently to fill the frame, in raw degrees, so an
+ * out-and-back along a coast came out as a shape nobody rode, and every route was widened east–west
+ * by `1/cos(latitude)`. It now uses the aspect-preserving Mercator fit the export templates use
+ * (SCOPE_1.8.9 §4). It is reached only when no map snapshot is drawn — a map brings its own SDK
+ * projection — so it can never sit under a basemap it was not projected onto.
+ */
+internal fun replayFallbackRoute(
+    points: List<GPSPointEntity>,
+    width: Float,
+    height: Float,
+    fullFrame: Boolean,
+): List<Pair<Float, Float>> {
+    if (points.isEmpty()) return emptyList()
+    val coordinates = points.map { RouteCoordinate(it.latitude, it.longitude) }
+    val box = if (fullFrame) {
+        PixelBox(0f, 0f, width, height)
+    } else {
+        PixelBox(width * 0.08f, height * 0.18f, width * 0.92f, height * 0.84f)
     }
+    val projection = RouteProjection.fit(coordinates, box) ?: return emptyList()
+    return coordinates.map { projection.project(it).let { point -> point.x to point.y } }
 }
 
 // TASK-305 removed `formatReplayDistance` and `formatReplayDuration`. They were the video deriving
