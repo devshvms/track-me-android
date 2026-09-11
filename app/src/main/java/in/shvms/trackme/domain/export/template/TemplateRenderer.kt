@@ -25,7 +25,17 @@ internal class MapBackdrop(
     val bitmap: Bitmap,
     val runs: List<List<PixelPoint>>,
     val joins: List<List<PixelPoint>>,
+    /** Google's logo corner, bottom-left, in the bitmap's pixels — re-drawn unveiled. */
+    val attributionWidthPx: Float = 0f,
+    val attributionHeightPx: Float = 0f,
 )
+
+/** The Trace's route box in design units — one table, read by the renderer and by the map camera. */
+internal fun traceRouteBoxDesign(canvas: TemplateCanvas): PixelBox = when (canvas) {
+    TemplateCanvas.PORTRAIT -> PixelBox(120f, 90f, 960f, 640f)
+    TemplateCanvas.SQUARE -> PixelBox(120f, 70f, 960f, 470f)
+    else -> PixelBox(120f, 250f, 960f, 1080f)
+}
 
 /**
  * Draws the five export templates (SCOPE_1.8.9 §6).
@@ -349,7 +359,6 @@ private class DrawScope(
     // --- The Trace ---
 
     private class TraceLayout(
-        val route: FloatArray,
         val place: Float,
         val hero: Float,
         val heroSize: Float,
@@ -362,16 +371,16 @@ private class DrawScope(
     )
 
     private fun traceLayout(): TraceLayout = when (spec) {
-        TemplateCanvas.PORTRAIT -> TraceLayout(floatArrayOf(120f, 90f, 960f, 640f), 732f, 925f, 220f, 985f, 1050f, 1112f, 52f, 1195f, 15f)
-        TemplateCanvas.SQUARE -> TraceLayout(floatArrayOf(120f, 70f, 960f, 470f), 552f, 720f, 190f, 772f, 832f, 890f, 48f, 962f, 14f)
+        TemplateCanvas.PORTRAIT -> TraceLayout(732f, 925f, 220f, 985f, 1050f, 1112f, 52f, 1195f, 15f)
+        TemplateCanvas.SQUARE -> TraceLayout(552f, 720f, 190f, 772f, 832f, 890f, 48f, 962f, 14f)
         // 9:16 keeps every figure inside the centre 1080 x 1480 that Instagram's chrome leaves clear.
-        else -> TraceLayout(floatArrayOf(120f, 250f, 960f, 1080f), 1195f, 1415f, 250f, 1480f, 1550f, 1615f, 56f, 1690f, 16f)
+        else -> TraceLayout(1195f, 1415f, 250f, 1480f, 1550f, 1615f, 56f, 1690f, 16f)
     }
 
     fun drawTrace(content: TemplateContent, backdrop: MapBackdrop?) {
         val layout = traceLayout()
         val ground = 0xFF0C151B.toInt()
-        val routeBox = box(layout.route[0], layout.route[1], layout.route[2], layout.route[3])
+        val routeBox = traceRouteBoxDesign(spec).let { box(it.left, it.top, it.right, it.bottom) }
         val geometry: Pair<List<List<PixelPoint>>, List<List<PixelPoint>>>?
         if (backdrop != null) {
             canvas.drawBitmap(backdrop.bitmap, null, RectF(0f, 0f, width.toFloat(), height.toFloat()), Paint(Paint.FILTER_BITMAP_FLAG))
@@ -381,6 +390,16 @@ private class DrawScope(
             fadeToward(0xFF080D11.toInt(), layout.place - 180f, bottomAlpha = 225)
             val sx = width / backdrop.bitmap.width.toFloat()
             val sy = height / backdrop.bitmap.height.toFloat()
+            // Google's logo is a required mark, and the veil above would bury it — so its corner is
+            // drawn again, unveiled, before any text goes on top.
+            if (backdrop.attributionWidthPx > 0f && backdrop.attributionHeightPx > 0f) {
+                val source = android.graphics.Rect(
+                    0, (backdrop.bitmap.height - backdrop.attributionHeightPx).toInt().coerceAtLeast(0),
+                    backdrop.attributionWidthPx.toInt().coerceAtMost(backdrop.bitmap.width), backdrop.bitmap.height,
+                )
+                val target = RectF(0f, height - backdrop.attributionHeightPx * sy, backdrop.attributionWidthPx * sx, height.toFloat())
+                canvas.drawBitmap(backdrop.bitmap, source, target, Paint(Paint.FILTER_BITMAP_FLAG))
+            }
             fun scaled(lines: List<List<PixelPoint>>) = lines.map { l -> l.map { PixelPoint(it.x * sx, it.y * sy) } }
             geometry = scaled(backdrop.runs) to scaled(backdrop.joins)
         } else {

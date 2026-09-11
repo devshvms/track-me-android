@@ -942,7 +942,128 @@ fun RideDetailScreen(
     }
 
     if (showExportDialog) {
+        // SCOPE_1.8.9 §9 — the Templates tab for this ride. Rebuilt when the ride changes, which
+        // includes its place names arriving, so every preview and thumbnail redraws with them.
+        val templateRide = rideWithPoints
+        val templatesSupport = remember(templateRide, imperial, strings) {
+            templateRide?.let { current ->
+                ExportTemplatesSupport(
+                    available = ExportTemplateContent.available(current, imperial),
+                    render = { choice, canvas, trim, widthPx ->
+                        renderTemplate(context, current, choice, canvas, trim, widthPx, strings, imperial)
+                    },
+                    onPlaceReferenceEnabled = {
+                        // Once, and only because the user asked (§7). A cached name is never looked up again.
+                        if (current.ride.placeLabelStart == null && current.ride.placeLabelEnd == null) {
+                            coroutineScope.launch {
+                                val (start, end) = `in`.shvms.trackme.domain.export.template.PlaceLabelResolver(androidGeocoder(context))
+                                    .resolve(current.points)
+                                if (start != null || end != null) viewModel.savePlaceLabels(current.ride.id, start, end)
+                            }
+                        }
+                    },
+                    contentVersion = current.ride.placeLabelStart to current.ride.placeLabelEnd,
+                )
+            }
+        }
+
+        /** Share or save a finished image file — one path for Custom and for every template. */
+        suspend fun deliverImage(
+            imageFile: java.io.File,
+            share: Boolean,
+            kind: `in`.shvms.trackme.analytics.ExportArtifactKind,
+            rideTitle: String?,
+        ) {
+            val title = rideTitle?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride"
+            if (share) {
+                withContext(Dispatchers.Main) {
+                    shareExportedArtifact(
+                        context = context,
+                        file = imageFile,
+                        kind = kind,
+                        chooserTitle = strings.shareImage,
+                    )
+                    exportInProgress = false
+                    showExportDialog = false
+                }
+            } else if (shouldUseGalleryDocumentPicker()) {
+                withContext(Dispatchers.Main) {
+                    pendingGalleryFile = imageFile
+                    val launched = tryLaunchGalleryDocument {
+                        gallerySaveLauncher.launch(galleryImageDisplayName(title))
+                    }
+                    if (!launched) {
+                        pendingGalleryFile = null
+                        exportInProgress = false
+                        exportFailure = ExportPreviewFailure.Save
+                    }
+                }
+            } else {
+                val saved = saveImageToGallery(context, imageFile, title)
+                `in`.shvms.trackme.analytics.AnalyticsManager.trackExportSavedToGallery(kind = kind, success = saved)
+                withContext(Dispatchers.Main) {
+                    exportInProgress = false
+                    if (saved) {
+                        messenger.show("Saved to gallery")
+                        showExportDialog = false
+                    } else {
+                        exportFailure = ExportPreviewFailure.Save
+                    }
+                }
+            }
+        }
+
+        /**
+         * A template export: rendered at the canvas's real width by the same function the preview
+         * uses — the preview is this picture at a smaller size — then written as PNG, which is what
+         * keeps the Sticker transparent all the way to the share sheet and the gallery.
+         */
+        fun exportTemplate(settings: ExportPreviewSettings, share: Boolean) {
+            val ride = templateRide ?: return
+            val choice = settings.template
+            val canvas = settings.templateCanvas
+            val kind = if (choice.id == `in`.shvms.trackme.domain.export.template.ExportTemplateId.STICKER) {
+                `in`.shvms.trackme.analytics.ExportArtifactKind.STICKER
+            } else {
+                `in`.shvms.trackme.analytics.ExportArtifactKind.IMAGE
+            }
+            exportFailure = null
+            exportInProgress = true
+            val renderStartedAt = android.os.SystemClock.elapsedRealtime()
+            coroutineScope.launch(Dispatchers.Default) {
+                runCatching {
+                    val bitmap = renderTemplate(context, ride, choice, canvas, settings.privacyTrim, canvas.widthPx, strings, imperial)
+                        ?: error("template render returned no bitmap")
+                    writeTemplatePng(context, bitmap, ride.ride.id, choice.id).also { bitmap.recycle() }
+                }.onSuccess { imageFile ->
+                    `in`.shvms.trackme.analytics.AnalyticsManager.trackExportRendered(
+                        kind = kind,
+                        success = true,
+                        durationMillis = android.os.SystemClock.elapsedRealtime() - renderStartedAt,
+                        template = choice.id.analyticsValue,
+                    )
+                    deliverImage(imageFile, share, kind, ride.ride.title)
+                }.onFailure { error ->
+                    `in`.shvms.trackme.analytics.AnalyticsManager.trackExportRendered(
+                        kind = kind,
+                        success = false,
+                        durationMillis = android.os.SystemClock.elapsedRealtime() - renderStartedAt,
+                        failureReason = error::class.simpleName,
+                        template = choice.id.analyticsValue,
+                    )
+                    withContext(Dispatchers.Main) {
+                        exportInProgress = false
+                        exportFailure = ExportPreviewFailure.Render
+                    }
+                }
+            }
+        }
+
         fun handleExport(settings: ExportPreviewSettings, share: Boolean) {
+            if (settings.mode == ExportPreviewMode.Templates) {
+                exportTemplate(settings, share)
+                return
+            }
             val ride = rideWithPoints ?: return
             val routePoints = if (settings.privacyTrim) {
                 trimGpsPointsForExport(ride.points, AppConfig.PRIVACY_TRIM_METERS)
@@ -1088,46 +1209,7 @@ fun RideDetailScreen(
                             success = true,
                             durationMillis = android.os.SystemClock.elapsedRealtime() - renderStartedAt,
                         )
-                        val title = ride.ride.title?.ifEmpty { "TrackMe Ride" } ?: "TrackMe Ride"
-                        if (share) {
-                            withContext(Dispatchers.Main) {
-                                shareExportedArtifact(
-                                    context = context,
-                                    file = imageFile,
-                                    kind = `in`.shvms.trackme.analytics.ExportArtifactKind.IMAGE,
-                                    chooserTitle = strings.shareImage,
-                                )
-                                exportInProgress = false
-                                showExportDialog = false
-                            }
-                        } else if (shouldUseGalleryDocumentPicker()) {
-                            withContext(Dispatchers.Main) {
-                                pendingGalleryFile = imageFile
-                                val launched = tryLaunchGalleryDocument {
-                                    gallerySaveLauncher.launch(galleryImageDisplayName(title))
-                                }
-                                if (!launched) {
-                                    pendingGalleryFile = null
-                                    exportInProgress = false
-                                    exportFailure = ExportPreviewFailure.Save
-                                }
-                            }
-                        } else {
-                            val saved = saveImageToGallery(context, imageFile, title)
-                            `in`.shvms.trackme.analytics.AnalyticsManager.trackExportSavedToGallery(
-                                kind = `in`.shvms.trackme.analytics.ExportArtifactKind.IMAGE,
-                                success = saved,
-                            )
-                            withContext(Dispatchers.Main) {
-                                exportInProgress = false
-                                if (saved) {
-                                    messenger.show("Saved to gallery")
-                                    showExportDialog = false
-                                } else {
-                                    exportFailure = ExportPreviewFailure.Save
-                                }
-                            }
-                        }
+                        deliverImage(imageFile, share, `in`.shvms.trackme.analytics.ExportArtifactKind.IMAGE, ride.ride.title)
                     }.onFailure { error ->
                         `in`.shvms.trackme.analytics.AnalyticsManager.trackExportRendered(
                             kind = `in`.shvms.trackme.analytics.ExportArtifactKind.IMAGE,
@@ -1167,6 +1249,7 @@ fun RideDetailScreen(
             title = strings.exportPreviewTitle,
             initialRatio = Pair(AppConfig.HQ_IMAGE_WIDTH, AppConfig.HQ_IMAGE_RATIO_9_16),
             initialPrivacyTrim = true,
+            templates = templatesSupport,
             canExport = exportCanRender,
             isExporting = exportInProgress,
             errorMessage = when (exportFailure) {
@@ -1536,12 +1619,7 @@ private fun RideSummaryCard(
                     ride.postRideCalculation?.elevationGainMeters?.let { elevationMeters ->
                         Stat(
                             strings.elevationGain,
-                            String.format(
-                                java.util.Locale.getDefault(),
-                                "%.0f %s",
-                                if (imperial) elevationMeters * 3.28084 else elevationMeters,
-                                if (imperial) "ft" else "m",
-                            ),
+                            `in`.shvms.trackme.domain.UnitFormatter.elevation(elevationMeters, imperial),
                         )
                     },
                     // The cell TASK-229 freed. Always rendered, never suppressed when it equals

@@ -30,6 +30,7 @@ class ExportSharedReceiver : BroadcastReceiver() {
         val kind = when (intent.getStringExtra(EXTRA_KIND)) {
             ExportArtifactKind.VIDEO.value -> ExportArtifactKind.VIDEO
             ExportArtifactKind.IMAGE.value -> ExportArtifactKind.IMAGE
+            ExportArtifactKind.STICKER.value -> ExportArtifactKind.STICKER
             else -> return
         }
         AnalyticsManager.trackExportShared(kind)
