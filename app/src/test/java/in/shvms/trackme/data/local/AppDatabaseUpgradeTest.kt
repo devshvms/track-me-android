@@ -71,6 +71,46 @@ class AppDatabaseUpgradeTest {
     }
 
     /**
+     * SCOPE_1.8.9 §13 — the earned reveal and the place labels arrive empty on every existing ride,
+     * and nothing already on the row is touched. Empty is the truth for an old ride: the snapshots
+     * that would say what it earned are gone, so there is nothing a backfill could honestly write.
+     */
+    @Test fun `1_8_9 migration adds the reveal and place columns empty and keeps the ride`() {
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(
+                ApplicationProvider.getApplicationContext()
+            ).name(null).callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(20) {
+                override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    db.execSQL("CREATE TABLE rides (id INTEGER PRIMARY KEY, distance REAL, trackingAlgorithmVersion INTEGER)")
+                    db.execSQL("INSERT INTO rides VALUES (1, 41700.0, 2)")
+                }
+                override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+            }).build()
+        )
+        try {
+            val db = helper.writableDatabase
+            AppDatabase.MIGRATION_20_21.migrate(db)
+            db.query(
+                "SELECT distance, trackingAlgorithmVersion, revealKind, revealPreviousBest, " +
+                    "revealMilestoneCount, placeLabelStart, placeLabelEnd FROM rides WHERE id=1"
+            ).use {
+                assertTrue(it.moveToFirst())
+                assertEquals(41700.0, it.getDouble(0), 0.0)
+                assertEquals(2, it.getInt(1))
+                (2..6).forEach { column -> assertTrue("column $column must start empty", it.isNull(column)) }
+            }
+            db.execSQL("UPDATE rides SET revealKind='DISTANCE_PR', revealPreviousBest=38200.0 WHERE id=1")
+            db.execSQL("UPDATE rides SET placeLabelStart='Koramangala', placeLabelEnd='Indiranagar' WHERE id=1")
+            db.query("SELECT revealKind, revealPreviousBest, placeLabelEnd FROM rides WHERE id=1").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("DISTANCE_PR", it.getString(0))
+                assertEquals(38200.0, it.getDouble(1), 0.0)
+                assertEquals("Indiranagar", it.getString(2))
+            }
+        } finally { helper.close() }
+    }
+
+    /**
      * Every version between the oldest supported database and the current one must be reachable.
      *
      * A gap here is not a subtle bug. `fallbackToDestructiveMigration()` is on, so the user does
@@ -91,7 +131,7 @@ class AppDatabaseUpgradeTest {
         val declared = Regex("""version\s*=\s*(\d+)""")
             .find(source("data/local/AppDatabase.kt"))
             ?.groupValues?.get(1)?.toInt()
-        assertEquals("could not read the @Database version", 20, declared)
+        assertEquals("could not read the @Database version", 21, declared)
 
         val oldest = registered.minOf { it.first }
         val reachable = registered.toMap()

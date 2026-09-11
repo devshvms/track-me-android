@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RideEntity::class, 
         GPSPointEntity::class
     ], 
-    version = 20,
+    version = 21,
     exportSchema = false
 )
 @TypeConverters(PauseOriginConverters::class)
@@ -30,6 +30,21 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE rides ADD COLUMN trackingAlgorithmVersion INTEGER")
                 database.execSQL("ALTER TABLE gps_points ADD COLUMN cumulativeDistanceMeters REAL")
+            }
+        }
+
+        /**
+         * SCOPE_1.8.9 §13 — the earned reveal and the cached place labels. Every column nullable, so
+         * no backfill pass runs and the upgrade is instant at any library size. There is nothing to
+         * backfill anyway: the snapshots that would say what an old ride earned no longer exist.
+         */
+        val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE rides ADD COLUMN revealKind TEXT")
+                database.execSQL("ALTER TABLE rides ADD COLUMN revealPreviousBest REAL")
+                database.execSQL("ALTER TABLE rides ADD COLUMN revealMilestoneCount INTEGER")
+                database.execSQL("ALTER TABLE rides ADD COLUMN placeLabelStart TEXT")
+                database.execSQL("ALTER TABLE rides ADD COLUMN placeLabelEnd TEXT")
             }
         }
         val MIGRATION_2_3 = object : Migration(2, 3) {

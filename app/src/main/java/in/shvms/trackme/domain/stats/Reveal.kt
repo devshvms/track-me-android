@@ -44,3 +44,13 @@ enum class RevealKind {
     MILESTONE,
     DEFAULT
 }
+
+/**
+ * SCOPE_1.8.9 §13 — the record a reveal beat, in the unit its kind compares: metres for a distance
+ * PR, active milliseconds for a duration PR, and nothing for the kinds that beat no record.
+ */
+internal fun previousBestFor(kind: RevealKind, transition: RideStatsTransition): Double? = when (kind) {
+    RevealKind.DISTANCE_PR -> transition.previousLongestDistanceMeters
+    RevealKind.DURATION_PR -> transition.previousLongestDurationMillis.toDouble()
+    RevealKind.FIRST_RIDE, RevealKind.MILESTONE, RevealKind.DEFAULT -> null
+}

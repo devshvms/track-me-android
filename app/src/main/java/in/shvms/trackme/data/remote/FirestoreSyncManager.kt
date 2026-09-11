@@ -515,6 +515,9 @@ class FirestoreSyncManager(
                 persona = persona,
                 startZoneId = doc.getString("startZoneId"),
                 trackingAlgorithmVersion = doc.getLong("trackingAlgorithmVersion")?.toInt(),
+                revealKind = doc.getString("revealKind"),
+                revealPreviousBest = doc.getDouble("revealPreviousBest"),
+                revealMilestoneCount = doc.getLong("revealMilestoneCount")?.toInt(),
                 postRideCalculation = calc
             )
             val reconstructedActiveDuration =
@@ -657,6 +660,12 @@ class FirestoreSyncManager(
                 "avgSpeed" to (calc?.avgSpeed ?: 0f),
                 "pauseDuration" to (calc?.pauseDuration ?: 0L),
                 "elevationGainMeters" to calc?.elevationGainMeters,
+                // SCOPE_1.8.9 §13.5: synced because it cannot be recomputed — a restore-from-cloud
+                // that dropped it would silently un-earn an Award. Place labels stay local: they are
+                // a re-derivable cache of a lookup the user opted into on this device.
+                "revealKind" to rideWithPoints.ride.revealKind,
+                "revealPreviousBest" to rideWithPoints.ride.revealPreviousBest,
+                "revealMilestoneCount" to rideWithPoints.ride.revealMilestoneCount,
                 RideChunking.CHUNK_COUNT_FIELD to chunks.size
             ) + dashboardCloudMetadata(rideWithPoints.ride, rideWithPoints.points.size)
 

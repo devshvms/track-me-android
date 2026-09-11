@@ -212,6 +212,8 @@ class ReconcileBackfillTest {
         override suspend fun recentHistorySamples(limit: Int): List<`in`.shvms.trackme.data.local.dao.RideHistoryRow> = emptyList()
         override suspend fun deletePointsForRide(rideId: Long): Int = 1
         override suspend fun setPendingDelete(rideId: Long, pending: Boolean): Int = 1
+        override suspend fun setEarnedReveal(rideId: Long, kind: String, previousBest: Double?, milestoneCount: Int?): Int = 1
+        override suspend fun setPlaceLabels(rideId: Long, start: String?, end: String?): Int = 1
         override suspend fun getPendingDeleteRides(): List<RideEntity> = emptyList()
         override suspend fun deleteSyncedPoints(): Int = 0
         override suspend fun deleteSyncedRides(): Int = 0

@@ -124,6 +124,28 @@ data class RideEntity(
      * SS5.5's honesty rule: an unknown count renders no count, never `0`.
      */
     val groupRiderCount: Int? = null,
+    /**
+     * SCOPE_1.8.9 §13 — what this ride earned **at the moment it was saved**, for The Award.
+     *
+     * Written once, at save, because it is the only moment the answer is knowable: `isDistancePR`
+     * is a comparison against a stats snapshot the very next ride overwrites, and replaying history
+     * later gives a different, confidently wrong answer once rides have been deleted, imported out
+     * of order or recovered after a crash. Null means never evaluated — every ride from before
+     * 1.8.9 and every import — which is not the same as `DEFAULT`, evaluated and earned nothing.
+     * Synced (§13.5): a restore that dropped it would silently un-earn an Award.
+     */
+    val revealKind: String? = null,
+    /** Metres for a distance PR, active milliseconds for a duration PR; null otherwise. */
+    val revealPreviousBest: Double? = null,
+    val revealMilestoneCount: Int? = null,
+    /**
+     * SCOPE_1.8.9 §7 — neighbourhood-or-coarser names for the trimmed route's ends, resolved only
+     * after the user turned the place reference on, and cached so the export stays offline and the
+     * same ride is never labelled two ways. **Not synced**: a re-derivable cache of a lookup the user
+     * opted into on this device.
+     */
+    val placeLabelStart: String? = null,
+    val placeLabelEnd: String? = null,
     @Embedded
     val postRideCalculation: PostRideCalculation? = null
 )

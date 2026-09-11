@@ -343,7 +343,8 @@ internal fun ellipsise(text: String, paint: Paint, maxWidth: Float): String {
  * Deliberately quiet — small, grey, no background plate. A link nobody notices until they want it
  * is doing its job; a link that draws the eye is an advert on someone else's photo.
  */
-private fun drawArtifactLink(canvas: Canvas, width: Int, height: Int, deepLink: String?) {
+/** The corner link on every artifact — shared with the export templates so the style cannot drift. */
+internal fun drawArtifactLink(canvas: Canvas, width: Int, height: Int, deepLink: String?) {
     val link = deepLink?.takeIf(::isTrackMeArtifactDeepLink) ?: return
     val shorterEdge = minOf(width, height).toFloat()
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

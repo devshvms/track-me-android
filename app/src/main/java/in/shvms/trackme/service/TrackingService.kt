@@ -1603,6 +1603,15 @@ class TrackingService : Service() {
                     if (transition != null) {
                         `in`.shvms.trackme.domain.stats.RevealSelector.select(transition)?.let { reveal ->
                             app.pendingRevealStore.put(reveal)
+                            // SCOPE_1.8.9 §13: the pending store is a one-shot that Home consumes and
+                            // clears. The ride row is where The Award reads it back at export time,
+                            // and this is the only moment the answer exists to be written.
+                            rideDao.setEarnedReveal(
+                                rideId = rideId,
+                                kind = reveal.kind.name,
+                                previousBest = `in`.shvms.trackme.domain.stats.previousBestFor(reveal.kind, transition),
+                                milestoneCount = reveal.milestoneRideCount,
+                            )
                         }
                         // B3: the streak state machine transitions only on the first ride of a
                         // week — emit weekly_streak_updated then (an attempt-accurate state
