@@ -8,6 +8,7 @@ class TrackingV2Session {
     private var distanceOffset = 0.0
     private var previousTime: Long? = null
     private var pendingDurationMillis = 0L
+    private var uncreditedDurationMillis = 0L
     private var previousAutoPauseEnabled = true
     var isAutoPaused = false
         private set
@@ -28,18 +29,22 @@ class TrackingV2Session {
         maxSpeedMps = peak.takeIf { it.isFinite() }?.coerceAtLeast(0.0) ?: 0.0
         previousTime = null
         pendingDurationMillis = 0L
+        uncreditedDurationMillis = 0L
         previousAutoPauseEnabled = true
         isAutoPaused = false
         snapshot = estimator.snapshot()
     }
-    fun pause() { estimator.pause(); previousTime = null; pendingDurationMillis = 0L; isAutoPaused = false }
-    fun resume() { estimator.resume(); previousTime = null; pendingDurationMillis = 0L; isAutoPaused = false }
+    fun pause() { estimator.pause(); previousTime = null; pendingDurationMillis = 0L; uncreditedDurationMillis = 0L; isAutoPaused = false }
+    fun resume() { estimator.resume(); previousTime = null; pendingDurationMillis = 0L; uncreditedDurationMillis = 0L; isAutoPaused = false }
     fun add(sample: TrackingV2Sample, autoPauseEnabled: Boolean = true): TrackingV2Snapshot {
         val prior = snapshot
         snapshot = estimator.add(sample)
         if (snapshot.rejectedOutlierCount != prior.rejectedOutlierCount || snapshot.manualPauseActive) return snapshot
         isAutoPaused = autoPauseEnabled && snapshot.movementState == TrackingV2MovementState.STATIONARY
-        if (autoPauseEnabled != previousAutoPauseEnabled) pendingDurationMillis = 0L
+        if (autoPauseEnabled != previousAutoPauseEnabled) {
+            pendingDurationMillis = 0L
+            uncreditedDurationMillis = 0L
+        }
         previousTime?.let { previous ->
             val interval = sample.elapsedRealtimeMillis - previous
             val stepBridge = snapshot.estimatedGapDistanceMeters > prior.estimatedGapDistanceMeters
@@ -49,16 +54,22 @@ class TrackingV2Session {
                         // The diagnostic override changes duration, never GPS drift admission.
                         movingDurationMillis += interval
                         pendingDurationMillis = 0L
+                        uncreditedDurationMillis = 0L
                     }
                     snapshot.movementState == TrackingV2MovementState.MOVING || stepBridge -> {
-                        movingDurationMillis += interval + pendingDurationMillis
+                        movingDurationMillis += maxOf(interval + pendingDurationMillis,
+                            minOf(snapshot.confirmedResumeDurationMillis, uncreditedDurationMillis + interval))
                         pendingDurationMillis = 0L
+                        uncreditedDurationMillis = 0L
                     }
                     snapshot.movementState == TrackingV2MovementState.POSSIBLY_MOVING -> {
                         pendingDurationMillis = (pendingDurationMillis + interval)
                             .coerceAtMost(MAX_PENDING_DURATION_MILLIS)
                     }
                     else -> pendingDurationMillis = 0L
+                }
+                if (autoPauseEnabled && snapshot.movementState != TrackingV2MovementState.MOVING && !stepBridge) {
+                    uncreditedDurationMillis = (uncreditedDurationMillis + interval).coerceAtMost(60_000L)
                 }
                 if (snapshot.movementState == TrackingV2MovementState.MOVING) {
                     // Coordinate distance can arrive as one confirmation for several callbacks.
@@ -67,6 +78,7 @@ class TrackingV2Session {
                 }
             } else {
                 pendingDurationMillis = 0L
+                uncreditedDurationMillis = 0L
             }
         }
         previousTime = sample.elapsedRealtimeMillis

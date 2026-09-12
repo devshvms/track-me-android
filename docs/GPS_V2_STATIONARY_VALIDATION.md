@@ -16,6 +16,36 @@ confirmation over a window cannot be divided by the last callback interval to cr
 The debug auto-pause override counts observed non-manual time while retaining GPS noise rejection.
 Canonical distance and raw coordinates remain independent of display geometry.
 
+## Long-stop follow-up (12 September)
+
+The user reported 10–12 actual walking minutes followed by a long stop; the app showed 24:31 active
+in 1:57:33 total with 3,826 raw points and many overlapping pause markers. Installed commit is
+uncertain (last Android Studio build). Treat it as an unresolved physical gate, not a verified run
+of a particular commit. Daily OS resource totals are not per-ride battery measurements.
+
+Two new synthetic scenarios failed against Android `003e4fe`: a two-hour correlated 18 m cloud
+with optimistic accuracy/reported speed, and sustained phantom speed without coordinate travel.
+The follow-up adds a fixed anchor after stationary confirmation. GPS-only resume requires coherent
+outward progress beyond max(20 m, combined anchor/current accuracy); reported speed alone cannot
+unlock that stop. Step-supported movement bypasses this guard. A confirmed stop survives stale
+motion samples while GPS remains continuous; manual pause and a >15 s GPS gap still clear anchors.
+
+GPS-only departure may be delayed, particularly for slow movement or poor accuracy. Its candidate
+is capped at 60 seconds, resets on loss of coherence/inward movement, and backfills only its
+observed departure distance/time after confirmation. Already-counted time (including debug-off)
+cannot be counted again. A genuine GPS-only movement entirely inside the uncertainty region can
+remain unconfirmed. This is an explicit conservative trade-off, not proof of arbitrary precision.
+
+Repeat the physical check with a 110-minute stop, 10–20 m hand-held GPS drift, then both a small
+step-supported walk and a GPS-only departure. Confirm one stable pause marker and frozen active
+time, distance, and route during the stop. Check active-duration accounting after GPS-only resume.
+Raw GPS points are retained for GPX/sync; there is no destructive compaction or retroactive rewrite
+of old rides. No sampling-rate, wake-lock or permission change is included.
+
+Android includes `tools/gps-trace-lab`: loopback-only GPX import/geometry inspection and an optional
+actual-estimator sensitivity replay with explicitly assumed missing sensors. Original uploads and
+replay output stay in ignored `local-traces/`; no precise route is committed or published.
+
 ## Physical check
 
 1. Install this repair branch, start WALK with default settings, then sit for three minutes holding
