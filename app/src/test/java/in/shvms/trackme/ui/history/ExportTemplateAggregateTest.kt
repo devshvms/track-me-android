@@ -173,6 +173,41 @@ class ExportTemplateAggregateTest {
         assertEquals("5 regions", ExportTemplateAggregate.coverageLine(fourth, strings, locale))
     }
 
+    /**
+     * SCOPE_1.8.9 §15.8 item 3, the Part 2 half. A selection chains on the ends the rider is *shown*
+     * joined, which after TASK-325 is the V2 display coordinate. The divergence here is far larger
+     * than V2's real correction on purpose: the question is which field the chain reads.
+     */
+    @Test
+    fun `a selection chains on the drawn ends, not the raw recording`() {
+        fun point(lat: Double, lng: Double, displayLat: Double, displayLng: Double) = GPSPointEntity(
+            rideId = 1, latitude = lat, longitude = lng, altitude = 0.0, accuracy = 5f, speed = 5f,
+            timestamp = 0L, isPaused = false, displayLatitude = displayLat, displayLongitude = displayLng,
+        )
+        // Raw: leg 2 starts 300 km from where leg 1 finished — no chain, no tour.
+        // Display: it starts where leg 1 finished — a tour.
+        fun route(id: Long, from: Pair<Double, Double>, to: Pair<Double, Double>, displayFrom: Pair<Double, Double>, displayTo: Pair<Double, Double>): ComparisonRoute {
+            val points = listOf(
+                point(from.first, from.second, displayFrom.first, displayFrom.second),
+                point(to.first, to.second, displayTo.first, displayTo.second),
+            )
+            return ComparisonRoute(
+                ride = RideWithPoints(ride = RideEntity(id = id, startTime = id * 1_000_000, endTime = id * 1_000_000 + 3_600_000, dashboardActiveDurationMillis = 3_600_000), points = points),
+                label = "R$id",
+                points = points,
+            )
+        }
+        val far = 12.0 to 74.0
+        val routes = listOf(
+            route(1, bengaluru, hampi, bengaluru, hampi),
+            route(2, far, badami, hampi, badami),
+        )
+        assertTrue(
+            "the chain followed the raw ends",
+            ExportTemplateId.ITINERARY in ExportTemplateAggregate.available(ExportTemplateAggregate.legs(routes)),
+        )
+    }
+
     @Test
     fun `the hero is the sum of the legs`() = runBlocking {
         val legs = ExportTemplateAggregate.legsWithPlaces(tourRoutes, geocode)

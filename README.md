@@ -1,4 +1,4 @@
-# TrackMe 🚵‍♂️🗺️ (v1.8.8)
+# TrackMe 🚵‍♂️🗺️ (v1.8.9)
 
 ![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
@@ -7,8 +7,13 @@
 
 > **Product Vision:** TrackMe is designed to be the ultimate companion for cyclists, runners, and explorers. We believe in privacy-first tracking that seamlessly works offline, but elegantly syncs to the cloud when you want it to. Track your journey, analyze your performance, and share your adventures.
 
-## 🌟 Key Features (v1.8.8)
+## 🌟 Key Features (v1.8.9)
 
+*   **A ride worth sharing (1.8.9):** Five designs for exporting one ride — the route on its own, a
+    data card, a transparent sticker to drop on your own photo, one coloured by the light you rode
+    in, and one that appears only when the ride earned it. Pick several rides and they export as one
+    picture: a journey with its stops named and the regions it crossed, or every route on one ground
+    with a colour each. Place names are looked up only when you ask for them, and kept on the phone.
 *   **A recording you can trust (1.8.8):** Distance and pace are estimated by a rebuilt engine —
     walking and running are measured more accurately, pauses are detected more reliably, and a
     stretch the GPS never saw is drawn as a gap rather than a straight line guessed through it.

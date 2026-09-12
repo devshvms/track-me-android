@@ -1,5 +1,5 @@
-TrackMe 1.8.8 — a more accurate recording, and a tidier home.
+TrackMe 1.8.9 — your ride, worth sharing.
 
-• Rebuilt distance and pace estimation. Walking and running are measured more accurately, pauses are detected more reliably, and stretches with no GPS are shown as gaps rather than guessed at.
-• Routes no longer draw a straight line through a section the app could not see.
-• Home cards explain themselves without pushing the page around, and Live sharing now says who can see your location.
+• Five new designs for sharing a ride: the route on its own, a data card, a transparent sticker for your own photos, one coloured by the light you rode in, and one that appears only when you beat a record.
+• Pick several rides and share them as one picture — a journey with its stops named, or every route on one ground.
+• Steadier recording when a ride is mostly stop-start.
