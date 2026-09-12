@@ -1,5 +1,7 @@
 package `in`.shvms.trackme.ui.history
 
+import `in`.shvms.trackme.data.local.entity.presentationLatitude
+import `in`.shvms.trackme.data.local.entity.presentationLongitude
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.domain.processor.RouteCoordinate
 import `in`.shvms.trackme.domain.processor.RouteRenderPlan
@@ -37,9 +39,13 @@ internal object ExportTemplateAggregate {
     fun legs(routes: List<ComparisonRoute>): List<SelectionLeg> = routes.mapNotNull { route ->
         val start = route.points.firstOrNull() ?: return@mapNotNull null
         val finish = route.points.last()
+        // Presentation coordinates, not the raw recording (TASK-325): an itinerary describes the
+        // journey as it is *drawn*, so the ends that decide whether two rides chain have to be the
+        // ends the rider sees joined. The two differ by metres, far below the 25 km tolerance — but
+        // the principle is what keeps the chain and the line telling the same story.
         SelectionLeg(
-            startLatitude = start.latitude, startLongitude = start.longitude,
-            finishLatitude = finish.latitude, finishLongitude = finish.longitude,
+            startLatitude = start.presentationLatitude, startLongitude = start.presentationLongitude,
+            finishLatitude = finish.presentationLatitude, finishLongitude = finish.presentationLongitude,
             distanceMeters = route.ride.ride.postRideCalculation?.distance ?: 0.0,
             movingMillis = route.ride.ride.dashboardActiveDurationMillis,
         )

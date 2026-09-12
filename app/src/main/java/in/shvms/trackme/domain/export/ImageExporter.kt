@@ -10,6 +10,8 @@ import `in`.shvms.trackme.R
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
+import `in`.shvms.trackme.data.local.entity.presentationLatitude
+import `in`.shvms.trackme.data.local.entity.presentationLongitude
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.PolyUtil
 import kotlinx.coroutines.Dispatchers
@@ -121,7 +123,7 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
         val points = options.routePoints ?: rideWithPoints.points
         val step = maxOf(1, points.size / 300)
         val sampledPoints = points.filterIndexed { index, _ -> index % step == 0 }
-            .map { LatLng(it.latitude, it.longitude) }
+            .map { LatLng(it.presentationLatitude, it.presentationLongitude) }
             
         val encodedPath = PolyUtil.encode(sampledPoints)
         val apiKey = context.getString(R.string.google_maps_key)

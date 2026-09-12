@@ -67,6 +67,8 @@ import androidx.core.content.FileProvider
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import androidx.compose.runtime.collectAsState
+import `in`.shvms.trackme.data.local.entity.presentationLatitude
+import `in`.shvms.trackme.data.local.entity.presentationLongitude
 import `in`.shvms.trackme.domain.export.ComparisonImageExporter
 import `in`.shvms.trackme.domain.export.template.ExportTemplateId
 import `in`.shvms.trackme.domain.export.template.PlaceReference
@@ -156,7 +158,7 @@ fun MultiRideCompareScreen(
     var showPreview by remember { mutableStateOf(false) }
 
     val allLatLngs = remember(visibleRoutes) {
-        visibleRoutes.flatMap { route -> route.points.map { LatLng(it.latitude, it.longitude) } }
+        visibleRoutes.flatMap { route -> route.points.map { LatLng(it.presentationLatitude, it.presentationLongitude) } }
     }
     val bounds = remember(allLatLngs) {
         if (allLatLngs.isEmpty()) null else LatLngBounds.Builder().also { builder ->
@@ -213,7 +215,7 @@ fun MultiRideCompareScreen(
                     ) {
                         visibleRoutes.forEachIndexed { index, route ->
                             val routeColor = comparisonRouteColors[index % comparisonRouteColors.size]
-                            val latLngs = route.points.map { LatLng(it.latitude, it.longitude) }
+                            val latLngs = route.points.map { LatLng(it.presentationLatitude, it.presentationLongitude) }
                             Polyline(points = latLngs, color = Color(routeColor), width = 8f)
                             Marker(
                                 state = remember(route.ride.ride.id) { MarkerState(position = latLngs.first()) },
@@ -229,8 +231,8 @@ fun MultiRideCompareScreen(
                         connectors.forEach { connector ->
                             Polyline(
                                 points = listOf(
-                                    LatLng(connector.from.latitude, connector.from.longitude),
-                                    LatLng(connector.to.latitude, connector.to.longitude)
+                                    LatLng(connector.from.presentationLatitude, connector.from.presentationLongitude),
+                                    LatLng(connector.to.presentationLatitude, connector.to.presentationLongitude)
                                 ),
                                 color = MaterialTheme.colorScheme.outline,
                                 width = 5f,
@@ -526,7 +528,7 @@ private fun UnifiedAggregateRidePreviewDialog(
                 val allPoints = mutableListOf<LatLng>()
                 exportRoutes.forEachIndexed { index, route ->
                     val routeColor = comparisonRouteColors[index % comparisonRouteColors.size]
-                    val latLngs = route.points.map { LatLng(it.latitude, it.longitude) }
+                    val latLngs = route.points.map { LatLng(it.presentationLatitude, it.presentationLongitude) }
                     allPoints += latLngs
                     exportMap.addPolyline(
                         PolylineOptions().addAll(latLngs).color(routeColor).width(exportStroke)
@@ -543,8 +545,8 @@ private fun UnifiedAggregateRidePreviewDialog(
                         exportMap.addPolyline(
                             PolylineOptions()
                                 .add(
-                                    LatLng(connector.from.latitude, connector.from.longitude),
-                                    LatLng(connector.to.latitude, connector.to.longitude)
+                                    LatLng(connector.from.presentationLatitude, connector.from.presentationLongitude),
+                                    LatLng(connector.to.presentationLatitude, connector.to.presentationLongitude)
                                 )
                                 .color(android.graphics.Color.GRAY)
                                 .width(exportStroke * 0.6f)
@@ -638,7 +640,7 @@ private fun UnifiedAggregateRidePreviewDialog(
         }.filter { it.points.isNotEmpty() }
         val previewConnectors = remember(previewRoutes) { comparisonConnectors(previewRoutes) }
         val allLatLngs = remember(previewRoutes) {
-            previewRoutes.flatMap { route -> route.points.map { LatLng(it.latitude, it.longitude) } }
+            previewRoutes.flatMap { route -> route.points.map { LatLng(it.presentationLatitude, it.presentationLongitude) } }
         }
         if (allLatLngs.isEmpty()) {
             Box(modifier, contentAlignment = Alignment.Center) { Text(strings.compareRidesNoGps) }
@@ -719,7 +721,7 @@ private fun UnifiedAggregateRidePreviewDialog(
                     MapEffect { map -> previewMapInstance = map }
                     previewRoutes.forEachIndexed { index, route ->
                         val routeColor = comparisonRouteColors[index % comparisonRouteColors.size]
-                        val latLngs = route.points.map { LatLng(it.latitude, it.longitude) }
+                        val latLngs = route.points.map { LatLng(it.presentationLatitude, it.presentationLongitude) }
                         Polyline(points = latLngs, color = Color(routeColor), width = previewStroke)
                         val markerIcon = remember(route.label, routeColor, previewMarkerSize, settings.markerStyle) {
                             ExportMarkers.aggregate(
@@ -738,8 +740,8 @@ private fun UnifiedAggregateRidePreviewDialog(
                         previewConnectors.forEach { connector ->
                             Polyline(
                                 points = listOf(
-                                    LatLng(connector.from.latitude, connector.from.longitude),
-                                    LatLng(connector.to.latitude, connector.to.longitude)
+                                    LatLng(connector.from.presentationLatitude, connector.from.presentationLongitude),
+                                    LatLng(connector.to.presentationLatitude, connector.to.presentationLongitude)
                                 ),
                                 color = Color.Gray,
                                 width = previewStroke * 0.6f,
@@ -856,4 +858,3 @@ private fun shareComparisonFile(context: Context, file: java.io.File) {
 
 private fun saveComparisonImage(context: Context, file: java.io.File): Boolean =
     saveImageToGallery(context, file, "Aggregate")
-

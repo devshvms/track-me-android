@@ -1,6 +1,8 @@
 package `in`.shvms.trackme.ui.history
 
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.presentationLatitude
+import `in`.shvms.trackme.data.local.entity.presentationLongitude
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
 import `in`.shvms.trackme.domain.export.template.AggregateSelection
 import `in`.shvms.trackme.domain.export.trimGpsPointsForExport
@@ -63,7 +65,10 @@ internal fun comparisonConnectors(routes: List<ComparisonRoute>): List<Compariso
     routes.zipWithNext().mapNotNull { (previous, next) ->
         val from = previous.points.lastOrNull() ?: return@mapNotNull null
         val to = next.points.firstOrNull() ?: return@mapNotNull null
-        val gap = DestinationProgress.haversineMeters(from.latitude, from.longitude, to.latitude, to.longitude)
+        val gap = DestinationProgress.haversineMeters(
+            from.presentationLatitude, from.presentationLongitude,
+            to.presentationLatitude, to.presentationLongitude,
+        )
         if (gap > AggregateSelection.CHAIN_JOIN_METERS) return@mapNotNull null
         ComparisonConnector(from, to, previous.label, next.label)
     }

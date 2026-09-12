@@ -64,6 +64,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.RideEntity
+import `in`.shvms.trackme.data.local.entity.presentationLatitude
+import `in`.shvms.trackme.data.local.entity.presentationLongitude
 import `in`.shvms.trackme.domain.export.GPXExporterImpl
 import `in`.shvms.trackme.domain.export.NativeSnapshotImageExporterImpl
 import `in`.shvms.trackme.domain.export.trimGpsPointsForExport
@@ -469,7 +471,7 @@ fun RideDetailScreen(
                         }
                 ) {
                     if (points.isNotEmpty()) {
-                        val latLngs = points.map { LatLng(it.latitude, it.longitude) }
+                        val latLngs = points.map { LatLng(it.presentationLatitude, it.presentationLongitude) }
                         val bounds = remember(latLngs) {
                             val builder = LatLngBounds.Builder()
                             latLngs.forEach { builder.include(it) }
@@ -617,8 +619,8 @@ fun RideDetailScreen(
                                     }
                                 }
                                 Marker(
-                                    state = remember(p.latitude, p.longitude) {
-                                        MarkerState(position = LatLng(p.latitude, p.longitude))
+                                    state = remember(p.presentationLatitude, p.presentationLongitude) {
+                                        MarkerState(position = LatLng(p.presentationLatitude, p.presentationLongitude))
                                     },
                                     title = strings.scrub,
                                     snippet = "${strings.speed}: ${`in`.shvms.trackme.domain.UnitFormatter.speed(p.speed.toDouble(), imperial)}",
@@ -1132,7 +1134,7 @@ fun RideDetailScreen(
                         val first = routePoints.first()
                         map.addMarker(
                             com.google.android.gms.maps.model.MarkerOptions()
-                                .position(LatLng(first.latitude, first.longitude))
+                                .position(LatLng(first.presentationLatitude, first.presentationLongitude))
                                 .icon(ExportMarkers.start(markerStyle, markerSize))
                         )
                     }
@@ -1140,7 +1142,7 @@ fun RideDetailScreen(
                         val last = routePoints.last()
                         map.addMarker(
                             com.google.android.gms.maps.model.MarkerOptions()
-                                .position(LatLng(last.latitude, last.longitude))
+                                .position(LatLng(last.presentationLatitude, last.presentationLongitude))
                                 .icon(ExportMarkers.finish(markerStyle, markerSize))
                         )
                     }
@@ -1382,11 +1384,11 @@ fun RideDetailScreen(
                         }
                         if (settings.markerStyle.marksStart && routePoints.isNotEmpty()) {
                             val first = routePoints.first()
-                            Marker(state = remember(first) { MarkerState(position = LatLng(first.latitude, first.longitude)) }, title = strings.mapStart, icon = previewMarkerIcons.first)
+                            Marker(state = remember(first) { MarkerState(position = LatLng(first.presentationLatitude, first.presentationLongitude)) }, title = strings.mapStart, icon = previewMarkerIcons.first)
                         }
                         if (settings.markerStyle.marksFinish && routePoints.isNotEmpty()) {
                             val last = routePoints.last()
-                            Marker(state = remember(last) { MarkerState(position = LatLng(last.latitude, last.longitude)) }, title = strings.mapFinish, icon = previewMarkerIcons.second)
+                            Marker(state = remember(last) { MarkerState(position = LatLng(last.presentationLatitude, last.presentationLongitude)) }, title = strings.mapFinish, icon = previewMarkerIcons.second)
                         }
                     }
                     // Beside the Google mark the snapshot already carries, never over it.

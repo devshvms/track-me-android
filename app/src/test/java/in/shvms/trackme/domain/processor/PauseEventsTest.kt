@@ -46,11 +46,22 @@ class PauseEventsTest {
         assertTrue(autoPauseMarkerLocations(emptyList()).isEmpty())
     }
 
+    @Test
+    fun `automatic pause marker averages presentation coordinates`() {
+        val points = listOf(
+            point(0, paused = true, origin = PauseOrigin.AUTO, displayLatitude = 10.0),
+            point(1, paused = true, origin = PauseOrigin.AUTO, displayLatitude = 12.0),
+        )
+
+        assertEquals(RouteCoordinate(11.0, 9.0), autoPauseMarkerLocations(points).single())
+    }
+
     private fun point(
         second: Int,
         paused: Boolean = false,
         origin: PauseOrigin? = null,
         speed: Float = 5f,
+        displayLatitude: Double? = null,
     ) = GPSPointEntity(
         id = second.toLong(),
         rideId = 1L,
@@ -62,5 +73,7 @@ class PauseEventsTest {
         timestamp = second * 1_000L,
         isPaused = paused,
         pauseOrigin = origin,
+        displayLatitude = displayLatitude,
+        displayLongitude = displayLatitude?.let { 9.0 },
     )
 }

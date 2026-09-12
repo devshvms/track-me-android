@@ -97,12 +97,42 @@ class RouteRenderPlanTest {
         assertTrue(plan.boundsLimits.containsAll(plan.pauseMarkers))
     }
 
+    @Test
+    fun `v2 display coordinates drive route geometry while raw evidence is preserved`() {
+        val first = point(0, 12.0, 77.0, displayLatitude = 13.0, displayLongitude = 78.0)
+        val second = point(1, 12.1, 77.1, displayLatitude = 13.1, displayLongitude = 78.1)
+
+        val plan = RouteRenderPlan.build(listOf(first, second), RidePersona.WALK)
+
+        assertEquals(
+            listOf(RouteCoordinate(13.0, 78.0), RouteCoordinate(13.1, 78.1)),
+            plan.solidRuns.single(),
+        )
+        assertEquals(12.0, first.latitude, 0.0)
+        assertEquals(77.0, first.longitude, 0.0)
+    }
+
+    @Test
+    fun `invalid or incomplete display coordinates fall back to raw`() {
+        val points = listOf(
+            point(0, 12.0, 77.0, displayLatitude = 91.0, displayLongitude = 78.0),
+            point(1, 12.1, 77.1, displayLatitude = 13.1),
+        )
+
+        assertEquals(
+            listOf(RouteCoordinate(12.0, 77.0), RouteCoordinate(12.1, 77.1)),
+            RouteRenderPlan.build(points, RidePersona.WALK).solidRuns.single(),
+        )
+    }
+
     private fun point(
         second: Int,
         latitude: Double,
         longitude: Double,
         paused: Boolean = false,
         origin: PauseOrigin? = null,
+        displayLatitude: Double? = null,
+        displayLongitude: Double? = null,
     ) = GPSPointEntity(
         id = second.toLong(),
         rideId = 1L,
@@ -114,5 +144,7 @@ class RouteRenderPlanTest {
         timestamp = second * 1_000L,
         isPaused = paused,
         pauseOrigin = origin,
+        displayLatitude = displayLatitude,
+        displayLongitude = displayLongitude,
     )
 }

@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RideEntity::class, 
         GPSPointEntity::class
     ], 
-    version = 21,
+    version = 22,
     exportSchema = false
 )
 @TypeConverters(PauseOriginConverters::class)
@@ -45,6 +45,14 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE rides ADD COLUMN revealMilestoneCount INTEGER")
                 database.execSQL("ALTER TABLE rides ADD COLUMN placeLabelStart TEXT")
                 database.execSQL("ALTER TABLE rides ADD COLUMN placeLabelEnd TEXT")
+            }
+        }
+
+        /** TASK-325: additive V2 display geometry; raw GPS coordinates remain untouched. */
+        val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE gps_points ADD COLUMN displayLatitude REAL")
+                database.execSQL("ALTER TABLE gps_points ADD COLUMN displayLongitude REAL")
             }
         }
         val MIGRATION_2_3 = object : Migration(2, 3) {

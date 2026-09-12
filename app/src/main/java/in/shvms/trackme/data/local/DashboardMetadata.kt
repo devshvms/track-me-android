@@ -5,6 +5,8 @@ import com.google.maps.android.PolyUtil
 import `in`.shvms.trackme.data.local.dao.HomeDashboardRoutePoint
 import `in`.shvms.trackme.data.local.entity.RideEntity
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.presentationLatitude
+import `in`.shvms.trackme.data.local.entity.presentationLongitude
 
 /**
  * Bumped to 3 by TASK-231, which adds [RideEntity.dashboardRoutePolyline] to the rebuildable
@@ -52,10 +54,20 @@ const val DASHBOARD_ROUTE_POLYLINE_POINTS = 40
  */
 fun dashboardRoutePolylineFromPoints(points: List<GPSPointEntity>): String? {
     if (points.size < 2) return null
+    val presentationPoints = buildList {
+        points.forEach { point ->
+            val coordinate = HomeDashboardRoutePoint(
+                point.presentationLatitude,
+                point.presentationLongitude,
+            )
+            if (lastOrNull() != coordinate) add(coordinate)
+        }
+    }
     val sampled = HomeDashboardRepository.downsampleRoute(
-        points.map { HomeDashboardRoutePoint(it.latitude, it.longitude) },
+        presentationPoints,
         DASHBOARD_ROUTE_POLYLINE_POINTS,
     )
+    if (sampled.size < 2) return null
     return PolyUtil.encode(sampled.map { LatLng(it.latitude, it.longitude) })
 }
 
