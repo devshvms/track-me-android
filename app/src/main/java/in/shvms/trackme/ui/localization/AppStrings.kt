@@ -691,8 +691,15 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     // SCOPE_1.8.9 Part 2. One word, like its siblings: the strip is a fixed-width control and §12 R3
     // holds it to fitting on one line in every catalogue.
     val templateItinerary: String = s("templateItinerary", "Route")
-    /** The tour's footer: "%1$d states · %2$d districts". */
-    val itineraryCoverage: String = s("itineraryCoverage", "%1\$d states · %2\$d districts")
+    /**
+     * The coverage line's fallback, used only when a selection touched four or more regions and
+     * naming them would not fit. "Regions" rather than "states": `adminArea` is a state in India
+     * and a region, province or land elsewhere, and the count is the one place this line cannot
+     * dodge the word by naming the thing instead.
+     */
+    val itineraryRegions: String = s("itineraryRegions", "%1\$d regions")
+    /** The aggregate date line: "3 RIDES · MAR 2026". Upper-cased by the caller, not here. */
+    val itineraryRides: String = s("itineraryRides", "%1\$d rides")
     val templateElevation: String = s("templateElevation", "Elevation")
     val templateElevationLine: String = s("templateElevationLine", "Elevation · %1\$s gain")
     val templateSplitsLine: String = s("templateSplitsLine", "Splits · %1\$s")
@@ -1462,7 +1469,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "templateHour" to "Luz",
             "templateAward" to "Logro",
             "templateItinerary" to "Ruta",
-            "itineraryCoverage" to "%1\$d estados · %2\$d distritos",
+            "itineraryRegions" to "%1\$d regiones",
+            "itineraryRides" to "%1\$d viajes",
             "templateElevation" to "Desnivel",
             "templateElevationLine" to "Desnivel · %1\$s de subida",
             "templateSplitsLine" to "Parciales · %1\$s",
@@ -2203,7 +2211,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "templateHour" to "Lumière",
             "templateAward" to "Exploit",
             "templateItinerary" to "Parcours",
-            "itineraryCoverage" to "%1\$d états · %2\$d districts",
+            "itineraryRegions" to "%1\$d régions",
+            "itineraryRides" to "%1\$d trajets",
             "templateElevation" to "Dénivelé",
             "templateElevationLine" to "Dénivelé · %1\$s positif",
             "templateSplitsLine" to "Fractions · %1\$s",
@@ -2944,7 +2953,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "templateHour" to "Licht",
             "templateAward" to "Erfolg",
             "templateItinerary" to "Strecke",
-            "itineraryCoverage" to "%1\$d Staaten · %2\$d Bezirke",
+            "itineraryRegions" to "%1\$d Regionen",
+            "itineraryRides" to "%1\$d Fahrten",
             "templateElevation" to "Höhenmeter",
             "templateElevationLine" to "Höhe · %1\$s Anstieg",
             "templateSplitsLine" to "Abschnitte · %1\$s",
@@ -3685,7 +3695,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "templateHour" to "रोशनी",
             "templateAward" to "उपलब्धि",
             "templateItinerary" to "मार्ग",
-            "itineraryCoverage" to "%1\$d राज्य · %2\$d ज़िले",
+            "itineraryRegions" to "%1\$d क्षेत्र",
+            "itineraryRides" to "%1\$d सवारी",
             "templateElevation" to "ऊँचाई",
             "templateElevationLine" to "ऊँचाई · %1\$s चढ़ाई",
             "templateSplitsLine" to "स्प्लिट · %1\$s",
@@ -4426,7 +4437,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "templateHour" to "光",
             "templateAward" to "達成",
             "templateItinerary" to "行程",
-            "itineraryCoverage" to "%1\$d州 · %2\$d地区",
+            "itineraryRegions" to "%1\$d地域",
+            "itineraryRides" to "%1\$dライド",
             "templateElevation" to "標高",
             "templateElevationLine" to "標高 · 獲得 %1\$s",
             "templateSplitsLine" to "スプリット · %1\$s",
@@ -5167,7 +5179,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "templateHour" to "光影",
             "templateAward" to "成就",
             "templateItinerary" to "路线",
-            "itineraryCoverage" to "%1\$d 个州 · %2\$d 个地区",
+            "itineraryRegions" to "%1\$d 个地区",
+            "itineraryRides" to "%1\$d 次骑行",
             "templateElevation" to "爬升",
             "templateElevationLine" to "海拔 · 爬升 %1\$s",
             "templateSplitsLine" to "分段 · %1\$s",

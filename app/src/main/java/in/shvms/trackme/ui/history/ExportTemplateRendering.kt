@@ -84,6 +84,43 @@ internal suspend fun renderTemplate(
     return TemplateRenderer.render(choice.id, canvas, content, TemplateTypeface.get(context), widthPx, backdrop)
 }
 
+/**
+ * Draws one aggregate template for a selection — the twin of [renderTemplate], and for the same
+ * reason: the preview and the export differ in width and in nothing else.
+ *
+ * [legs] is passed in rather than derived because whether the stops carry place names is the user's
+ * choice (§7): the caller hands over geocoded legs only once the place chip has asked for them.
+ */
+internal suspend fun renderAggregateTemplate(
+    context: Context,
+    routes: List<ComparisonRoute>,
+    legs: List<`in`.shvms.trackme.domain.export.template.SelectionLeg>,
+    choice: ExportTemplateChoice,
+    canvas: TemplateCanvas,
+    widthPx: Int,
+    strings: AppStrings,
+    imperial: Boolean,
+    dateLine: String,
+): Bitmap? {
+    val content = ExportTemplateAggregate.build(
+        routes = routes,
+        legs = legs,
+        strings = strings,
+        imperial = imperial,
+        locale = Locale.getDefault(),
+        dateLine = dateLine,
+        // No corner link: a selection is not one artifact, and `/r/<id>` for whichever ride came
+        // first would attribute the whole picture to it.
+        link = null,
+    )
+    val backdrop = if (choice.mapBackground && choice.id == ExportTemplateId.TRACE) {
+        captureTraceBackdrop(context, content, canvas, widthPx)
+    } else {
+        null
+    }
+    return TemplateRenderer.render(choice.id, canvas, content, TemplateTypeface.get(context), widthPx, backdrop)
+}
+
 /** Writes a rendered template as PNG — the only format that keeps the Sticker's transparency. */
 internal fun writeTemplatePng(context: Context, bitmap: Bitmap, rideId: Long, template: ExportTemplateId): File {
     val dir = File(context.cacheDir, AppConfig.EXPORT_DIR_NAME).apply { mkdirs() }

@@ -92,7 +92,7 @@ class ExportTemplateAggregateTest {
         assertNotNull(content.itinerary)
         assertEquals(listOf("Bengaluru", "Hampi", "Badami"), content.itinerary!!.stops.map { it.name })
         assertEquals(listOf("Bengaluru Urban", "Vijayanagara", "Bagalkot"), content.itinerary!!.stops.map { it.region })
-        assertEquals("1 states · 3 districts", content.coverageLine)
+        assertEquals("Karnataka", content.coverageLine)
     }
 
     /**
@@ -107,6 +107,70 @@ class ExportTemplateAggregateTest {
         assertNotNull("the chain is still a chain without names", content.itinerary)
         assertEquals(listOf(null, null, null), content.itinerary!!.stops.map { it.name })
         assertNull("no regions means no coverage claim", content.coverageLine)
+    }
+
+    /**
+     * §9.3's aggregate Trace is "N routes on one ground", and the thing that makes it readable is
+     * that ride 2's line is not ride 1's colour. The palette is per *run*, not per ride, because one
+     * ride with a GPS gap contributes two runs — and both of them have to stay its colour.
+     */
+    @Test
+    fun `every selected ride reaches the canvas in its own colour`() {
+        val legs = ExportTemplateAggregate.legs(tourRoutes)
+        val content = ExportTemplateAggregate.build(tourRoutes, legs, strings, imperial = false, locale = locale, dateLine = "", link = null)
+
+        assertEquals("one run per selected ride", tourRoutes.size, content.runs.size)
+        assertEquals("a colour for every run", content.runs.size, content.runPalette?.size)
+        assertEquals("two rides, two colours", 2, content.runPalette!!.distinct().size)
+    }
+
+    @Test
+    fun `a ride with no drawable geometry contributes no line`() {
+        val single = listOf(route(9, bengaluru, bengaluru, 0.0, "A").let { it.copy(points = it.points.take(1)) })
+        val content = ExportTemplateAggregate.build(single, ExportTemplateAggregate.legs(single), strings, imperial = false, locale = locale, dateLine = "", link = null)
+        assertTrue(content.runs.isEmpty())
+        assertTrue(content.runPalette!!.isEmpty())
+    }
+
+    /**
+     * The date line is the only place the selection says *when*, and a tour that crosses a month
+     * boundary has to say so — "3 RIDES · MAR 2026" would be wrong for a trip that ended in April.
+     */
+    @Test
+    fun `the date line spans the months the selection covers`() {
+        val month: (Long) -> String = { if (it < 2_500_000) "MAR 2026" else "APR 2026" }
+        val oneMonth = ExportTemplateAggregate.dateLine(tourRoutes, strings, locale, month)
+        assertEquals("2 RIDES · MAR 2026", oneMonth)
+
+        val across = tourRoutes + route(3, badami, bengaluru, 500_000.0, "C")
+        assertEquals("3 RIDES · MAR 2026 – APR 2026", ExportTemplateAggregate.dateLine(across, strings, locale, month))
+    }
+
+    /**
+     * Naming stops where it would not fit. Four regions is the first selection that has to count,
+     * and a count is only ever reached with a plural, which is what keeps the copy correct without
+     * plural rules in seven catalogues.
+     */
+    @Test
+    fun `too many regions to name are counted instead`() = runBlocking {
+        val wide = listOf(
+            route(1, bengaluru, hampi, 0.0, "A"),
+            route(2, hampi, badami, 0.0, "B"),
+        )
+        val places = mapOf(
+            bengaluru to PlaceParts(locality = "Bengaluru", subAdminArea = "Bengaluru Urban", adminArea = "Karnataka"),
+            hampi to PlaceParts(locality = "Hampi", subAdminArea = "Vijayanagara", adminArea = "Goa"),
+            badami to PlaceParts(locality = "Badami", subAdminArea = "Bagalkot", adminArea = "Maharashtra"),
+        )
+        val threeLegs = ExportTemplateAggregate.legsWithPlaces(wide) { lat, lng ->
+            places.entries.firstOrNull { kotlin.math.abs(it.key.first - lat) < 0.01 && kotlin.math.abs(it.key.second - lng) < 0.01 }?.value
+        }
+        assertEquals("Karnataka · Goa · Maharashtra", ExportTemplateAggregate.coverageLine(threeLegs, strings, locale))
+
+        val fourth = threeLegs + threeLegs.last().copy(
+            startPlace = PlaceParts(adminArea = "Telangana"), finishPlace = PlaceParts(adminArea = "Kerala"),
+        )
+        assertEquals("5 regions", ExportTemplateAggregate.coverageLine(fourth, strings, locale))
     }
 
     @Test

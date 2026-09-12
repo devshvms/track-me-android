@@ -63,9 +63,31 @@ internal data class TemplateContent(
     /** The regions the selection touched, in the order ridden. Aggregate only. */
     val regions: Map<String, RegionRole> = emptyMap(),
     /**
+     * One colour per entry in [runs], for an aggregate where the runs come from different rides.
+     *
+     * Aggregate only, and null everywhere else: a single ride's line is coloured by pace
+     * ([runIntensities]), and a selection's lines are coloured by *which ride they are* — the two
+     * meanings cannot share a channel, which is why this is a second field rather than a reuse of
+     * the intensity one. The palette is the compare screen's own (`comparisonRouteColors`), so a
+     * template and the map export of the same selection agree about which ride is which.
+     */
+    val runPalette: List<Int>? = null,
+    /**
      * "2 states · 5 districts", already formatted and localised by the caller — the same division
      * of labour as [lightLine]. The renderer has no `AppStrings`, and giving it one would put copy
      * decisions in the drawing layer.
      */
     val coverageLine: String? = null,
 )
+
+/**
+ * The palette as the renderer wants it, or null when there is none.
+ *
+ * A run index past the end of the palette wraps rather than throwing: the compare screen already
+ * cycles its colours past `comparisonRouteColors.size`, and a render is not the place to discover
+ * that a selection was one ride longer than the palette.
+ */
+internal fun TemplateContent.paletteColorOfRun(): ((Int) -> Int)? {
+    val palette = runPalette?.takeIf { it.isNotEmpty() } ?: return null
+    return { index -> palette[((index % palette.size) + palette.size) % palette.size] }
+}

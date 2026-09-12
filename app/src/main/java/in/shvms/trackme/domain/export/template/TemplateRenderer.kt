@@ -324,6 +324,12 @@ private class DrawScope(
         groundAt: (PixelPoint) -> Int,
         markers: Boolean = true,
         hollowStart: Boolean = true,
+        /**
+         * SCOPE_1.8.9 Part 2. When present, the colour of run `i` — one ride, one colour — and the
+         * pace gradient is not consulted for that run at all. A selection's lines say *which ride*;
+         * a single ride's line says *how fast*. Both cannot be true of one stroke.
+         */
+        colorOfRun: ((Int) -> Int)? = null,
     ) {
         val strokePx = px(stroke)
         val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -342,10 +348,11 @@ private class DrawScope(
         }
         runs.forEachIndexed { index, run ->
             if (run.size < 2) return@forEachIndexed
-            val values = intensities?.getOrNull(index)?.takeIf { it.size == run.size }
+            val fixed = colorOfRun?.invoke(index)
+            val values = if (fixed != null) null else intensities?.getOrNull(index)?.takeIf { it.size == run.size }
             val kept = decimate(run, max(1f, strokePx * 0.35f))
             if (values == null || values.all { it == values[0] }) {
-                line.color = colorAt(values?.firstOrNull() ?: FLAT_PACE_INTENSITY)
+                line.color = fixed ?: colorAt(values?.firstOrNull() ?: FLAT_PACE_INTENSITY)
                 val path = Path().apply {
                     moveTo(run[kept[0]].x, run[kept[0]].y)
                     for (k in 1 until kept.size) lineTo(run[kept[k]].x, run[kept[k]].y)
@@ -366,12 +373,15 @@ private class DrawScope(
         if (!markers) return
         val start = runs.firstOrNull { it.isNotEmpty() }?.first() ?: return
         val finish = runs.lastOrNull { it.isNotEmpty() }?.last() ?: return
-        val markerColor = colorAt(1f)
+        // The start belongs to the first ride and the finish to the last, so with a palette each
+        // marker takes its own line's colour rather than a gradient end that matches neither.
+        val startColor = colorOfRun?.invoke(runs.indexOfFirst { it.isNotEmpty() }) ?: colorAt(1f)
+        val markerColor = colorOfRun?.invoke(runs.indexOfLast { it.isNotEmpty() }) ?: colorAt(1f)
         val ringRadius = strokePx * 1.3f
         val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = strokePx * 0.55f
-            color = markerColor
+            color = startColor
         }
         if (hollowStart) {
             canvas.drawCircle(start.x, start.y, ringRadius, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = groundAt(start) })
@@ -380,7 +390,7 @@ private class DrawScope(
             // On a ground nobody can know — the Sticker goes on someone's photo — a hollow ring cannot
             // be cut out of the line, so the start is a ring around a dot instead.
             canvas.drawCircle(start.x, start.y, ringRadius, ring)
-            canvas.drawCircle(start.x, start.y, strokePx * 0.5f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = markerColor })
+            canvas.drawCircle(start.x, start.y, strokePx * 0.5f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = startColor })
         }
         canvas.drawCircle(finish.x, finish.y, strokePx * 1.05f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = markerColor })
     }
@@ -442,6 +452,7 @@ private class DrawScope(
                 groundAt = { ground },
                 // Over a veiled map the ground under the start is not one colour.
                 hollowStart = backdrop == null,
+                colorOfRun = content.paletteColorOfRun(),
             )
         }
         text(content.placeLine, 120f, layout.place, paint(34f, TemplateColors.CYAN, weight = 600, tracking = 0.14f), 840f)
@@ -583,7 +594,10 @@ private class DrawScope(
         val plate = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(168, 10, 15, 19) }
         canvas.drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), px(64f), px(64f), plate)
         project(content, box(60f, 72f, 440f, 603f))?.let { (runs, joins) ->
-            route(runs, joins, content.runIntensities, 11f, { lerpColor(TemplateColors.CYAN_PACE, it) }, groundAt = { 0 }, hollowStart = false)
+            route(
+                runs, joins, content.runIntensities, 11f, { lerpColor(TemplateColors.CYAN_PACE, it) },
+                groundAt = { 0 }, hollowStart = false, colorOfRun = content.paletteColorOfRun(),
+            )
         }
         text(content.heroValue, 500f, 262f, paint(170f, Color.WHITE, weight = 760, tracking = -0.035f, tabular = true), 530f)
         text(content.heroUnitLong, 506f, 322f, paint(28f, 0xFFA9BCC7.toInt(), weight = 600, tracking = 0.16f), 520f)
