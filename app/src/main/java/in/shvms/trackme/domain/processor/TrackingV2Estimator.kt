@@ -84,6 +84,8 @@ data class TrackingV2Snapshot(
     val personaMismatchCount: Int = 0,
     val movingEntryCount: Int = 0,
     val stationaryEntryCount: Int = 0,
+    /** One-shot observed GPS departure interval, credited only after leaving a confirmed stop. */
+    val confirmedResumeDurationMillis: Long = 0L,
     /** Calibrated step-only estimate. Kept beside the new named diagnostics for UI compatibility. */
     val stepDistanceMeters: Double = 0.0,
     /** GPS-only estimate from admitted coherent coordinate windows, independent of step evidence. */
@@ -152,6 +154,11 @@ class TrackingV2Estimator {
     private var stationaryCandidateSinceMillis: Long? = null
     private var lastQuietMotionMillis: Long? = null
     private var stationaryConfirmed = false
+    private var stopAnchor: TrackingV2Point? = null
+    private var stopAccuracyMeters = 0f
+    private var resumeCandidate: TrackingV2Sample? = null
+    private var resumeRadialDistance = 0.0
+    private var confirmedResumeDurationMillis = 0L
     private var gpsMovementSinceMillis: Long? = null
     private var gpsMovementSamples = 0
     private var strideLengthMeters = DEFAULT_WALK_STRIDE_METERS
@@ -200,6 +207,7 @@ class TrackingV2Estimator {
         stationaryCandidateSinceMillis = null
         lastQuietMotionMillis = null
         stationaryConfirmed = false
+        clearStopAnchor()
         gpsMovementSinceMillis = null
         gpsMovementSamples = 0
         strideLengthMeters = defaultStride(persona)
@@ -252,6 +260,7 @@ class TrackingV2Estimator {
         stationaryCandidateSinceMillis = null
         lastQuietMotionMillis = null
         stationaryConfirmed = false
+        clearStopAnchor()
         gpsMovementSinceMillis = null
         gpsMovementSamples = 0
         calibrationStepCount = null
@@ -260,6 +269,7 @@ class TrackingV2Estimator {
     }
 
     fun add(incoming: TrackingV2Sample): TrackingV2Snapshot {
+        confirmedResumeDurationMillis = 0L
         if (manualPauseActive) {
             ignoredManualPauseSampleCount++
             lastSnapshot = lastSnapshot.copy(
@@ -514,12 +524,16 @@ class TrackingV2Estimator {
             } == true
         // Acceleration detects handling as well as travel. Never combine it with an arbitrary
         // raw coordinate speed to resume; steps, coherent progress or sustained speed must agree.
-        val movementProved = pedestrianEvidence || gpsMovementProved || coherentMovement
+        val gpsDeparture = if (stationaryConfirmed) {
+            confirmedGpsDeparture(sample, coherentMovement)
+        } else gpsMovementProved || coherentMovement
+        val movementProved = pedestrianEvidence || gpsDeparture
 
         if (movementProved) {
             stationaryCandidateSinceMillis = null
             lastQuietMotionMillis = null
             stationaryConfirmed = false
+            clearStopAnchor()
             return TrackingV2MovementState.MOVING
         }
 
@@ -532,13 +546,19 @@ class TrackingV2Estimator {
         val recentQuietMotion = lastQuietMotionMillis?.let {
             sample.elapsedRealtimeMillis - it <= dwell
         } == true
-        val stationaryCandidate = evidence.motionFresh && (recentQuietMotion || stationaryConfirmed)
+        // Loss of motion freshness does not erase an already observed stop while GPS callbacks
+        // remain continuous. An actual GPS gap/manual pause clears all of these anchors.
+        val stationaryCandidate = stationaryConfirmed || (evidence.motionFresh && recentQuietMotion)
 
         if (stationaryCandidate) {
             val since = stationaryCandidateSinceMillis ?: sample.elapsedRealtimeMillis.also {
                 stationaryCandidateSinceMillis = it
             }
             return if (stationaryConfirmed || sample.elapsedRealtimeMillis - since >= dwell) {
+                if (!stationaryConfirmed) {
+                    stopAnchor = smoothCurrentPoint(sample, turnDetected = false)
+                    stopAccuracyMeters = sample.horizontalAccuracyMeters
+                }
                 stationaryConfirmed = true
                 TrackingV2MovementState.STATIONARY
             } else {
@@ -553,6 +573,44 @@ class TrackingV2Estimator {
         } else {
             TrackingV2MovementState.UNKNOWN
         }
+    }
+
+    /**
+     * A rolling GPS window can look straight inside a stationary multipath cloud. Once a stop is
+     * established, GPS alone must leave its fixed uncertainty region with sustained outward
+     * progress. Steps bypass this GPS-only gate. This is not road snapping or raw-point deletion.
+     */
+    private fun confirmedGpsDeparture(sample: TrackingV2Sample, coherentMovement: Boolean): Boolean {
+        val anchor = stopAnchor ?: return false
+        val radial = haversineMeters(anchor, sample.point())
+        if (!coherentMovement || radial + 1.0 < resumeRadialDistance) {
+            resumeCandidate = null
+            resumeRadialDistance = radial
+            return false
+        }
+        val candidate = resumeCandidate?.takeIf {
+            sample.elapsedRealtimeMillis - it.elapsedRealtimeMillis <= 60_000L
+        } ?: (window.toList().zipWithNext().firstOrNull { (a, b) ->
+            haversineMeters(a.point(), b.point()) >= max(0.5,
+                movementSpeedThreshold(sample.persona) * (b.elapsedRealtimeMillis - a.elapsedRealtimeMillis) / 1000.0)
+        }?.first ?: sample).also { resumeCandidate = it }
+        resumeRadialDistance = radial
+        val radius = max(20.0, hypot(stopAccuracyMeters.toDouble(), sample.horizontalAccuracyMeters.toDouble()))
+        if (radial <= radius || sample.elapsedRealtimeMillis - candidate.elapsedRealtimeMillis < 4_000L) return false
+        // Preserve the proved departure, not the preceding seated interval. The same bounded
+        // evidence restores its first metres and seconds when confirmation arrives.
+        confirmedResumeDurationMillis = (sample.elapsedRealtimeMillis - candidate.elapsedRealtimeMillis)
+            .coerceIn(0L, 60_000L)
+        lastCoordinatePoint = candidate.point()
+        lastCoordinateTimeMillis = candidate.elapsedRealtimeMillis
+        return true
+    }
+
+    private fun clearStopAnchor() {
+        stopAnchor = null
+        stopAccuracyMeters = 0f
+        resumeCandidate = null
+        resumeRadialDistance = 0.0
     }
 
     private fun fusedSpeed(sample: TrackingV2Sample, evidence: Evidence, stepDelta: Long): Float {
@@ -931,6 +989,7 @@ class TrackingV2Estimator {
                 ?.get(sortedCandidates.size / 2),
             calibrationCandidateMaxMeters = sortedCandidates.lastOrNull(),
             pedometerAvailable = sample.cumulativeStepCount != null,
+            confirmedResumeDurationMillis = confirmedResumeDurationMillis,
             powerMode = sample.powerMode,
             isPostProcessed = false,
         )
