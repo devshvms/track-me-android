@@ -13,7 +13,7 @@ import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-/** Debug-only TASK-274 movement classification. V1 remains the production authority. */
+/** Movement evidence shared by production V2 recording and deterministic replay. */
 enum class TrackingV2MovementState {
     MOVING,
     POSSIBLY_MOVING,
@@ -107,7 +107,7 @@ data class TrackingV2Snapshot(
 )
 
 /**
- * Pure, process-local tracking experiment. It deliberately has no Room, Android or network import.
+ * Pure tracking estimator. It deliberately has no Room, Android or network import.
  *
  * Distance and route point density are separate: every admitted filtered movement contributes to
  * distance, while the map only receives a point after enough movement or a real turn. This avoids
@@ -150,6 +150,10 @@ class TrackingV2Estimator {
     private var lastRouteTimeMillis: Long? = null
     private var pendingRouteDistanceMeters = 0.0
     private var stationaryCandidateSinceMillis: Long? = null
+    private var lastQuietMotionMillis: Long? = null
+    private var stationaryConfirmed = false
+    private var gpsMovementSinceMillis: Long? = null
+    private var gpsMovementSamples = 0
     private var strideLengthMeters = DEFAULT_WALK_STRIDE_METERS
     private var calibrationStepCount: Long? = null
     private var calibrationGpsDistanceMeters: Double? = null
@@ -194,6 +198,10 @@ class TrackingV2Estimator {
         lastRouteTimeMillis = null
         pendingRouteDistanceMeters = 0.0
         stationaryCandidateSinceMillis = null
+        lastQuietMotionMillis = null
+        stationaryConfirmed = false
+        gpsMovementSinceMillis = null
+        gpsMovementSamples = 0
         strideLengthMeters = defaultStride(persona)
         calibrationStepCount = null
         calibrationGpsDistanceMeters = null
@@ -242,6 +250,10 @@ class TrackingV2Estimator {
         lastRouteTimeMillis = null
         pendingRouteDistanceMeters = 0.0
         stationaryCandidateSinceMillis = null
+        lastQuietMotionMillis = null
+        stationaryConfirmed = false
+        gpsMovementSinceMillis = null
+        gpsMovementSamples = 0
         calibrationStepCount = null
         calibrationGpsDistanceMeters = null
         calibrationAccuracyMeters = null
@@ -287,7 +299,7 @@ class TrackingV2Estimator {
             return publish(
                 sample,
                 if (degraded) TrackingV2MovementState.GPS_DEGRADED else TrackingV2MovementState.UNKNOWN,
-                sample.gpsSpeedMetersPerSecond ?: 0f,
+                0f,
             )
         }
 
@@ -318,7 +330,7 @@ class TrackingV2Estimator {
             calibrationStepCount = sample.cumulativeStepCount
             calibrationGpsDistanceMeters = coordinateDistanceMeters
             calibrationAccuracyMeters = sample.horizontalAccuracyMeters
-            return publish(sample, TrackingV2MovementState.GPS_DEGRADED, sample.gpsSpeedMetersPerSecond ?: 0f)
+            return publish(sample, TrackingV2MovementState.GPS_DEGRADED, 0f)
         }
 
         // Reject impossible raw jumps before they contaminate regression and turn detection.
@@ -332,7 +344,9 @@ class TrackingV2Estimator {
         val evidence = movementEvidence(sample)
         val stepDelta = stepDelta(previous, sample)
         val movementState = classify(sample, evidence, stepDelta)
-        val speed = fusedSpeed(sample, evidence, stepDelta)
+        val speed = if (movementState == TrackingV2MovementState.MOVING) {
+            fusedSpeed(sample, evidence, stepDelta)
+        } else 0f
 
         if (movementState == TrackingV2MovementState.MOVING) {
             val smoothedPoint = smoothCurrentPoint(sample, evidence.turnDetected)
@@ -361,7 +375,10 @@ class TrackingV2Estimator {
                     hybridBridgeStepCount = 0L
                 }
                 calibrateStride(sample)
-                appendRoutePoint(smoothedPoint, sample, evidence.turnDetected)
+                // Steps establish travel but cannot locate it in an uncertain GPS cloud.
+                if (coordinateReady || !hasPoorAccuracy(sample)) {
+                    appendRoutePoint(smoothedPoint, sample, evidence.turnDetected)
+                }
             } else if (admittedCoordinateMeters > 0.0) {
                 // Motion can prove that the phone is moving, but it cannot prove how far a noisy
                 // GPS cloud travelled. Coordinate distance waits for either a coherent window or
@@ -417,7 +434,6 @@ class TrackingV2Estimator {
         val reliableGpsSpeed: Boolean,
         val gpsSaysMoving: Boolean,
         val motionFresh: Boolean,
-        val motionSaysMoving: Boolean,
         val stepsRecent: Boolean,
         val turnDetected: Boolean,
     )
@@ -427,9 +443,10 @@ class TrackingV2Estimator {
         val elapsedSeconds = ((sample.elapsedRealtimeMillis - first.elapsedRealtimeMillis) / 1000.0)
             .coerceAtLeast(0.001)
         val coordinateDistance = haversineMeters(first.point(), sample.point())
-        val windowPath = window.toList().zipWithNext().sumOf { (a, b) ->
+        val windowLegs = window.toList().zipWithNext().map { (a, b) ->
             haversineMeters(a.point(), b.point())
         }
+        val windowPath = windowLegs.sum()
         val pathStraightness = if (windowPath <= 0.001) 0f else {
             (coordinateDistance / windowPath).toFloat().coerceIn(0f, 1f)
         }
@@ -446,20 +463,21 @@ class TrackingV2Estimator {
         val coordinateEvidenceMature = window.size >= MIN_COORDINATE_EVIDENCE_SAMPLES &&
             sample.elapsedRealtimeMillis - first.elapsedRealtimeMillis >= MIN_COORDINATE_EVIDENCE_MILLIS
         val coherent = coordinateEvidenceMature && coordinateDistance >= significantDistance &&
-            pathStraightness >= MIN_PATH_STRAIGHTNESS
+            pathStraightness >= MIN_PATH_STRAIGHTNESS &&
+            (windowLegs.maxOrNull() ?: 0.0) <= windowPath * 0.8
 
         val speed = sample.gpsSpeedMetersPerSecond
         val speedAccuracy = sample.gpsSpeedAccuracyMetersPerSecond
         val reliableGpsSpeed = speed != null && speed.isFinite() && speed >= 0f && when {
-            speedAccuracy != null -> speedAccuracy <= max(0.8f, speed * 0.6f)
+            speedAccuracy != null -> speedAccuracy.isFinite() && speedAccuracy >= 0f &&
+                speedAccuracy <= max(0.8f, speed * 0.6f)
             else -> sample.horizontalAccuracyMeters <= 15f
         }
         val threshold = movementSpeedThreshold(sample.persona)
-        val gpsSaysMoving = reliableGpsSpeed && speed >= threshold
+        // A speed whose uncertainty overlaps zero/our persona floor cannot prove travel.
+        val gpsSaysMoving = reliableGpsSpeed && speed - (speedAccuracy ?: 0.5f) >= threshold
         val freshnessLimit = if (sample.powerMode == TrackingV2PowerMode.NORMAL) 1_500L else 3_000L
         val motionFresh = sample.motionSampleAgeMillis?.let { it in 0..freshnessLimit } == true
-        val motionSaysMoving = motionFresh &&
-            (sample.motionEnergyMetersPerSecondSquared ?: 0f) >= MOTION_MOVING_ENERGY
         val stepsRecent = sample.stepAgeMillis?.let { it in 0..STEP_RECENCY_MILLIS } == true
 
         return Evidence(
@@ -468,7 +486,6 @@ class TrackingV2Estimator {
             reliableGpsSpeed = reliableGpsSpeed,
             gpsSaysMoving = gpsSaysMoving,
             motionFresh = motionFresh,
-            motionSaysMoving = motionSaysMoving,
             stepsRecent = stepsRecent,
             turnDetected = detectsTurn(),
         )
@@ -479,31 +496,50 @@ class TrackingV2Estimator {
         evidence: Evidence,
         stepDelta: Long,
     ): TrackingV2MovementState {
-        val pedestrianEvidence = stepDelta > 0L || evidence.stepsRecent
+        val pedestrianEvidence = (isPedestrian(sample.persona) || sample.persona == RidePersona.AUTO) &&
+            (stepDelta > 0L || evidence.stepsRecent)
         val coherentMovement = evidence.coherentDisplacement &&
             evidence.coordinateSpeedMetersPerSecond >= movementSpeedThreshold(sample.persona)
-        val gpsMovementProved = evidence.gpsSaysMoving &&
-            (!isPedestrian(sample.persona) || pedestrianEvidence || evidence.motionSaysMoving ||
-                coherentMovement)
-        val movementProved = pedestrianEvidence || gpsMovementProved || coherentMovement ||
-            (evidence.motionSaysMoving && evidence.coordinateSpeedMetersPerSecond > 0.1f)
+        val gpsMovementCandidate = evidence.gpsSaysMoving
+        if (gpsMovementCandidate) {
+            if (gpsMovementSinceMillis == null) gpsMovementSinceMillis = sample.elapsedRealtimeMillis
+            gpsMovementSamples++
+        } else {
+            gpsMovementSinceMillis = null
+            gpsMovementSamples = 0
+        }
+        val gpsMovementProved = gpsMovementSamples >= MIN_COORDINATE_EVIDENCE_SAMPLES &&
+            gpsMovementSinceMillis?.let {
+                sample.elapsedRealtimeMillis - it >= MIN_COORDINATE_EVIDENCE_MILLIS
+            } == true
+        // Acceleration detects handling as well as travel. Never combine it with an arbitrary
+        // raw coordinate speed to resume; steps, coherent progress or sustained speed must agree.
+        val movementProved = pedestrianEvidence || gpsMovementProved || coherentMovement
 
         if (movementProved) {
             stationaryCandidateSinceMillis = null
+            lastQuietMotionMillis = null
+            stationaryConfirmed = false
             return TrackingV2MovementState.MOVING
         }
 
-        val lowFreshMotion = evidence.motionFresh &&
-            (sample.motionEnergyMetersPerSecondSquared ?: Float.MAX_VALUE) <= STATIONARY_ENERGY
-        val stationaryCandidate = lowFreshMotion && !pedestrianEvidence &&
-            !evidence.gpsSaysMoving && !evidence.coherentDisplacement
+        val dwell = stationaryDwellMillis(sample.persona, sample.powerMode)
+        val quietMotion = evidence.motionFresh &&
+            (sample.motionEnergyMetersPerSecondSquared ?: Float.MAX_VALUE) < MOTION_MOVING_ENERGY
+        if (quietMotion) lastQuietMotionMillis = sample.elapsedRealtimeMillis
+        // Ambiguous hand motion must not restart dwell on every fix. Short handling bursts may
+        // retain recent quiet evidence; a confirmed stop survives them until travel is proved.
+        val recentQuietMotion = lastQuietMotionMillis?.let {
+            sample.elapsedRealtimeMillis - it <= dwell
+        } == true
+        val stationaryCandidate = evidence.motionFresh && (recentQuietMotion || stationaryConfirmed)
 
         if (stationaryCandidate) {
             val since = stationaryCandidateSinceMillis ?: sample.elapsedRealtimeMillis.also {
                 stationaryCandidateSinceMillis = it
             }
-            val dwell = stationaryDwellMillis(sample.persona, sample.powerMode)
-            return if (sample.elapsedRealtimeMillis - since >= dwell) {
+            return if (stationaryConfirmed || sample.elapsedRealtimeMillis - since >= dwell) {
+                stationaryConfirmed = true
                 TrackingV2MovementState.STATIONARY
             } else {
                 TrackingV2MovementState.POSSIBLY_MOVING
@@ -511,6 +547,7 @@ class TrackingV2Estimator {
         }
 
         stationaryCandidateSinceMillis = null
+        if (gpsMovementCandidate) return TrackingV2MovementState.POSSIBLY_MOVING
         return if (isDegraded(sample)) {
             TrackingV2MovementState.GPS_DEGRADED
         } else {
@@ -985,7 +1022,6 @@ class TrackingV2Estimator {
         private const val MIN_COORDINATE_EVIDENCE_MILLIS = 4_000L
         private const val STEP_RECENCY_MILLIS = 3_000L
         private const val MOTION_MOVING_ENERGY = 0.18f
-        private const val STATIONARY_ENERGY = 0.10f
         private const val TURN_DEGREES = 25f
         private const val MIN_TURN_LEG_STRAIGHTNESS = 0.70
         private const val DEFAULT_WALK_STRIDE_METERS = 0.72f

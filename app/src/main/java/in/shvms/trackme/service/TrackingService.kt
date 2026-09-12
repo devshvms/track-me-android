@@ -384,7 +384,7 @@ class TrackingService : Service() {
         }
     }
 
-    private fun processTrackingV2(location: Location): TrackingV2Snapshot {
+    private fun processTrackingV2(location: Location, autoPauseEnabled: Boolean = true): TrackingV2Snapshot {
         val nowElapsed = SystemClock.elapsedRealtime()
         val persona = trackingManager.selectedPersona.value
         if (persona == `in`.shvms.trackme.domain.model.RidePersona.WALK ||
@@ -424,7 +424,7 @@ class TrackingService : Service() {
                 persona = persona,
                 powerMode = trackingV2PowerMode(),
             )
-        val snapshot = if (trackingAlgorithmVersion == 2) v2Session.add(sample)
+        val snapshot = if (trackingAlgorithmVersion == 2) v2Session.add(sample, autoPauseEnabled)
             else trackingV2Estimator.add(sample)
         // No production UI subscribes to the old comparison state.
         return snapshot
@@ -435,17 +435,17 @@ class TrackingService : Service() {
     private fun recordV2Location(location: Location, publishLiveLocation: Boolean) {
         val rideId = currentRideId ?: return
         if (StorageHealthMonitor.isLowStorage(this)) { enterStorageLowState(); return }
-        val prior = v2Session.snapshot
-        val snapshot = processTrackingV2(location)
-        lastGpsTimeMs = System.currentTimeMillis()
-        if (shouldEmitGpsResumeTelemetry(currentState)) updateState(TrackingState.TRACKING)
-        if (snapshot.rejectedOutlierCount != prior.rejectedOutlierCount) return
         val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
         val autoPauseEnabled = TrackingAlgorithmControlPolicy.autoPauseEnabled(
             DebugSettings.isEnabled(prefs), prefs.getBoolean(DebugSettings.AUTO_PAUSE_KEY, true))
+        val prior = v2Session.snapshot
+        val snapshot = processTrackingV2(location, autoPauseEnabled)
+        lastGpsTimeMs = System.currentTimeMillis()
+        if (shouldEmitGpsResumeTelemetry(currentState)) updateState(TrackingState.TRACKING)
+        if (snapshot.rejectedOutlierCount != prior.rejectedOutlierCount) return
         val stationary = snapshot.movementState ==
             `in`.shvms.trackme.domain.processor.TrackingV2MovementState.STATIONARY
-        trackingManager.setAutoPaused(autoPauseEnabled && stationary)
+        trackingManager.setAutoPaused(v2Session.isAutoPaused)
         trackingManager.updateSpeed(snapshot.currentSpeedMetersPerSecond)
         trackingManager.addDistance(v2Session.distanceMeters.toFloat() - trackingManager.totalDistance.value)
         rideDuration = v2Session.movingDurationMillis
@@ -466,8 +466,8 @@ class TrackingService : Service() {
         val point = GPSPointEntity(rideId = rideId, latitude = location.latitude,
             longitude = location.longitude, altitude = location.altitude, accuracy = location.accuracy,
             speed = snapshot.currentSpeedMetersPerSecond, timestamp = location.time,
-            isPaused = autoPauseEnabled && stationary,
-            pauseOrigin = if (autoPauseEnabled && stationary) PauseOrigin.AUTO else null,
+            isPaused = v2Session.isAutoPaused,
+            pauseOrigin = if (v2Session.isAutoPaused) PauseOrigin.AUTO else null,
             cumulativeDistanceMeters = total,
             displayLatitude = displayPoint.latitude,
             displayLongitude = displayPoint.longitude)
