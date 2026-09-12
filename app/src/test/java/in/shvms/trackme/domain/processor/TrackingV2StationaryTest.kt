@@ -6,6 +6,50 @@ import org.junit.Test
 
 /** Synthetic metres around (0,0); no device trace or identifying location. */
 class TrackingV2StationaryTest {
+    @Test fun `two hour correlated optimistic GPS cloud cannot resume a confirmed stop`() {
+        for (power in listOf(TrackingV2PowerMode.NORMAL, TrackingV2PowerMode.BATTERY_SAVER)) {
+            val session = TrackingV2Session().apply { reset(RidePersona.WALK) }
+            // Twelve real minutes, then a stop, then multipath that looks straight in a short window.
+            for (i in 0..360) session.add(fix(i * 2L, east = i * 2.0, speed = 1f,
+                steps = i * 2L, stepAge = 0L, energy = .3f, power = power))
+            for (i in 1..30) session.add(fix(720 + i * 2L, east = 720.0, steps = 720L, power = power))
+            val distance = session.distanceMeters
+            val duration = session.movingDurationMillis
+            val route = session.snapshot.routeSegments
+            for (i in 1..3600) {
+                val angle = i * 2.0 * Math.PI / 90.0
+                session.add(fix(780 + i * 2L, east = 720.0 + 9 * kotlin.math.sin(angle),
+                    north = 9 * (1 - kotlin.math.cos(angle)), accuracy = 4f,
+                    speed = .8f, speedAccuracy = .1f, steps = 720L,
+                    energy = if (i % 7 == 0) .3f else .04f,
+                    motionAge = if (i % 20 < 10) 9000L else 0L, power = power))
+            }
+            assertEquals("$power duration", duration, session.movingDurationMillis)
+            assertEquals(distance, session.distanceMeters, 0.0)
+            assertEquals(route, session.snapshot.routeSegments)
+            assertEquals(1, session.snapshot.stationaryEntryCount)
+            assertTrue(session.isAutoPaused)
+        }
+    }
+
+    @Test fun `stationary GPS speed without coordinate departure never resumes`() {
+        val session = TrackingV2Session().apply { reset(RidePersona.WALK) }
+        for (i in 0..30) session.add(fix(i * 2L))
+        for (i in 1..300) session.add(fix(60 + i * 2L, speed = 2f, speedAccuracy = .1f))
+        assertEquals(0L, session.movingDurationMillis)
+        assertEquals(0.0, session.distanceMeters, 0.0)
+        assertTrue(session.isAutoPaused)
+    }
+
+    @Test fun `GPS departure backfill never recounts time already counted with debug auto pause off`() {
+        val session = TrackingV2Session().apply { reset(RidePersona.WALK) }
+        for (i in 0..30) session.add(fix(i * 2L))
+        for (i in 1..30) session.add(fix(60 + i * 2L, east = i * 1.2, speed = .6f,
+            speedAccuracy = .1f), autoPauseEnabled = i > 15)
+        assertEquals(60000L, session.movingDurationMillis)
+        assertTrue(session.distanceMeters in 30.0..39.0)
+    }
+
     private fun fix(seconds: Long, east: Double = 0.0, north: Double = 0.0,
         speed: Float? = 0f, speedAccuracy: Float? = .4f, accuracy: Float = 6f,
         energy: Float? = .14f, motionAge: Long? = 0L, steps: Long? = null,
@@ -92,7 +136,7 @@ class TrackingV2StationaryTest {
                 speed = speed, speedAccuracy = .1f, energy = .03f, persona = persona))
             assertEquals(persona.name, TrackingV2MovementState.MOVING, session.snapshot.movementState)
             assertTrue("$persona ${session.distanceMeters}", session.distanceMeters in 50.0 * speed..65.0 * speed)
-            assertTrue(session.movingDurationMillis in 50000L..60000L)
+            assertTrue("$persona time ${session.movingDurationMillis}", session.movingDurationMillis in 50000L..60000L)
         }
     }
 
