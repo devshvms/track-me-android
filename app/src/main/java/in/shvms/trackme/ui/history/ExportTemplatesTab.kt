@@ -300,6 +300,7 @@ internal fun templateName(id: ExportTemplateId, strings: AppStrings): String = w
     ExportTemplateId.STICKER -> strings.templateSticker
     ExportTemplateId.HOUR -> strings.templateHour
     ExportTemplateId.AWARD -> strings.templateAward
+    ExportTemplateId.ITINERARY -> strings.templateItinerary
 }
 
 private fun placeLabel(reference: PlaceReference, strings: AppStrings): String = when (reference) {

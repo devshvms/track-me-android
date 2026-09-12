@@ -10,6 +10,9 @@ enum class ExportTemplateId(val analyticsValue: String) {
     STICKER("sticker"),
     HOUR("hour"),
     AWARD("award"),
+
+    /** SCOPE_1.8.9 Part 2. Aggregate only: one ride has no sequence to tell. */
+    ITINERARY("itinerary"),
 }
 
 /** §9.3 — forced by the data: an aggregate has no single reveal, no single split table, no single hour. */
@@ -67,6 +70,12 @@ object ExportTemplates {
         ),
         ExportTemplateSpec(
             ExportTemplateId.AWARD, TemplateScope.SINGLE,
+            listOf(TemplateCanvas.STORY, TemplateCanvas.PORTRAIT, TemplateCanvas.SQUARE),
+        ),
+        // AGGREGATE, not BOTH: a single ride has no sequence, and an itinerary of one leg is a
+        // worse Trace. The strip therefore offers this only for a selection.
+        ExportTemplateSpec(
+            ExportTemplateId.ITINERARY, TemplateScope.AGGREGATE,
             listOf(TemplateCanvas.STORY, TemplateCanvas.PORTRAIT, TemplateCanvas.SQUARE),
         ),
     )

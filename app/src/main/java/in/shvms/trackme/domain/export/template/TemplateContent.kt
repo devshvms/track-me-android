@@ -54,4 +54,18 @@ internal data class TemplateContent(
     val award: AwardText?,
     val light: LightPhase,
     val lightLine: String?,
+    /**
+     * SCOPE_1.8.9 Part 2. Non-null only for a selection [AggregateSelection.shape] called a TOUR —
+     * which is what stops the Itinerary rendering a list of unrelated places as though it were a
+     * journey. Defaulted so every single-ride call site is untouched.
+     */
+    val itinerary: Itinerary? = null,
+    /** The regions the selection touched, in the order ridden. Aggregate only. */
+    val regions: Map<String, RegionRole> = emptyMap(),
+    /**
+     * "2 states · 5 districts", already formatted and localised by the caller — the same division
+     * of labour as [lightLine]. The renderer has no `AppStrings`, and giving it one would put copy
+     * decisions in the drawing layer.
+     */
+    val coverageLine: String? = null,
 )

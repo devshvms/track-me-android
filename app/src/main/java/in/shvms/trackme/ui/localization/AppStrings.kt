@@ -688,6 +688,11 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val templateSticker: String = s("templateSticker", "Sticker")
     val templateHour: String = s("templateHour", "Hour")
     val templateAward: String = s("templateAward", "Award")
+    // SCOPE_1.8.9 Part 2. One word, like its siblings: the strip is a fixed-width control and §12 R3
+    // holds it to fitting on one line in every catalogue.
+    val templateItinerary: String = s("templateItinerary", "Route")
+    /** The tour's footer: "%1$d states · %2$d districts". */
+    val itineraryCoverage: String = s("itineraryCoverage", "%1\$d states · %2\$d districts")
     val templateElevation: String = s("templateElevation", "Elevation")
     val templateElevationLine: String = s("templateElevationLine", "Elevation · %1\$s gain")
     val templateSplitsLine: String = s("templateSplitsLine", "Splits · %1\$s")
@@ -1456,6 +1461,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "templateSticker" to "Pegatina",
             "templateHour" to "Luz",
             "templateAward" to "Logro",
+            "templateItinerary" to "Ruta",
+            "itineraryCoverage" to "%1\$d estados · %2\$d distritos",
             "templateElevation" to "Desnivel",
             "templateElevationLine" to "Desnivel · %1\$s de subida",
             "templateSplitsLine" to "Parciales · %1\$s",
@@ -2195,6 +2202,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "templateSticker" to "Autocollant",
             "templateHour" to "Lumière",
             "templateAward" to "Exploit",
+            "templateItinerary" to "Parcours",
+            "itineraryCoverage" to "%1\$d états · %2\$d districts",
             "templateElevation" to "Dénivelé",
             "templateElevationLine" to "Dénivelé · %1\$s positif",
             "templateSplitsLine" to "Fractions · %1\$s",
@@ -2934,6 +2943,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "templateSticker" to "Aufkleber",
             "templateHour" to "Licht",
             "templateAward" to "Erfolg",
+            "templateItinerary" to "Strecke",
+            "itineraryCoverage" to "%1\$d Staaten · %2\$d Bezirke",
             "templateElevation" to "Höhenmeter",
             "templateElevationLine" to "Höhe · %1\$s Anstieg",
             "templateSplitsLine" to "Abschnitte · %1\$s",
@@ -3673,6 +3684,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "templateSticker" to "स्टिकर",
             "templateHour" to "रोशनी",
             "templateAward" to "उपलब्धि",
+            "templateItinerary" to "मार्ग",
+            "itineraryCoverage" to "%1\$d राज्य · %2\$d ज़िले",
             "templateElevation" to "ऊँचाई",
             "templateElevationLine" to "ऊँचाई · %1\$s चढ़ाई",
             "templateSplitsLine" to "स्प्लिट · %1\$s",
@@ -4412,6 +4425,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "templateSticker" to "ステッカー",
             "templateHour" to "光",
             "templateAward" to "達成",
+            "templateItinerary" to "行程",
+            "itineraryCoverage" to "%1\$d州 · %2\$d地区",
             "templateElevation" to "標高",
             "templateElevationLine" to "標高 · 獲得 %1\$s",
             "templateSplitsLine" to "スプリット · %1\$s",
@@ -5151,6 +5166,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "templateSticker" to "贴纸",
             "templateHour" to "光影",
             "templateAward" to "成就",
+            "templateItinerary" to "路线",
+            "itineraryCoverage" to "%1\$d 个州 · %2\$d 个地区",
             "templateElevation" to "爬升",
             "templateElevationLine" to "海拔 · 爬升 %1\$s",
             "templateSplitsLine" to "分段 · %1\$s",

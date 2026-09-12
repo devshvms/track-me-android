@@ -70,6 +70,7 @@ internal object TemplateRenderer {
             ExportTemplateId.STICKER -> scope.drawSticker(content)
             ExportTemplateId.HOUR -> scope.drawHour(content)
             ExportTemplateId.AWARD -> scope.drawAward(content)
+            ExportTemplateId.ITINERARY -> scope.drawItinerary(content)
         }
         return bitmap
     }
@@ -601,6 +602,114 @@ private class DrawScope(
             canvas.drawText(url, px(1036f), px(640f), linkPaint)
         }
     }
+
+    // --- The Itinerary (SCOPE_1.8.9 Part 2) ---
+
+    private class ItineraryLayout(
+        val top: Float, val stopGap: Float, val nameSize: Float, val regionSize: Float,
+        val hopSize: Float, val heroBaseline: Float, val heroSize: Float, val footer: Float,
+    )
+
+    private fun itineraryLayout(stops: Int): ItineraryLayout {
+        val base = when (spec) {
+            TemplateCanvas.PORTRAIT -> ItineraryLayout(250f, 190f, 62f, 25f, 38f, 1230f, 118f, 1300f)
+            TemplateCanvas.SQUARE -> ItineraryLayout(210f, 150f, 52f, 22f, 32f, 960f, 96f, 1020f)
+            else -> ItineraryLayout(300f, 230f, 70f, 27f, 42f, 1700f, 140f, 1790f)
+        }
+        if (stops < 2) return base
+
+        // The chain must end clear of the hairline above the hero, not of the hero's baseline —
+        // and the last stop is not its dot: a district line sits beneath the name, and that is what
+        // actually collides. Reserving for the dot alone is what put "Nashik" through the figure.
+        val hairlineY = base.heroBaseline - base.heroSize * 0.95f
+        val underLastStop = base.nameSize * 0.34f + base.regionSize * 1.5f + 36f
+        val available = hairlineY - base.top - underLastStop
+        val natural = (stops - 1) * base.stopGap
+
+        if (natural <= available) {
+            // Room to spare: centre the chain in the band rather than hanging it from the top,
+            // which left a four-stop tour with a dead third of a frame under it.
+            return ItineraryLayout(
+                base.top + (available - natural) / 2f, base.stopGap, base.nameSize,
+                base.regionSize, base.hopSize, base.heroBaseline, base.heroSize, base.footer,
+            )
+        }
+
+        // Too many stops for the natural pitch. Tighten the gap to exactly the band, and the type
+        // with it so the column stays balanced instead of names colliding at the new spacing.
+        val squeeze = (available / natural).coerceIn(0.4f, 1f)
+        return ItineraryLayout(
+            base.top, base.stopGap * squeeze, base.nameSize * squeeze.coerceAtLeast(0.62f),
+            base.regionSize * squeeze.coerceAtLeast(0.7f), base.hopSize * squeeze.coerceAtLeast(0.7f),
+            base.heroBaseline, base.heroSize, base.footer,
+        )
+    }
+
+    fun drawItinerary(content: TemplateContent) {
+        skyGradient(intArrayOf(0xFF101A16.toInt(), 0xFF0C1410.toInt(), 0xFF080F0C.toInt()))
+        val itinerary = content.itinerary
+        // No tour, nothing to draw. The caller should not have offered this template at all, and a
+        // half-drawn chain would assert a journey the selection is not.
+        if (itinerary == null || itinerary.stops.isEmpty()) {
+            text(content.heroValue, 80f, 540f, paint(140f, Color.WHITE, weight = 760, tracking = -0.03f, tabular = true))
+            return
+        }
+
+        val layout = itineraryLayout(itinerary.stops.size)
+        val railX = 132f
+        val textX = 208f
+        val namePaint = paint(layout.nameSize, 0xFFEAF2ED.toInt(), weight = 720, tracking = -0.02f)
+        val regionPaint = paint(layout.regionSize, 0xFF6E8C7E.toInt(), weight = 600, tracking = 0.14f)
+        val hopPaint = paint(layout.hopSize, TemplateColors.CYAN, weight = 600, tabular = true)
+
+        val lastY = layout.top + (itinerary.stops.size - 1) * layout.stopGap
+        // The rail is drawn first and once, so the dots sit on a single continuous line rather than
+        // a series of segments that betray any rounding between them.
+        canvas.drawRect(
+            RectF(px(railX - 2.5f), px(layout.top), px(railX + 2.5f), px(lastY)),
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF20362C.toInt() },
+        )
+
+        itinerary.stops.forEachIndexed { index, stop ->
+            val y = layout.top + index * layout.stopGap
+            val terminal = index == 0 || index == itinerary.stops.lastIndex
+            val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = TemplateColors.CYAN }
+            if (index == 0) {
+                // Hollow at the start, solid everywhere after: the same grammar the single-ride
+                // templates use, so a rider reads direction without a legend.
+                canvas.drawCircle(px(railX), px(y), px(17f), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF101A16.toInt() })
+                canvas.drawCircle(px(railX), px(y), px(17f), Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE; strokeWidth = px(7f); color = TemplateColors.CYAN
+                })
+            } else {
+                canvas.drawCircle(px(railX), px(y), px(if (terminal) 17f else 13f), dot)
+            }
+
+            text(stop.name, textX, y + layout.nameSize * 0.34f, namePaint, 1080f - textX - 60f)
+            stop.region?.let {
+                text(it.uppercase(), textX, y + layout.nameSize * 0.34f + layout.regionSize * 1.5f, regionPaint, 1080f - textX - 60f)
+            }
+
+            itinerary.hops.getOrNull(index)?.let { hop ->
+                val midpoint = y + layout.stopGap * 0.55f
+                text(formatKm(hop.distanceMeters), textX, midpoint, hopPaint, 300f)
+            }
+        }
+
+        hairline(80f, 1000f, layout.heroBaseline - layout.heroSize * 0.95f, 0xFF20362C.toInt())
+        text(content.heroValue, 80f, layout.heroBaseline, paint(layout.heroSize, Color.WHITE, weight = 760, tracking = -0.035f, tabular = true))
+        val heroWidth = paint(layout.heroSize, Color.WHITE, weight = 760, tracking = -0.035f, tabular = true).measureText(content.heroValue) / u
+        text(content.heroUnit, 80f + heroWidth + 24f, layout.heroBaseline, paint(layout.heroSize * 0.3f, 0xFF6E8C7E.toInt(), weight = 500))
+        // The date and the coverage share the footer: what the trip was, and what it crossed.
+        val footerLine = listOfNotNull(content.dateLine.takeIf { it.isNotBlank() }, content.coverageLine)
+            .joinToString("  ·  ")
+        text(footerLine, 80f, layout.footer, paint(26f, 0xFF4E6B5E.toInt(), weight = 500, tracking = 0.08f), 900f)
+        content.link?.takeIf(::isTrackMeArtifactDeepLink)?.let { url ->
+            canvas.drawText(url, px(1000f), px(layout.footer + 46f), paint(20f, withAlpha(0xFF6E8C7E.toInt(), 200), align = Paint.Align.RIGHT))
+        }
+    }
+
+    private fun formatKm(meters: Double): String = "${(meters / 1000.0).toInt()} km"
 
     // --- The Award ---
 

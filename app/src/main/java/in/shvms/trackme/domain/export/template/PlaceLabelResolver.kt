@@ -21,12 +21,24 @@ internal class PlaceLabelResolver(
     private val geocode: suspend (latitude: Double, longitude: Double) -> PlaceParts?,
 ) {
     suspend fun resolve(points: List<GPSPointEntity>): Pair<String?, String?> {
+        val (start, finish) = parts(points)
+        return start?.let(PlaceLabelPolicy::label) to finish?.let(PlaceLabelPolicy::label)
+    }
+
+    /**
+     * The same lookup, keeping the administrative components rather than flattening to one name.
+     *
+     * Part 1 needed a label; Part 2's coverage counts need the district and state *behind* it, and
+     * `label` throws those away by design — it picks the finest name and discards the rest.
+     */
+    suspend fun parts(points: List<GPSPointEntity>): Pair<PlaceParts?, PlaceParts?> {
         val trimmed = trimGpsPointsForExport(points, AppConfig.PRIVACY_TRIM_METERS)
         val start = trimmed.firstOrNull() ?: return null to null
         val finish = trimmed.last()
-        return label(start) to label(finish)
+        return lookup(start) to lookup(finish)
     }
 
-    private suspend fun label(point: GPSPointEntity): String? =
-        runCatching { geocode(point.latitude, point.longitude) }.getOrNull()?.let(PlaceLabelPolicy::label)
+    private suspend fun lookup(point: GPSPointEntity): PlaceParts? =
+        runCatching { geocode(point.latitude, point.longitude) }.getOrNull()
+
 }

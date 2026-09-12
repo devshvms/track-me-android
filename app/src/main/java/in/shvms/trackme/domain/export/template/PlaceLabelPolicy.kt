@@ -15,6 +15,12 @@ internal data class PlaceParts(
     val subAdminArea: String? = null,
     val adminArea: String? = null,
     val thoroughfare: String? = null,
+    /**
+     * Read for Part 2's coverage counts only. Never part of [PlaceLabelPolicy.label] — a country
+     * name beside a route tells a reader nothing they cannot see, and the label rule is about
+     * naming one place, not locating it on Earth.
+     */
+    val countryName: String? = null,
 )
 
 /**

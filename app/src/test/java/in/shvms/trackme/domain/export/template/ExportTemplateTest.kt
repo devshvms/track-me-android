@@ -10,9 +10,18 @@ class ExportTemplateTest {
 
     @Test
     fun `the strip order is stable with the Award last so it never shifts the others`() {
+        // The contract is about the single-ride strip: those five must not reshuffle under a rider
+        // who has learned where they are. Part 2's aggregate templates are appended after them and
+        // never appear in that strip, so they cannot shift it — which is why the assertion is now
+        // "the single-ride ids, in this order, first" rather than "these are all of them".
         assertEquals(
             listOf(ExportTemplateId.TRACE, ExportTemplateId.INSTRUMENT, ExportTemplateId.STICKER, ExportTemplateId.HOUR, ExportTemplateId.AWARD),
-            ExportTemplates.all.map { it.id },
+            ExportTemplates.all.filter { it.scope != TemplateScope.AGGREGATE }.map { it.id },
+        )
+        assertEquals(
+            "aggregate templates belong after the single-ride ones",
+            listOf(ExportTemplateId.ITINERARY),
+            ExportTemplates.all.filter { it.scope == TemplateScope.AGGREGATE }.map { it.id },
         )
     }
 
