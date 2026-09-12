@@ -275,6 +275,19 @@ fun ExportPreviewDialog(
         mutableStateOf(ExportTemplateChoice(id = templates?.let { TemplateMemory.recall(context, it.available) } ?: ExportTemplateId.TRACE))
     }
 
+    // Choosing the Itinerary *is* the request for place names: it draws nothing else, and with
+    // names off it is a rail of dots and distances that asserts no journey at all — seen on the
+    // simulator, not reasoned about. §7's rule is that a lookup happens only because the rider
+    // asked, and this is them asking, whether they tapped the card now or chose it last time; the
+    // chip beside it still turns names back off. Keyed on the id rather than written at the tap
+    // site because the remembered choice arrives without a tap.
+    LaunchedEffect(templateChoice.id, templates) {
+        if (templateChoice.id == ExportTemplateId.ITINERARY && templateChoice.place == PlaceReference.OFF) {
+            templateChoice = templateChoice.copy(place = PlaceReference.START_AND_FINISH)
+            templates?.onPlaceReferenceEnabled()
+        }
+    }
+
     // TASK-305: the top of the export funnel. Fired once per presentation, not per recomposition —
     // a rail tap or a preview redraw is not a new export attempt, and counting it as one would make
     // every downstream ratio look worse than it is.
