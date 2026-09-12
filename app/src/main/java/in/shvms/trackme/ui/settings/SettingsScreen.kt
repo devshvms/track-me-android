@@ -45,6 +45,11 @@ import `in`.shvms.trackme.ui.gamification.LevelAvatar
 import `in`.shvms.trackme.ui.gamification.GamificationTrail
 import `in`.shvms.trackme.domain.gamification.GamificationEngine
 import `in`.shvms.trackme.domain.gamification.toGamificationFacts
+import androidx.compose.material3.Badge
+import androidx.compose.foundation.layout.Row
+import `in`.shvms.trackme.ui.notifications.AppStringsBulletinCopy
+import `in`.shvms.trackme.domain.bulletin.BulletinCopy
+import `in`.shvms.trackme.ui.notifications.withFormattedFacts
 
 private val languageDisplayNames = mapOf(
     "en" to "English",
@@ -510,15 +515,37 @@ fun SettingsScreen(
         // "subtle unread badge" allows. The badge on this tab is what makes it discoverable when
         // there is something in it, and invisible when there is not.
         SettingsGroup(title = strings.bulletinTitle) {
+            val bulletinStore = (LocalContext.current.applicationContext as TrackMeApp).bulletinStore
+            val bulletinEntries by bulletinStore.entries.collectAsState()
+            val bulletinLastSeen by bulletinStore.lastSeenCreatedAt.collectAsState()
+            val bulletinUnread = bulletinEntries.any { it.isUnread(bulletinLastSeen) }
+            val bulletinCopy = remember(strings) { AppStringsBulletinCopy(strings) }
+            val imperialUnits = unitSystem == "imperial"
+
+            // The subtitle was hardcoded to `bulletinEmpty`, so this row claimed there was nothing
+            // to report while the feed behind it held rows. Previewing the newest headline is both
+            // true and more useful than a count: it is what the row is a way in to.
+            val newestHeadline = bulletinEntries.firstOrNull()?.let { entry ->
+                BulletinCopy.render(entry.withFormattedFacts(imperialUnits), bulletinCopy)?.title
+            }
+
             SettingsRow(
                 title = strings.bulletinTitle,
-                supportingText = strings.bulletinEmpty,
+                supportingText = newestHeadline ?: strings.bulletinEmpty,
                 trailingContent = {
-                    Icon(
-                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // §6.1.7's "subtle unread badge" reached the Settings *tab* but stopped
+                        // there, so the dot told you to open Settings and then abandoned you —
+                        // nothing inside said which row it meant.
+                        if (bulletinUnread) {
+                            Badge(modifier = Modifier.padding(end = 10.dp))
+                        }
+                        Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 },
                 onClick = { navController?.navigate("bulletin") },
             )

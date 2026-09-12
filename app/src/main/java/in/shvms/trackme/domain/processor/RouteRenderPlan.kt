@@ -1,6 +1,8 @@
 package `in`.shvms.trackme.domain.processor
 
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
+import `in`.shvms.trackme.data.local.entity.presentationLatitude
+import `in`.shvms.trackme.data.local.entity.presentationLongitude
 import `in`.shvms.trackme.domain.model.RidePersona
 
 internal data class RouteCoordinate(val latitude: Double, val longitude: Double)
@@ -28,8 +30,16 @@ internal data class RouteRenderPlan(
 
             val runs = RideGaps.recordedRuns(points, persona)
             
-            val solidRuns = runs.map { run -> 
-                run.map { RouteCoordinate(it.latitude, it.longitude) }
+            val solidRuns: List<List<RouteCoordinate>> = runs.map { run ->
+                buildList {
+                    run.forEach { point ->
+                        val coordinate = RouteCoordinate(
+                            point.presentationLatitude,
+                            point.presentationLongitude,
+                        )
+                        if (lastOrNull() != coordinate) add(coordinate)
+                    }
+                }
             }
             
             val dottedJoins = mutableListOf<List<RouteCoordinate>>()
@@ -38,8 +48,8 @@ internal data class RouteRenderPlan(
                 val firstOfNext = runs[i + 1].first()
                 dottedJoins.add(
                     listOf(
-                        RouteCoordinate(lastOfCurrent.latitude, lastOfCurrent.longitude),
-                        RouteCoordinate(firstOfNext.latitude, firstOfNext.longitude)
+                        RouteCoordinate(lastOfCurrent.presentationLatitude, lastOfCurrent.presentationLongitude),
+                        RouteCoordinate(firstOfNext.presentationLatitude, firstOfNext.presentationLongitude)
                     )
                 )
             }

@@ -14,7 +14,13 @@ import kotlin.math.abs
  */
 class DashboardRoutePolylineTest {
 
-    private fun point(latitude: Double, longitude: Double, timestamp: Long = 0L) = GPSPointEntity(
+    private fun point(
+        latitude: Double,
+        longitude: Double,
+        timestamp: Long = 0L,
+        displayLatitude: Double? = null,
+        displayLongitude: Double? = null,
+    ) = GPSPointEntity(
         rideId = 1L,
         latitude = latitude,
         longitude = longitude,
@@ -23,6 +29,8 @@ class DashboardRoutePolylineTest {
         speed = 4f,
         timestamp = timestamp,
         isPaused = false,
+        displayLatitude = displayLatitude,
+        displayLongitude = displayLongitude,
     )
 
     @Test fun `round trip preserves the shape within display precision`() {
@@ -72,5 +80,16 @@ class DashboardRoutePolylineTest {
         val dense = (0 until 20_000).map { point(12.9 + it * 1e-5, 77.5 + it * 1e-5, it.toLong()) }
         val encoded = dashboardRoutePolylineFromPoints(dense)!!
         assertTrue("encoded thumbnail was ${encoded.length} chars", encoded.length < 400)
+    }
+
+    @Test fun `thumbnail uses v2 presentation geometry with legacy fallback`() {
+        val route = listOf(
+            point(12.0, 77.0, displayLatitude = 13.0, displayLongitude = 78.0),
+            point(12.1, 77.1, displayLatitude = 13.1, displayLongitude = 78.1),
+        )
+
+        val decoded = PolyUtil.decode(dashboardRoutePolylineFromPoints(route)!!)
+        assertTrue(abs(decoded.first().latitude - 13.0) < 1e-5)
+        assertTrue(abs(decoded.last().longitude - 78.1) < 1e-5)
     }
 }

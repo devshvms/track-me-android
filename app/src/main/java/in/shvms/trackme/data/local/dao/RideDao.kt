@@ -152,6 +152,17 @@ interface RideDao {
     @Query("UPDATE rides SET pendingDelete = :pending WHERE id = :rideId")
     suspend fun setPendingDelete(rideId: Long, pending: Boolean): Int
 
+    /**
+     * SCOPE_1.8.9 §13 — what the ride earned, written once at save. A targeted UPDATE for the same
+     * reason as [setPendingDelete]: it cannot write back a stale copy of anything else on the row.
+     */
+    @Query("UPDATE rides SET revealKind = :kind, revealPreviousBest = :previousBest, revealMilestoneCount = :milestoneCount WHERE id = :rideId")
+    suspend fun setEarnedReveal(rideId: Long, kind: String, previousBest: Double?, milestoneCount: Int?): Int
+
+    /** SCOPE_1.8.9 §7 — the cached place labels for the trimmed route's ends. */
+    @Query("UPDATE rides SET placeLabelStart = :start, placeLabelEnd = :end WHERE id = :rideId")
+    suspend fun setPlaceLabels(rideId: Long, start: String?, end: String?): Int
+
     /** Rides flagged for deletion that never completed one — swept at startup. */
     @Query("SELECT * FROM rides WHERE pendingDelete = 1")
     suspend fun getPendingDeleteRides(): List<RideEntity>

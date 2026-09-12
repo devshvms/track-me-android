@@ -279,7 +279,9 @@ fun MainNavigation() {
                     // already carries four, and a permanent tab for a surface that is empty most
                     // weeks would advertise itself far more loudly than "subtle unread badge".
                     composable("bulletin") {
-                        `in`.shvms.trackme.ui.notifications.BulletinScreen()
+                        `in`.shvms.trackme.ui.notifications.BulletinScreen(
+                            onBack = { navController.popBackStack() },
+                        )
                     }
                     composable("account_management") {
                         `in`.shvms.trackme.ui.settings.AccountManagementScreen(navController = navController)

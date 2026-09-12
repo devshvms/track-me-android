@@ -81,7 +81,14 @@ data class RideStatsTransition(
     /** True when this ride advanced the streak counter above its previous value. */
     val streakAdvanced: Boolean,
     /** True when this ride's week-rollover forgave a single missed week (B3 auto-freeze). */
-    val streakFroze: Boolean
+    val streakFroze: Boolean,
+    /**
+     * SCOPE_1.8.9 §13: the distance and duration records **as they stood before this ride**. The
+     * store overwrites them the moment this ride is folded in, so this transition is the last place
+     * they exist — and The Award's "previous best" line is exactly this value.
+     */
+    val previousLongestDistanceMeters: Double = 0.0,
+    val previousLongestDurationMillis: Long = 0L,
 )
 
 /**

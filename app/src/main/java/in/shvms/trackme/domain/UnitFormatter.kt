@@ -28,6 +28,20 @@ object UnitFormatter {
      */
     fun rideDistance(meters: Double, imperial: Boolean, locale: Locale = Locale.getDefault()): String =
         distance(meters, imperial, decimals = RIDE_DISTANCE_DECIMALS, locale = locale)
+    /**
+     * The number [rideDistance] prints, without its unit — for layouts that set the two apart, like
+     * the export templates' hero figure. Same precision and locale, so the two can never disagree.
+     */
+    fun rideDistanceValue(meters: Double, imperial: Boolean, locale: Locale = Locale.getDefault()): String =
+        String.format(locale, "%.${RIDE_DISTANCE_DECIMALS}f", if (imperial) meters / METERS_PER_MILE else meters / 1000.0)
+
+    /**
+     * Elevation gain as the ride detail screen shows it: whole metres, or whole feet in imperial.
+     * One helper for the screen and every artifact made from it (EXPORT_SHARE_CONTRACTS §2).
+     */
+    fun elevation(meters: Double, imperial: Boolean, locale: Locale = Locale.getDefault()): String =
+        String.format(locale, "%.0f %s", if (imperial) meters * 3.28084 else meters, if (imperial) "ft" else "m")
+
     fun speed(mps: Double, imperial: Boolean, locale: Locale = Locale.getDefault()): String =
         String.format(locale, "%.1f %s", mps * if (imperial) 2.236936 else 3.6, if (imperial) "mph" else "km/h")
     fun distanceUnitLabel(imperial: Boolean) = if (imperial) "mi" else "km"

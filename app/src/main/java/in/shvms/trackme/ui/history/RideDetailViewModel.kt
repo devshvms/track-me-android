@@ -1,5 +1,7 @@
 package `in`.shvms.trackme.ui.history
 
+import kotlinx.coroutines.Dispatchers
+
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -42,6 +44,20 @@ class RideDetailViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private val actionMutex = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * SCOPE_1.8.9 §7 — caches resolved place names on the ride row and on the ride this screen holds,
+     * so the templates redraw with them and the lookup never runs again for this ride.
+     */
+    fun savePlaceLabels(rideId: Long, start: String?, end: String?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            rideDao.setPlaceLabels(rideId, start, end)
+            val current = _rideWithPoints.value
+            if (current?.ride?.id == rideId) {
+                _rideWithPoints.value = current.copy(ride = current.ride.copy(placeLabelStart = start, placeLabelEnd = end))
+            }
+        }
+    }
 
     fun updateTitle(rideId: Long, newTitle: String) {
         viewModelScope.launch {

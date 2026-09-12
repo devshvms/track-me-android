@@ -66,7 +66,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
+import androidx.compose.runtime.collectAsState
+import `in`.shvms.trackme.data.local.entity.presentationLatitude
+import `in`.shvms.trackme.data.local.entity.presentationLongitude
 import `in`.shvms.trackme.domain.export.ComparisonImageExporter
+import `in`.shvms.trackme.domain.export.template.ExportTemplateId
+import `in`.shvms.trackme.domain.export.template.PlaceReference
+import `in`.shvms.trackme.domain.export.template.SelectionLeg
 import `in`.shvms.trackme.theme.BrandThemeConfig
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.components.moveSafely
@@ -97,7 +103,13 @@ import kotlinx.coroutines.withContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
-private val comparisonRouteColors = listOf(
+/**
+ * One colour per selected ride. Internal rather than private since 1.8.9 Part 2: the aggregate
+ * templates colour their lines by ride, and they have to be *these* colours — a template and the
+ * map export of the same selection disagreeing about which ride is blue would be worse than no
+ * colour at all.
+ */
+internal val comparisonRouteColors = listOf(
     0xFF00A6C7.toInt(), // TrackMe cyan
     0xFF7557B5.toInt(),
     0xFF008577.toInt(),
@@ -146,7 +158,7 @@ fun MultiRideCompareScreen(
     var showPreview by remember { mutableStateOf(false) }
 
     val allLatLngs = remember(visibleRoutes) {
-        visibleRoutes.flatMap { route -> route.points.map { LatLng(it.latitude, it.longitude) } }
+        visibleRoutes.flatMap { route -> route.points.map { LatLng(it.presentationLatitude, it.presentationLongitude) } }
     }
     val bounds = remember(allLatLngs) {
         if (allLatLngs.isEmpty()) null else LatLngBounds.Builder().also { builder ->
@@ -203,7 +215,7 @@ fun MultiRideCompareScreen(
                     ) {
                         visibleRoutes.forEachIndexed { index, route ->
                             val routeColor = comparisonRouteColors[index % comparisonRouteColors.size]
-                            val latLngs = route.points.map { LatLng(it.latitude, it.longitude) }
+                            val latLngs = route.points.map { LatLng(it.presentationLatitude, it.presentationLongitude) }
                             Polyline(points = latLngs, color = Color(routeColor), width = 8f)
                             Marker(
                                 state = remember(route.ride.ride.id) { MarkerState(position = latLngs.first()) },
@@ -219,8 +231,8 @@ fun MultiRideCompareScreen(
                         connectors.forEach { connector ->
                             Polyline(
                                 points = listOf(
-                                    LatLng(connector.from.latitude, connector.from.longitude),
-                                    LatLng(connector.to.latitude, connector.to.longitude)
+                                    LatLng(connector.from.presentationLatitude, connector.from.presentationLongitude),
+                                    LatLng(connector.to.presentationLatitude, connector.to.presentationLongitude)
                                 ),
                                 color = MaterialTheme.colorScheme.outline,
                                 width = 5f,
@@ -309,6 +321,68 @@ private fun UnifiedAggregateRidePreviewDialog(
     var exportFailure by remember { mutableStateOf<ExportPreviewFailure?>(null) }
     var pendingGalleryFile by remember { mutableStateOf<java.io.File?>(null) }
 
+    // SCOPE_1.8.9 Part 2 — the Templates tab for a *selection*.
+    //
+    // Which templates a selection can honestly fill is a question about its shape, and shape is
+    // decided from coordinates alone, so it is answered before any lookup: a rider with no network
+    // is offered exactly the same strip, with unnamed stops. Geocoded legs replace the plain ones
+    // only when the place chip asks for names (§7) — one lookup per selection, never on open.
+    val app = context.applicationContext as `in`.shvms.trackme.TrackMeApp
+    val unitSystem by app.preferencesManager.unitSystem.collectAsState()
+    val imperial = unitSystem == "imperial"
+    val locale = java.util.Locale.getDefault()
+    var placedLegs by remember(visibleRoutes) { mutableStateOf<List<SelectionLeg>?>(null) }
+    val plainLegs = remember(visibleRoutes) { ExportTemplateAggregate.legs(visibleRoutes) }
+    val availableTemplates = remember(plainLegs) { ExportTemplateAggregate.available(plainLegs) }
+    val aggregateDateLine = remember(visibleRoutes, locale, strings) {
+        val monthFormat = java.text.SimpleDateFormat(
+            android.text.format.DateFormat.getBestDateTimePattern(locale, "MMMy"), locale,
+        )
+        ExportTemplateAggregate.dateLine(visibleRoutes, strings, locale) { monthFormat.format(java.util.Date(it)) }
+    }
+
+    /** The selection as the chosen options describe it: trimmed or whole, named or not. */
+    fun templateRoutes(privacyTrim: Boolean): List<ComparisonRoute> = visibleRoutes
+        .map { route -> if (privacyTrim) route else route.copy(points = route.ride.points) }
+        .filter { it.points.isNotEmpty() }
+
+    fun templateLegs(place: PlaceReference): List<SelectionLeg> =
+        if (place == PlaceReference.OFF) plainLegs else placedLegs ?: plainLegs
+
+    val templatesSupport = remember(visibleRoutes, plainLegs, placedLegs, availableTemplates, imperial, strings, aggregateDateLine) {
+        if (availableTemplates.isEmpty() || visibleRoutes.isEmpty()) {
+            null
+        } else {
+            ExportTemplatesSupport(
+                available = availableTemplates,
+                render = { choice, canvas, trim, widthPx ->
+                    renderAggregateTemplate(
+                        context = context,
+                        routes = templateRoutes(trim),
+                        legs = templateLegs(choice.place),
+                        choice = choice,
+                        canvas = canvas,
+                        widthPx = widthPx,
+                        strings = strings,
+                        imperial = imperial,
+                        dateLine = aggregateDateLine,
+                    )
+                },
+                onPlaceReferenceEnabled = {
+                    // Once per selection. Two lookups per ride is already the most an aggregate may
+                    // cost, and repeating them on every chip tap would be the network cost the
+                    // single-ride path was careful to avoid.
+                    if (placedLegs == null) {
+                        scope.launch {
+                            placedLegs = ExportTemplateAggregate.legsWithPlaces(visibleRoutes, androidGeocoder(context))
+                        }
+                    }
+                },
+                contentVersion = placedLegs,
+            )
+        }
+    }
+
     val gallerySaveLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("image/png")
     ) { uri ->
@@ -335,7 +409,95 @@ private fun UnifiedAggregateRidePreviewDialog(
         }
     }
 
+    /**
+     * A template export: the same function the stage draws with, at the canvas's real width. No map
+     * is involved, which is why this is answered before `exportPreview`'s readiness check — a
+     * template is exportable the moment the dialog opens.
+     */
+    fun exportTemplate(settings: ExportPreviewSettings, share: Boolean) {
+        if (isExporting) return
+        val choice = settings.template
+        val canvas = settings.templateCanvas
+        val kind = if (choice.id == ExportTemplateId.STICKER) {
+            `in`.shvms.trackme.analytics.ExportArtifactKind.STICKER
+        } else {
+            `in`.shvms.trackme.analytics.ExportArtifactKind.IMAGE
+        }
+        isExporting = true
+        exportFailure = null
+        val renderStartedAt = android.os.SystemClock.elapsedRealtime()
+        scope.launch(Dispatchers.Default) {
+            runCatching {
+                val bitmap = renderAggregateTemplate(
+                    context = context,
+                    routes = templateRoutes(settings.privacyTrim),
+                    legs = templateLegs(choice.place),
+                    choice = choice,
+                    canvas = canvas,
+                    widthPx = canvas.widthPx,
+                    strings = strings,
+                    imperial = imperial,
+                    dateLine = aggregateDateLine,
+                ) ?: error("aggregate template render returned no bitmap")
+                writeTemplatePng(context, bitmap, visibleRoutes.first().ride.ride.id, choice.id).also { bitmap.recycle() }
+            }.onSuccess { file ->
+                `in`.shvms.trackme.analytics.AnalyticsManager.trackExportRendered(
+                    kind = kind,
+                    success = true,
+                    durationMillis = android.os.SystemClock.elapsedRealtime() - renderStartedAt,
+                    template = choice.id.analyticsValue,
+                )
+                if (share) {
+                    withContext(Dispatchers.Main) {
+                        shareComparisonFile(context, file)
+                        isExporting = false
+                        onDismiss()
+                    }
+                } else if (shouldUseGalleryDocumentPicker()) {
+                    withContext(Dispatchers.Main) {
+                        pendingGalleryFile = file
+                        val launched = tryLaunchGalleryDocument {
+                            gallerySaveLauncher.launch(galleryImageDisplayName("Aggregate"))
+                        }
+                        if (!launched) {
+                            pendingGalleryFile = null
+                            isExporting = false
+                            exportFailure = ExportPreviewFailure.Save
+                        }
+                    }
+                } else {
+                    val saved = saveComparisonImage(context, file)
+                    withContext(Dispatchers.Main) {
+                        isExporting = false
+                        if (saved) {
+                            messenger.show("Saved to gallery")
+                            onDismiss()
+                        } else {
+                            exportFailure = ExportPreviewFailure.Save
+                        }
+                    }
+                }
+            }.onFailure { error ->
+                `in`.shvms.trackme.analytics.AnalyticsManager.trackExportRendered(
+                    kind = kind,
+                    success = false,
+                    durationMillis = android.os.SystemClock.elapsedRealtime() - renderStartedAt,
+                    failureReason = error::class.simpleName,
+                    template = choice.id.analyticsValue,
+                )
+                withContext(Dispatchers.Main) {
+                    isExporting = false
+                    exportFailure = ExportPreviewFailure.Render
+                }
+            }
+        }
+    }
+
     fun exportPreview(settings: ExportPreviewSettings, share: Boolean) {
+        if (settings.mode == ExportPreviewMode.Templates && templatesSupport != null) {
+            exportTemplate(settings, share)
+            return
+        }
         val map = previewMapInstance
         if (map == null || isExporting) {
             messenger.show(strings.compareRidesMapNotReady)
@@ -366,7 +528,7 @@ private fun UnifiedAggregateRidePreviewDialog(
                 val allPoints = mutableListOf<LatLng>()
                 exportRoutes.forEachIndexed { index, route ->
                     val routeColor = comparisonRouteColors[index % comparisonRouteColors.size]
-                    val latLngs = route.points.map { LatLng(it.latitude, it.longitude) }
+                    val latLngs = route.points.map { LatLng(it.presentationLatitude, it.presentationLongitude) }
                     allPoints += latLngs
                     exportMap.addPolyline(
                         PolylineOptions().addAll(latLngs).color(routeColor).width(exportStroke)
@@ -383,8 +545,8 @@ private fun UnifiedAggregateRidePreviewDialog(
                         exportMap.addPolyline(
                             PolylineOptions()
                                 .add(
-                                    LatLng(connector.from.latitude, connector.from.longitude),
-                                    LatLng(connector.to.latitude, connector.to.longitude)
+                                    LatLng(connector.from.presentationLatitude, connector.from.presentationLongitude),
+                                    LatLng(connector.to.presentationLatitude, connector.to.presentationLongitude)
                                 )
                                 .color(android.graphics.Color.GRAY)
                                 .width(exportStroke * 0.6f)
@@ -459,6 +621,7 @@ private fun UnifiedAggregateRidePreviewDialog(
         initialShowSequence = true,
         showAggregateControls = true,
         canExport = visibleRoutes.isNotEmpty(),
+        templates = templatesSupport,
         isExporting = isExporting,
         errorMessage = when (exportFailure) {
             ExportPreviewFailure.Render -> strings.exportRetryMessage
@@ -477,7 +640,7 @@ private fun UnifiedAggregateRidePreviewDialog(
         }.filter { it.points.isNotEmpty() }
         val previewConnectors = remember(previewRoutes) { comparisonConnectors(previewRoutes) }
         val allLatLngs = remember(previewRoutes) {
-            previewRoutes.flatMap { route -> route.points.map { LatLng(it.latitude, it.longitude) } }
+            previewRoutes.flatMap { route -> route.points.map { LatLng(it.presentationLatitude, it.presentationLongitude) } }
         }
         if (allLatLngs.isEmpty()) {
             Box(modifier, contentAlignment = Alignment.Center) { Text(strings.compareRidesNoGps) }
@@ -558,7 +721,7 @@ private fun UnifiedAggregateRidePreviewDialog(
                     MapEffect { map -> previewMapInstance = map }
                     previewRoutes.forEachIndexed { index, route ->
                         val routeColor = comparisonRouteColors[index % comparisonRouteColors.size]
-                        val latLngs = route.points.map { LatLng(it.latitude, it.longitude) }
+                        val latLngs = route.points.map { LatLng(it.presentationLatitude, it.presentationLongitude) }
                         Polyline(points = latLngs, color = Color(routeColor), width = previewStroke)
                         val markerIcon = remember(route.label, routeColor, previewMarkerSize, settings.markerStyle) {
                             ExportMarkers.aggregate(
@@ -577,8 +740,8 @@ private fun UnifiedAggregateRidePreviewDialog(
                         previewConnectors.forEach { connector ->
                             Polyline(
                                 points = listOf(
-                                    LatLng(connector.from.latitude, connector.from.longitude),
-                                    LatLng(connector.to.latitude, connector.to.longitude)
+                                    LatLng(connector.from.presentationLatitude, connector.from.presentationLongitude),
+                                    LatLng(connector.to.presentationLatitude, connector.to.presentationLongitude)
                                 ),
                                 color = Color.Gray,
                                 width = previewStroke * 0.6f,
@@ -695,4 +858,3 @@ private fun shareComparisonFile(context: Context, file: java.io.File) {
 
 private fun saveComparisonImage(context: Context, file: java.io.File): Boolean =
     saveImageToGallery(context, file, "Aggregate")
-

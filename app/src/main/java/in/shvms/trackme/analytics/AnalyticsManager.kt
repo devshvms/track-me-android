@@ -244,6 +244,8 @@ object AnalyticsManager {
         success: Boolean,
         durationMillis: Long,
         failureReason: String? = null,
+        /** SCOPE_1.8.9: which template produced it — see [trackExportTemplateSelected]. Null for Custom. */
+        template: String? = null,
     ) {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture(
@@ -253,7 +255,25 @@ object AnalyticsManager {
                 put("success", success)
                 put("duration_ms", durationMillis)
                 failureReason?.let { put("failure_reason", it) }
+                template?.let { put("template", it) }
             }
+        )
+    }
+
+    /**
+     * SCOPE_1.8.9 §12 R2 — a template was chosen in the Templates tab.
+     *
+     * This is the one place this funnel records a control's *value*, and it is argued rather than
+     * slipped in beside the others. The guardrail forbids describing someone's export; a template's
+     * identity describes nothing about the ride — no place, no distance, no time, nothing drawn — and
+     * it is the entire question five templates were built to answer. Five designs shipped without
+     * this would be five designs and no way to learn which one anybody wanted.
+     */
+    fun trackExportTemplateSelected(template: `in`.shvms.trackme.domain.export.template.ExportTemplateId) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "export_template_selected",
+            properties = mapOf("template" to template.analyticsValue)
         )
     }
 
@@ -833,6 +853,8 @@ enum class ExportSurface(val value: String) {
 enum class ExportArtifactKind(val value: String) {
     IMAGE("image"),
     VIDEO("video"),
+    /** SCOPE_1.8.9 §6.2 — a transparent layer for someone's own photo; a different share, counted apart. */
+    STICKER("sticker"),
 }
 
 /**
@@ -852,4 +874,9 @@ enum class ExportStyleControl(val value: String) {
     THEME("theme"),
     FIGURES("figures"),
     LEGEND("legend"),
+    /** SCOPE_1.8.9 §9 — the Templates / Custom tab. */
+    MODE("mode"),
+    PLACE("place"),
+    MAP_BACKGROUND("map_background"),
+    LIGHT("light"),
 }

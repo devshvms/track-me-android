@@ -10,6 +10,8 @@ import `in`.shvms.trackme.R
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.data.local.entity.RideWithPoints
+import `in`.shvms.trackme.data.local.entity.presentationLatitude
+import `in`.shvms.trackme.data.local.entity.presentationLongitude
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.PolyUtil
 import kotlinx.coroutines.Dispatchers
@@ -121,7 +123,7 @@ class GoogleStaticApiImageExporterImpl : ImageExporter {
         val points = options.routePoints ?: rideWithPoints.points
         val step = maxOf(1, points.size / 300)
         val sampledPoints = points.filterIndexed { index, _ -> index % step == 0 }
-            .map { LatLng(it.latitude, it.longitude) }
+            .map { LatLng(it.presentationLatitude, it.presentationLongitude) }
             
         val encodedPath = PolyUtil.encode(sampledPoints)
         val apiKey = context.getString(R.string.google_maps_key)
@@ -343,7 +345,8 @@ internal fun ellipsise(text: String, paint: Paint, maxWidth: Float): String {
  * Deliberately quiet — small, grey, no background plate. A link nobody notices until they want it
  * is doing its job; a link that draws the eye is an advert on someone else's photo.
  */
-private fun drawArtifactLink(canvas: Canvas, width: Int, height: Int, deepLink: String?) {
+/** The corner link on every artifact — shared with the export templates so the style cannot drift. */
+internal fun drawArtifactLink(canvas: Canvas, width: Int, height: Int, deepLink: String?) {
     val link = deepLink?.takeIf(::isTrackMeArtifactDeepLink) ?: return
     val shorterEdge = minOf(width, height).toFloat()
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

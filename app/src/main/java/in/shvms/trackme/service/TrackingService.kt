@@ -27,6 +27,8 @@ import `in`.shvms.trackme.data.local.dao.RideDao
 import `in`.shvms.trackme.data.local.entity.GPSPointEntity
 import `in`.shvms.trackme.data.local.entity.PauseOrigin
 import `in`.shvms.trackme.data.local.entity.RideEntity
+import `in`.shvms.trackme.data.local.entity.presentationLatitude
+import `in`.shvms.trackme.data.local.entity.presentationLongitude
 import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import `in`.shvms.trackme.analytics.AnalyticsManager
@@ -48,6 +50,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import `in`.shvms.trackme.data.local.countsAsMovingTime
 import `in`.shvms.trackme.domain.processor.TrackingV2Estimator
 import `in`.shvms.trackme.domain.processor.TrackingV2PowerMode
+import `in`.shvms.trackme.domain.processor.TrackingV2Point
 import `in`.shvms.trackme.domain.processor.TrackingV2Sample
 import `in`.shvms.trackme.domain.processor.TrackingV2Snapshot
 
@@ -133,13 +136,25 @@ class TrackingService : Service() {
     private val trackingV2Estimator = TrackingV2Estimator()
     private val v2Session = `in`.shvms.trackme.domain.processor.TrackingV2Session()
     private var trackingAlgorithmVersion = 2
+    private var lastV2DisplayPoint: TrackingV2Point? = null
     private lateinit var trackingV2StepSensor: TrackingV2StepSensor
     private var trackingV1DebugDiagnostics = TrackingV1DebugDiagnostics()
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
             super.onLocationResult(result)
-            val location = result.lastLocation ?: return
+            val callbackLocations = result.locations.ifEmpty {
+                result.lastLocation?.let(::listOf).orEmpty()
+            }
+            val orderedLocations = orderedDistinctLocationBatch(callbackLocations) { location ->
+                LocationBatchKey(
+                    elapsedRealtimeNanos = location.elapsedRealtimeNanos,
+                    wallTimeMillis = location.time,
+                    latitudeBits = location.latitude.toBits(),
+                    longitudeBits = location.longitude.toBits(),
+                )
+            }
+            val location = orderedLocations.lastOrNull() ?: return
 
             // §6.1 B1: the group push happens HERE, above every ride-state gate below.
             //
@@ -151,7 +166,9 @@ class TrackingService : Service() {
             pushGroupPresence(location)
             if (trackingAlgorithmVersion == 2 && currentRideId != null &&
                 (currentState == TrackingState.TRACKING || shouldEmitGpsResumeTelemetry(currentState))) {
-                recordV2Location(location)
+                orderedLocations.forEachIndexed { index, fix ->
+                    recordV2Location(fix, publishLiveLocation = index == orderedLocations.lastIndex)
+                }
                 return
             }
 
@@ -367,7 +384,7 @@ class TrackingService : Service() {
         }
     }
 
-    private fun processTrackingV2(location: Location): TrackingV2Snapshot {
+    private fun processTrackingV2(location: Location, autoPauseEnabled: Boolean = true): TrackingV2Snapshot {
         val nowElapsed = SystemClock.elapsedRealtime()
         val persona = trackingManager.selectedPersona.value
         if (persona == `in`.shvms.trackme.domain.model.RidePersona.WALK ||
@@ -407,7 +424,7 @@ class TrackingService : Service() {
                 persona = persona,
                 powerMode = trackingV2PowerMode(),
             )
-        val snapshot = if (trackingAlgorithmVersion == 2) v2Session.add(sample)
+        val snapshot = if (trackingAlgorithmVersion == 2) v2Session.add(sample, autoPauseEnabled)
             else trackingV2Estimator.add(sample)
         // No production UI subscribes to the old comparison state.
         return snapshot
@@ -415,25 +432,32 @@ class TrackingService : Service() {
 
     private var restoredV2Peak = 0.0
 
-    private fun recordV2Location(location: Location) {
+    private fun recordV2Location(location: Location, publishLiveLocation: Boolean) {
         val rideId = currentRideId ?: return
         if (StorageHealthMonitor.isLowStorage(this)) { enterStorageLowState(); return }
-        val prior = v2Session.snapshot
-        val snapshot = processTrackingV2(location)
-        lastGpsTimeMs = System.currentTimeMillis()
-        if (shouldEmitGpsResumeTelemetry(currentState)) updateState(TrackingState.TRACKING)
-        if (snapshot.rejectedOutlierCount != prior.rejectedOutlierCount) return
         val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
         val autoPauseEnabled = TrackingAlgorithmControlPolicy.autoPauseEnabled(
             DebugSettings.isEnabled(prefs), prefs.getBoolean(DebugSettings.AUTO_PAUSE_KEY, true))
+        val prior = v2Session.snapshot
+        val snapshot = processTrackingV2(location, autoPauseEnabled)
+        lastGpsTimeMs = System.currentTimeMillis()
+        if (shouldEmitGpsResumeTelemetry(currentState)) updateState(TrackingState.TRACKING)
+        if (snapshot.rejectedOutlierCount != prior.rejectedOutlierCount) return
         val stationary = snapshot.movementState ==
             `in`.shvms.trackme.domain.processor.TrackingV2MovementState.STATIONARY
-        trackingManager.setAutoPaused(autoPauseEnabled && stationary)
+        trackingManager.setAutoPaused(v2Session.isAutoPaused)
         trackingManager.updateSpeed(snapshot.currentSpeedMetersPerSecond)
         trackingManager.addDistance(v2Session.distanceMeters.toFloat() - trackingManager.totalDistance.value)
         rideDuration = v2Session.movingDurationMillis
         trackingManager.updateDuration(rideDuration)
-        trackingManager.addPathPoint(LatLng(location.latitude, location.longitude))
+        val displayPoint = snapshot.routeSegments.lastOrNull()?.lastOrNull()
+            ?.also { lastV2DisplayPoint = it }
+            ?: lastV2DisplayPoint
+            ?: TrackingV2Point(location.latitude, location.longitude).also { lastV2DisplayPoint = it }
+        val displayLatLng = LatLng(displayPoint.latitude, displayPoint.longitude)
+        if (trackingManager.pathPoints.value.lastOrNull() != displayLatLng) {
+            trackingManager.addPathPoint(displayLatLng)
+        }
         updateStillness(stationary, location.time)
         lastLocation = location
         val total = v2Session.distanceMeters
@@ -442,9 +466,11 @@ class TrackingService : Service() {
         val point = GPSPointEntity(rideId = rideId, latitude = location.latitude,
             longitude = location.longitude, altitude = location.altitude, accuracy = location.accuracy,
             speed = snapshot.currentSpeedMetersPerSecond, timestamp = location.time,
-            isPaused = autoPauseEnabled && stationary,
-            pauseOrigin = if (autoPauseEnabled && stationary) PauseOrigin.AUTO else null,
-            cumulativeDistanceMeters = total)
+            isPaused = v2Session.isAutoPaused,
+            pauseOrigin = if (v2Session.isAutoPaused) PauseOrigin.AUTO else null,
+            cumulativeDistanceMeters = total,
+            displayLatitude = displayPoint.latitude,
+            displayLongitude = displayPoint.longitude)
         pointWriteChain.enqueue {
             try {
                 (application as TrackMeApp).database.withTransaction {
@@ -461,7 +487,7 @@ class TrackingService : Service() {
                 withContext(Dispatchers.Main.immediate) { enterStorageLowState() }
             }
         }
-        if (liveShareManager.state.value.status == LiveShareStatus.ACTIVE) {
+        if (publishLiveLocation && liveShareManager.state.value.status == LiveShareStatus.ACTIVE) {
             val now = System.currentTimeMillis()
             if (now - lastLiveShareTimeMs >= prefs.getInt("live_share_frequency_sec", 5) * 1000L) {
                 lastLiveShareTimeMs = now
@@ -589,6 +615,7 @@ class TrackingService : Service() {
                 if (!restoredRide) {
                     trackingAlgorithmVersion = 2
                     restoredV2Peak = 0.0
+                    lastV2DisplayPoint = null
                     val startTime = System.currentTimeMillis()
                     // TASK-232: was a group live when this ride began? A marker and a count,
                     // never a group id and never a name -- see RideEntity's note. The roster may
@@ -850,6 +877,8 @@ class TrackingService : Service() {
                         isPaused = true,
                         pauseOrigin = PauseOrigin.MANUAL,
                         cumulativeDistanceMeters = if (trackingAlgorithmVersion == 2) v2Session.distanceMeters else null,
+                        displayLatitude = if (trackingAlgorithmVersion == 2) lastV2DisplayPoint?.latitude else null,
+                        displayLongitude = if (trackingAlgorithmVersion == 2) lastV2DisplayPoint?.longitude else null,
                     )
                 )
             }
@@ -1129,12 +1158,18 @@ class TrackingService : Service() {
         trackingManager.setSelectedPersona(persona)
 
         points.forEach { point ->
-            trackingManager.addPathPoint(LatLng(point.latitude, point.longitude))
+            val display = LatLng(point.presentationLatitude, point.presentationLongitude)
+            if (trackingManager.pathPoints.value.lastOrNull() != display) {
+                trackingManager.addPathPoint(display)
+            }
         }
 
         val now = System.currentTimeMillis()
         val restoredMetrics = TrackingSessionRestorer.calculate(ride.startTime, points, now)
         trackingAlgorithmVersion = ride.trackingAlgorithmVersion ?: 1
+        lastV2DisplayPoint = points.lastOrNull()?.takeIf { trackingAlgorithmVersion == 2 }?.let {
+            TrackingV2Point(it.presentationLatitude, it.presentationLongitude)
+        }
         val checkpoint = ride.postRideCalculation.takeIf { trackingAlgorithmVersion == 2 }
         restoredV2Peak = checkpoint?.maxSpeed?.toDouble() ?: 0.0
         rideDuration = if (checkpoint != null) ride.dashboardActiveDurationMillis else restoredMetrics.activeDurationMillis
@@ -1603,6 +1638,15 @@ class TrackingService : Service() {
                     if (transition != null) {
                         `in`.shvms.trackme.domain.stats.RevealSelector.select(transition)?.let { reveal ->
                             app.pendingRevealStore.put(reveal)
+                            // SCOPE_1.8.9 §13: the pending store is a one-shot that Home consumes and
+                            // clears. The ride row is where The Award reads it back at export time,
+                            // and this is the only moment the answer exists to be written.
+                            rideDao.setEarnedReveal(
+                                rideId = rideId,
+                                kind = reveal.kind.name,
+                                previousBest = `in`.shvms.trackme.domain.stats.previousBestFor(reveal.kind, transition),
+                                milestoneCount = reveal.milestoneRideCount,
+                            )
                         }
                         // B3: the streak state machine transitions only on the first ride of a
                         // week — emit weekly_streak_updated then (an attempt-accurate state
@@ -1619,14 +1663,10 @@ class TrackingService : Service() {
                 }
             }
 
-            val prefs = getSharedPreferences("trackme_prefs", android.content.Context.MODE_PRIVATE)
-            val postProcessingEnabled = TrackingAlgorithmControlPolicy.postProcessingEnabled(
-                debugModeEnabled = DebugSettings.isEnabled(prefs),
-                storedDisabled = prefs.getBoolean(DebugSettings.DISABLE_POST_PROCESSING_KEY, false),
-            )
-            
             val gpsProcessor = `in`.shvms.trackme.domain.processor.DefaultGPSProcessor()
-            gpsProcessor.processRide(rideId, rideDao, postProcessingEnabled)
+            // V2 returns immediately inside the legacy processor; V1 always receives its existing
+            // cleanup. The removed debug switch could not affect V2 and therefore made a false claim.
+            gpsProcessor.processRide(rideId, rideDao, isEnabled = true)
 
             if (BuildConfig.DEBUG && trackingV2Live != null && trackingV2Final != null) {
                 val v1FinalDistance = rideDao.getRideWithPointsById(rideId)

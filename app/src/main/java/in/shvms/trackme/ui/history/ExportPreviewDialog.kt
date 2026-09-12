@@ -60,6 +60,10 @@ import `in`.shvms.trackme.theme.LocalTrackMeMotion
 import `in`.shvms.trackme.theme.LocalTrackMeSpacing
 import androidx.compose.runtime.LaunchedEffect
 import `in`.shvms.trackme.analytics.ExportStyleControl
+import `in`.shvms.trackme.domain.export.template.ExportTemplateId
+import `in`.shvms.trackme.domain.export.template.ExportTemplates
+import `in`.shvms.trackme.domain.export.template.PlaceReference
+import `in`.shvms.trackme.domain.export.template.TemplateCanvas
 import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 
@@ -145,8 +149,21 @@ data class ExportPreviewSettings(
     val showDuration: Boolean,
     val showDistance: Boolean,
     val showLegend: Boolean,
-    val showSequence: Boolean
+    val showSequence: Boolean,
+    /** SCOPE_1.8.9 §9 — which tab produced this export. Defaults keep every existing caller unchanged. */
+    val mode: ExportPreviewMode = ExportPreviewMode.Custom,
+    val template: ExportTemplateChoice = ExportTemplateChoice(),
 ) {
+    /**
+     * The canvas the chosen template renders at: the global ratio when the template was designed for
+     * it, the template's own default otherwise (§9.2 as refined in `ExportTemplates.canvasFor`).
+     */
+    val templateCanvas: TemplateCanvas
+        get() = ExportTemplates.canvasFor(
+            template.id,
+            TemplateCanvas.entries.firstOrNull { it != TemplateCanvas.CARD && kotlin.math.abs(it.aspect - ratioFloat) < 0.01f },
+        )
+
     val ratioFloat: Float
         get() = ratio.first.toFloat() / ratio.second.toFloat()
 
@@ -230,6 +247,8 @@ fun ExportPreviewDialog(
     onShare: (ExportPreviewSettings) -> Unit,
     onSave: ((ExportPreviewSettings) -> Unit)? = null,
     onRetry: ((ExportPreviewSettings) -> Unit)? = null,
+    /** SCOPE_1.8.9 §9: the Templates tab. Null keeps this dialog exactly as it was — no tab bar. */
+    templates: ExportTemplatesSupport? = null,
     videoAction: (@Composable (ExportPreviewSettings) -> Unit)? = null,
     preview: @Composable (Modifier, ExportPreviewSettings) -> Unit
 ) {
@@ -247,6 +266,27 @@ fun ExportPreviewDialog(
     var showLegend by remember(initialShowLegend) { mutableStateOf(initialShowLegend) }
     var showSequence by remember(initialShowSequence) { mutableStateOf(initialShowSequence) }
     var category by remember { mutableStateOf(ExportControlCategory.Ratio) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // §9.1: Templates is the default tab wherever templates exist; Custom is one obvious tap away.
+    var mode by remember(templates != null) {
+        mutableStateOf(if (templates != null) ExportPreviewMode.Templates else ExportPreviewMode.Custom)
+    }
+    var templateChoice by remember(templates?.available) {
+        mutableStateOf(ExportTemplateChoice(id = templates?.let { TemplateMemory.recall(context, it.available) } ?: ExportTemplateId.TRACE))
+    }
+
+    // Choosing the Itinerary *is* the request for place names: it draws nothing else, and with
+    // names off it is a rail of dots and distances that asserts no journey at all — seen on the
+    // simulator, not reasoned about. §7's rule is that a lookup happens only because the rider
+    // asked, and this is them asking, whether they tapped the card now or chose it last time; the
+    // chip beside it still turns names back off. Keyed on the id rather than written at the tap
+    // site because the remembered choice arrives without a tap.
+    LaunchedEffect(templateChoice.id, templates) {
+        if (templateChoice.id == ExportTemplateId.ITINERARY && templateChoice.place == PlaceReference.OFF) {
+            templateChoice = templateChoice.copy(place = PlaceReference.START_AND_FINISH)
+            templates?.onPlaceReferenceEnabled()
+        }
+    }
 
     // TASK-305: the top of the export funnel. Fired once per presentation, not per recomposition —
     // a rail tap or a preview redraw is not a new export attempt, and counting it as one would make
@@ -274,7 +314,9 @@ fun ExportPreviewDialog(
         showDuration = showDuration,
         showDistance = showDistance,
         showLegend = showLegend,
-        showSequence = showSequence
+        showSequence = showSequence,
+        mode = mode,
+        template = templateChoice,
     )
 
     Dialog(
@@ -291,6 +333,25 @@ fun ExportPreviewDialog(
                         }
                     }
                 )
+
+                if (templates != null) {
+                    androidx.compose.material3.PrimaryTabRow(selectedTabIndex = mode.ordinal) {
+                        ExportPreviewMode.entries.forEach { entry ->
+                            androidx.compose.material3.Tab(
+                                selected = mode == entry,
+                                onClick = {
+                                    if (mode != entry) {
+                                        mode = entry
+                                        styleChanged(ExportStyleControl.MODE)
+                                    }
+                                },
+                                text = {
+                                    Text(if (entry == ExportPreviewMode.Templates) strings.exportTabTemplates else strings.exportTabCustom)
+                                },
+                            )
+                        }
+                    }
+                }
 
                 // The stage. `weight(1f)` hands it everything the chrome does not need, so the
                 // preview is sized by the space that actually exists rather than by a constant.
@@ -309,17 +370,24 @@ fun ExportPreviewDialog(
                     // during composition is a crash, so the empty case is handled here rather than
                     // by loosening a precondition that is correct.
                     if (maxWidth > 0.dp && maxHeight > 0.dp) {
+                        val stageTemplates = templates?.takeIf { mode == ExportPreviewMode.Templates }
                         val previewSize = boundedPreviewSize(
                             maxWidth = maxWidth.value,
                             maxHeight = maxHeight.value,
-                            ratio = settings.ratioFloat
+                            ratio = if (stageTemplates != null) settings.templateCanvas.aspect else settings.ratioFloat
                         )
                         Box(
                             modifier = Modifier
                                 .width(previewSize.width.dp)
                                 .height(previewSize.height.dp)
                         ) {
-                            preview(Modifier.fillMaxSize(), settings)
+                            // The stage swaps between a live map (Custom) and a rendered bitmap
+                            // (Templates) here, inside the dialog, so no host special-cases it (§9.2).
+                            if (stageTemplates != null) {
+                                TemplatePreviewStage(stageTemplates, templateChoice, settings.templateCanvas, privacyTrim, Modifier.fillMaxSize())
+                            } else {
+                                preview(Modifier.fillMaxSize(), settings)
+                            }
                         }
                     }
                 }
@@ -346,6 +414,31 @@ fun ExportPreviewDialog(
 
                 HorizontalDivider()
 
+                if (templates != null && mode == ExportPreviewMode.Templates) {
+                    TemplateStrip(templates, templateChoice.id, privacyTrim, templateChoice, strings) { id ->
+                        if (id != templateChoice.id) {
+                            templateChoice = templateChoice.copy(id = id)
+                            TemplateMemory.remember(context, id)
+                            `in`.shvms.trackme.analytics.AnalyticsManager.trackExportTemplateSelected(id)
+                        }
+                    }
+                    TemplateOptionsRow(
+                        choice = templateChoice,
+                        canvas = settings.templateCanvas,
+                        privacyTrim = privacyTrim,
+                        supportsPlace = true,
+                        strings = strings,
+                        onCanvas = { ratio = it.widthPx to it.heightPx; styleChanged(ExportStyleControl.RATIO) },
+                        onPrivacyTrim = { privacyTrim = it; styleChanged(ExportStyleControl.PRIVACY_TRIM) },
+                        onPlace = { place ->
+                            templateChoice = templateChoice.copy(place = place)
+                            if (place != PlaceReference.OFF) templates.onPlaceReferenceEnabled()
+                            styleChanged(ExportStyleControl.PLACE)
+                        },
+                        onMapBackground = { templateChoice = templateChoice.copy(mapBackground = it); styleChanged(ExportStyleControl.MAP_BACKGROUND) },
+                        onLight = { templateChoice = templateChoice.copy(lightOverride = it); styleChanged(ExportStyleControl.LIGHT) },
+                    )
+                } else {
                 ValuesTier(
                     category = category,
                     settings = settings,
@@ -371,13 +464,14 @@ fun ExportPreviewDialog(
                     strings = strings,
                     onSelect = { category = it }
                 )
+                }
 
                 // Video export gets its own full-width row above the image actions. Aggregate
                 // (multi-ride) previews never show it: replay video is a single-route,
                 // single-persona concept with no defined multi-ride semantics, so it is absent
                 // rather than visible-and-inert. Callers in aggregate mode simply pass null; the
                 // `showAggregateControls` guard keeps that true even if a future caller forgets.
-                if (videoAction != null && !showAggregateControls) {
+                if (videoAction != null && !showAggregateControls && mode == ExportPreviewMode.Custom) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -472,6 +566,9 @@ private fun ValuesTier(
                     // Both normalise through `ratioFloat`, and the pair is what callers persist.
                     listOf(
                         "1:1" to Pair(1, 1),
+                        // 4:5 is Instagram's feed ratio, and the Templates tab's portrait canvas —
+                        // so the global ratio can round-trip between the tabs (§9.2).
+                        "4:5" to Pair(4, 5),
                         "4:3" to Pair(4, 3),
                         "16:9" to Pair(16, 9),
                         "9:16" to Pair(AppConfig.HQ_IMAGE_WIDTH, AppConfig.HQ_IMAGE_RATIO_9_16)
