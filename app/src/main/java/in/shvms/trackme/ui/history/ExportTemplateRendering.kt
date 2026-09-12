@@ -211,5 +211,5 @@ internal fun androidGeocoder(context: Context): suspend (Double, Double) -> Plac
             runCatching { geocoder.getFromLocation(latitude, longitude, 1)?.firstOrNull() }.getOrNull()
         }
     }
-    address?.let { PlaceParts(it.subLocality, it.locality, it.subAdminArea, it.adminArea, it.thoroughfare) }
+    address?.let { PlaceParts(it.subLocality, it.locality, it.subAdminArea, it.adminArea, it.thoroughfare, it.countryName) }
 }
