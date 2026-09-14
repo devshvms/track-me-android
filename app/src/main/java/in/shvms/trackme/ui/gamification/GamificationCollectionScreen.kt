@@ -342,7 +342,6 @@ private fun TrailPanel(
             RiderMarker(
                 position = markerPos,
                 scale = scale,
-                label = (GamificationTrail.levelIndexOf(snapshot) + 1).toString(),
                 accent = accent,
                 description = "${strings.gamificationYouAreHere}, " +
                     "${strings.levelName(snapshot.currentLevelId)}, " +
@@ -429,21 +428,31 @@ private fun androidx.compose.foundation.layout.BoxScope.LevelNode(
  * every node wore its own level's colour, so an already-passed level could out-shout the current
  * one and the eye landed on the wrong dot.
  */
+/**
+ * Where the rider is on the trail — drawn as a **location puck**, the way a map draws you.
+ *
+ * It used to be a disc carrying the current level's number, and that was the whole of shvm's
+ * 2026-09-13 report: at level 2 a disc reading "2" slid away from waypoint 2 toward waypoint 3, so
+ * the checkpoint itself looked like it was moving, and on reaching level 3 it snapped back and
+ * started again. The geometry was always right — waypoints are fixed and only this interpolates —
+ * but a numbered disc among numbered discs cannot say "this one is you, those are the stations".
+ *
+ * A halo around a solid dot can: nothing else on the trail is shaped like it, and everyone has seen
+ * it mean "here" on a map. The level number is not lost — it is on the waypoint the rider has
+ * passed, and in this marker's accessibility description.
+ */
 @Composable
 private fun androidx.compose.foundation.layout.BoxScope.RiderMarker(
     position: GamificationTrail.Point,
     scale: Float,
-    label: String,
     description: String,
     accent: Color,
     onClick: () -> Unit,
 ) {
-    val size = (38f * scale).coerceIn(30f, 48f)
-    val dark = androidx.compose.foundation.isSystemInDarkTheme()
-    Surface(
-        shape = CircleShape,
-        color = accent,
-        border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.surface),
+    // Bigger than a waypoint so the halo reads as a halo rather than as a fat ring.
+    val size = (34f * scale).coerceIn(26f, 42f)
+    val collar = MaterialTheme.colorScheme.surface
+    Box(
         modifier = Modifier
             .offset(x = (position.x * scale - size / 2f).dp, y = (position.y * scale - size / 2f).dp)
             .size(size.dp)
@@ -453,15 +462,17 @@ private fun androidx.compose.foundation.layout.BoxScope.RiderMarker(
                 traversalIndex = 0f
             }
             .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                label,
-                // Same fixed-graphic rule as the waypoints above.
-                fontSize = with(LocalDensity.current) { (size * 0.36f).dp.toSp() },
-                fontWeight = FontWeight.Bold,
-                color = GamificationPalette.onAccent(dark),
-            )
+        Canvas(Modifier.fillMaxSize()) {
+            val centre = androidx.compose.ui.geometry.Offset(this.size.width / 2f, this.size.height / 2f)
+            val radius = this.size.minDimension / 2f
+            // The soft field, the crisp ring, the white collar, the core: a location puck reads as
+            // one because of the layering, not because of any single circle.
+            drawCircle(accent.copy(alpha = 0.20f), radius = radius, center = centre)
+            drawCircle(accent.copy(alpha = 0.55f), radius = radius * 0.72f, center = centre, style = Stroke(width = radius * 0.10f))
+            drawCircle(collar, radius = radius * 0.50f, center = centre)
+            drawCircle(accent, radius = radius * 0.36f, center = centre)
         }
     }
 }

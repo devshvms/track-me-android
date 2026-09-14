@@ -34,6 +34,43 @@ class RideSplitsTest {
     private fun legsOf(legs: List<Double>): (GPSPointEntity, GPSPointEntity) -> Double =
         { a, b -> legs[(b.id - 1).toInt()] }
 
+    /**
+     * The defect shvm found on a device: a 4.6 km walk showed **one** partial split instead of four
+     * full kilometres and a remainder.
+     *
+     * A walker covers about 1.3 m between 1 Hz samples, which is under the 3.5 m noise floor — and
+     * the floor did not merely decline to count those legs as *moving*, it dropped their distance
+     * on the floor. Every leg of a walk fell through it, nothing ever reached a kilometre, and the
+     * only thing left to show was whatever scraps of distance survived. The ride's own total is
+     * computed by the V2 estimator, which has no such floor, so the table and the headline figure
+     * disagreed by kilometres.
+     */
+    @Test
+    fun aWalkSampledEverySecondIsCutIntoWholeKilometres() {
+        // 4.6 km at 1.3 m per 1 Hz sample: every single leg is below the noise floor.
+        val legs = List(3538) { 1.3 }
+        val splits = rideSplits(ride(legs, secondsPerLeg = 1L), imperial = false, distanceBetween = legsOf(legs))
+
+        assertEquals("four full kilometres and a remainder", 5, splits.size)
+        assertEquals(4, splits.count { !it.isPartial })
+        assertTrue("the last one is the remainder", splits.last().isPartial)
+        // The table has to add up to the ride: the whole reason the defect was visible is that it
+        // did not.
+        assertEquals(legs.sum(), splits.sumOf { it.distanceMeters }, 0.5)
+    }
+
+    /**
+     * The floor still has a job: a rider standing still with the GPS wandering must not accrue
+     * distance. Its job is just not "discard real movement that happens to be slow".
+     */
+    @Test
+    fun stationaryJitterStillContributesNothingWhileTheRiderIsPaused() {
+        val legs = List(600) { 1.2 }
+        val paused = (1..600).toSet()
+        val splits = rideSplits(ride(legs, secondsPerLeg = 1L, paused = paused), imperial = false, distanceBetween = legsOf(legs))
+        assertTrue("a paused stretch is not a split", splits.isEmpty())
+    }
+
     @Test
     fun exactKilometreLegsProduceExactSplits() {
         val legs = listOf(1000.0, 1000.0, 1000.0)
