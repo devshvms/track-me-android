@@ -29,6 +29,9 @@ import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Star
@@ -185,7 +188,10 @@ internal fun HomeDashboardScreen(
                         Column(Modifier.fillMaxWidth().heightIn(min = 180.dp).padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Route, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                                // A location mark, not a route: this tile shares *where you are*,
+                                // and the route glyph belongs to the ride tiles below. iOS uses
+                                // `location.circle` here, and MyLocation is its Material twin.
+                                Icon(Icons.Default.MyLocation, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
                                 Spacer(Modifier.weight(1f))
                                 // Mirrors the group tile: hidden while sharing is active, so the
                                 // pair stays symmetrical in the state a rider sees most often.
@@ -711,12 +717,26 @@ private fun formatDashboardDuration(millis: Long, strings: AppStrings): String {
 
 @Composable
 private fun ProgressCard(snapshot: GamificationSnapshot, strings: AppStrings, onOpenProgress: () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+    // The whole card is the target, not a button inside it. Every part of this card is about one
+    // destination, so a button that repeated that in a corner was asking the rider to aim at a
+    // quarter of what they were already looking at. The chevron carries the affordance the button
+    // used to, and `onClickLabel` is what a screen reader announces in the button's place.
+    Card(
+        onClick = onOpenProgress,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        modifier = Modifier.semantics { onClick(label = strings.gamificationViewProgress, action = null) },
+    ) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(10.dp))
                 Text(strings.gamificationMyProgress, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Text(strings.levelName(snapshot.currentLevelId), style = MaterialTheme.typography.titleLarge)
             val progressRatio = if (snapshot.progressDenominatorMinutes > 0L) {
@@ -751,10 +771,6 @@ private fun ProgressCard(snapshot: GamificationSnapshot, strings: AppStrings, on
                     )
                     Text(strings.formatMilestone(milestone), style = MaterialTheme.typography.bodyMedium)
                 }
-            }
-
-            FilledTonalButton(onClick = onOpenProgress, modifier = Modifier.fillMaxWidth()) {
-                Text(strings.gamificationViewProgress)
             }
         }
     }
