@@ -164,7 +164,7 @@ internal fun fastestSplitSegment(
     distanceBetween: (GPSPointEntity, GPSPointEntity) -> Double = ::haversineMeters,
 ): List<RouteCoordinate>? {
     if (points.size < 2 || drawn.size < 2) return null
-    val fastest = fastestSplit(rideSplits(points, imperial, minLegMeters, distanceBetween)) ?: return null
+    val fastest = fastestSplit(rideSplits(points, imperial, minLegMeters, distanceBetween = distanceBetween)) ?: return null
     val unit = splitUnitMeters(imperial)
     val from = (fastest.index - 1) * unit
     val to = fastest.index * unit

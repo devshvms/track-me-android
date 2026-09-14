@@ -424,11 +424,6 @@ private fun androidx.compose.foundation.layout.BoxScope.LevelNode(
 }
 
 /**
- * The rider. Deliberately the largest and most detailed thing on the trail: in the radial version
- * every node wore its own level's colour, so an already-passed level could out-shout the current
- * one and the eye landed on the wrong dot.
- */
-/**
  * Where the rider is on the trail — drawn as a **location puck**, the way a map draws you.
  *
  * It used to be a disc carrying the current level's number, and that was the whole of shvm's

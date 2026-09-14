@@ -60,6 +60,36 @@ class RideSplitsTest {
     }
 
     /**
+     * The review finding on the first cut of the carry fix: carrying every short leg forward removed
+     * the only thing keeping drift out of this table, and the docstring's answer — auto-pause — is
+     * the subsystem TASK-325 spent the week repairing. So carried distance has to earn its place by
+     * the speed it was covered at.
+     *
+     * Fifteen minutes of a stationary phone wandering a metre a second used to be discarded leg by
+     * leg; under a plain carry it would have clocked up nearly a kilometre the rider never walked.
+     */
+    @Test
+    fun driftWhileStandingStillIsNotCarriedIntoDistance() {
+        // 900 legs of 1 m, one every 10 seconds: 0.1 m/s, a third of the app's own moving floor.
+        // The first draft of this test used one every 3 seconds, which is 0.33 m/s — above that
+        // floor, and therefore *correctly* counted. The data was wrong, not the rule.
+        val legs = List(900) { 1.0 }
+        val splits = rideSplits(ride(legs, secondsPerLeg = 10L), imperial = false, distanceBetween = legsOf(legs))
+        assertTrue("drift became distance: ${'$'}splits", splits.isEmpty())
+    }
+
+    /**
+     * The other half of the same rule, and the one that matters more: a walk must still survive it.
+     * A walker clears the floor in under three seconds, which is comfortably above the moving floor.
+     */
+    @Test
+    fun aWalkIsFastEnoughToRedeemItsCarry() {
+        val legs = List(3538) { 1.3 }
+        val splits = rideSplits(ride(legs, secondsPerLeg = 1L), imperial = false, distanceBetween = legsOf(legs))
+        assertEquals(5, splits.size)
+    }
+
+    /**
      * The floor still has a job: a rider standing still with the GPS wandering must not accrue
      * distance. Its job is just not "discard real movement that happens to be slow".
      */

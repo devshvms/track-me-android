@@ -26,6 +26,12 @@ data class RideSplit(
         get() = if (movingMillis <= 0L) 0.0 else distanceMeters / (movingMillis / 1000.0)
 }
 
+/**
+ * The app's definition of moving, in metres per second — the same value `TemplateAnalytics` uses to
+ * decide which samples count toward a pace.
+ */
+const val MIN_SPLIT_MOVING_MPS: Double = 0.3
+
 /** Metres in one split unit. */
 fun splitUnitMeters(imperial: Boolean): Double = if (imperial) 1609.344 else 1000.0
 
@@ -50,12 +56,19 @@ fun splitUnitMeters(imperial: Boolean): Double = if (imperial) 1609.344 else 100
  *   walker covers about 1.3 m per sample, so every leg fell through the floor, nothing reached a
  *   kilometre, and a 4.6 km walk showed a single remainder. The ride's own total comes from the V2
  *   estimator, which has no such floor, so the table and the headline figure disagreed by
- *   kilometres. A rider who is actually stationary is excluded upstream, by auto-pause.
+ *   kilometres.
+ * @param minMovingMps what rescues the floor's *other* job. Carrying every short leg forward would
+ *   let a rider standing still while the GPS wanders accumulate metres three at a time, and this
+ *   table has no plausibility check of its own to catch that. So carried distance is redeemed only
+ *   if it was covered at a moving pace: a walker clears 3.5 m in under three seconds, a stationary
+ *   rider takes half a minute, and **speed is the difference the distance floor was always groping
+ *   for**. The value is the app's own definition of moving, shared with `TemplateAnalytics`.
  */
 fun rideSplits(
     points: List<GPSPointEntity>,
     imperial: Boolean,
     minLegMeters: Float = 3.5f,
+    minMovingMps: Double = MIN_SPLIT_MOVING_MPS,
     distanceBetween: (GPSPointEntity, GPSPointEntity) -> Double = ::haversineMeters,
 ): List<RideSplit> {
     if (points.size < 2) return emptyList()
@@ -81,6 +94,14 @@ fun rideSplits(
         if (legMeters < minLegMeters) {
             carryMeters = legMeters
             carryMillis = legMillis
+            continue
+        }
+        // Only legs that needed carrying are speed-tested: a leg that cleared the floor on its own
+        // was already being counted before this rule existed, and quietly dropping it now would be
+        // a second, unasked-for change of behaviour.
+        if (carryMeters > 0.0 && legMillis > 0L && legMeters / (legMillis / 1000.0) < minMovingMps) {
+            carryMeters = 0.0
+            carryMillis = 0L
             continue
         }
         carryMeters = 0.0
