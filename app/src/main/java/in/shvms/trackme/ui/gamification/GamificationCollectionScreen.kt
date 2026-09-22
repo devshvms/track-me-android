@@ -494,6 +494,7 @@ private fun androidx.compose.foundation.layout.BoxScope.LevelCard(
     // why it appeared to fix itself on the next cold start.
     val dateFormat = remember(Locale.getDefault()) { DateFormat.getDateInstance(DateFormat.MEDIUM) }
 
+    val maxX = (boardWidth - cardWidth).coerceAtLeast(0f)
     Surface(
         shape = RoundedCornerShape(13.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -501,7 +502,7 @@ private fun androidx.compose.foundation.layout.BoxScope.LevelCard(
         shadowElevation = 6.dp,
         modifier = Modifier
             .offset(
-                x = x.coerceIn(0f, boardWidth - cardWidth).dp,
+                x = x.coerceIn(0f, maxX).dp,
                 y = (node.position.y * scale - 46f).coerceAtLeast(0f).dp,
             )
             .width(cardWidth.dp)

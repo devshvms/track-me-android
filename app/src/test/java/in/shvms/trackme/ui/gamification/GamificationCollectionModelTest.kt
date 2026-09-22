@@ -30,4 +30,15 @@ class GamificationCollectionModelTest {
         assertEquals("First Qualifying Activity", strings.formatMilestone("milestone_1"))
         assertEquals("25 qualifying activities", strings.formatMilestone("milestone_25"))
     }
+
+    @Test
+    fun `card offset clamping handles narrow board without throwing`() {
+        // Reproduces Crashlytics 1.8.10 crash: boardWidth = 120.72351f, cardWidth = 150f
+        val boardWidth = 120.72351f
+        val cardWidth = (boardWidth * 0.58f).coerceAtLeast(150f)
+        val maxX = (boardWidth - cardWidth).coerceAtLeast(0f)
+        val rawX = -18f - cardWidth
+        val clampedX = rawX.coerceIn(0f, maxX)
+        assertEquals(0f, clampedX, 0.001f)
+    }
 }
