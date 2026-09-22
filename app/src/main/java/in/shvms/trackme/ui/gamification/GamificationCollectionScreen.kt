@@ -329,7 +329,6 @@ private fun TrailPanel(
             }
 
             nodes.forEach { node ->
-                if (node.state == GamificationTrail.NodeState.CURRENT) return@forEach
                 LevelNode(
                     node = node,
                     scale = scale,
@@ -372,7 +371,7 @@ private fun androidx.compose.foundation.layout.BoxScope.LevelNode(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val passed = node.state == GamificationTrail.NodeState.PASSED
+    val passed = node.state == GamificationTrail.NodeState.PASSED || node.state == GamificationTrail.NodeState.CURRENT
     val size = (26f * scale).coerceIn(20f, 34f)
     val level = GamificationEngine.levels[node.levelIndex]
     val status = if (passed) strings.gamificationMilestoneUnlocked else strings.gamificationMilestoneLocked
