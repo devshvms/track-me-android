@@ -671,7 +671,7 @@ object AnalyticsManager {
         PostHog.capture(
             "screen_viewed",
             properties = mapOf(
-                "screen_name" to screenName,
+                "screen_name" to normalizeScreenName(screenName),
                 "duration_seconds" to durationSeconds
             )
         )
@@ -887,3 +887,5 @@ enum class ExportStyleControl(val value: String) {
 }
 
 internal fun groupAlertEventName(event: String): String = "group_status_alert_$event"
+
+internal fun normalizeScreenName(raw: String): String = raw.substringBefore('/')

@@ -77,6 +77,28 @@ class ErrorLoggerFilterTest {
         )
     }
 
+    @Test
+    fun `transient and auth-boundary Firestore codes are dropped while internal faults are reported`() {
+        val dropped = listOf(
+            com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED,
+            com.google.firebase.firestore.FirebaseFirestoreException.Code.UNAUTHENTICATED,
+            com.google.firebase.firestore.FirebaseFirestoreException.Code.UNAVAILABLE,
+            com.google.firebase.firestore.FirebaseFirestoreException.Code.DEADLINE_EXCEEDED,
+            com.google.firebase.firestore.FirebaseFirestoreException.Code.CANCELLED,
+        )
+        for (code in dropped) {
+            assertFalse("$code should be dropped as non-reportable noise", isReportableFirestoreCode(code))
+        }
+        val reported = listOf(
+            com.google.firebase.firestore.FirebaseFirestoreException.Code.INTERNAL,
+            com.google.firebase.firestore.FirebaseFirestoreException.Code.DATA_LOSS,
+            com.google.firebase.firestore.FirebaseFirestoreException.Code.INVALID_ARGUMENT,
+        )
+        for (code in reported) {
+            assertTrue("$code should be reported as a genuine fault", isReportableFirestoreCode(code))
+        }
+    }
+
     private fun sourceFile(relative: String): File {
         var dir: File? = File("").absoluteFile
         val rel = "app/src/main/java/in/shvms/trackme/$relative"

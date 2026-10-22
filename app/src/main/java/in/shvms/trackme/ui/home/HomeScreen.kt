@@ -751,16 +751,23 @@ fun HomeScreen(
         uiState.dashboardSummaryResolved,
         uiState.isDashboardReconciling,
         uiState.dashboardSummary.historyBucket,
+        uiState.dashboardSummary.insight,
     ) {
         if (presentationMode != HomePresentationMode.IDLE_DASHBOARD) {
             dashboardEntryTracked = false
             dashboardInsightTracked = null
         } else if (uiState.dashboardSummaryResolved &&
-            !uiState.isDashboardReconciling &&
-            !dashboardEntryTracked
+            !uiState.isDashboardReconciling
         ) {
-            AnalyticsManager.trackHomeDashboardViewed(uiState.dashboardSummary.historyBucket)
-            dashboardEntryTracked = true
+            if (!dashboardEntryTracked) {
+                AnalyticsManager.trackHomeDashboardViewed(uiState.dashboardSummary.historyBucket)
+                dashboardEntryTracked = true
+            }
+            val insightType = uiState.dashboardSummary.insight?.analyticsValue
+            if (insightType != null && dashboardInsightTracked != insightType) {
+                AnalyticsManager.trackHomeInsightShown(insightType)
+                dashboardInsightTracked = insightType
+            }
         }
     }
     LaunchedEffect(presentationMode, uiState.dashboardSummary.latestActivity?.localId) {

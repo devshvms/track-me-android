@@ -246,6 +246,9 @@ internal fun HomeDashboardScreen(
                 }
             }
 
+            summary.insight?.let { insight ->
+                item { InsightCard(insight, imperial, strings) }
+            }
 
             item {
                 val facts = summary.toGamificationFacts()

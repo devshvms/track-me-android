@@ -441,7 +441,10 @@ class TrackingService : Service() {
         val prior = v2Session.snapshot
         val snapshot = processTrackingV2(location, autoPauseEnabled)
         lastGpsTimeMs = System.currentTimeMillis()
-        if (shouldEmitGpsResumeTelemetry(currentState)) updateState(TrackingState.TRACKING)
+        if (shouldEmitGpsResumeTelemetry(currentState)) {
+            updateState(TrackingState.TRACKING)
+            AnalyticsManager.trackLocationUpdatesResumed()
+        }
         if (snapshot.rejectedOutlierCount != prior.rejectedOutlierCount) return
         val stationary = snapshot.movementState ==
             `in`.shvms.trackme.domain.processor.TrackingV2MovementState.STATIONARY
@@ -920,8 +923,11 @@ class TrackingService : Service() {
 
     private fun handleForegroundStartFailure(error: Exception) {
         val app = application as TrackMeApp
-        app.errorLogger.recordException(error)
         val outcome = ForegroundStartPolicy.classify(error, Build.VERSION.SDK_INT)
+        app.errorLogger.log("Foreground start refused: $outcome")
+        if (outcome == ForegroundStartOutcome.OTHER) {
+            app.errorLogger.recordException(error)
+        }
         app.abandonPersistedTrackingSession(outcome)
         // Same ordering rule as stopTracking: this service is no longer recording anything, so the
         // id goes before the IDLE claim (§0 contract 2). The unfinished ride row itself is left for
@@ -981,8 +987,8 @@ class TrackingService : Service() {
     private fun handleLocationStartFailure() {
         val error = SecurityException("Location permission was revoked while starting ride tracking")
         val app = application as TrackMeApp
-        app.errorLogger.recordException(error)
         val outcome = ForegroundStartPolicy.classify(error, Build.VERSION.SDK_INT)
+        app.errorLogger.log("Location start refused: $outcome")
         app.abandonPersistedTrackingSession(outcome)
         // Keep the unfinished ride row and its points for OrphanedRideRecoveryManager. The
         // normal stop path finalizes/deletes rides, which is unsafe after a permission failure.
