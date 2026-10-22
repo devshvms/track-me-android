@@ -33,4 +33,11 @@ class AnalyticsManagerConsentTest {
     fun remoteReenable_restoresConsentWhenUserOptedIn() {
         assertTrue(TelemetryConsentState(localConsent = true, remoteAllowed = true, environmentAllowsDelivery = true).isEnabled)
     }
+
+    @Test
+    fun groupAlertEventName_interpolatesEventSuffixWithoutLiteralDollarSign() {
+        org.junit.Assert.assertEquals("group_status_alert_fired", groupAlertEventName("fired"))
+        org.junit.Assert.assertEquals("group_status_alert_muted", groupAlertEventName("muted"))
+        org.junit.Assert.assertEquals("group_status_alert_unmuted", groupAlertEventName("unmuted"))
+    }
 }

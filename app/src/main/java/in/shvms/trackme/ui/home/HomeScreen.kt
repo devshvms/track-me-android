@@ -1139,7 +1139,7 @@ fun HomeScreen(
                             // else — no history, no profile, no follow.
                             title = name,
                             snippet = if (age > 0) {
-                                String.format(java.util.Locale.getDefault(), strings.groupTimeLeft, "${'$'}{age}m")
+                                String.format(java.util.Locale.getDefault(), strings.groupTimeLeft, "${age}m")
                             } else null,
                             icon = avatarCache.descriptorFor(member.uid, roster?.initials, freshness),
                             anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),

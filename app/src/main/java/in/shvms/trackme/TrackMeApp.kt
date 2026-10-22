@@ -191,6 +191,7 @@ class TrackMeApp : Application() {
         _locationPermissionRevokedNotice.value = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
             .getBoolean("location_permission_revoked_notice", false)
 
+        `in`.shvms.trackme.analytics.TelemetryEnvironment.configure(this)
         errorLogger = CrashlyticsErrorLogger()
         errorLogger.init()
         broadcastStore = `in`.shvms.trackme.data.local.BroadcastStore(this)

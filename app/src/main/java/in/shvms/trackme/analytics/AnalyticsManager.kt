@@ -29,11 +29,13 @@ object AnalyticsManager {
     fun init(application: Application) {
         if (isInitialized) return
 
+        TelemetryEnvironment.configure(application)
+
         val prefs = application.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
         _localConsent.value = prefs.getBoolean(PREF_KEY_LOCAL_CONSENT, false)
         recomputeEffective()
 
-        // TASK-250: a build that may not deliver does not start the SDK at all.
+        // TASK-250 / TASK-330: a build that may not deliver does not start the SDK at all.
         //
         // Opting out would already stop capture, and every track function below checks the same
         // flag -- but "no SDK, no queue, no network" is a guarantee that does not depend on getting
@@ -41,7 +43,7 @@ object AnalyticsManager {
         // listener is skipped with it: its only job is to feed the remote kill switch, which cannot
         // change an answer that is already false.
         if (!TelemetryEnvironment.allowsDelivery) {
-            Log.i(TAG, "Telemetry delivery suppressed: ${'$'}{TelemetryEnvironment.suppressionReason}")
+            Log.i(TAG, "Telemetry delivery suppressed: ${TelemetryEnvironment.suppressionReason}")
             isInitialized = true
             return
         }
@@ -67,12 +69,15 @@ object AnalyticsManager {
             }
 
         // 2. Initialize PostHog SDK
+        // TASK-330: set optOut BEFORE PostHogAndroid.setup() so lifecycle observers registered
+        // during setup() never emit Application Installed / Application Opened before consent.
         val config = PostHogAndroidConfig(
             apiKey = BuildConfig.POSTHOG_API_KEY,
             host = "https://eu.i.posthog.com"
         ).apply {
             captureApplicationLifecycleEvents = true
             captureScreenViews = false // We handle this manually in Compose
+            optOut = !_isTelemetryEnabled.value
         }
         
         PostHogAndroid.setup(application, config)
@@ -517,7 +522,7 @@ object AnalyticsManager {
      */
     fun trackGroupAlert(event: String) {
         if (!_isTelemetryEnabled.value) return
-        PostHog.capture("group_status_alert_${'$'}event")
+        PostHog.capture(groupAlertEventName(event))
     }
 
     /** §7 — if most taps route to a stale age, §5.3's freshness gate is too loose. */
@@ -880,3 +885,5 @@ enum class ExportStyleControl(val value: String) {
     MAP_BACKGROUND("map_background"),
     LIGHT("light"),
 }
+
+internal fun groupAlertEventName(event: String): String = "group_status_alert_$event"
