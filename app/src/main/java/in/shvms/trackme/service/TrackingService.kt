@@ -353,6 +353,7 @@ class TrackingService : Service() {
                         val manager = getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager
                         val batteryLevel = manager.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
                         val heading = if (location.hasBearing()) location.bearing else null
+                        val isPowerSave = (getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
                         
                         serviceScope.launch {
                             liveShareManager.pushLocation(
@@ -360,7 +361,8 @@ class TrackingService : Service() {
                                 lon = location.longitude,
                                 batteryLevel = batteryLevel,
                                 speed = if (location.hasSpeed()) location.speed else null,
-                                heading = heading
+                                heading = heading,
+                                powerSaveMode = isPowerSave
                             )
                         }
                     }
@@ -497,10 +499,12 @@ class TrackingService : Service() {
                 lastLiveShareTimeMs = now
                 val battery = (getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager)
                     .getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                val isPowerSave = (getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
                 serviceScope.launch {
                     liveShareManager.pushLocation(lat = location.latitude, lon = location.longitude,
                         batteryLevel = battery, speed = snapshot.currentSpeedMetersPerSecond,
-                        heading = if (location.hasBearing()) location.bearing else null)
+                        heading = if (location.hasBearing()) location.bearing else null,
+                        powerSaveMode = isPowerSave)
                 }
             }
         }

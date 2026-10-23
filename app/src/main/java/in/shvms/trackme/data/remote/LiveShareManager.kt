@@ -115,7 +115,14 @@ class LiveShareManager {
         }
     }
 
-    suspend fun pushLocation(lat: Double, lon: Double, batteryLevel: Int?, speed: Float?, heading: Float?): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun pushLocation(
+        lat: Double,
+        lon: Double,
+        batteryLevel: Int?,
+        speed: Float?,
+        heading: Float?,
+        powerSaveMode: Boolean = false
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         val currentState = _state.value
         if (currentState.status != LiveShareStatus.ACTIVE || currentState.sessionId == null) {
             return@withContext Result.failure(Exception("No active session"))
@@ -144,6 +151,7 @@ class LiveShareManager {
                 if (batteryLevel != null) put("batteryLevel", batteryLevel)
                 if (speed != null) put("speed", speed)
                 if (heading != null) put("heading", heading)
+                put("powerSaveMode", powerSaveMode)
                 put("timestamp", DateTimeFormatter.ISO_INSTANT.format(Instant.now()))
             }
 
