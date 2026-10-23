@@ -20,6 +20,9 @@ object HomeDashboardSelector {
         rides: List<HomeDashboardRideProjection>,
         nowEpochMillis: Long,
         zoneId: ZoneId = ZoneId.systemDefault(),
+        cloudLifetimeDurationMillis: Long = 0L,
+        cloudLifetimeDistanceMeters: Double = 0.0,
+        cloudLifetimeActivityCount: Int = 0,
     ): HomeDashboardSummary {
         val today = Instant.ofEpochMilli(nowEpochMillis).atZone(zoneId).toLocalDate()
         val currentWeekStart = weekStart(today)
@@ -49,20 +52,21 @@ object HomeDashboardSelector {
         val latest = sorted.firstOrNull()?.toRecent()
         return HomeDashboardSummary(
             currentWeek = currentWeek,
-            lifetimeActivityCount = sorted.size,
-            lifetimeDistanceMeters = sorted.sumOf { it.distanceMeters },
-            lifetimeActiveDurationMillis = sorted.sumOf { it.activeDurationMillis },
-            gamificationActivityCount = earned.size,
-            gamificationActiveDurationMillis = earned.sumOf { it.activeDurationMillis },
+            lifetimeActivityCount = maxOf(sorted.size, cloudLifetimeActivityCount),
+            lifetimeDistanceMeters = maxOf(sorted.sumOf { it.distanceMeters }, cloudLifetimeDistanceMeters),
+            lifetimeActiveDurationMillis = maxOf(sorted.sumOf { it.activeDurationMillis }, cloudLifetimeDurationMillis),
+            gamificationActivityCount = maxOf(earned.size, cloudLifetimeActivityCount),
+            gamificationActiveDurationMillis = maxOf(earned.sumOf { it.activeDurationMillis }, cloudLifetimeDurationMillis),
             levelAchievements = GamificationLedger.derive(
-                earned.map {
+                rides = earned.map {
                     GamificationLedger.RideFact(
                         atEpochMillis = it.startedAtEpochMillis,
                         personaRaw = it.personaRaw,
                         activeDurationMillis = it.activeDurationMillis,
                         distanceMeters = it.distanceMeters,
                     )
-                }
+                },
+                cloudLifetimeDurationMillis = cloudLifetimeDurationMillis,
             ),
             displayStreakWeeks = displayStreak(activeWeekStarts, currentWeekStart),
             latestActivity = latest,

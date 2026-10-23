@@ -52,6 +52,15 @@ class AppPreferencesManager(private val context: Context) {
     )
     val lastStartedPersona: StateFlow<RidePersona> = _lastStartedPersona.asStateFlow()
 
+    private val _cloudLifetimeTotals = MutableStateFlow(
+        CloudLifetimeTotals(
+            activeDurationMillis = prefs.getLong(CLOUD_LIFETIME_DURATION_KEY, 0L),
+            distanceMeters = prefs.getFloat(CLOUD_LIFETIME_DISTANCE_KEY, 0f).toDouble(),
+            ridesCount = prefs.getInt(CLOUD_LIFETIME_RIDES_KEY, 0),
+        )
+    )
+    val cloudLifetimeTotals: StateFlow<CloudLifetimeTotals> = _cloudLifetimeTotals.asStateFlow()
+
     init { updateProcessLocale(_appLanguage.value) }
 
     fun setThemeMode(mode: Int) {
@@ -199,9 +208,37 @@ class AppPreferencesManager(private val context: Context) {
         }
     }
 
+    fun setCloudLifetimeTotals(activeDurationMillis: Long, distanceMeters: Double, ridesCount: Int) {
+        prefs.edit()
+            .putLong(CLOUD_LIFETIME_DURATION_KEY, activeDurationMillis)
+            .putFloat(CLOUD_LIFETIME_DISTANCE_KEY, distanceMeters.toFloat())
+            .putInt(CLOUD_LIFETIME_RIDES_KEY, ridesCount)
+            .apply()
+        _cloudLifetimeTotals.value = CloudLifetimeTotals(activeDurationMillis, distanceMeters, ridesCount)
+    }
+
+    fun clearCloudLifetimeTotals() {
+        prefs.edit()
+            .remove(CLOUD_LIFETIME_DURATION_KEY)
+            .remove(CLOUD_LIFETIME_DISTANCE_KEY)
+            .remove(CLOUD_LIFETIME_RIDES_KEY)
+            .apply()
+        _cloudLifetimeTotals.value = CloudLifetimeTotals()
+    }
+
     private companion object {
         const val APP_LANGUAGE_KEY = "app_language"
         const val APP_LANGUAGE_MIGRATED_KEY = "app_language_system_migrated"
         const val DEFAULT_LANGUAGE = "en"
+        const val CLOUD_LIFETIME_DURATION_KEY = "cloud_lifetime_active_duration_millis"
+        const val CLOUD_LIFETIME_DISTANCE_KEY = "cloud_lifetime_distance_meters"
+        const val CLOUD_LIFETIME_RIDES_KEY = "cloud_lifetime_rides_count"
     }
 }
+
+data class CloudLifetimeTotals(
+    val activeDurationMillis: Long = 0L,
+    val distanceMeters: Double = 0.0,
+    val ridesCount: Int = 0,
+)
+

@@ -13,6 +13,8 @@ import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import `in`.shvms.trackme.data.local.entity.RideSource
+import `in`.shvms.trackme.domain.gamification.GamificationEngine
+import `in`.shvms.trackme.domain.gamification.toGamificationFacts
 
 class HomeDashboardSelectorTest {
     private val utc = ZoneId.of("UTC")
@@ -309,6 +311,39 @@ class HomeDashboardSelectorTest {
         assertEquals(750, summary.lifetimeActivityCount)
         assertEquals(750_000.0 + (1L..750L).sum(), summary.lifetimeDistanceMeters, 0.0)
         assertEquals(1L, summary.latestActivity?.localId)
+    }
+
+    @Test
+    fun `cloud lifetime progress aggregate preserves level on reinstall`() {
+        val tenLocalRides = (1L..10L).map { id ->
+            ride(
+                id = id,
+                at = Instant.parse("2026-08-25T10:00:00Z").minusSeconds(id * 3_600L).toString(),
+                duration = 10 * 60_000L, // 10 min each = 100 min total (< 120 min, Level 1)
+                distance = 1_000.0,
+            )
+        }
+        val localOnly = HomeDashboardSelector.select(tenLocalRides, now, utc)
+        assertEquals(10, localOnly.lifetimeActivityCount)
+        assertEquals(100 * 60_000L, localOnly.lifetimeActiveDurationMillis)
+        val localSnapshot = GamificationEngine.deriveSnapshot(localOnly.toGamificationFacts())
+        assertEquals("level_1", localSnapshot.currentLevelId)
+
+        val withCloud = HomeDashboardSelector.select(
+            rides = tenLocalRides,
+            nowEpochMillis = now,
+            zoneId = utc,
+            cloudLifetimeDurationMillis = 2_000L * 60_000L,
+            cloudLifetimeDistanceMeters = 50_000.0,
+            cloudLifetimeActivityCount = 50,
+        )
+        assertEquals(50, withCloud.lifetimeActivityCount)
+        assertEquals(2_000L * 60_000L, withCloud.lifetimeActiveDurationMillis)
+        assertEquals(50_000.0, withCloud.lifetimeDistanceMeters, 0.0)
+
+        val cloudSnapshot = GamificationEngine.deriveSnapshot(withCloud.toGamificationFacts())
+        assertEquals("level_4", cloudSnapshot.currentLevelId)
+        assertEquals("Explorer", cloudSnapshot.currentLevelNameKey)
     }
 
     private fun vectors(): JSONObject = JSONObject(

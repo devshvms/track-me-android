@@ -45,7 +45,7 @@ object GamificationLedger {
      * rider satisfies it before they have done anything, and "reached at 0 minutes" says nothing. The
      * first recorded ride is the honest answer to when the journey started.
      */
-    fun derive(rides: List<RideFact>): List<LevelAchievement> {
+    fun derive(rides: List<RideFact>, cloudLifetimeDurationMillis: Long = 0L): List<LevelAchievement> {
         val ordered = rides.sortedBy { it.atEpochMillis }
         val result = mutableListOf<LevelAchievement>()
 
@@ -63,6 +63,8 @@ object GamificationLedger {
                     accumulate(byPersona, first)
                     index = 1
                     result += LevelAchievement(level.id, first.atEpochMillis, snapshot(byPersona))
+                } else if (cloudLifetimeDurationMillis > 0L) {
+                    result += LevelAchievement(level.id, System.currentTimeMillis(), emptyList())
                 } else {
                     result += LevelAchievement(level.id, null, emptyList())
                 }
@@ -76,9 +78,12 @@ object GamificationLedger {
                 index++
             }
 
-            val reached = millis / 60_000L >= level.thresholdMinutes && ordered.isNotEmpty()
+            val reachedByLocal = millis / 60_000L >= level.thresholdMinutes && ordered.isNotEmpty()
+            val reachedByCloud = cloudLifetimeDurationMillis / 60_000L >= level.thresholdMinutes
+            val reached = reachedByLocal || reachedByCloud
             result += if (reached) {
-                LevelAchievement(level.id, ordered[index - 1].atEpochMillis, snapshot(byPersona))
+                val achievedAt = ordered.getOrNull(index - 1)?.atEpochMillis ?: ordered.lastOrNull()?.atEpochMillis ?: System.currentTimeMillis()
+                LevelAchievement(level.id, achievedAt, snapshot(byPersona))
             } else {
                 LevelAchievement(level.id, null, emptyList())
             }

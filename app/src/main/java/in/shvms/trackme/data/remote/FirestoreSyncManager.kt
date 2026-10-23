@@ -139,7 +139,8 @@ internal fun cloudPageOutcome(
 class FirestoreSyncManager(
     private val rideDao: RideDao,
     private val authManager: AuthManager,
-    private val errorLogger: `in`.shvms.trackme.utils.logger.ErrorLogger
+    private val errorLogger: `in`.shvms.trackme.utils.logger.ErrorLogger,
+    private val preferencesManager: `in`.shvms.trackme.data.local.AppPreferencesManager? = null,
 ) {
     private val firestore = FirebaseFirestore.getInstance()
 
@@ -225,6 +226,7 @@ class FirestoreSyncManager(
     fun refreshCloudCount() {
         val user = authManager.currentUser.value ?: run {
             totalCloudRidesCount.value = 0
+            preferencesManager?.clearCloudLifetimeTotals()
             return
         }
         syncScope.launch {
@@ -232,11 +234,20 @@ class FirestoreSyncManager(
                 val aggregateQuery = firestore.collection("users")
                     .document(user.uid)
                     .collection("rides")
-                    .count()
+                    .aggregate(
+                        com.google.firebase.firestore.AggregateField.count(),
+                        com.google.firebase.firestore.AggregateField.sum("activeDurationMillis"),
+                        com.google.firebase.firestore.AggregateField.sum("distance"),
+                    )
                 val snapshot = aggregateQuery.get(com.google.firebase.firestore.AggregateSource.SERVER).await()
-                totalCloudRidesCount.value = snapshot.count.toInt()
+                val count = snapshot.count.toInt()
+                val activeDuration = (snapshot.get(com.google.firebase.firestore.AggregateField.sum("activeDurationMillis")) as? Number)?.toLong() ?: 0L
+                val distance = (snapshot.get(com.google.firebase.firestore.AggregateField.sum("distance")) as? Number)?.toDouble() ?: 0.0
+
+                totalCloudRidesCount.value = count
+                preferencesManager?.setCloudLifetimeTotals(activeDuration, distance, count)
             } catch (e: Exception) {
-                errorLogger.log("Failed to refresh cloud count")
+                errorLogger.log("Failed to refresh cloud count: ${e.message}")
             }
         }
     }
@@ -855,6 +866,7 @@ class FirestoreSyncManager(
             for (document in feedbackSnapshot.documents) {
                 document.reference.delete().await()
             }
+            preferencesManager?.clearCloudLifetimeTotals()
             Result.success(Unit)
         } catch (e: Exception) {
             errorLogger.log("Delete all cloud data failed")
