@@ -840,6 +840,10 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val revealDefaultTitle: String = s("revealDefaultTitle", "Ride saved")
     val revealDefaultBody: String = s("revealDefaultBody", "%s in %s. Great to have you out there.")
     val revealDismiss: String = s("revealDismiss", "Nice!")
+    val revealShareCard: String = s("revealShareCard", "Share Trip Card / Video")
+    val revealViewDetails: String = s("revealViewDetails", "View Trip Details")
+    val revealDone: String = s("revealDone", "Done")
+    val shareCardAndVideo: String = s("shareCardAndVideo", "Share Card & Video")
 
     // B2 weekly recap + B3 streak (v1.6.0). Gain-framed only. %d = streak weeks.
     val weeklyRecapTitle: String = s("weeklyRecapTitle", "Your week in review")
@@ -1587,6 +1591,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "revealDefaultTitle" to "Viaje guardado",
             "revealDefaultBody" to "%s en %s. Qué bueno verte en marcha.",
             "revealDismiss" to "¡Genial!",
+            "revealShareCard" to "Compartir tarjeta / video",
+            "revealViewDetails" to "Ver detalles del viaje",
+            "revealDone" to "Listo",
+            "shareCardAndVideo" to "Compartir tarjeta y video",
             "weeklyRecapTitle" to "Tu semana en resumen",
             "weeklyRecapRidesLabel" to "Viajes",
             "weeklyRecapDistanceLabel" to "Distancia",
@@ -2330,6 +2338,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "revealDefaultTitle" to "Trajet enregistré",
             "revealDefaultBody" to "%s en %s. Ravi de vous voir sur la route.",
             "revealDismiss" to "Super !",
+            "revealShareCard" to "Partager la carte / vidéo",
+            "revealViewDetails" to "Voir les détails du trajet",
+            "revealDone" to "Terminé",
+            "shareCardAndVideo" to "Partager la carte et vidéo",
             "weeklyRecapTitle" to "Votre semaine en résumé",
             "weeklyRecapRidesLabel" to "Trajets",
             "weeklyRecapDistanceLabel" to "Distance",
@@ -3073,6 +3085,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "revealDefaultTitle" to "Fahrt gespeichert",
             "revealDefaultBody" to "%s in %s. Schön, dass du unterwegs warst.",
             "revealDismiss" to "Super!",
+            "revealShareCard" to "Fahrtkarte / Video teilen",
+            "revealViewDetails" to "Fahrtdetails ansehen",
+            "revealDone" to "Fertig",
+            "shareCardAndVideo" to "Karte & Video teilen",
             "weeklyRecapTitle" to "Deine Woche im Rückblick",
             "weeklyRecapRidesLabel" to "Fahrten",
             "weeklyRecapDistanceLabel" to "Distanz",
@@ -3816,6 +3832,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "revealDefaultTitle" to "राइड सेव हो गई",
             "revealDefaultBody" to "%s, %s में। आपको सफ़र पर देखकर अच्छा लगा।",
             "revealDismiss" to "बढ़िया!",
+            "revealShareCard" to "ट्रिप कार्ड / वीडियो शेयर करें",
+            "revealViewDetails" to "ट्रिप का विवरण देखें",
+            "revealDone" to "पूर्ण",
+            "shareCardAndVideo" to "कार्ड और वीडियो शेयर करें",
             "weeklyRecapTitle" to "आपके सप्ताह का सारांश",
             "weeklyRecapRidesLabel" to "राइड्स",
             "weeklyRecapDistanceLabel" to "दूरी",
@@ -4559,6 +4579,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "revealDefaultTitle" to "ライドを保存しました",
             "revealDefaultBody" to "%s・%s。お出かけお疲れさまでした。",
             "revealDismiss" to "いいね！",
+            "revealShareCard" to "トリップカード／動画を共有",
+            "revealViewDetails" to "トリップの詳細を見る",
+            "revealDone" to "完了",
+            "shareCardAndVideo" to "カードと動画を共有",
             "weeklyRecapTitle" to "今週のふりかえり",
             "weeklyRecapRidesLabel" to "ライド数",
             "weeklyRecapDistanceLabel" to "距離",
@@ -5302,6 +5326,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "revealDefaultTitle" to "已保存骑行",
             "revealDefaultBody" to "%s，用时 %s。很高兴看到你出行。",
             "revealDismiss" to "赞！",
+            "revealShareCard" to "分享行程卡片 / 视频",
+            "revealViewDetails" to "查看行程详情",
+            "revealDone" to "完成",
+            "shareCardAndVideo" to "分享卡片与视频",
             "weeklyRecapTitle" to "本周回顾",
             "weeklyRecapRidesLabel" to "骑行次数",
             "weeklyRecapDistanceLabel" to "距离",

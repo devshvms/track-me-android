@@ -218,7 +218,8 @@ private const val PAUSE_MARKER_ON_ROUTE_METERS = 10f
 fun RideDetailScreen(
     rideId: Long,
     viewModel: RideDetailViewModel = viewModel(),
-    navController: NavController? = null
+    navController: NavController? = null,
+    autoOpenExport: Boolean = false
 ) {
     val strings = LocalAppStrings.current
     val rideWithPoints by viewModel.rideWithPoints.collectAsState()
@@ -236,7 +237,7 @@ fun RideDetailScreen(
     var pendingGpxFile by remember { mutableStateOf<java.io.File?>(null) }
     var pendingGalleryFile by remember { mutableStateOf<java.io.File?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showExportDialog by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(autoOpenExport) }
     var exportFailure by remember { mutableStateOf<ExportPreviewFailure?>(null) }
     var exportInProgress by remember { mutableStateOf(false) }
 
@@ -450,6 +451,28 @@ fun RideDetailScreen(
                     .verticalScroll(scrollState, enabled = columnScrollEnabled)
             ) {
                 RideSummaryCard(ride = ride, imperial = imperial, strings = strings)
+                if (points.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = { showExportDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = strings.shareCardAndVideo,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Box(

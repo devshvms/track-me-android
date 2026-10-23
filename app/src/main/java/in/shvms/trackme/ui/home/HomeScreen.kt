@@ -164,6 +164,7 @@ fun HomeScreen(
     onOpenHistory: () -> Unit = {},
     onOpenProgress: () -> Unit = {},
     onOpenRideDetail: (Long) -> Unit = {},
+    onOpenRideDetailWithExport: (Long) -> Unit = onOpenRideDetail,
     scrollToTopRequest: Int = 0,
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModelFactory(
@@ -710,6 +711,14 @@ fun HomeScreen(
                         )
                     }
                 }
+            },
+            onShareCard = {
+                app.pendingRevealStore.consume(reveal.rideId)
+                onOpenRideDetailWithExport(reveal.rideId)
+            },
+            onViewDetails = {
+                app.pendingRevealStore.consume(reveal.rideId)
+                onOpenRideDetail(reveal.rideId)
             }
         )
     }
