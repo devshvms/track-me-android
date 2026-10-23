@@ -31,5 +31,6 @@ class RideStartUndoTest {
     fun `abort telemetry contract matches iOS parity values`() {
         assertEquals("pre_commit", RideStartAbortMethod.PRE_COMMIT.analyticsValue)
         assertEquals("post_commit_undo", RideStartAbortMethod.POST_COMMIT_UNDO.analyticsValue)
+        assertEquals("short_indoor_test", RideStartAbortMethod.SHORT_INDOOR_TEST.analyticsValue)
     }
 }

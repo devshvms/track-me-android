@@ -1445,6 +1445,7 @@ fun HomeScreen(
                     distanceText = uiState.distanceText,
                     durationText = uiState.durationText,
                     elapsedDurationText = uiState.elapsedDurationText,
+                    elapsedDurationMillis = uiState.elapsedDurationMillis,
                     speedText = uiState.speedText,
                     paceText = uiState.paceText,
                     v1DistanceMeters = uiState.distanceMeters,
@@ -1456,6 +1457,10 @@ fun HomeScreen(
                     isAuthenticated = uiState.isAuthenticated,
                     liveShareAuthRequired = strings.liveShareAuthRequired,
                     isOffline = isOffline,
+                    pipEligible = PiPModePolicy.isEligible(uiState.trackingState.toPiPRideState(), pipDashboardEnabled),
+                    onEnterPiP = {
+                        (context.findActivity() as? `in`.shvms.trackme.MainActivity)?.enterPiPFromHud()
+                    },
                     groupPresencePillShown = groupPresencePillShown,
                     onPauseToggle = {
                         if (uiState.trackingState == TrackingState.TRACKING) {
@@ -1465,8 +1470,8 @@ fun HomeScreen(
                         }
                     },
                     onStopRide = {
-                        if (uiState.distanceMeters < `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DISTANCE_METERS &&
-                            uiState.durationMillis < `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DURATION_MILLIS
+                        if (uiState.distanceMeters < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DISTANCE_METERS &&
+                            uiState.durationMillis < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DURATION_MILLIS
                         ) {
                             showDiscardRideDialog = true
                         } else {
@@ -1649,6 +1654,7 @@ fun HomeScreen(
                     confirmButton = {
                         TextButton(onClick = {
                             showDiscardRideDialog = false
+                            AnalyticsManager.trackRideStartAborted(RideStartAbortMethod.SHORT_INDOOR_TEST)
                             viewModel.stopTracking(discardNearEmptyRide = true)
                         }) {
                             Text(strings.discardRide)

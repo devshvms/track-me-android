@@ -203,7 +203,7 @@ class PiPDashboardPolicyTest {
             assertEquals(expected, PiPSessionDurationBucket.fromSeconds(seconds))
         }
         assertEquals(
-            setOf("auto_enter", "user_leave_hint"),
+            setOf("auto_enter", "user_leave_hint", "hud_button"),
             PiPEntryTrigger.entries.mapTo(mutableSetOf(), PiPEntryTrigger::analyticsValue),
         )
     }

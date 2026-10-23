@@ -87,6 +87,7 @@ internal enum class PiPRemoteActionKind {
 internal enum class PiPEntryTrigger(val analyticsValue: String) {
     AUTO_ENTER("auto_enter"),
     USER_LEAVE_HINT("user_leave_hint"),
+    HUD_BUTTON("hud_button"),
 }
 
 internal enum class PiPSessionDurationBucket(val analyticsValue: String) {

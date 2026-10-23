@@ -307,6 +307,14 @@ class MainActivity : AppCompatActivity() {
       val requestCode: Int,
   )
 
+  /** 1-tap PiP entry from the Active Ride HUD pill (TASK-337). */
+  fun enterPiPFromHud() {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && pipEligible) {
+          pendingPiPTrigger = PiPEntryTrigger.HUD_BUTTON
+          if (!enterPictureInPictureMode(buildPiPParams())) pendingPiPTrigger = null
+      }
+  }
+
   /** Android 8–11 fallback. Android 12+ uses setAutoEnterEnabled for gesture navigation. */
   override fun onUserLeaveHint() {
       super.onUserLeaveHint()

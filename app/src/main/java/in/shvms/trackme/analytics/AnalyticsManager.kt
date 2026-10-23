@@ -798,7 +798,8 @@ object AnalyticsManager {
 
 enum class RideStartAbortMethod(val analyticsValue: String) {
     PRE_COMMIT("pre_commit"),
-    POST_COMMIT_UNDO("post_commit_undo")
+    POST_COMMIT_UNDO("post_commit_undo"),
+    SHORT_INDOOR_TEST("short_indoor_test"),
 }
 
 enum class ActivityStartMethod(val analyticsValue: String) {

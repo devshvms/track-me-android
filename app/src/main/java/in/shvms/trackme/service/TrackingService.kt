@@ -119,6 +119,7 @@ class TrackingService : Service() {
     private var elapsedWallClockDuration = 0L
     private var storageWarningShown = false
     private var lastGpsTimeMs = 0L
+    private var lastGpsPauseTelemetryMs = 0L
     private var lastLiveShareTimeMs = 0L
     private var lastNotifyElapsedMs = Long.MIN_VALUE
     private var lastNotifyDistanceMeters = 0f
@@ -1218,14 +1219,18 @@ class TrackingService : Service() {
                 trackingManager.updateElapsedDuration(elapsedWallClockDuration)
                 
                 if ((currentState == TrackingState.TRACKING || currentState == TrackingState.GPS_LOST || currentState == TrackingState.GPS_DISABLED) && lastGpsTimeMs > 0) {
-                    val timeSinceLastGps = System.currentTimeMillis() - lastGpsTimeMs
+                    val nowWallMs = System.currentTimeMillis()
+                    val timeSinceLastGps = nowWallMs - lastGpsTimeMs
                     trackingManager.updateTimeSinceLastGps(timeSinceLastGps)
-                    if (timeSinceLastGps >= GPS_LOSS_TIMEOUT_MS) {
+                    val isStationary = trackingManager.isAutoPaused.value || motionSensorManager.isDeviceStationary()
+                    val lossThresholdMs = if (isStationary) STATIONARY_GPS_LOSS_TIMEOUT_MS else GPS_LOSS_TIMEOUT_MS
+                    if (timeSinceLastGps >= lossThresholdMs) {
                         val wasAlreadyStale = !shouldEmitGpsPauseTelemetry(currentState)
                         updateState(
                             if (isLocationServiceEnabled()) TrackingState.GPS_LOST else TrackingState.GPS_DISABLED
                         )
-                        if (!wasAlreadyStale) {
+                        if (!wasAlreadyStale && nowWallMs - lastGpsPauseTelemetryMs >= GPS_PAUSE_TELEMETRY_DEBOUNCE_MS) {
+                            lastGpsPauseTelemetryMs = nowWallMs
                             AnalyticsManager.trackLocationUpdatesPaused()
                         }
                     }
@@ -1532,7 +1537,7 @@ class TrackingService : Service() {
                 return
             }
 
-            if (discardNearEmptyRide && finalDistance < JUNK_RIDE_DISTANCE_METERS && finalDuration < JUNK_RIDE_DURATION_MILLIS) {
+            if (discardNearEmptyRide && finalDistance < SHORT_TEST_DISTANCE_METERS && finalDuration < JUNK_RIDE_DURATION_MILLIS) {
                 rideDao.deletePointsForRide(rideId)
                 rideDao.deleteRide(rideId)
                 trackingManager.emitRideEndOutcome(RideEndOutcome.DISCARDED_BY_USER)
@@ -1728,6 +1733,8 @@ class TrackingService : Service() {
         const val ACTION_STOP_GROUP_PRESENCE = "ACTION_STOP_GROUP_PRESENCE"
         const val JUNK_RIDE_DISTANCE_METERS = 10.0
         const val JUNK_RIDE_DURATION_MILLIS = 2 * 60 * 1000L
+        const val SHORT_TEST_DISTANCE_METERS = 50.0
+        const val SHORT_TEST_DURATION_MILLIS = 90 * 1000L
         const val NOTIFICATION_ID = 1
         /** Notification accent. Primary40 — the brand cyan at the tone that reads on both shades. */
         const val NOTIFICATION_ACCENT = 0xFF00658D.toInt()
@@ -1736,6 +1743,8 @@ class TrackingService : Service() {
         const val SYNC_CHANNEL_ID = "sync_channel"
         const val STORAGE_WARNING_NOTIFICATION_ID = 4
         const val GPS_LOSS_TIMEOUT_MS = 15_000L
+        const val STATIONARY_GPS_LOSS_TIMEOUT_MS = 45_000L
+        const val GPS_PAUSE_TELEMETRY_DEBOUNCE_MS = 30_000L
         const val NOTIFICATION_UPDATE_INTERVAL_MS = 15_000L
         const val NOTIFICATION_DISTANCE_DELTA_METERS = 25f
         const val TRACKING_PREFS = "trackme_prefs"

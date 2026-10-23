@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Share
@@ -161,6 +162,7 @@ fun ActiveRideHudPanel(
     durationText: String,
     /** Total wall-clock time since the ride started, including any paused segments. */
     elapsedDurationText: String,
+    elapsedDurationMillis: Long = 0L,
     speedText: String,
     /** Shown instead of [speedText] for personas where [usesPace] holds — walk and run. */
     paceText: String,
@@ -174,6 +176,8 @@ fun ActiveRideHudPanel(
     isAuthenticated: Boolean,
     liveShareAuthRequired: String,
     isOffline: Boolean = false,
+    pipEligible: Boolean = false,
+    onEnterPiP: (() -> Unit)? = null,
     /**
      * True while the group-presence host (A29) is already showing a paused state.
      *
@@ -222,6 +226,20 @@ fun ActiveRideHudPanel(
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 shadowElevation = elevation.mapOverlay,
             )
+
+            if (pipEligible && onEnterPiP != null) {
+                HudPill(
+                    text = "PiP",
+                    icon = Icons.Default.PictureInPictureAlt,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    shadowElevation = elevation.mapOverlay,
+                    modifier = Modifier.semantics {
+                        contentDescription = strings.pipDashboardTitle
+                    },
+                    onClick = onEnterPiP,
+                )
+            }
 
             if (trackingState == TrackingState.GPS_LOST || trackingState == TrackingState.GPS_DISABLED || trackingState == TrackingState.STORAGE_LOW) {
                 val context = LocalContext.current
@@ -357,6 +375,17 @@ fun ActiveRideHudPanel(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
                 Spacer(modifier = Modifier.height(12.dp))
+
+                if (trackingState == TrackingState.TRACKING && v1DistanceMeters < 5f && elapsedDurationMillis >= 12_000L) {
+                    Text(
+                        text = strings.hudStationaryHint,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
                 if (!isAuthenticated) {
                     Text(
