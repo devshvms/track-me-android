@@ -28,14 +28,14 @@ object ForgottenRideNotice {
     /**
      * How long without movement before asking.
      *
-     * Forty-five minutes. Long enough to sit out a downpour, eat lunch, or wait for a group to
-     * regroup without being nagged; short enough that a ride forgotten at the end of a commute is
-     * caught before it has doubled its own duration.
+     * Seven minutes (RET-01). Long enough to sit out a long traffic light, elevator wait, or brief
+     * chat without being nagged; short enough that a ride forgotten at the end of a commute is
+     * caught before Android Doze kills the background service.
      *
      * Deliberately far longer than any `PersonaAutoPauseConfig` stillness threshold, which are
      * seconds — those decide whether the *clock* runs, this decides whether to speak.
      */
-    const val STILLNESS_BEFORE_NOTICE_MILLIS: Long = 45L * 60 * 1000
+    const val STILLNESS_BEFORE_NOTICE_MILLIS: Long = 7L * 60 * 1000
 
     /**
      * Whether to ask "are you still riding?".
@@ -44,8 +44,8 @@ object ForgottenRideNotice {
      * @param alreadyAsked whether this ride has already been asked about. Once per ride, ever —
      *   someone who has decided to keep recording while stationary has answered, and asking again
      *   is the app arguing with them.
-     * @param isTracking false while paused-by-user or stopped. A ride the user paused deliberately
-     *   is not a forgotten ride, it is a ride someone is managing.
+     * @param isTracking false while paused-by-user or stopped. True while recording (including
+     *   when auto-paused or GPS-lost indoors).
      */
     fun shouldAsk(
         stillnessMillis: Long,

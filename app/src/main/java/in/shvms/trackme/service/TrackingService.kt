@@ -970,7 +970,7 @@ class TrackingService : Service() {
         if (!ForgottenRideNotice.shouldAsk(
                 stillnessMillis = stillnessMillis,
                 alreadyAsked = forgottenRideAsked,
-                isTracking = currentState == TrackingState.TRACKING,
+                isTracking = (currentState == TrackingState.TRACKING || currentState == TrackingState.GPS_LOST) && activeRideId != null,
             )
         ) return
 
@@ -1227,6 +1227,7 @@ class TrackingService : Service() {
                     val timeSinceLastGps = nowWallMs - lastGpsTimeMs
                     trackingManager.updateTimeSinceLastGps(timeSinceLastGps)
                     val isStationary = trackingManager.isAutoPaused.value || motionSensorManager.isDeviceStationary()
+                    updateStillness(isStationary, nowWallMs)
                     val lossThresholdMs = if (isStationary) STATIONARY_GPS_LOSS_TIMEOUT_MS else GPS_LOSS_TIMEOUT_MS
                     if (timeSinceLastGps >= lossThresholdMs) {
                         val wasAlreadyStale = !shouldEmitGpsPauseTelemetry(currentState)
