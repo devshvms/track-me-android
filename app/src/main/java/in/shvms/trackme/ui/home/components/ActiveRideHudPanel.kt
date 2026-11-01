@@ -21,6 +21,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
@@ -31,8 +33,10 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -199,6 +203,7 @@ fun ActiveRideHudPanel(
     val strings = LocalAppStrings.current
     val elevation = LocalTrackMeElevation.current
     val motion = LocalTrackMeMotion.current
+    var isTouchLocked by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -215,6 +220,28 @@ fun ActiveRideHudPanel(
             // the two pill families were unified below.
             itemVerticalAlignment = Alignment.CenterVertically,
         ) {
+            // Touch Lock Pill (TASK-350 / LOCK-01)
+            if (isTouchLocked) {
+                HudPill(
+                    text = strings.hudTouchLockedPill,
+                    icon = Icons.Default.Lock,
+                    containerColor = TrackMeOrange,
+                    contentColor = Color.Black,
+                    shadowElevation = elevation.mapOverlay,
+                )
+            } else {
+                HudPill(
+                    text = strings.hudTouchLockPill,
+                    icon = Icons.Default.LockOpen,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    shadowElevation = elevation.mapOverlay,
+                    onClick = {
+                        isTouchLocked = true
+                    },
+                )
+            }
+
             // Persona pill. Was a fixed amber fill — amber is the warning role, and "you are
             // riding as Motorbike" is not a warning; the colour made a neutral fact look like a
             // caution. It is floating chrome over the map, so it now joins the map control
@@ -399,39 +426,67 @@ fun ActiveRideHudPanel(
                 }
 
                 // Action Buttons Row (Unified Pause/Stop Pill | Live Share)
-                Row(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Unified Center Pill (Pause/Resume on left, Slide-to-Stop on right) - 52.dp height
-                    val isPaused = trackingState == TrackingState.PAUSED ||
-                        trackingState == TrackingState.GPS_LOST ||
-                        trackingState == TrackingState.GPS_DISABLED ||
-                        trackingState == TrackingState.STORAGE_LOW
-                    UnifiedPauseStopPill(
-                        isPaused = isPaused,
-                        strings = strings,
-                        onPauseToggle = onPauseToggle,
-                        onStopRide = onStopRide,
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 14.dp)
-                            .height(52.dp)
-                    )
+                            .fillMaxWidth()
+                            .alpha(if (isTouchLocked) 0.35f else 1f),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Unified Center Pill (Pause/Resume on left, Slide-to-Stop on right) - 52.dp height
+                        val isPaused = trackingState == TrackingState.PAUSED ||
+                            trackingState == TrackingState.GPS_LOST ||
+                            trackingState == TrackingState.GPS_DISABLED ||
+                            trackingState == TrackingState.STORAGE_LOW
+                        UnifiedPauseStopPill(
+                            isPaused = isPaused,
+                            strings = strings,
+                            onPauseToggle = {
+                                if (!isTouchLocked) onPauseToggle()
+                            },
+                            onStopRide = {
+                                if (!isTouchLocked) onStopRide()
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 14.dp)
+                                .height(52.dp)
+                        )
 
-                    // Live Location Interactive Share Button (s1 - s5) - 52.dp circle
-                    InteractiveShareLocationButton(
-                        liveShareState = liveShareState,
-                        isAuthenticated = isAuthenticated,
-                        onStartShare = onStartShare,
-                        onStopShare = onStopShare,
-                        onSendShare = onSendShare,
-                        onCopyShare = onCopyShare,
-                        modifier = Modifier.size(52.dp)
-                    )
+                        // Live Location Interactive Share Button (s1 - s5) - 52.dp circle
+                        InteractiveShareLocationButton(
+                            liveShareState = liveShareState,
+                            isAuthenticated = isAuthenticated,
+                            onStartShare = {
+                                if (!isTouchLocked) onStartShare()
+                            },
+                            onStopShare = {
+                                if (!isTouchLocked) onStopShare()
+                            },
+                            onSendShare = {
+                                if (!isTouchLocked) onSendShare()
+                            },
+                            onCopyShare = {
+                                if (!isTouchLocked) onCopyShare()
+                            },
+                            modifier = Modifier.size(52.dp)
+                        )
+                    }
+
+                    if (isTouchLocked) {
+                        TouchLockGuard(
+                            strings = strings,
+                            onUnlock = {
+                                isTouchLocked = false
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -659,3 +714,95 @@ internal fun UnifiedPauseStopPill(
         }
     }
 }
+
+/**
+ * TASK-350 (LOCK-01): TouchLockGuard.
+ * Translucent shield covering the HUD action buttons to prevent accidental pocket or mount taps.
+ * Requires a continuous 1.2-second hold with real-time fill progress to unlock.
+ */
+@Composable
+private fun TouchLockGuard(
+    strings: `in`.shvms.trackme.ui.localization.AppStrings,
+    onUnlock: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var progress by remember { mutableFloatStateOf(0f) }
+    var isPressing by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    val coroutineScope = rememberCoroutineScope()
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(RoundedCornerShape(26.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
+            .border(
+                width = 1.5.dp,
+                color = CyanBright.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(26.dp)
+            )
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressing = true
+                        val startTime = System.currentTimeMillis()
+                        val duration = 1200L
+                        var unlocked = false
+
+                        val job = coroutineScope.launch {
+                            while (true) {
+                                val elapsed = System.currentTimeMillis() - startTime
+                                progress = (elapsed.toFloat() / duration).coerceIn(0f, 1f)
+                                if (elapsed >= duration) {
+                                    unlocked = true
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onUnlock()
+                                    break
+                                }
+                                delay(16)
+                            }
+                        }
+
+                        tryAwaitRelease()
+                        job.cancel()
+                        isPressing = false
+                        if (!unlocked) {
+                            progress = 0f
+                        }
+                    }
+                )
+            },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        // Fill progress indicator
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(progress)
+                .background(CyanBright.copy(alpha = 0.3f))
+        )
+
+        // Center content with Lock icon and status text
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = null,
+                tint = CyanBright,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (isPressing) strings.hudTouchUnlocking else strings.hudTouchUnlockHint,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+

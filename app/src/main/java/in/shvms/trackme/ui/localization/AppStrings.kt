@@ -154,6 +154,10 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val hudAutoPausedPill: String = s("hudAutoPausedPill", "Auto paused")
     val hudLiveSharingPill: String = s("hudLiveSharingPill", "Live sharing")
     val hudOfflineShieldPill: String = s("hudOfflineShieldPill", "Offline shield active")
+    val hudTouchLockPill: String = s("hudTouchLockPill", "Lock")
+    val hudTouchLockedPill: String = s("hudTouchLockedPill", "Locked")
+    val hudTouchUnlockHint: String = s("hudTouchUnlockHint", "Hold 1.2s to unlock")
+    val hudTouchUnlocking: String = s("hudTouchUnlocking", "Unlocking...")
     val speed: String = s("speed", "Speed")
     val distance: String = s("distance", "Distance")
     val duration: String = s("duration", "Duration")
@@ -1340,6 +1344,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "hudAutoPausedPill" to "Pausa automática",
             "hudLiveSharingPill" to "Compartiendo en vivo",
             "hudOfflineShieldPill" to "Escudo sin conexión activo",
+            "hudTouchLockPill" to "Bloquear",
+            "hudTouchLockedPill" to "Bloqueado",
+            "hudTouchUnlockHint" to "Mantén 1,2 s para desbloquear",
+            "hudTouchUnlocking" to "Desbloqueando...",
             "speed" to "Velocidad",
             "distance" to "Distancia",
             "duration" to "Duración",
@@ -2087,6 +2095,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "hudAutoPausedPill" to "Pause automatique",
             "hudLiveSharingPill" to "Partage en direct",
             "hudOfflineShieldPill" to "Bouclier hors ligne actif",
+            "hudTouchLockPill" to "Verrouiller",
+            "hudTouchLockedPill" to "Verrouillé",
+            "hudTouchUnlockHint" to "Maintenir 1,2 s pour déverrouiller",
+            "hudTouchUnlocking" to "Déverrouillage...",
             "speed" to "Vitesse",
             "distance" to "Distance",
             "duration" to "Durée",
@@ -2834,6 +2846,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "hudAutoPausedPill" to "Automatisch pausiert",
             "hudLiveSharingPill" to "Live-Freigabe",
             "hudOfflineShieldPill" to "Offline-Schutz aktiv",
+            "hudTouchLockPill" to "Sperren",
+            "hudTouchLockedPill" to "Gesperrt",
+            "hudTouchUnlockHint" to "1,2 s halten zum Entsperren",
+            "hudTouchUnlocking" to "Entsperren...",
             "speed" to "Geschw.",
             "distance" to "Distanz",
             "duration" to "Dauer",
@@ -3581,6 +3597,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "hudAutoPausedPill" to "स्वतः रुका",
             "hudLiveSharingPill" to "लाइव साझा",
             "hudOfflineShieldPill" to "ऑफ़लाइन शील्ड सक्रिय",
+            "hudTouchLockPill" to "लॉक करें",
+            "hudTouchLockedPill" to "लॉक है",
+            "hudTouchUnlockHint" to "अनलॉक करने के लिए 1.2s दबाए रखें",
+            "hudTouchUnlocking" to "अनलॉक हो रहा है...",
             "speed" to "गति",
             "distance" to "दूरी",
             "duration" to "समय",
@@ -4328,6 +4348,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "hudAutoPausedPill" to "自動停止中",
             "hudLiveSharingPill" to "ライブ共有中",
             "hudOfflineShieldPill" to "オフライン保護中",
+            "hudTouchLockPill" to "ロック",
+            "hudTouchLockedPill" to "ロック中",
+            "hudTouchUnlockHint" to "長押し1.2秒で解除",
+            "hudTouchUnlocking" to "ロック解除中...",
             "speed" to "速度",
             "distance" to "距離",
             "duration" to "時間",
@@ -5075,6 +5099,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "hudAutoPausedPill" to "已自动暂停",
             "hudLiveSharingPill" to "实时共享中",
             "hudOfflineShieldPill" to "离线保护已启用",
+            "hudTouchLockPill" to "锁定",
+            "hudTouchLockedPill" to "已锁定",
+            "hudTouchUnlockHint" to "长按1.2秒解锁",
+            "hudTouchUnlocking" to "正在解锁...",
             "speed" to "速度",
             "distance" to "距离",
             "duration" to "时长",
