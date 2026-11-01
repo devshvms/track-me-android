@@ -131,6 +131,7 @@ class TrackingService : Service() {
     // has gone wrong for them.
     private var stillnessStartedAtMillis: Long? = null
     private var forgottenRideAsked = false
+    private var motionThrottleJob: Job? = null
 
     private val adaptiveAutoPauseEngine = `in`.shvms.trackme.domain.processor.AdaptiveAutoPauseEngine()
     private lateinit var motionSensorManager: MotionSensorManager
@@ -670,6 +671,7 @@ class TrackingService : Service() {
                         handleLocationStartFailure()
                         return@launch
                     }
+                    startMotionThrottleWatcher()
                 }
             } catch (_: SQLiteException) {
                 withContext(Dispatchers.Main.immediate) {
@@ -853,6 +855,7 @@ class TrackingService : Service() {
         updateState(TrackingState.PAUSED)
         isTimerEnabled = false
         motionSensorManager.stopListening()
+        stopMotionThrottleWatcher()
         if (BuildConfig.DEBUG) {
             trackingV2Estimator.pause()
             trackingV2StepSensor.stop()
@@ -921,6 +924,7 @@ class TrackingService : Service() {
             handleLocationStartFailure()
             return
         }
+        startMotionThrottleWatcher()
         if (!isTimerEnabled) {
             startTimer()
         }
@@ -960,12 +964,23 @@ class TrackingService : Service() {
             // argued with by an app that already had its answer.
             stillnessStartedAtMillis = null
             ForgottenRideNotifier.cancel(this)
+            // TASK-351 (BATT-01): Restore high accuracy polling immediately on motion
+            if (locationHelper.isThrottled()) {
+                locationHelper.setStationaryThrottled(false, locationCallback)
+            }
             return
         }
 
         val startedAt = stillnessStartedAtMillis ?: fixTimeMillis.also { stillnessStartedAtMillis = it }
         val stillnessMillis = fixTimeMillis - startedAt
         if (stillnessMillis < 0) return
+
+        // TASK-351 (BATT-01): Step down GPS polling interval when stationary > 3 minutes
+        if (AdaptiveGpsThrottlePolicy.shouldThrottle(isStationary = true, stillnessDurationMs = stillnessMillis)) {
+            if (!locationHelper.isThrottled()) {
+                locationHelper.setStationaryThrottled(true, locationCallback)
+            }
+        }
 
         if (!ForgottenRideNotice.shouldAsk(
                 stillnessMillis = stillnessMillis,
@@ -989,6 +1004,31 @@ class TrackingService : Service() {
         )
     }
 
+    /**
+     * TASK-351 (BATT-01): Proactively observes hardware accelerometer updates.
+     * When stationary throttling is active and physical motion is detected,
+     * immediately restores high-accuracy 1s polling without waiting for the next throttled GPS tick.
+     */
+    private fun startMotionThrottleWatcher() {
+        motionThrottleJob?.cancel()
+        motionThrottleJob = serviceScope.launch {
+            motionSensorManager.motionEnergy.collect {
+                if (currentState == TrackingState.TRACKING && locationHelper.isThrottled()) {
+                    if (!motionSensorManager.isDeviceStationary()) {
+                        withContext(Dispatchers.Main) {
+                            locationHelper.setStationaryThrottled(false, locationCallback)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopMotionThrottleWatcher() {
+        motionThrottleJob?.cancel()
+        motionThrottleJob = null
+    }
+
     private fun handleLocationStartFailure() {
         val error = SecurityException("Location permission was revoked while starting ride tracking")
         val app = application as TrackMeApp
@@ -1006,6 +1046,7 @@ class TrackingService : Service() {
     ) {
         isTimerEnabled = false
         motionSensorManager.stopListening()
+        stopMotionThrottleWatcher()
         val trackingV2Live = if (BuildConfig.DEBUG) trackingV2Estimator.snapshot() else null
         val trackingV2Final = if (BuildConfig.DEBUG) trackingV2Estimator.finish() else null
         val trackingV1Diagnostics = trackingV1DebugDiagnostics

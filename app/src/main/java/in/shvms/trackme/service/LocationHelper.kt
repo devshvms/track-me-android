@@ -11,11 +11,40 @@ import com.google.android.gms.location.Priority
 
 class LocationHelper(private val context: Context) {
     private val client: FusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
+    private var isGpsThrottled: Boolean = false
+
+    fun isThrottled(): Boolean = isGpsThrottled
 
     @SuppressLint("MissingPermission")
     fun startLocationTracking(callback: LocationCallback): Boolean {
-        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2000L)
-            .setMinUpdateIntervalMillis(1000L)
+        isGpsThrottled = false
+        val request = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY,
+            AdaptiveGpsThrottlePolicy.ACTIVE_INTERVAL_MS,
+        )
+            .setMinUpdateIntervalMillis(AdaptiveGpsThrottlePolicy.ACTIVE_MIN_INTERVAL_MS)
+            .build()
+        return try {
+            client.requestLocationUpdates(request, callback, Looper.getMainLooper())
+            true
+        } catch (_: SecurityException) {
+            false
+        }
+    }
+
+    /**
+     * TASK-351 (BATT-01): Dynamically updates location request rate when stationary or moving.
+     * Calling requestLocationUpdates with the same callback replaces the existing request
+     * without dropping location stream or requiring restart.
+     */
+    @SuppressLint("MissingPermission")
+    fun setStationaryThrottled(throttled: Boolean, callback: LocationCallback): Boolean {
+        if (isGpsThrottled == throttled) return true
+        isGpsThrottled = throttled
+        val interval = if (throttled) AdaptiveGpsThrottlePolicy.THROTTLED_INTERVAL_MS else AdaptiveGpsThrottlePolicy.ACTIVE_INTERVAL_MS
+        val minInterval = if (throttled) AdaptiveGpsThrottlePolicy.THROTTLED_MIN_INTERVAL_MS else AdaptiveGpsThrottlePolicy.ACTIVE_MIN_INTERVAL_MS
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, interval)
+            .setMinUpdateIntervalMillis(minInterval)
             .build()
         return try {
             client.requestLocationUpdates(request, callback, Looper.getMainLooper())
@@ -53,6 +82,7 @@ class LocationHelper(private val context: Context) {
     }
 
     fun stopLocationTracking(callback: LocationCallback) {
+        isGpsThrottled = false
         client.removeLocationUpdates(callback)
     }
 }
