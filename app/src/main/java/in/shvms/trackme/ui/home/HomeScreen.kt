@@ -107,12 +107,13 @@ private fun CameraMoveStartedReason.toMoveCause(): CameraMoveCause = when (this)
 private const val LAST_CAMERA_LAT_KEY = "last_camera_lat"
 private const val LAST_CAMERA_LNG_KEY = "last_camera_lng"
 private const val LAST_CAMERA_ZOOM_KEY = "last_camera_zoom"
+internal const val RIDE_START_UNDO_MIN_GRACE_MILLIS = 1_500L
 internal const val RIDE_START_UNDO_WINDOW_MILLIS = 10_000L
 
 internal fun shouldShowRideStartUndo(
     elapsedDurationMillis: Long,
     distanceMeters: Float
-): Boolean = elapsedDurationMillis < RIDE_START_UNDO_WINDOW_MILLIS &&
+): Boolean = elapsedDurationMillis in RIDE_START_UNDO_MIN_GRACE_MILLIS until RIDE_START_UNDO_WINDOW_MILLIS &&
     distanceMeters < `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DISTANCE_METERS
 
 // Country-level fallback used before a location fix has ever been persisted (center

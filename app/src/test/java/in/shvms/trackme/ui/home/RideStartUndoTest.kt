@@ -9,19 +9,17 @@ import org.junit.Test
 
 class RideStartUndoTest {
     @Test
-    fun `undo is visible only while both time and distance are below limits`() {
-        assertTrue(shouldShowRideStartUndo(9_999L, 9.99f))
+    fun `undo is visible only between grace threshold and window limit while distance is below limit`() {
+        assertFalse("Must not show undo during 1.5s grace period to prevent accidental double-tap aborts", shouldShowRideStartUndo(0L, 0f))
+        assertFalse("Must not show undo at 1499ms", shouldShowRideStartUndo(1_499L, 0f))
+        assertTrue("Shows undo starting at 1500ms", shouldShowRideStartUndo(1_500L, 0f))
+        assertTrue("Shows undo at 9999ms", shouldShowRideStartUndo(9_999L, 9.99f))
 
-        assertFalse(shouldShowRideStartUndo(RIDE_START_UNDO_WINDOW_MILLIS, 0f))
+        assertFalse("Hides undo at window limit 10000ms", shouldShowRideStartUndo(RIDE_START_UNDO_WINDOW_MILLIS, 0f))
         assertFalse(
+            "Hides undo when distance exceeds junk distance",
             shouldShowRideStartUndo(
-                elapsedDurationMillis = 0L,
-                distanceMeters = TrackingService.JUNK_RIDE_DISTANCE_METERS.toFloat()
-            )
-        )
-        assertFalse(
-            shouldShowRideStartUndo(
-                elapsedDurationMillis = RIDE_START_UNDO_WINDOW_MILLIS,
+                elapsedDurationMillis = 5_000L,
                 distanceMeters = TrackingService.JUNK_RIDE_DISTANCE_METERS.toFloat()
             )
         )
