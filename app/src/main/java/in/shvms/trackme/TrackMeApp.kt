@@ -310,6 +310,12 @@ class TrackMeApp : Application() {
                     )
                     if (summary.hasChanges) {
                         _recoveryNotice.value = summary
+                        // TASK-356: make rescued rides visible to PostHog (coarse counts only).
+                        `in`.shvms.trackme.analytics.AnalyticsManager.trackRideRecovered(
+                            recoveredCount = summary.recoveredCount,
+                            discardedCount = summary.discardedCount,
+                            totalMeters = summary.recovered.sumOf { it.distanceMeters },
+                        )
                         // §6.1.7: one row per recovered ride. The notification says "3 rides were
                         // saved" because it has one line; the feed has room to say which three, and
                         // checking whether a particular ride survived is the reason to look.

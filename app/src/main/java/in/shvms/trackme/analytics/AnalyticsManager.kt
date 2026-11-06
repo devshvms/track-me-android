@@ -182,6 +182,16 @@ object AnalyticsManager {
         PostHog.capture("support_contact_started", properties = mapOf("faq_expanded_count" to faqExpandedCount))
     }
 
+    /** TASK-356: orphaned-ride recovery ran and changed something. Coarse properties only. */
+    fun trackRideRecovered(recoveredCount: Int, discardedCount: Int, totalMeters: Double) {
+        if (!_isTelemetryEnabled.value) return
+        if (!RecoveryTelemetry.shouldReport(recoveredCount, discardedCount)) return
+        PostHog.capture(
+            RecoveryTelemetry.EVENT,
+            properties = RecoveryTelemetry.properties(recoveredCount, discardedCount, totalMeters),
+        )
+    }
+
     // Core Rides
     fun trackRideStarted(rideId: String) {
         if (!_isTelemetryEnabled.value) return
