@@ -191,6 +191,7 @@ class TrackMeApp : Application() {
         _locationPermissionRevokedNotice.value = getSharedPreferences("trackme_prefs", MODE_PRIVATE)
             .getBoolean("location_permission_revoked_notice", false)
 
+        `in`.shvms.trackme.analytics.TelemetryEnvironment.configure(this)
         errorLogger = CrashlyticsErrorLogger()
         errorLogger.init()
         broadcastStore = `in`.shvms.trackme.data.local.BroadcastStore(this)
@@ -244,8 +245,9 @@ class TrackMeApp : Application() {
         .build()
 
         homeDashboardRepository = `in`.shvms.trackme.data.local.HomeDashboardRepository(
-            database.homeDashboardDao(),
-            database.rideDao(),
+            dashboardDao = database.homeDashboardDao(),
+            rideDao = database.rideDao(),
+            preferencesManager = preferencesManager,
         )
         // Upgrade work starts with the application, not with Home. Home only observes the
         // authoritative aggregate flow and its loading state; it never rebuilds ride metrics.
@@ -273,7 +275,7 @@ class TrackMeApp : Application() {
             errorLogger.setUserId(user?.uid)
         }.launchIn(applicationScope)
 
-        firestoreSyncManager = FirestoreSyncManager(database.rideDao(), authManager, errorLogger)
+        firestoreSyncManager = FirestoreSyncManager(database.rideDao(), authManager, errorLogger, preferencesManager)
         appUpdateChecker = `in`.shvms.trackme.ui.update.AppUpdateChecker(this)
         `in`.shvms.trackme.data.remote.SyncWorker.schedulePeriodicSync(this)
         // §6.1.2 scenario 8: the recap has to reach people who do not open the app, so it runs on a

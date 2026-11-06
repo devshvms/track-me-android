@@ -35,6 +35,7 @@ class HomeDashboardRepository(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val nowMillis: () -> Long = System::currentTimeMillis,
     private val zoneId: () -> ZoneId = ZoneId::systemDefault,
+    private val preferencesManager: AppPreferencesManager? = null,
 ) {
     private val _isReconciling = MutableStateFlow(true)
     val isReconciling: StateFlow<Boolean> = _isReconciling.asStateFlow()
@@ -50,10 +51,18 @@ class HomeDashboardRepository(
         dashboardDao.observeRides(),
         dashboardDao.observeHasSampleRide(),
         clock,
-    ) { rides, hasSample, now ->
+        preferencesManager?.cloudLifetimeTotals ?: MutableStateFlow(CloudLifetimeTotals()),
+    ) { rides, hasSample, now, cloudTotals ->
         // The selector stays pure over qualifying rides; the sample fact is attached afterwards so
         // no aggregate can ever be computed from it. TASK-225.
-        HomeDashboardSelector.select(rides, now, zoneId()).copy(hasSampleRide = hasSample)
+        HomeDashboardSelector.select(
+            rides = rides,
+            nowEpochMillis = now,
+            zoneId = zoneId(),
+            cloudLifetimeDurationMillis = cloudTotals.activeDurationMillis,
+            cloudLifetimeDistanceMeters = cloudTotals.distanceMeters,
+            cloudLifetimeActivityCount = cloudTotals.ridesCount,
+        ).copy(hasSampleRide = hasSample)
     }
 
     /**

@@ -154,6 +154,10 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val hudAutoPausedPill: String = s("hudAutoPausedPill", "Auto paused")
     val hudLiveSharingPill: String = s("hudLiveSharingPill", "Live sharing")
     val hudOfflineShieldPill: String = s("hudOfflineShieldPill", "Offline shield active")
+    val hudTouchLockPill: String = s("hudTouchLockPill", "Lock")
+    val hudTouchLockedPill: String = s("hudTouchLockedPill", "Locked")
+    val hudTouchUnlockHint: String = s("hudTouchUnlockHint", "Hold 1.2s to unlock")
+    val hudTouchUnlocking: String = s("hudTouchUnlocking", "Unlocking...")
     val speed: String = s("speed", "Speed")
     val distance: String = s("distance", "Distance")
     val duration: String = s("duration", "Duration")
@@ -191,6 +195,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val pipDashboardAccessibility: String = s("pipDashboardAccessibility", "Ride dashboard. %1\$s, %2\$s%3\$s")
     val pipAutoPaused: String = s("pipAutoPaused", "Auto-paused")
     val pipAlertCleared: String = s("pipAlertCleared", "cleared")
+    val hudStationaryHint: String = s("hudStationaryHint", "Waiting for movement — start moving outdoors to record your route.")
     // Group Ride presence. §16.2 requires the foreground-service notification to state the real
     // reason the service is running — presence keeps it alive with no ride in progress, and the
     // March-2026 policy scrutinises exactly that.
@@ -839,6 +844,10 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val revealDefaultTitle: String = s("revealDefaultTitle", "Ride saved")
     val revealDefaultBody: String = s("revealDefaultBody", "%s in %s. Great to have you out there.")
     val revealDismiss: String = s("revealDismiss", "Nice!")
+    val revealShareCard: String = s("revealShareCard", "Share Trip Card / Video")
+    val revealViewDetails: String = s("revealViewDetails", "View Trip Details")
+    val revealDone: String = s("revealDone", "Done")
+    val shareCardAndVideo: String = s("shareCardAndVideo", "Share Card & Video")
 
     // B2 weekly recap + B3 streak (v1.6.0). Gain-framed only. %d = streak weeks.
     val weeklyRecapTitle: String = s("weeklyRecapTitle", "Your week in review")
@@ -1080,6 +1089,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obAnalyticsTitle" to "Compartir datos de uso anónimos",
             "obAnalyticsBody" to "Nos ayuda a encontrar errores y ver qué funciones importan. Nunca tu ubicación, nunca datos personales. Puedes cambiarlo cuando quieras en Ajustes.",
             "obFinishCta" to "Iniciar mi primer viaje",
+            "hudStationaryHint" to "Esperando movimiento: empieza a moverte al aire libre para grabar tu ruta.",
             "groupEdit" to "Editar",
             "groupEditTitle" to "Detalles del grupo",
             "groupNotSet" to "--",
@@ -1334,6 +1344,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "hudAutoPausedPill" to "Pausa automática",
             "hudLiveSharingPill" to "Compartiendo en vivo",
             "hudOfflineShieldPill" to "Escudo sin conexión activo",
+            "hudTouchLockPill" to "Bloquear",
+            "hudTouchLockedPill" to "Bloqueado",
+            "hudTouchUnlockHint" to "Mantén 1,2 s para desbloquear",
+            "hudTouchUnlocking" to "Desbloqueando...",
             "speed" to "Velocidad",
             "distance" to "Distancia",
             "duration" to "Duración",
@@ -1585,6 +1599,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "revealDefaultTitle" to "Viaje guardado",
             "revealDefaultBody" to "%s en %s. Qué bueno verte en marcha.",
             "revealDismiss" to "¡Genial!",
+            "revealShareCard" to "Compartir tarjeta / video",
+            "revealViewDetails" to "Ver detalles del viaje",
+            "revealDone" to "Listo",
+            "shareCardAndVideo" to "Compartir tarjeta y video",
             "weeklyRecapTitle" to "Tu semana en resumen",
             "weeklyRecapRidesLabel" to "Viajes",
             "weeklyRecapDistanceLabel" to "Distancia",
@@ -1822,6 +1840,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obAnalyticsTitle" to "Partager des données d'usage anonymes",
             "obAnalyticsBody" to "Cela nous aide à trouver les bugs et à voir quelles fonctions comptent. Jamais votre position, jamais de données personnelles. Modifiable à tout moment dans Réglages.",
             "obFinishCta" to "Démarrer mon premier trajet",
+            "hudStationaryHint" to "En attente de mouvement — déplacez-vous à l'extérieur pour enregistrer votre parcours.",
             "groupEdit" to "Modifier",
             "groupEditTitle" to "Détails du groupe",
             "groupNotSet" to "--",
@@ -2076,6 +2095,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "hudAutoPausedPill" to "Pause automatique",
             "hudLiveSharingPill" to "Partage en direct",
             "hudOfflineShieldPill" to "Bouclier hors ligne actif",
+            "hudTouchLockPill" to "Verrouiller",
+            "hudTouchLockedPill" to "Verrouillé",
+            "hudTouchUnlockHint" to "Maintenir 1,2 s pour déverrouiller",
+            "hudTouchUnlocking" to "Déverrouillage...",
             "speed" to "Vitesse",
             "distance" to "Distance",
             "duration" to "Durée",
@@ -2327,6 +2350,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "revealDefaultTitle" to "Trajet enregistré",
             "revealDefaultBody" to "%s en %s. Ravi de vous voir sur la route.",
             "revealDismiss" to "Super !",
+            "revealShareCard" to "Partager la carte / vidéo",
+            "revealViewDetails" to "Voir les détails du trajet",
+            "revealDone" to "Terminé",
+            "shareCardAndVideo" to "Partager la carte et vidéo",
             "weeklyRecapTitle" to "Votre semaine en résumé",
             "weeklyRecapRidesLabel" to "Trajets",
             "weeklyRecapDistanceLabel" to "Distance",
@@ -2564,6 +2591,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obAnalyticsTitle" to "Anonyme Nutzungsdaten teilen",
             "obAnalyticsBody" to "Hilft uns, Fehler zu finden und zu sehen, welche Funktionen zählen. Niemals dein Standort, niemals persönliche Daten. Jederzeit in den Einstellungen änderbar.",
             "obFinishCta" to "Meine erste Fahrt starten",
+            "hudStationaryHint" to "Warte auf Bewegung — bewege dich im Freien, um deine Route aufzuzeichnen.",
             "groupEdit" to "Bearbeiten",
             "groupEditTitle" to "Gruppendetails",
             "groupNotSet" to "--",
@@ -2818,6 +2846,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "hudAutoPausedPill" to "Automatisch pausiert",
             "hudLiveSharingPill" to "Live-Freigabe",
             "hudOfflineShieldPill" to "Offline-Schutz aktiv",
+            "hudTouchLockPill" to "Sperren",
+            "hudTouchLockedPill" to "Gesperrt",
+            "hudTouchUnlockHint" to "1,2 s halten zum Entsperren",
+            "hudTouchUnlocking" to "Entsperren...",
             "speed" to "Geschw.",
             "distance" to "Distanz",
             "duration" to "Dauer",
@@ -3069,6 +3101,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "revealDefaultTitle" to "Fahrt gespeichert",
             "revealDefaultBody" to "%s in %s. Schön, dass du unterwegs warst.",
             "revealDismiss" to "Super!",
+            "revealShareCard" to "Fahrtkarte / Video teilen",
+            "revealViewDetails" to "Fahrtdetails ansehen",
+            "revealDone" to "Fertig",
+            "shareCardAndVideo" to "Karte & Video teilen",
             "weeklyRecapTitle" to "Deine Woche im Rückblick",
             "weeklyRecapRidesLabel" to "Fahrten",
             "weeklyRecapDistanceLabel" to "Distanz",
@@ -3306,6 +3342,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obAnalyticsTitle" to "गुमनाम उपयोग डेटा साझा करें",
             "obAnalyticsBody" to "इससे हमें बग ढूँढ़ने और यह देखने में मदद मिलती है कि कौन-सी सुविधाएँ मायने रखती हैं। कभी आपकी लोकेशन नहीं, कभी निजी जानकारी नहीं। इसे सेटिंग्स में कभी भी बदलें।",
             "obFinishCta" to "मेरी पहली राइड शुरू करें",
+            "hudStationaryHint" to "गतिविधि की प्रतीक्षा है — अपना मार्ग रिकॉर्ड करने के लिए बाहर चलना शुरू करें।",
             "groupEdit" to "संपादित करें",
             "groupEditTitle" to "ग्रुप विवरण",
             "groupNotSet" to "--",
@@ -3560,6 +3597,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "hudAutoPausedPill" to "स्वतः रुका",
             "hudLiveSharingPill" to "लाइव साझा",
             "hudOfflineShieldPill" to "ऑफ़लाइन शील्ड सक्रिय",
+            "hudTouchLockPill" to "लॉक करें",
+            "hudTouchLockedPill" to "लॉक है",
+            "hudTouchUnlockHint" to "अनलॉक करने के लिए 1.2s दबाए रखें",
+            "hudTouchUnlocking" to "अनलॉक हो रहा है...",
             "speed" to "गति",
             "distance" to "दूरी",
             "duration" to "समय",
@@ -3811,6 +3852,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "revealDefaultTitle" to "राइड सेव हो गई",
             "revealDefaultBody" to "%s, %s में। आपको सफ़र पर देखकर अच्छा लगा।",
             "revealDismiss" to "बढ़िया!",
+            "revealShareCard" to "ट्रिप कार्ड / वीडियो शेयर करें",
+            "revealViewDetails" to "ट्रिप का विवरण देखें",
+            "revealDone" to "पूर्ण",
+            "shareCardAndVideo" to "कार्ड और वीडियो शेयर करें",
             "weeklyRecapTitle" to "आपके सप्ताह का सारांश",
             "weeklyRecapRidesLabel" to "राइड्स",
             "weeklyRecapDistanceLabel" to "दूरी",
@@ -4048,6 +4093,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obAnalyticsTitle" to "匿名の利用データを共有",
             "obAnalyticsBody" to "不具合の発見と、どの機能が役立っているかの把握に使います。位置情報や個人情報は一切含みません。設定でいつでも変更できます。",
             "obFinishCta" to "最初のライドを始める",
+            "hudStationaryHint" to "移動を待っています — 屋外で移動を始めるとルートが記録されます。",
             "groupEdit" to "編集",
             "groupEditTitle" to "グループの詳細",
             "groupNotSet" to "--",
@@ -4302,6 +4348,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "hudAutoPausedPill" to "自動停止中",
             "hudLiveSharingPill" to "ライブ共有中",
             "hudOfflineShieldPill" to "オフライン保護中",
+            "hudTouchLockPill" to "ロック",
+            "hudTouchLockedPill" to "ロック中",
+            "hudTouchUnlockHint" to "長押し1.2秒で解除",
+            "hudTouchUnlocking" to "ロック解除中...",
             "speed" to "速度",
             "distance" to "距離",
             "duration" to "時間",
@@ -4553,6 +4603,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "revealDefaultTitle" to "ライドを保存しました",
             "revealDefaultBody" to "%s・%s。お出かけお疲れさまでした。",
             "revealDismiss" to "いいね！",
+            "revealShareCard" to "トリップカード／動画を共有",
+            "revealViewDetails" to "トリップの詳細を見る",
+            "revealDone" to "完了",
+            "shareCardAndVideo" to "カードと動画を共有",
             "weeklyRecapTitle" to "今週のふりかえり",
             "weeklyRecapRidesLabel" to "ライド数",
             "weeklyRecapDistanceLabel" to "距離",
@@ -4790,6 +4844,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "obAnalyticsTitle" to "分享匿名使用数据",
             "obAnalyticsBody" to "帮助我们发现问题、了解哪些功能真正有用。绝不包含你的位置或个人信息。可随时在设置中更改。",
             "obFinishCta" to "开始我的第一次行程",
+            "hudStationaryHint" to "正在等待移动 — 在户外开始移动即可记录您的路线。",
             "groupEdit" to "编辑",
             "groupEditTitle" to "群组详情",
             "groupNotSet" to "--",
@@ -5044,6 +5099,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "hudAutoPausedPill" to "已自动暂停",
             "hudLiveSharingPill" to "实时共享中",
             "hudOfflineShieldPill" to "离线保护已启用",
+            "hudTouchLockPill" to "锁定",
+            "hudTouchLockedPill" to "已锁定",
+            "hudTouchUnlockHint" to "长按1.2秒解锁",
+            "hudTouchUnlocking" to "正在解锁...",
             "speed" to "速度",
             "distance" to "距离",
             "duration" to "时长",
@@ -5295,6 +5354,10 @@ fun getAppStrings(languageCode: String): AppStrings {
             "revealDefaultTitle" to "已保存骑行",
             "revealDefaultBody" to "%s，用时 %s。很高兴看到你出行。",
             "revealDismiss" to "赞！",
+            "revealShareCard" to "分享行程卡片 / 视频",
+            "revealViewDetails" to "查看行程详情",
+            "revealDone" to "完成",
+            "shareCardAndVideo" to "分享卡片与视频",
             "weeklyRecapTitle" to "本周回顾",
             "weeklyRecapRidesLabel" to "骑行次数",
             "weeklyRecapDistanceLabel" to "距离",

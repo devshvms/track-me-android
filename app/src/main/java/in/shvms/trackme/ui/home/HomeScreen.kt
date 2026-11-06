@@ -107,12 +107,13 @@ private fun CameraMoveStartedReason.toMoveCause(): CameraMoveCause = when (this)
 private const val LAST_CAMERA_LAT_KEY = "last_camera_lat"
 private const val LAST_CAMERA_LNG_KEY = "last_camera_lng"
 private const val LAST_CAMERA_ZOOM_KEY = "last_camera_zoom"
+internal const val RIDE_START_UNDO_MIN_GRACE_MILLIS = 1_500L
 internal const val RIDE_START_UNDO_WINDOW_MILLIS = 10_000L
 
 internal fun shouldShowRideStartUndo(
     elapsedDurationMillis: Long,
     distanceMeters: Float
-): Boolean = elapsedDurationMillis < RIDE_START_UNDO_WINDOW_MILLIS &&
+): Boolean = elapsedDurationMillis in RIDE_START_UNDO_MIN_GRACE_MILLIS until RIDE_START_UNDO_WINDOW_MILLIS &&
     distanceMeters < `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DISTANCE_METERS
 
 // Country-level fallback used before a location fix has ever been persisted (center
@@ -164,6 +165,7 @@ fun HomeScreen(
     onOpenHistory: () -> Unit = {},
     onOpenProgress: () -> Unit = {},
     onOpenRideDetail: (Long) -> Unit = {},
+    onOpenRideDetailWithExport: (Long) -> Unit = onOpenRideDetail,
     scrollToTopRequest: Int = 0,
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModelFactory(
@@ -710,6 +712,14 @@ fun HomeScreen(
                         )
                     }
                 }
+            },
+            onShareCard = {
+                app.pendingRevealStore.consume(reveal.rideId)
+                onOpenRideDetailWithExport(reveal.rideId)
+            },
+            onViewDetails = {
+                app.pendingRevealStore.consume(reveal.rideId)
+                onOpenRideDetail(reveal.rideId)
             }
         )
     }
@@ -751,16 +761,23 @@ fun HomeScreen(
         uiState.dashboardSummaryResolved,
         uiState.isDashboardReconciling,
         uiState.dashboardSummary.historyBucket,
+        uiState.dashboardSummary.insight,
     ) {
         if (presentationMode != HomePresentationMode.IDLE_DASHBOARD) {
             dashboardEntryTracked = false
             dashboardInsightTracked = null
         } else if (uiState.dashboardSummaryResolved &&
-            !uiState.isDashboardReconciling &&
-            !dashboardEntryTracked
+            !uiState.isDashboardReconciling
         ) {
-            AnalyticsManager.trackHomeDashboardViewed(uiState.dashboardSummary.historyBucket)
-            dashboardEntryTracked = true
+            if (!dashboardEntryTracked) {
+                AnalyticsManager.trackHomeDashboardViewed(uiState.dashboardSummary.historyBucket)
+                dashboardEntryTracked = true
+            }
+            val insightType = uiState.dashboardSummary.insight?.analyticsValue
+            if (insightType != null && dashboardInsightTracked != insightType) {
+                AnalyticsManager.trackHomeInsightShown(insightType)
+                dashboardInsightTracked = insightType
+            }
         }
     }
     LaunchedEffect(presentationMode, uiState.dashboardSummary.latestActivity?.localId) {
@@ -1139,7 +1156,7 @@ fun HomeScreen(
                             // else — no history, no profile, no follow.
                             title = name,
                             snippet = if (age > 0) {
-                                String.format(java.util.Locale.getDefault(), strings.groupTimeLeft, "${'$'}{age}m")
+                                String.format(java.util.Locale.getDefault(), strings.groupTimeLeft, "${age}m")
                             } else null,
                             icon = avatarCache.descriptorFor(member.uid, roster?.initials, freshness),
                             anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
@@ -1438,6 +1455,7 @@ fun HomeScreen(
                     distanceText = uiState.distanceText,
                     durationText = uiState.durationText,
                     elapsedDurationText = uiState.elapsedDurationText,
+                    elapsedDurationMillis = uiState.elapsedDurationMillis,
                     speedText = uiState.speedText,
                     paceText = uiState.paceText,
                     v1DistanceMeters = uiState.distanceMeters,
@@ -1449,6 +1467,10 @@ fun HomeScreen(
                     isAuthenticated = uiState.isAuthenticated,
                     liveShareAuthRequired = strings.liveShareAuthRequired,
                     isOffline = isOffline,
+                    pipEligible = PiPModePolicy.isEligible(uiState.trackingState.toPiPRideState(), pipDashboardEnabled),
+                    onEnterPiP = {
+                        (context.findActivity() as? `in`.shvms.trackme.MainActivity)?.enterPiPFromHud()
+                    },
                     groupPresencePillShown = groupPresencePillShown,
                     onPauseToggle = {
                         if (uiState.trackingState == TrackingState.TRACKING) {
@@ -1458,8 +1480,8 @@ fun HomeScreen(
                         }
                     },
                     onStopRide = {
-                        if (uiState.distanceMeters < `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DISTANCE_METERS &&
-                            uiState.durationMillis < `in`.shvms.trackme.service.TrackingService.JUNK_RIDE_DURATION_MILLIS
+                        if (uiState.distanceMeters < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DISTANCE_METERS &&
+                            uiState.durationMillis < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DURATION_MILLIS
                         ) {
                             showDiscardRideDialog = true
                         } else {
@@ -1642,6 +1664,7 @@ fun HomeScreen(
                     confirmButton = {
                         TextButton(onClick = {
                             showDiscardRideDialog = false
+                            AnalyticsManager.trackRideStartAborted(RideStartAbortMethod.SHORT_INDOOR_TEST)
                             viewModel.stopTracking(discardNearEmptyRide = true)
                         }) {
                             Text(strings.discardRide)

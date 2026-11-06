@@ -1,6 +1,6 @@
-TrackMe 1.8.11 — your ride, worth sharing.
-
-• Five new designs for sharing a ride: the route alone, a data card, a transparent sticker for your own photos, one coloured by the light you rode in, and one that appears only when you beat a record.
-• Pick several rides and share them as one picture — a journey with its stops named, or every route on one ground.
-• Walks are split by the kilometre again instead of one long line.
-• Steadier recording when a ride is mostly stop-start.
+TrackMe 1.9.1
+• Pocket Mode Touch Lock: 1-tap lock shields controls against accidental pocket touches.
+• Adaptive GPS: Saves battery while stationary or waiting in traffic.
+• 7-Minute Arrival Notice: Smart stillness watchdog recovers forgotten trips.
+• Start Grace Period: Prevents accidental discard double-taps on ride start.
+• Multi-Purpose GPS: Optimized for Moto, Drive, Cycle, Walk & Run.

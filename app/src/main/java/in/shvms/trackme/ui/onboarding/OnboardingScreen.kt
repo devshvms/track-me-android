@@ -44,21 +44,18 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
 
-private const val PAGE_WELCOME = 0
-private const val PAGE_RIDE = 1
-private const val PAGE_HISTORY = 2
-private const val PAGE_TOGETHER = 3
-private const val PAGE_PERMISSIONS = 4
-private const val PAGE_READY = 5
-private const val PAGE_COUNT = 6
+internal const val PAGE_WELCOME = 0
+internal const val PAGE_TOUR = 1
+internal const val PAGE_SETUP = 2
+internal const val PAGE_COUNT = 3
 
 /**
- * The one-time first-run walkthrough.
+ * The one-time first-run walkthrough (condensed 3-card fast-start flow, TASK-335).
  *
  * Two rules shape the navigation, and they are deliberately different:
  *
- *  - **The tour is skippable.** Skip on pages 1–3 jumps *forward* to permissions rather than out
- *    of the flow, so someone in a hurry still reaches the two screens that set the app up.
+ *  - **The tour is skippable.** Skip on pages 0–1 jumps *forward* to setup rather than out
+ *    of the flow, so someone in a hurry still reaches the screen that sets the app up.
  *  - **Nothing here traps you.** Continue works whether or not location was granted, and the
  *    analytics toggle is a real switch with a visible off position. Forcing a yes would make the
  *    consent worthless as consent.
@@ -84,21 +81,11 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
 
     var locationGranted by remember { mutableStateOf(hasLocation(context)) }
     var locationDeclined by remember { mutableStateOf(false) }
-    // Notification permission is intentionally not requested during onboarding. A fresh rider has
-    // not yet done anything that earns an interruption; the first ride start is the contextual,
-    // once-only request point owned by NotificationPermissionPolicy (TASK-284).
     val notificationsGranted = hasNotifications(context)
     var analyticsEnabled by remember { mutableStateOf(defaultAnalytics(context)) }
-    // CYCLING is what the *demo* illustrates, not what the rider asked for. Keep the two apart:
-    // this seeds the sample ride and the persona picker's initial highlight, while
-    // `personaExplicitlyChosen` records whether anyone actually touched the picker. Handing an
-    // untouched default to Home made the idle Start control render a bike instead of a play
-    // triangle on first run — the app answering a question the rider was never asked.
     var selectedDemoPersona by remember { mutableStateOf(RidePersona.CYCLING) }
     var personaExplicitlyChosen by remember { mutableStateOf(false) }
 
-    // Funnel state. All of it stays in memory (and one local counter) until the last screen, where
-    // the consent question is answered — nothing about a tour in progress is transmitted.
     var attempts by remember { mutableIntStateOf(1) }
     var furthestPage by remember { mutableIntStateOf(0) }
     var usedSkip by remember { mutableStateOf(false) }
@@ -124,12 +111,42 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
         }
     }
 
+    fun finishOnboarding(grantedOverride: Boolean = locationGranted) {
+        val pageDwell = dwell.snapshotSeconds()
+        onFinish(
+            OnboardingOutcome(
+                attempts = attempts,
+                furthestPage = furthestPage,
+                usedSkip = usedSkip,
+                seconds = ((System.currentTimeMillis() - startedAt) / 1000L).toInt(),
+                welcomeDwellSeconds = pageDwell[PAGE_WELCOME],
+                rideDwellSeconds = pageDwell[PAGE_TOUR],
+                historyDwellSeconds = -1,
+                togetherDwellSeconds = -1,
+                permissionsDwellSeconds = pageDwell[PAGE_SETUP],
+                readyDwellSeconds = pageDwell[PAGE_SETUP],
+                analyticsEnabled = analyticsEnabled,
+                locationGranted = grantedOverride,
+                notificationsGranted = notificationsGranted,
+                selectedPersona = if (personaExplicitlyChosen) selectedDemoPersona else RidePersona.AUTO,
+            )
+        )
+    }
+
+    var finishAfterPermissionResult by remember { mutableStateOf(false) }
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { result ->
-        locationGranted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+        val granted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
             result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        locationDeclined = !locationGranted
+        locationGranted = granted
+        locationDeclined = !granted
+        if (finishAfterPermissionResult && granted) {
+            finishAfterPermissionResult = false
+            finishOnboarding(grantedOverride = true)
+        } else {
+            finishAfterPermissionResult = false
+        }
     }
     fun goTo(page: Int) = scope.launch { pager.animateScrollToPage(page) }
 
@@ -146,16 +163,14 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
                 onBack = { goTo(pager.currentPage - 1) },
                 onSkip = {
                     usedSkip = true
-                    goTo(PAGE_PERMISSIONS)
+                    goTo(PAGE_SETUP)
                 },
             )
 
             HorizontalPager(
                 state = pager,
                 modifier = Modifier.weight(1f),
-                // Pages 4 and 5 are reached by their buttons, so a stray swipe cannot skip past
-                // the permission ask or the analytics choice without them being seen.
-                userScrollEnabled = pager.currentPage < PAGE_PERMISSIONS,
+                userScrollEnabled = pager.currentPage < PAGE_SETUP,
             ) { page ->
                 val clipIsActive = pager.settledPage == page && !pager.isScrollInProgress
                 Column(
@@ -166,26 +181,21 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
                 ) {
                     when (page) {
                         PAGE_WELCOME -> WelcomePage(strings, clipIsActive)
-                        PAGE_RIDE -> RidePage(
+                        PAGE_TOUR -> TourPage(
                             strings = strings,
                             selectedPersona = selectedDemoPersona,
                             onPersonaSelected = {
                                 selectedDemoPersona = it
                                 personaExplicitlyChosen = true
                             },
-                            onFinished = { goTo(PAGE_HISTORY) },
+                            onFinished = { goTo(PAGE_SETUP) },
                         )
-                        PAGE_HISTORY -> HistoryPage(
-                            strings = strings,
-                            selectedPersona = selectedDemoPersona,
-                            onFinished = { goTo(PAGE_TOGETHER) },
-                        )
-                        PAGE_TOGETHER -> TogetherPage(strings, clipIsActive)
-                        PAGE_PERMISSIONS -> PermissionsPage(
+                        PAGE_SETUP -> SetupPage(
                             strings = strings,
                             locationGranted = locationGranted,
                             locationDeclined = locationDeclined,
                             onAllowLocation = {
+                                finishAfterPermissionResult = false
                                 locationLauncher.launch(
                                     arrayOf(
                                         Manifest.permission.ACCESS_FINE_LOCATION,
@@ -193,9 +203,6 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
                                     ),
                                 )
                             },
-                        )
-                        PAGE_READY -> ReadyPage(
-                            strings = strings,
                             analyticsEnabled = analyticsEnabled,
                             onAnalyticsChange = { analyticsEnabled = it },
                             onOpenBatterySettings = { openBatterySettings(context) },
@@ -207,34 +214,27 @@ fun OnboardingScreen(onFinish: (OnboardingOutcome) -> Unit) {
             OnboardingActions(
                 page = pager.currentPage,
                 strings = strings,
+                locationGranted = locationGranted,
+                locationDeclined = locationDeclined,
                 onNext = { goTo(pager.currentPage + 1) },
                 onSkipToSetup = {
                     usedSkip = true
-                    goTo(PAGE_PERMISSIONS)
+                    goTo(PAGE_SETUP)
                 },
-                onFinish = {
-                    val pageDwell = dwell.snapshotSeconds()
-                    onFinish(
-                        OnboardingOutcome(
-                            attempts = attempts,
-                            furthestPage = furthestPage,
-                            usedSkip = usedSkip,
-                            seconds = ((System.currentTimeMillis() - startedAt) / 1000L).toInt(),
-                            welcomeDwellSeconds = pageDwell[PAGE_WELCOME],
-                            rideDwellSeconds = pageDwell[PAGE_RIDE],
-                            historyDwellSeconds = pageDwell[PAGE_HISTORY],
-                            togetherDwellSeconds = pageDwell[PAGE_TOGETHER],
-                            permissionsDwellSeconds = pageDwell[PAGE_PERMISSIONS],
-                            readyDwellSeconds = pageDwell[PAGE_READY],
-                            analyticsEnabled = analyticsEnabled,
-                            locationGranted = locationGranted,
-                            notificationsGranted = notificationsGranted,
-                            // AUTO unless the rider picked: the Start control shows a play
-                            // triangle, and detection still names the activity once moving.
-                            selectedPersona = if (personaExplicitlyChosen) selectedDemoPersona else RidePersona.AUTO,
+                onPrimarySetupAction = {
+                    if (!locationGranted && !locationDeclined) {
+                        finishAfterPermissionResult = true
+                        locationLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                            ),
                         )
-                    )
+                    } else {
+                        finishOnboarding()
+                    }
                 },
+                onFinishWithoutLocation = { finishOnboarding() },
             )
         }
     }
@@ -258,7 +258,7 @@ private fun OnboardingChrome(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(48.dp)) {
-            if (page in (PAGE_WELCOME + 1)..PAGE_READY) {
+            if (page in (PAGE_WELCOME + 1)..PAGE_SETUP) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.back)
                 }
@@ -287,9 +287,7 @@ private fun OnboardingChrome(
         }
 
         Box(Modifier.widthIn(min = 48.dp), contentAlignment = Alignment.CenterEnd) {
-            // Skip disappears once the tour is over — there is nothing left to skip, and offering
-            // it beside a consent question would read as a way out of answering.
-            if (page in PAGE_RIDE..PAGE_TOGETHER) {
+            if (page == PAGE_TOUR) {
                 TextButton(onClick = onSkip) {
                     Text(strings.obSkip, style = MaterialTheme.typography.labelLarge)
                 }
@@ -302,9 +300,12 @@ private fun OnboardingChrome(
 private fun OnboardingActions(
     page: Int,
     strings: AppStrings,
+    locationGranted: Boolean,
+    locationDeclined: Boolean,
     onNext: () -> Unit,
     onSkipToSetup: () -> Unit,
-    onFinish: () -> Unit,
+    onPrimarySetupAction: () -> Unit,
+    onFinishWithoutLocation: () -> Unit,
 ) {
     Column(
         Modifier
@@ -319,14 +320,19 @@ private fun OnboardingActions(
                     Text(strings.obWelcomeSkip, style = MaterialTheme.typography.labelMedium)
                 }
             }
-            PAGE_PERMISSIONS -> OutlinedButton(
-                onClick = onNext,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Text(strings.obContinue, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            PAGE_SETUP -> {
+                val primaryLabel = if (!locationGranted && !locationDeclined) {
+                    strings.obPermLocationCta
+                } else {
+                    strings.obFinishCta
+                }
+                PrimaryButton(primaryLabel, onPrimarySetupAction)
+                if (!locationGranted) {
+                    TextButton(onClick = onFinishWithoutLocation, modifier = Modifier.fillMaxWidth()) {
+                        Text(strings.obContinue, style = MaterialTheme.typography.labelMedium)
+                    }
+                }
             }
-            PAGE_READY -> PrimaryButton(strings.obFinishCta, onFinish)
             else -> PrimaryButton(strings.obNext, onNext)
         }
     }
@@ -385,14 +391,14 @@ private fun WelcomePage(strings: AppStrings, isActive: Boolean) {
 }
 
 @Composable
-private fun RidePage(
+private fun TourPage(
     strings: AppStrings,
     selectedPersona: RidePersona,
     onPersonaSelected: (RidePersona) -> Unit,
     onFinished: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        PageText(strings.obRideTitle, strings.obRideBody)
+        PageText(strings.obRideTitle, strings.obRideBody, strings.obTogetherNote)
         RideOnboardingDemo(
             strings = strings,
             selectedPersona = selectedPersona,
@@ -403,35 +409,28 @@ private fun RidePage(
 }
 
 @Composable
-private fun HistoryPage(
+private fun SetupPage(
     strings: AppStrings,
-    selectedPersona: RidePersona,
-    onFinished: () -> Unit,
+    locationGranted: Boolean,
+    locationDeclined: Boolean,
+    onAllowLocation: () -> Unit,
+    analyticsEnabled: Boolean,
+    onAnalyticsChange: (Boolean) -> Unit,
+    onOpenBatterySettings: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        PageText(strings.obHistoryTitle, strings.obHistoryBody)
-        HistoryOnboardingDemo(
+    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        PermissionsPage(
             strings = strings,
-            selectedPersona = selectedPersona,
-            onFinished = onFinished,
+            locationGranted = locationGranted,
+            locationDeclined = locationDeclined,
+            onAllowLocation = onAllowLocation,
         )
-    }
-}
-
-@Composable
-private fun TogetherPage(strings: AppStrings, isActive: Boolean) {
-    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        OnboardingClip(
-            dark = R.raw.onboarding_together_dark,
-            light = R.raw.onboarding_together_light,
-            isActive = isActive,
-            fallback = { TogetherArt(Modifier.fillMaxSize()) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(2f)
-                .clearAndSetSemantics { },
+        ReadyPage(
+            strings = strings,
+            analyticsEnabled = analyticsEnabled,
+            onAnalyticsChange = onAnalyticsChange,
+            onOpenBatterySettings = onOpenBatterySettings,
         )
-        PageText(strings.obTogetherTitle, strings.obTogetherBody, strings.obTogetherNote)
     }
 }
 

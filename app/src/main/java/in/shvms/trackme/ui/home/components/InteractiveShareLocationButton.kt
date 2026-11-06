@@ -76,6 +76,21 @@ fun InteractiveShareLocationButton(
     val motion = LocalTrackMeMotion.current
     val buttonScale = remember { Animatable(1f) }
 
+    // Auto-open the drawer and copy the link exactly once when a share the user just started
+    // becomes ACTIVE (STARTING -> ACTIVE). Not fired on first composition, so returning to a
+    // screen with an already-active share does not re-copy or re-open.
+    var previousStatus by remember { mutableStateOf(liveShareState.status) }
+    LaunchedEffect(liveShareState.status) {
+        if (previousStatus == LiveShareStatus.STARTING &&
+            liveShareState.status == LiveShareStatus.ACTIVE &&
+            liveShareState.shareLink != null
+        ) {
+            isDrawerOpen = true
+            onCopyShare()
+        }
+        previousStatus = liveShareState.status
+    }
+
     // Trigger haptics and clean scale bounce when status transitions (e.g. IDLE -> STARTING or STARTING -> ACTIVE)
     LaunchedEffect(liveShareState.status) {
         if (liveShareState.status == LiveShareStatus.STARTING) {

@@ -119,6 +119,7 @@ class TrackingService : Service() {
     private var elapsedWallClockDuration = 0L
     private var storageWarningShown = false
     private var lastGpsTimeMs = 0L
+    private var lastGpsPauseTelemetryMs = 0L
     private var lastLiveShareTimeMs = 0L
     private var lastNotifyElapsedMs = Long.MIN_VALUE
     private var lastNotifyDistanceMeters = 0f
@@ -130,6 +131,7 @@ class TrackingService : Service() {
     // has gone wrong for them.
     private var stillnessStartedAtMillis: Long? = null
     private var forgottenRideAsked = false
+    private var motionThrottleJob: Job? = null
 
     private val adaptiveAutoPauseEngine = `in`.shvms.trackme.domain.processor.AdaptiveAutoPauseEngine()
     private lateinit var motionSensorManager: MotionSensorManager
@@ -352,6 +354,7 @@ class TrackingService : Service() {
                         val manager = getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager
                         val batteryLevel = manager.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
                         val heading = if (location.hasBearing()) location.bearing else null
+                        val isPowerSave = (getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
                         
                         serviceScope.launch {
                             liveShareManager.pushLocation(
@@ -359,7 +362,8 @@ class TrackingService : Service() {
                                 lon = location.longitude,
                                 batteryLevel = batteryLevel,
                                 speed = if (location.hasSpeed()) location.speed else null,
-                                heading = heading
+                                heading = heading,
+                                powerSaveMode = isPowerSave
                             )
                         }
                     }
@@ -441,7 +445,10 @@ class TrackingService : Service() {
         val prior = v2Session.snapshot
         val snapshot = processTrackingV2(location, autoPauseEnabled)
         lastGpsTimeMs = System.currentTimeMillis()
-        if (shouldEmitGpsResumeTelemetry(currentState)) updateState(TrackingState.TRACKING)
+        if (shouldEmitGpsResumeTelemetry(currentState)) {
+            updateState(TrackingState.TRACKING)
+            AnalyticsManager.trackLocationUpdatesResumed()
+        }
         if (snapshot.rejectedOutlierCount != prior.rejectedOutlierCount) return
         val stationary = snapshot.movementState ==
             `in`.shvms.trackme.domain.processor.TrackingV2MovementState.STATIONARY
@@ -493,10 +500,12 @@ class TrackingService : Service() {
                 lastLiveShareTimeMs = now
                 val battery = (getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager)
                     .getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                val isPowerSave = (getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
                 serviceScope.launch {
                     liveShareManager.pushLocation(lat = location.latitude, lon = location.longitude,
                         batteryLevel = battery, speed = snapshot.currentSpeedMetersPerSecond,
-                        heading = if (location.hasBearing()) location.bearing else null)
+                        heading = if (location.hasBearing()) location.bearing else null,
+                        powerSaveMode = isPowerSave)
                 }
             }
         }
@@ -662,6 +671,7 @@ class TrackingService : Service() {
                         handleLocationStartFailure()
                         return@launch
                     }
+                    startMotionThrottleWatcher()
                 }
             } catch (_: SQLiteException) {
                 withContext(Dispatchers.Main.immediate) {
@@ -845,6 +855,7 @@ class TrackingService : Service() {
         updateState(TrackingState.PAUSED)
         isTimerEnabled = false
         motionSensorManager.stopListening()
+        stopMotionThrottleWatcher()
         if (BuildConfig.DEBUG) {
             trackingV2Estimator.pause()
             trackingV2StepSensor.stop()
@@ -913,6 +924,7 @@ class TrackingService : Service() {
             handleLocationStartFailure()
             return
         }
+        startMotionThrottleWatcher()
         if (!isTimerEnabled) {
             startTimer()
         }
@@ -920,8 +932,11 @@ class TrackingService : Service() {
 
     private fun handleForegroundStartFailure(error: Exception) {
         val app = application as TrackMeApp
-        app.errorLogger.recordException(error)
         val outcome = ForegroundStartPolicy.classify(error, Build.VERSION.SDK_INT)
+        app.errorLogger.log("Foreground start refused: $outcome")
+        if (outcome == ForegroundStartOutcome.OTHER) {
+            app.errorLogger.recordException(error)
+        }
         app.abandonPersistedTrackingSession(outcome)
         // Same ordering rule as stopTracking: this service is no longer recording anything, so the
         // id goes before the IDLE claim (§0 contract 2). The unfinished ride row itself is left for
@@ -949,6 +964,10 @@ class TrackingService : Service() {
             // argued with by an app that already had its answer.
             stillnessStartedAtMillis = null
             ForgottenRideNotifier.cancel(this)
+            // TASK-351 (BATT-01): Restore high accuracy polling immediately on motion
+            if (locationHelper.isThrottled()) {
+                locationHelper.setStationaryThrottled(false, locationCallback)
+            }
             return
         }
 
@@ -956,10 +975,17 @@ class TrackingService : Service() {
         val stillnessMillis = fixTimeMillis - startedAt
         if (stillnessMillis < 0) return
 
+        // TASK-351 (BATT-01): Step down GPS polling interval when stationary > 3 minutes
+        if (AdaptiveGpsThrottlePolicy.shouldThrottle(isStationary = true, stillnessDurationMs = stillnessMillis)) {
+            if (!locationHelper.isThrottled()) {
+                locationHelper.setStationaryThrottled(true, locationCallback)
+            }
+        }
+
         if (!ForgottenRideNotice.shouldAsk(
                 stillnessMillis = stillnessMillis,
                 alreadyAsked = forgottenRideAsked,
-                isTracking = currentState == TrackingState.TRACKING,
+                isTracking = (currentState == TrackingState.TRACKING || currentState == TrackingState.GPS_LOST) && activeRideId != null,
             )
         ) return
 
@@ -978,11 +1004,36 @@ class TrackingService : Service() {
         )
     }
 
+    /**
+     * TASK-351 (BATT-01): Proactively observes hardware accelerometer updates.
+     * When stationary throttling is active and physical motion is detected,
+     * immediately restores high-accuracy 1s polling without waiting for the next throttled GPS tick.
+     */
+    private fun startMotionThrottleWatcher() {
+        motionThrottleJob?.cancel()
+        motionThrottleJob = serviceScope.launch {
+            motionSensorManager.motionEnergy.collect {
+                if (currentState == TrackingState.TRACKING && locationHelper.isThrottled()) {
+                    if (!motionSensorManager.isDeviceStationary()) {
+                        withContext(Dispatchers.Main) {
+                            locationHelper.setStationaryThrottled(false, locationCallback)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopMotionThrottleWatcher() {
+        motionThrottleJob?.cancel()
+        motionThrottleJob = null
+    }
+
     private fun handleLocationStartFailure() {
         val error = SecurityException("Location permission was revoked while starting ride tracking")
         val app = application as TrackMeApp
-        app.errorLogger.recordException(error)
         val outcome = ForegroundStartPolicy.classify(error, Build.VERSION.SDK_INT)
+        app.errorLogger.log("Location start refused: $outcome")
         app.abandonPersistedTrackingSession(outcome)
         // Keep the unfinished ride row and its points for OrphanedRideRecoveryManager. The
         // normal stop path finalizes/deletes rides, which is unsafe after a permission failure.
@@ -995,6 +1046,7 @@ class TrackingService : Service() {
     ) {
         isTimerEnabled = false
         motionSensorManager.stopListening()
+        stopMotionThrottleWatcher()
         val trackingV2Live = if (BuildConfig.DEBUG) trackingV2Estimator.snapshot() else null
         val trackingV2Final = if (BuildConfig.DEBUG) trackingV2Estimator.finish() else null
         val trackingV1Diagnostics = trackingV1DebugDiagnostics
@@ -1212,14 +1264,19 @@ class TrackingService : Service() {
                 trackingManager.updateElapsedDuration(elapsedWallClockDuration)
                 
                 if ((currentState == TrackingState.TRACKING || currentState == TrackingState.GPS_LOST || currentState == TrackingState.GPS_DISABLED) && lastGpsTimeMs > 0) {
-                    val timeSinceLastGps = System.currentTimeMillis() - lastGpsTimeMs
+                    val nowWallMs = System.currentTimeMillis()
+                    val timeSinceLastGps = nowWallMs - lastGpsTimeMs
                     trackingManager.updateTimeSinceLastGps(timeSinceLastGps)
-                    if (timeSinceLastGps >= GPS_LOSS_TIMEOUT_MS) {
+                    val isStationary = trackingManager.isAutoPaused.value || motionSensorManager.isDeviceStationary()
+                    updateStillness(isStationary, nowWallMs)
+                    val lossThresholdMs = if (isStationary) STATIONARY_GPS_LOSS_TIMEOUT_MS else GPS_LOSS_TIMEOUT_MS
+                    if (timeSinceLastGps >= lossThresholdMs) {
                         val wasAlreadyStale = !shouldEmitGpsPauseTelemetry(currentState)
                         updateState(
                             if (isLocationServiceEnabled()) TrackingState.GPS_LOST else TrackingState.GPS_DISABLED
                         )
-                        if (!wasAlreadyStale) {
+                        if (!wasAlreadyStale && nowWallMs - lastGpsPauseTelemetryMs >= GPS_PAUSE_TELEMETRY_DEBOUNCE_MS) {
+                            lastGpsPauseTelemetryMs = nowWallMs
                             AnalyticsManager.trackLocationUpdatesPaused()
                         }
                     }
@@ -1526,7 +1583,7 @@ class TrackingService : Service() {
                 return
             }
 
-            if (discardNearEmptyRide && finalDistance < JUNK_RIDE_DISTANCE_METERS && finalDuration < JUNK_RIDE_DURATION_MILLIS) {
+            if (discardNearEmptyRide && finalDistance < SHORT_TEST_DISTANCE_METERS && finalDuration < JUNK_RIDE_DURATION_MILLIS) {
                 rideDao.deletePointsForRide(rideId)
                 rideDao.deleteRide(rideId)
                 trackingManager.emitRideEndOutcome(RideEndOutcome.DISCARDED_BY_USER)
@@ -1722,6 +1779,8 @@ class TrackingService : Service() {
         const val ACTION_STOP_GROUP_PRESENCE = "ACTION_STOP_GROUP_PRESENCE"
         const val JUNK_RIDE_DISTANCE_METERS = 10.0
         const val JUNK_RIDE_DURATION_MILLIS = 2 * 60 * 1000L
+        const val SHORT_TEST_DISTANCE_METERS = 50.0
+        const val SHORT_TEST_DURATION_MILLIS = 90 * 1000L
         const val NOTIFICATION_ID = 1
         /** Notification accent. Primary40 — the brand cyan at the tone that reads on both shades. */
         const val NOTIFICATION_ACCENT = 0xFF00658D.toInt()
@@ -1730,6 +1789,8 @@ class TrackingService : Service() {
         const val SYNC_CHANNEL_ID = "sync_channel"
         const val STORAGE_WARNING_NOTIFICATION_ID = 4
         const val GPS_LOSS_TIMEOUT_MS = 15_000L
+        const val STATIONARY_GPS_LOSS_TIMEOUT_MS = 45_000L
+        const val GPS_PAUSE_TELEMETRY_DEBOUNCE_MS = 30_000L
         const val NOTIFICATION_UPDATE_INTERVAL_MS = 15_000L
         const val NOTIFICATION_DISTANCE_DELTA_METERS = 25f
         const val TRACKING_PREFS = "trackme_prefs"

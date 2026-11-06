@@ -1,10 +1,13 @@
 package `in`.shvms.trackme.analytics
 
+import android.app.ActivityManager
+import android.content.Context
 import android.os.Build
+import android.provider.Settings
 import `in`.shvms.trackme.BuildConfig
 
 /**
- * TASK-250, shvm: whether *this build, on this machine* may deliver telemetry at all.
+ * TASK-250 / TASK-330, shvm: whether *this build, on this machine* may deliver telemetry at all.
  *
  * A third gate beside consent and the remote kill switch, and the only one of the three that is a
  * property of the build rather than of the user. It exists because every debug run, every emulator
@@ -18,30 +21,55 @@ import `in`.shvms.trackme.BuildConfig
  */
 object TelemetryEnvironment {
 
-    /**
-     * Computed once. The inputs are fixed for the process lifetime, and a value that could change
-     * between two events would make the resulting data harder to reason about than either answer.
-     */
-    val allowsDelivery: Boolean by lazy {
-        telemetryAllowsDelivery(
-            isDebugBuild = BuildConfig.DEBUG,
-            isEmulator = isEmulatorBuild(
-                fingerprint = Build.FINGERPRINT,
-                model = Build.MODEL,
-                manufacturer = Build.MANUFACTURER,
-                brand = Build.BRAND,
-                device = Build.DEVICE,
-                product = Build.PRODUCT,
-                hardware = Build.HARDWARE,
-            ),
+    private val isEmulator: Boolean by lazy {
+        isEmulatorBuild(
+            fingerprint = Build.FINGERPRINT,
+            model = Build.MODEL,
+            manufacturer = Build.MANUFACTURER,
+            brand = Build.BRAND,
+            device = Build.DEVICE,
+            product = Build.PRODUCT,
+            hardware = Build.HARDWARE,
         )
     }
+
+    @Volatile
+    private var isTestLabDevice: Boolean = false
+
+    /**
+     * Reads [Settings.System] (`firebase.test.lab`) and [ActivityManager] test-harness flags once
+     * when the [Context] becomes available, before Crashlytics or PostHog starts.
+     *
+     * Google Play Pre-Launch Report and Firebase Test Lab run on physical farm devices (real OEM
+     * `Build.HARDWARE` / `Build.FINGERPRINT`), so [isEmulatorBuild] alone cannot catch them.
+     */
+    fun configure(context: Context) {
+        val testLabSetting = runCatching {
+            Settings.System.getString(context.contentResolver, "firebase.test.lab")
+        }.getOrNull()
+        val monkeyOrHarness = runCatching {
+            ActivityManager.isUserAMonkey() ||
+                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && ActivityManager.isRunningInUserTestHarness())
+        }.getOrDefault(false)
+        isTestLabDevice = isTestLabEnvironment(
+            firebaseTestLabSetting = testLabSetting,
+            isMonkeyOrTestHarness = monkeyOrHarness,
+        )
+    }
+
+    val allowsDelivery: Boolean
+        get() = telemetryAllowsDelivery(
+            isDebugBuild = BuildConfig.DEBUG,
+            isEmulator = isEmulator,
+            isTestLab = isTestLabDevice,
+        )
 
     /** Human-readable reason, for the one log line that explains a silent analytics build. */
     val suppressionReason: String?
         get() = when {
             allowsDelivery -> null
             BuildConfig.DEBUG -> "debug build"
+            isTestLabDevice -> "test lab / automated harness"
             else -> "emulator"
         }
 }
@@ -49,11 +77,25 @@ object TelemetryEnvironment {
 /**
  * The rule itself, separated from `Build` so it can be tested on the JVM.
  *
- * Deliberately not "release builds only": a release build running on an emulator is still not a
- * rider, and the Play publish workflow runs exactly that as its launch smoke test.
+ * Deliberately not "release builds only": a release build running on an emulator or a Firebase
+ * Test Lab / Play Pre-Launch Report crawler is still not a rider, and the Play publish workflow
+ * runs both as launch checks.
  */
-internal fun telemetryAllowsDelivery(isDebugBuild: Boolean, isEmulator: Boolean): Boolean =
-    !isDebugBuild && !isEmulator
+internal fun telemetryAllowsDelivery(
+    isDebugBuild: Boolean,
+    isEmulator: Boolean,
+    isTestLab: Boolean = false,
+): Boolean = !isDebugBuild && !isEmulator && !isTestLab
+
+/**
+ * Detects Google Play Pre-Launch Report / Firebase Test Lab (`firebase.test.lab == "true"`) and
+ * Android monkey / user-test-harness runs.
+ */
+internal fun isTestLabEnvironment(
+    firebaseTestLabSetting: String?,
+    isMonkeyOrTestHarness: Boolean = false,
+): Boolean =
+    firebaseTestLabSetting.equals("true", ignoreCase = true) || isMonkeyOrTestHarness
 
 /**
  * Emulator detection from `Build` fields, passed in rather than read, so this is JVM-testable.

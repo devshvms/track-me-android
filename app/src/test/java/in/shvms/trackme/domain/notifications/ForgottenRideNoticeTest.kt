@@ -52,15 +52,15 @@ class ForgottenRideNoticeTest {
         ).forEach { autoPause ->
             assertTrue(
                 "the notice threshold must be far above auto-pause's $autoPause ms",
-                threshold > autoPause * 100,
+                threshold > autoPause * 50,
             )
         }
     }
 
     @Test
-    fun `it is long enough to sit out a real interruption`() {
-        // Half an hour of shelter from rain, or lunch on a long tour, must not be interrupted.
-        assertFalse(ForgottenRideNotice.shouldAsk(30L * 60 * 1000, alreadyAsked = false, isTracking = true))
+    fun `it is long enough to sit out traffic lights and brief stops`() {
+        // 5 minutes at a long signal, waiting for an elevator or quick store stop must not be nagged.
+        assertFalse(ForgottenRideNotice.shouldAsk(5L * 60 * 1000, alreadyAsked = false, isTracking = true))
     }
 
     @Test

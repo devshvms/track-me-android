@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.utils.logger
 
+import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -38,19 +39,33 @@ interface ErrorLogger {
 }
 
 /**
- * Whether [throwable] describes a real failure, or merely a coroutine that was cancelled.
+ * Whether [throwable] describes a real failure, or merely a coroutine that was cancelled or a
+ * transient/auth-boundary Firestore rejection (`PERMISSION_DENIED`, `UNAUTHENTICATED`,
+ * `UNAVAILABLE`, `DEADLINE_EXCEEDED`, `CANCELLED`).
  *
- * Crashlytics was collecting `kotlinx.coroutines.JobCancellationException` as a non-fatal. It is
- * not a fault: it is how structured concurrency *reports success at stopping* — a scope tied to a
- * screen cancels its children when the user navigates away, and every in-flight job throws it on
- * the way out. Normal use therefore generates a steady stream of them.
- *
- * The cost is not the storage, it is that the noise crowds out signal. A non-fatal that fires on
- * every navigation trains everyone to ignore the non-fatal list, which is where the *next* real
- * bug will appear.
+ * Crashlytics was collecting `kotlinx.coroutines.JobCancellationException` and transient Firestore
+ * watch-stream rejections (`PERMISSION_DENIED` on sign-out race or unauthenticated watch target,
+ * `UNAVAILABLE` offline) as non-fatals. Neither is a fault in app code, and logging them trains
+ * everyone to ignore the non-fatal list.
  *
  * Only the throwable itself is examined, not its cause chain. A genuine failure that happens to
  * carry a cancellation as its cause is still a genuine failure, and dropping it because of what
  * is underneath would hide exactly the kind of bug this list exists for.
  */
-fun isReportable(throwable: Throwable): Boolean = throwable !is CancellationException
+fun isReportable(throwable: Throwable): Boolean {
+    if (throwable is CancellationException) return false
+    if (throwable is FirebaseFirestoreException) {
+        return isReportableFirestoreCode(throwable.code)
+    }
+    return true
+}
+
+internal fun isReportableFirestoreCode(code: FirebaseFirestoreException.Code): Boolean =
+    when (code) {
+        FirebaseFirestoreException.Code.PERMISSION_DENIED,
+        FirebaseFirestoreException.Code.UNAUTHENTICATED,
+        FirebaseFirestoreException.Code.UNAVAILABLE,
+        FirebaseFirestoreException.Code.DEADLINE_EXCEEDED,
+        FirebaseFirestoreException.Code.CANCELLED -> false
+        else -> true
+    }

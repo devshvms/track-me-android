@@ -113,4 +113,14 @@ class TelemetryEnvironmentTest {
             TelemetryConsentState(localConsent = true, remoteAllowed = true, environmentAllowsDelivery = true).isEnabled
         )
     }
+
+    @Test
+    fun `firebase test lab or automated test harness suppresses delivery on real hardware`() {
+        assertTrue(isTestLabEnvironment(firebaseTestLabSetting = "true", isMonkeyOrTestHarness = false))
+        assertTrue(isTestLabEnvironment(firebaseTestLabSetting = "TRUE", isMonkeyOrTestHarness = false))
+        assertTrue(isTestLabEnvironment(firebaseTestLabSetting = null, isMonkeyOrTestHarness = true))
+        assertFalse(isTestLabEnvironment(firebaseTestLabSetting = null, isMonkeyOrTestHarness = false))
+        assertFalse(isTestLabEnvironment(firebaseTestLabSetting = "false", isMonkeyOrTestHarness = false))
+        assertFalse(telemetryAllowsDelivery(isDebugBuild = false, isEmulator = false, isTestLab = true))
+    }
 }

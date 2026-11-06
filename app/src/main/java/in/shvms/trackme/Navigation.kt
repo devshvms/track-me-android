@@ -218,6 +218,7 @@ fun MainNavigation() {
                             onOpenHistory = { navigateToTab("history") },
                             onOpenProgress = { navController.navigate("gamification_progress") },
                             onOpenRideDetail = { id -> navController.navigate("ride_detail/$id") },
+                            onOpenRideDetailWithExport = { id -> navController.navigate("ride_detail/$id?export=true") },
                             scrollToTopRequest = tabScrollToTopRequest,
                         )
                     }
@@ -254,9 +255,19 @@ fun MainNavigation() {
                             .orEmpty()
                         MultiRideCompareRoute(rideIds = ids, onBack = { navController.popBackStack() })
                     }
-                    composable("ride_detail/{rideId}") { backStackEntry ->
+                    composable(
+                        route = "ride_detail/{rideId}?export={export}",
+                        arguments = listOf(
+                            androidx.navigation.navArgument("rideId") { type = androidx.navigation.NavType.StringType },
+                            androidx.navigation.navArgument("export") {
+                                type = androidx.navigation.NavType.BoolType
+                                defaultValue = false
+                            }
+                        )
+                    ) { backStackEntry ->
                         val id = backStackEntry.arguments?.getString("rideId")?.toLongOrNull() ?: return@composable
-                        RideDetailScreen(rideId = id, navController = navController)
+                        val autoExport = backStackEntry.arguments?.getBoolean("export") ?: false
+                        RideDetailScreen(rideId = id, navController = navController, autoOpenExport = autoExport)
                     }
                     composable("community") {
                         CommunityScreen(

@@ -806,7 +806,7 @@ private fun GroupRoster(
                     }
                 }
             }
-            items(state.needsAttention, key = { "alert-${'$'}{it.uid}" }) { member ->
+            items(state.needsAttention, key = { "alert-${it.uid}" }) { member ->
                 RosterCard(
                     member = member,
                     strings = strings,
