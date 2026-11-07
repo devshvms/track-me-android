@@ -120,6 +120,7 @@ class TrackingService : Service() {
     private var storageWarningShown = false
     private var lastGpsTimeMs = 0L
     private var lastGpsPauseTelemetryMs = 0L
+    private var lastGpsResumeTelemetryMs = 0L
     private var lastLiveShareTimeMs = 0L
     private var lastNotifyElapsedMs = Long.MIN_VALUE
     private var lastNotifyDistanceMeters = 0f
@@ -198,7 +199,11 @@ class TrackingService : Service() {
 
             if (shouldEmitGpsResumeTelemetry(currentState)) {
                 updateState(TrackingState.TRACKING)
-                AnalyticsManager.trackLocationUpdatesResumed()
+                val nowWallMs = System.currentTimeMillis()
+                if (nowWallMs - lastGpsResumeTelemetryMs >= GPS_PAUSE_TELEMETRY_DEBOUNCE_MS) {
+                    lastGpsResumeTelemetryMs = nowWallMs
+                    AnalyticsManager.trackLocationUpdatesResumed()
+                }
             }
 
             if (currentState == TrackingState.STORAGE_LOW) {
@@ -447,7 +452,11 @@ class TrackingService : Service() {
         lastGpsTimeMs = System.currentTimeMillis()
         if (shouldEmitGpsResumeTelemetry(currentState)) {
             updateState(TrackingState.TRACKING)
-            AnalyticsManager.trackLocationUpdatesResumed()
+            val nowWallMs = System.currentTimeMillis()
+            if (nowWallMs - lastGpsResumeTelemetryMs >= GPS_PAUSE_TELEMETRY_DEBOUNCE_MS) {
+                lastGpsResumeTelemetryMs = nowWallMs
+                AnalyticsManager.trackLocationUpdatesResumed()
+            }
         }
         if (snapshot.rejectedOutlierCount != prior.rejectedOutlierCount) return
         val stationary = snapshot.movementState ==
@@ -1790,7 +1799,7 @@ class TrackingService : Service() {
         const val STORAGE_WARNING_NOTIFICATION_ID = 4
         const val GPS_LOSS_TIMEOUT_MS = 15_000L
         const val STATIONARY_GPS_LOSS_TIMEOUT_MS = 45_000L
-        const val GPS_PAUSE_TELEMETRY_DEBOUNCE_MS = 30_000L
+        const val GPS_PAUSE_TELEMETRY_DEBOUNCE_MS = 60_000L
         const val NOTIFICATION_UPDATE_INTERVAL_MS = 15_000L
         const val NOTIFICATION_DISTANCE_DELTA_METERS = 25f
         const val TRACKING_PREFS = "trackme_prefs"

@@ -20,4 +20,23 @@ class TrackingTelemetryTransitionTest {
         assertFalse(shouldEmitGpsResumeTelemetry(TrackingState.TRACKING))
         assertFalse(shouldEmitGpsResumeTelemetry(TrackingState.PAUSED))
     }
+
+    @Test
+    fun gpsPauseTelemetryDebounce_isAtLeastSixtySeconds() {
+        org.junit.Assert.assertEquals(60_000L, TrackingService.GPS_PAUSE_TELEMETRY_DEBOUNCE_MS)
+    }
+
+    @Test
+    fun gpsDebouncePolicy_preventsFlappingWithinDebounceWindow() {
+        val lastEventMs = 100_000L
+        val debounceWindow = TrackingService.GPS_PAUSE_TELEMETRY_DEBOUNCE_MS
+
+        // Rapid flapping 15s later -> suppressed
+        assertFalse((115_000L - lastEventMs) >= debounceWindow)
+        // Flapping 30s later -> suppressed
+        assertFalse((130_000L - lastEventMs) >= debounceWindow)
+        // Slower transition >= 60s -> admitted
+        assertTrue((160_000L - lastEventMs) >= debounceWindow)
+    }
 }
+
