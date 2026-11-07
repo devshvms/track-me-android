@@ -856,6 +856,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val weeklyRecapStreak: String = s("weeklyRecapStreak", "%d weeks active in a row")
     val weeklyRecapStreakOne: String = s("weeklyRecapStreakOne", "You stayed active this week")
     val weeklyRecapDismiss: String = s("weeklyRecapDismiss", "Nice week!")
+    val weeklyRecapShareCard: String = s("weeklyRecapShareCard", "Share Recap Card")
 
     // Multi-ride comparison (v1.6.1). Kept in the app catalog for all supported locales.
     val compareRidesTitle: String = s("compareRidesTitle", "Aggregate rides")
@@ -1609,6 +1610,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "weeklyRecapStreak" to "%d semanas activas seguidas",
             "weeklyRecapStreakOne" to "Estuviste activo esta semana",
             "weeklyRecapDismiss" to "¡Buena semana!",
+            "weeklyRecapShareCard" to "Compartir tarjeta de resumen",
             "compareRidesTitle" to "Agrupar viajes",
             "compareRidesShare" to "Personalizar y compartir",
             "compareRidesMapNotReady" to "El mapa aún no está listo",
@@ -2360,6 +2362,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "weeklyRecapStreak" to "%d semaines actives d'affilée",
             "weeklyRecapStreakOne" to "Vous êtes resté actif cette semaine",
             "weeklyRecapDismiss" to "Belle semaine !",
+            "weeklyRecapShareCard" to "Partager la carte de résumé",
             "compareRidesTitle" to "Agréger les trajets",
             "compareRidesShare" to "Personnaliser et partager",
             "compareRidesMapNotReady" to "La carte n’est pas encore prête",
@@ -3111,6 +3114,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "weeklyRecapStreak" to "%d Wochen in Folge aktiv",
             "weeklyRecapStreakOne" to "Du warst diese Woche aktiv",
             "weeklyRecapDismiss" to "Starke Woche!",
+            "weeklyRecapShareCard" to "Wochenkarte teilen",
             "compareRidesTitle" to "Fahrten aggregieren",
             "compareRidesShare" to "Anpassen und teilen",
             "compareRidesMapNotReady" to "Karte ist noch nicht bereit",
@@ -3862,6 +3866,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "weeklyRecapStreak" to "लगातार %d सप्ताह सक्रिय",
             "weeklyRecapStreakOne" to "आप इस सप्ताह सक्रिय रहे",
             "weeklyRecapDismiss" to "बढ़िया सप्ताह!",
+            "weeklyRecapShareCard" to "रीकैप कार्ड शेयर करें",
             "compareRidesTitle" to "यात्राओं को एकत्रित करें",
             "compareRidesShare" to "अनुकूलित करें और साझा करें",
             "compareRidesMapNotReady" to "मानचित्र अभी तैयार नहीं है",
@@ -4613,6 +4618,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "weeklyRecapStreak" to "%d 週連続でアクティブ",
             "weeklyRecapStreakOne" to "今週もアクティブでした",
             "weeklyRecapDismiss" to "良い一週間！",
+            "weeklyRecapShareCard" to "週間カードを共有",
             "compareRidesTitle" to "ライドを集約",
             "compareRidesShare" to "カスタマイズして共有",
             "compareRidesMapNotReady" to "地図の準備がまだできていません",
@@ -5364,6 +5370,7 @@ fun getAppStrings(languageCode: String): AppStrings {
             "weeklyRecapStreak" to "连续 %d 周保持活跃",
             "weeklyRecapStreakOne" to "你这周保持了活跃",
             "weeklyRecapDismiss" to "美好的一周！",
+            "weeklyRecapShareCard" to "分享回顾卡片",
             "compareRidesTitle" to "汇总骑行",
             "compareRidesShare" to "自定义并分享",
             "compareRidesMapNotReady" to "地图尚未准备好",
