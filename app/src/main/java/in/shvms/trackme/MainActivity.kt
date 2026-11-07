@@ -81,6 +81,7 @@ class MainActivity : AppCompatActivity() {
     super.onCreate(savedInstanceState)
     app.preferencesManager.reconcileApplicationLocale()
     handleGroupInvite(intent)
+    handleQuickStart(intent)
 
     pipDashboardStateSource = PiPDashboardStateSource(
       trackingManager = app.trackingManager,
@@ -215,10 +216,28 @@ class MainActivity : AppCompatActivity() {
       (applicationContext as? TrackMeApp)?.setPendingGroupInvite(invite)
   }
 
+  /**
+   * TASK-357: a launcher shortcut or the Quick Settings tile asked to start a ride. Parsed here,
+   * acted on by Home (see `QuickStartRequest`) so the normal permission/undo path still runs.
+   * Runs on both `onCreate` and `onNewIntent` for the same cold/warm reasons as group invites.
+   */
+  private fun handleQuickStart(intent: android.content.Intent?) {
+      val request = `in`.shvms.trackme.domain.quickstart.QuickStartRequest.parse(
+          action = intent?.action,
+          personaName = intent?.getStringExtra(`in`.shvms.trackme.domain.quickstart.QuickStartRequest.EXTRA_PERSONA),
+          sourceName = intent?.getStringExtra(`in`.shvms.trackme.domain.quickstart.QuickStartRequest.EXTRA_SOURCE),
+          nowMillis = System.currentTimeMillis(),
+      ) ?: return
+      (applicationContext as? TrackMeApp)?.setPendingQuickStart(request)
+      // Consumed: a rotation or re-delivery of this same intent must not queue a second start.
+      intent?.action = null
+  }
+
   override fun onNewIntent(intent: android.content.Intent) {
       super.onNewIntent(intent)
       setIntent(intent)
       handleGroupInvite(intent)
+      handleQuickStart(intent)
   }
 
   /** Keeps Android's auto-enter bit and the single Pause/Resume action aligned to live ride state. */

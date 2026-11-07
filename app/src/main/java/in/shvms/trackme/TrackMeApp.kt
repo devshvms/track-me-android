@@ -583,6 +583,25 @@ class TrackMeApp : Application() {
         _pendingGroupInvite.value = null
     }
 
+    private val _pendingQuickStart =
+        MutableStateFlow<`in`.shvms.trackme.domain.quickstart.QuickStartRequest?>(null)
+
+    /**
+     * TASK-357: a ride-start request from a launcher shortcut or the Quick Settings tile.
+     * Held here for the same reason as [pendingGroupInvite]: it can arrive before Home exists.
+     * Home consumes it through the normal start path, so every permission/undo safeguard applies.
+     */
+    val pendingQuickStart: StateFlow<`in`.shvms.trackme.domain.quickstart.QuickStartRequest?> =
+        _pendingQuickStart.asStateFlow()
+
+    fun setPendingQuickStart(request: `in`.shvms.trackme.domain.quickstart.QuickStartRequest?) {
+        _pendingQuickStart.value = request
+    }
+
+    fun consumePendingQuickStart() {
+        _pendingQuickStart.value = null
+    }
+
     /**
      * TASK-254: which group sheet Home asked Community to open.
      *
