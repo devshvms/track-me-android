@@ -769,6 +769,46 @@ object AnalyticsManager {
         )
     }
 
+    /** TASK-358: Proactive local notification delivered for completed week recap. */
+    fun trackRecapSent(weekKey: String, rideCount: Int, distanceKm: Double) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "recap_sent",
+            properties = mapOf(
+                "week_key" to weekKey,
+                "ride_count" to rideCount,
+                "distance_km" to distanceKm
+            )
+        )
+    }
+
+    /** TASK-358: Weekly recap opened by the rider (source: "notification" or "in_app"). */
+    fun trackRecapOpened(source: String, weekKey: String, rideCount: Int, distanceKm: Double) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "recap_opened",
+            properties = mapOf(
+                "source" to source,
+                "week_key" to weekKey,
+                "ride_count" to rideCount,
+                "distance_km" to distanceKm
+            )
+        )
+    }
+
+    /** TASK-358: Weekly recap card shared to external destination. */
+    fun trackRecapShared(weekKey: String, rideCount: Int, distanceKm: Double) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "recap_shared",
+            properties = mapOf(
+                "week_key" to weekKey,
+                "ride_count" to rideCount,
+                "distance_km" to distanceKm
+            )
+        )
+    }
+
     /** B3 — active-week streak advanced. `froze` reserved for the freeze/tolerance path. */
     fun trackWeeklyStreakUpdated(streakWeeks: Int, froze: Boolean) {
         if (!_isTelemetryEnabled.value) return

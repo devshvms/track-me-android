@@ -21,6 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import `in`.shvms.trackme.domain.stats.WeeklyRecap
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import java.util.Locale
@@ -30,12 +37,15 @@ import java.util.Locale
  * week, plus the B3 streak line. STRICTLY gain-framed: it only ever appears when there is
  * something to celebrate (rides > 0) and never shows a loss/at-risk/comparison message.
  *
+ * TASK-358: Primary "Share Recap Card" action renders and shares high-res branded card.
+ *
  * Brand tokens only (`colorScheme`); Dynamic Type + TalkBack friendly; no forced animation.
  */
 @Composable
 fun WeeklyRecapDialog(
     recap: WeeklyRecap,
     onDismiss: () -> Unit,
+    onShareCard: () -> Unit = {},
     imperial: Boolean = false
 ) {
     val strings = LocalAppStrings.current
@@ -90,8 +100,48 @@ fun WeeklyRecapDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(strings.weeklyRecapDismiss)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Button(
+                    onClick = onShareCard,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = strings.weeklyRecapShareCard,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = strings.weeklyRecapDismiss,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     )

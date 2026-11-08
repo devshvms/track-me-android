@@ -748,11 +748,30 @@ fun HomeScreen(
                     rideCount = recap.rideCount,
                     distanceKm = recap.distanceMeters / 1000.0
                 )
+                `in`.shvms.trackme.analytics.AnalyticsManager.trackRecapOpened(
+                    source = "in_app",
+                    weekKey = recap.weekKey,
+                    rideCount = recap.rideCount,
+                    distanceKm = recap.distanceMeters / 1000.0
+                )
             }
             WeeklyRecapDialog(
                 recap = recap,
                 imperial = imperialUnits == "imperial",
-                onDismiss = { app.consumeWeeklyRecap() }
+                onDismiss = { app.consumeWeeklyRecap() },
+                onShareCard = {
+                    WeeklyRecapCardRenderer.shareRecapCard(
+                        context = context,
+                        recap = recap,
+                        strings = strings,
+                        imperial = imperialUnits == "imperial",
+                    )
+                    `in`.shvms.trackme.analytics.AnalyticsManager.trackRecapShared(
+                        weekKey = recap.weekKey,
+                        rideCount = recap.rideCount,
+                        distanceKm = recap.distanceMeters / 1000.0
+                    )
+                }
             )
         }
     }

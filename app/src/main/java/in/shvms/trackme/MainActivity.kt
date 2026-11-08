@@ -82,6 +82,7 @@ class MainActivity : AppCompatActivity() {
     app.preferencesManager.reconcileApplicationLocale()
     handleGroupInvite(intent)
     handleQuickStart(intent)
+    handleWeeklyRecap(intent)
 
     pipDashboardStateSource = PiPDashboardStateSource(
       trackingManager = app.trackingManager,
@@ -238,6 +239,26 @@ class MainActivity : AppCompatActivity() {
       setIntent(intent)
       handleGroupInvite(intent)
       handleQuickStart(intent)
+      handleWeeklyRecap(intent)
+  }
+
+  /**
+   * TASK-358: local notification clicked for completed weekly recap.
+   * Emits recap_opened(source = "notification") and prompts TrackMeApp to surface the recap dialog.
+   */
+  private fun handleWeeklyRecap(intent: android.content.Intent?) {
+      if (intent?.action != ACTION_OPEN_WEEKLY_RECAP) return
+      val weekKey = intent.getStringExtra(EXTRA_WEEK_KEY) ?: ""
+      val rideCount = intent.getIntExtra(EXTRA_RIDE_COUNT, 0)
+      val distanceKm = intent.getDoubleExtra(EXTRA_DISTANCE_KM, 0.0)
+      `in`.shvms.trackme.analytics.AnalyticsManager.trackRecapOpened(
+          source = "notification",
+          weekKey = weekKey,
+          rideCount = rideCount,
+          distanceKm = distanceKm,
+      )
+      (applicationContext as? TrackMeApp)?.checkWeeklyRecap()
+      intent.action = null
   }
 
   /** Keeps Android's auto-enter bit and the single Pause/Resume action aligned to live ride state. */
@@ -411,6 +432,13 @@ class MainActivity : AppCompatActivity() {
   override fun onPause() {
       super.onPause()
       setGroupForeground(false)
+  }
+
+  companion object {
+      const val ACTION_OPEN_WEEKLY_RECAP = "in.shvms.trackme.action.OPEN_WEEKLY_RECAP"
+      const val EXTRA_WEEK_KEY = "extra_week_key"
+      const val EXTRA_RIDE_COUNT = "extra_ride_count"
+      const val EXTRA_DISTANCE_KM = "extra_distance_km"
   }
 
 }
