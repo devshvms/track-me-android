@@ -55,6 +55,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- TASK-357: App Shortcuts -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
             <!--
                 Group invites (§2.4, and §6.1 B5 — this app had no deep links at all).
 
@@ -132,6 +137,18 @@
         <receiver
             android:name=".ui.history.ExportSharedReceiver"
             android:exported="false" />
+
+        <!-- TASK-357: Quick Settings tile for one-tap ride start -->
+        <service
+            android:name=".service.quicksettings.QuickStartTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification_trackme"
+            android:label="@string/quick_settings_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

@@ -58,6 +58,7 @@ import kotlinx.coroutines.launch
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.home.components.ActiveRideHudPanel
 import `in`.shvms.trackme.ui.home.components.RadialStartRideButton
+import `in`.shvms.trackme.domain.quickstart.QuickStartRequest
 import `in`.shvms.trackme.ui.components.animateSafely
 import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.domain.group.GroupPresencePolicy
@@ -228,6 +229,8 @@ fun HomeScreen(
     val pendingReveal by app.pendingRevealStore.pending.collectAsState()
     // B2: weekly recap for a completed week (null unless one is pending on foreground).
     val weeklyRecap by app.weeklyRecap.collectAsState()
+    // TASK-357: one-tap start request from a launcher shortcut or Quick Settings tile.
+    val pendingQuickStart by app.pendingQuickStart.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
     var previousTrackingState by remember { mutableStateOf(uiState.trackingState) }
@@ -796,6 +799,19 @@ fun HomeScreen(
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         viewModel.startTracking(persona)
+    }
+
+    LaunchedEffect(pendingQuickStart, uiState.trackingState) {
+        val req = pendingQuickStart ?: return@LaunchedEffect
+        val isIdle = uiState.trackingState == TrackingState.IDLE
+        if (QuickStartRequest.shouldStart(req, System.currentTimeMillis(), isIdle)) {
+            val method = when (req.source) {
+                QuickStartRequest.Source.SHORTCUT -> ActivityStartMethod.SHORTCUT
+                QuickStartRequest.Source.TILE -> ActivityStartMethod.TILE
+            }
+            beginDashboardStart(req.persona, method)
+        }
+        app.consumePendingQuickStart()
     }
 
     if (pendingStartPersona != null && !hasLocationPermission) {

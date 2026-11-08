@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="shortcut_drive"
+        android:enabled="true"
+        android:icon="@drawable/ic_car"
+        android:shortcutShortLabel="@string/shortcut_drive_short"
+        android:shortcutLongLabel="@string/shortcut_drive_long">
+        <intent
+            android:action="in.shvms.trackme.action.QUICK_START"
+            android:targetPackage="in.shvms.trackme"
+            android:targetClass="in.shvms.trackme.MainActivity">
+            <extra
+                android:name="in.shvms.trackme.extra.QUICK_START_PERSONA"
+                android:value="CAR_DRIVE" />
+            <extra
+                android:name="in.shvms.trackme.extra.QUICK_START_SOURCE"
+                android:value="SHORTCUT" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="shortcut_moto"
+        android:enabled="true"
+        android:icon="@drawable/ic_notification_trackme"
+        android:shortcutShortLabel="@string/shortcut_moto_short"
+        android:shortcutLongLabel="@string/shortcut_moto_long">
+        <intent
+            android:action="in.shvms.trackme.action.QUICK_START"
+            android:targetPackage="in.shvms.trackme"
+            android:targetClass="in.shvms.trackme.MainActivity">
+            <extra
+                android:name="in.shvms.trackme.extra.QUICK_START_PERSONA"
+                android:value="BIKE_DRIVE" />
+            <extra
+                android:name="in.shvms.trackme.extra.QUICK_START_SOURCE"
+                android:value="SHORTCUT" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="shortcut_walk"
+        android:enabled="true"
+        android:icon="@drawable/ic_walk"
+        android:shortcutShortLabel="@string/shortcut_walk_short"
+        android:shortcutLongLabel="@string/shortcut_walk_long">
+        <intent
+            android:action="in.shvms.trackme.action.QUICK_START"
+            android:targetPackage="in.shvms.trackme"
+            android:targetClass="in.shvms.trackme.MainActivity">
+            <extra
+                android:name="in.shvms.trackme.extra.QUICK_START_PERSONA"
+                android:value="WALK" />
+            <extra
+                android:name="in.shvms.trackme.extra.QUICK_START_SOURCE"
+                android:value="SHORTCUT" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="shortcut_cycling"
+        android:enabled="true"
+        android:icon="@drawable/ic_notification_trackme"
+        android:shortcutShortLabel="@string/shortcut_cycling_short"
+        android:shortcutLongLabel="@string/shortcut_cycling_long">
+        <intent
+            android:action="in.shvms.trackme.action.QUICK_START"
+            android:targetPackage="in.shvms.trackme"
+            android:targetClass="in.shvms.trackme.MainActivity">
+            <extra
+                android:name="in.shvms.trackme.extra.QUICK_START_PERSONA"
+                android:value="CYCLING" />
+            <extra
+                android:name="in.shvms.trackme.extra.QUICK_START_SOURCE"
+                android:value="SHORTCUT" />
+        </intent>
+    </shortcut>
+</shortcuts>

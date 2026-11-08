@@ -866,6 +866,9 @@ enum class RideStartAbortMethod(val analyticsValue: String) {
 enum class ActivityStartMethod(val analyticsValue: String) {
     PRIMARY("primary"),
     PERSONA_PICKER("persona_picker"),
+    // TASK-357: one-tap start surfaces outside the app.
+    SHORTCUT("shortcut"),
+    TILE("tile"),
 }
 
 /**
