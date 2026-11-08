@@ -386,6 +386,22 @@ object AnalyticsManager {
         )
     }
 
+    /** TASK-359: Route card shared to an external destination (attributed social acquisition). */
+    fun trackRouteCardShared(
+        template: String,
+        channel: String? = null,
+        mode: String? = null,
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        val props = mutableMapOf<String, Any>(
+            "template" to template,
+            "utm_source" to "route_card"
+        )
+        channel?.let { props["channel"] = it }
+        mode?.let { props["mode"] = it }
+        PostHog.capture("route_card_shared", properties = props)
+    }
+
     fun trackRideStartAborted(method: RideStartAbortMethod) {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture(

@@ -347,7 +347,7 @@ internal fun ellipsise(text: String, paint: Paint, maxWidth: Float): String {
  */
 /** The corner link on every artifact — shared with the export templates so the style cannot drift. */
 internal fun drawArtifactLink(canvas: Canvas, width: Int, height: Int, deepLink: String?) {
-    val link = deepLink?.takeIf(::isTrackMeArtifactDeepLink) ?: return
+    val link = deepLink?.takeIf(::isTrackMeArtifactDeepLink) ?: AppConfig.REPLAY_DEEP_LINK_BASE_URL.removeSuffix("/")
     val shorterEdge = minOf(width, height).toFloat()
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = android.graphics.Color.argb(200, 235, 235, 235)
