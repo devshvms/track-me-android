@@ -16,8 +16,14 @@ object AnalyticsManager {
     private const val TAG = "AnalyticsManager"
     private const val PREFS_NAME = "trackme_prefs"
     private const val PREF_KEY_LOCAL_CONSENT = "telemetry_enabled"
+    // TASK-355: persisted once-per-install `Application Installed` ownership (see InstallEventPolicy).
+    private const val PREF_KEY_INSTALL_EVENT_STATE = "install_event_state"
     private var isInitialized = false
     private var configListener: ListenerRegistration? = null
+    private var installPrefs: android.content.SharedPreferences? = null
+    private var installEventState: InstallEventState = InstallEventState.NOT_APPLICABLE
+    private var installVersionName: String? = null
+    private var installVersionCode: Long = 0L
 
     // Local consent is read synchronously from the same store Settings writes. The remote flag
     // remains an emergency kill switch, but it can never grant consent that the user did not give.
@@ -82,7 +88,51 @@ object AnalyticsManager {
         
         PostHogAndroid.setup(application, config)
         isInitialized = true
+        resolveInstallEventState(application, prefs)
         applyOptState()
+    }
+
+    /**
+     * TASK-355: decide, once, whether this process owns an install event that the SDK dropped.
+     * The SDK emits it inside setup() while consent is still false (TASK-330), then never retries.
+     */
+    private fun resolveInstallEventState(
+        application: Application,
+        prefs: android.content.SharedPreferences,
+    ) {
+        installPrefs = prefs
+        val stored = InstallEventState.fromStored(prefs.getString(PREF_KEY_INSTALL_EVENT_STATE, null))
+        val info = runCatching {
+            application.packageManager.getPackageInfo(application.packageName, 0)
+        }.getOrNull()
+        installVersionName = info?.versionName
+        installVersionCode = info?.let {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) it.longVersionCode
+            else @Suppress("DEPRECATION") it.versionCode.toLong()
+        } ?: 0L
+        // Unknown package info must never count as an install: it would inflate acquisition.
+        installEventState = if (info == null && stored == null) {
+            InstallEventState.NOT_APPLICABLE
+        } else {
+            InstallEventPolicy.resolveState(stored, info?.firstInstallTime ?: 0L, info?.lastUpdateTime ?: 0L)
+        }
+        if (stored != installEventState) {
+            prefs.edit().putString(PREF_KEY_INSTALL_EVENT_STATE, installEventState.name).apply()
+        }
+    }
+
+    private fun maybeEmitInstallEvent() {
+        if (!InstallEventPolicy.shouldEmit(installEventState, _isTelemetryEnabled.value)) return
+        installEventState = InstallEventState.SENT
+        installPrefs?.edit()?.putString(PREF_KEY_INSTALL_EVENT_STATE, InstallEventState.SENT.name)?.apply()
+        PostHog.capture(
+            "Application Installed",
+            properties = mapOf(
+                "version" to (installVersionName ?: ""),
+                "build" to installVersionCode,
+                "install_event_source" to "first_consent",
+            ),
+        )
     }
 
     /** Update local consent immediately after the Settings toggle changes. */
@@ -105,6 +155,7 @@ object AnalyticsManager {
         // TASK-250: nothing to opt in or out of when the SDK was never started.
         if (!TelemetryEnvironment.allowsDelivery) return
         if (_isTelemetryEnabled.value) PostHog.optIn() else PostHog.optOut()
+        maybeEmitInstallEvent()
     }
 
     // Authentication
