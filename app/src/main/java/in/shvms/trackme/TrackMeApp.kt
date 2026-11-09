@@ -608,6 +608,27 @@ class TrackMeApp : Application() {
         _pendingQuickStart.value = null
     }
 
+    @Volatile
+    private var recapOpenedFromNotification: Boolean = false
+
+    /**
+     * TASK-358: Marks that the upcoming weekly recap presentation was initiated by tapping the
+     * proactive local notification rather than an organic in-app launch.
+     */
+    fun markRecapOpenedFromNotification() {
+        recapOpenedFromNotification = true
+    }
+
+    /**
+     * Consumes and resets the weekly recap open source so `recap_opened` fires once per recap
+     * presentation with accurate attribution ("notification" vs "in_app").
+     */
+    fun consumeRecapOpenSource(): String {
+        val fromNotification = recapOpenedFromNotification
+        recapOpenedFromNotification = false
+        return if (fromNotification) "notification" else "in_app"
+    }
+
     /**
      * TASK-254: which group sheet Home asked Community to open.
      *

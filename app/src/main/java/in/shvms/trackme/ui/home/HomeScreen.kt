@@ -743,13 +743,14 @@ fun HomeScreen(
         )
         if (isCalmMoment) {
             LaunchedEffect(recap.weekStartEpochDay) {
+                val openSource = app.consumeRecapOpenSource()
                 `in`.shvms.trackme.analytics.AnalyticsManager.trackWeeklyRecapShown(
                     weekKey = recap.weekKey,
                     rideCount = recap.rideCount,
                     distanceKm = recap.distanceMeters / 1000.0
                 )
                 `in`.shvms.trackme.analytics.AnalyticsManager.trackRecapOpened(
-                    source = "in_app",
+                    source = openSource,
                     weekKey = recap.weekKey,
                     rideCount = recap.rideCount,
                     distanceKm = recap.distanceMeters / 1000.0
@@ -760,17 +761,32 @@ fun HomeScreen(
                 imperial = imperialUnits == "imperial",
                 onDismiss = { app.consumeWeeklyRecap() },
                 onShareCard = {
-                    WeeklyRecapCardRenderer.shareRecapCard(
-                        context = context,
-                        recap = recap,
-                        strings = strings,
-                        imperial = imperialUnits == "imperial",
-                    )
-                    `in`.shvms.trackme.analytics.AnalyticsManager.trackRecapShared(
-                        weekKey = recap.weekKey,
-                        rideCount = recap.rideCount,
-                        distanceKm = recap.distanceMeters / 1000.0
-                    )
+                    coroutineScope.launch {
+                        val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            val bitmap = WeeklyRecapCardRenderer.render(
+                                context = context,
+                                recap = recap,
+                                strings = strings,
+                                imperial = imperialUnits == "imperial",
+                            )
+                            try {
+                                WeeklyRecapCardRenderer.writePng(context, bitmap, recap.weekKey)
+                            } finally {
+                                bitmap.recycle()
+                            }
+                        }
+                        `in`.shvms.trackme.ui.history.shareExportedArtifact(
+                            context = context,
+                            file = file,
+                            kind = `in`.shvms.trackme.analytics.ExportArtifactKind.IMAGE,
+                            chooserTitle = strings.weeklyRecapTitle,
+                        )
+                        `in`.shvms.trackme.analytics.AnalyticsManager.trackRecapShared(
+                            weekKey = recap.weekKey,
+                            rideCount = recap.rideCount,
+                            distanceKm = recap.distanceMeters / 1000.0
+                        )
+                    }
                 }
             )
         }

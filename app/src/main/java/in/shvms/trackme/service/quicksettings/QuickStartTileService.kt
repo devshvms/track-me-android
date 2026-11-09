@@ -20,8 +20,11 @@ object QuickStartTilePolicy {
     fun tileState(isTracking: Boolean): Int =
         if (isTracking) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
 
-    fun tileLabel(isTracking: Boolean): String =
-        if (isTracking) "Recording Ride" else "Start Ride"
+    fun tileLabel(
+        isTracking: Boolean,
+        activeLabel: String = "Recording Ride",
+        inactiveLabel: String = "Start Ride",
+    ): String = if (isTracking) activeLabel else inactiveLabel
 }
 
 /**
@@ -42,7 +45,11 @@ class QuickStartTileService : TileService() {
             activeRideId = TrackingService.activeRideId
         )
         tile.state = QuickStartTilePolicy.tileState(isTracking)
-        tile.label = QuickStartTilePolicy.tileLabel(isTracking)
+        tile.label = QuickStartTilePolicy.tileLabel(
+            isTracking = isTracking,
+            activeLabel = getString(`in`.shvms.trackme.R.string.quick_settings_tile_active_label),
+            inactiveLabel = getString(`in`.shvms.trackme.R.string.quick_settings_tile_label),
+        )
         tile.updateTile()
     }
 

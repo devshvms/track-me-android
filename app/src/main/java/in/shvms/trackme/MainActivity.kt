@@ -244,20 +244,15 @@ class MainActivity : AppCompatActivity() {
 
   /**
    * TASK-358: local notification clicked for completed weekly recap.
-   * Emits recap_opened(source = "notification") and prompts TrackMeApp to surface the recap dialog.
+   * Marks the open source as "notification" and prompts TrackMeApp to surface the recap dialog,
+   * which emits `recap_opened` once upon presentation.
    */
   private fun handleWeeklyRecap(intent: android.content.Intent?) {
       if (intent?.action != ACTION_OPEN_WEEKLY_RECAP) return
-      val weekKey = intent.getStringExtra(EXTRA_WEEK_KEY) ?: ""
-      val rideCount = intent.getIntExtra(EXTRA_RIDE_COUNT, 0)
-      val distanceKm = intent.getDoubleExtra(EXTRA_DISTANCE_KM, 0.0)
-      `in`.shvms.trackme.analytics.AnalyticsManager.trackRecapOpened(
-          source = "notification",
-          weekKey = weekKey,
-          rideCount = rideCount,
-          distanceKm = distanceKm,
-      )
-      (applicationContext as? TrackMeApp)?.checkWeeklyRecap()
+      (applicationContext as? TrackMeApp)?.apply {
+          markRecapOpenedFromNotification()
+          checkWeeklyRecap()
+      }
       intent.action = null
   }
 

@@ -19,4 +19,5 @@
 
     <!-- TASK-357: Quick Settings tile -->
     <string name="quick_settings_tile_label">Start Ride</string>
+    <string name="quick_settings_tile_active_label">Recording Ride</string>
 </resources>

@@ -149,13 +149,17 @@ object WeeklyRecapCardRenderer {
         canvas.drawText(strings.weeklyRecapRidesLabel.uppercase(Locale.getDefault()), col1X, margin + 472f * scale, statLabelPaint)
 
         // Streak Stat
-        val streakText = when {
-            recap.streakWeeks >= 2 -> String.format(Locale.getDefault(), "%d WEEKS", recap.streakWeeks)
-            recap.streakWeeks == 1 -> "ACTIVE"
+        val streakValue = when {
+            recap.streakWeeks >= 1 -> recap.streakWeeks.toString()
             else -> "—"
         }
-        canvas.drawText(streakText, col2X, margin + 430f * scale, statValuePaint)
-        canvas.drawText("ACTIVE STREAK", col2X, margin + 472f * scale, statLabelPaint)
+        val streakLabel = when {
+            recap.streakWeeks >= 2 -> String.format(Locale.getDefault(), strings.weeklyRecapStreak, recap.streakWeeks)
+            recap.streakWeeks == 1 -> strings.weeklyRecapStreakOne
+            else -> "ACTIVE STREAK"
+        }.uppercase(Locale.getDefault())
+        canvas.drawText(streakValue, col2X, margin + 430f * scale, statValuePaint)
+        canvas.drawText(streakLabel, col2X, margin + 472f * scale, statLabelPaint)
 
         // Bottom Brand / Privacy statement & Link
         val taglinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -171,14 +175,15 @@ object WeeklyRecapCardRenderer {
             this.typeface = Typeface.create(typeface, Typeface.NORMAL)
             textAlign = Paint.Align.RIGHT
         }
-        canvas.drawText("trackme.shvms.in", widthPx - margin - 44f * scale, widthPx - margin - 52f * scale, linkPaint)
+        canvas.drawText("trackme.shvms.in/r", widthPx - margin - 44f * scale, widthPx - margin - 52f * scale, linkPaint)
 
         return bitmap
     }
 
     fun writePng(context: Context, bitmap: Bitmap, weekKey: String): File {
         val dir = File(context.cacheDir, "exports").apply { mkdirs() }
-        val file = File(dir, "trackme-recap-$weekKey.png")
+        val safeWeekKey = weekKey.replace(Regex("[^A-Za-z0-9_-]"), "_")
+        val file = File(dir, "trackme-recap-$safeWeekKey.png")
         FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         return file
     }
@@ -190,7 +195,11 @@ object WeeklyRecapCardRenderer {
         imperial: Boolean,
     ) {
         val bitmap = render(context, recap, strings, imperial)
-        val file = writePng(context, bitmap, recap.weekKey)
+        val file = try {
+            writePng(context, bitmap, recap.weekKey)
+        } finally {
+            bitmap.recycle()
+        }
         shareExportedArtifact(
             context = context,
             file = file,
