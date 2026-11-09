@@ -58,6 +58,7 @@ import kotlinx.coroutines.launch
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.home.components.ActiveRideHudPanel
 import `in`.shvms.trackme.ui.home.components.RadialStartRideButton
+import `in`.shvms.trackme.domain.quickstart.QuickStartRequest
 import `in`.shvms.trackme.ui.components.animateSafely
 import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.domain.group.GroupPresencePolicy
@@ -228,6 +229,8 @@ fun HomeScreen(
     val pendingReveal by app.pendingRevealStore.pending.collectAsState()
     // B2: weekly recap for a completed week (null unless one is pending on foreground).
     val weeklyRecap by app.weeklyRecap.collectAsState()
+    // TASK-357: one-tap start request from a launcher shortcut or Quick Settings tile.
+    val pendingQuickStart by app.pendingQuickStart.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = `in`.shvms.trackme.LocalSnackbarHostState.current
     var previousTrackingState by remember { mutableStateOf(uiState.trackingState) }
@@ -740,7 +743,14 @@ fun HomeScreen(
         )
         if (isCalmMoment) {
             LaunchedEffect(recap.weekStartEpochDay) {
+                val openSource = app.consumeRecapOpenSource()
                 `in`.shvms.trackme.analytics.AnalyticsManager.trackWeeklyRecapShown(
+                    weekKey = recap.weekKey,
+                    rideCount = recap.rideCount,
+                    distanceKm = recap.distanceMeters / 1000.0
+                )
+                `in`.shvms.trackme.analytics.AnalyticsManager.trackRecapOpened(
+                    source = openSource,
                     weekKey = recap.weekKey,
                     rideCount = recap.rideCount,
                     distanceKm = recap.distanceMeters / 1000.0
@@ -749,7 +759,35 @@ fun HomeScreen(
             WeeklyRecapDialog(
                 recap = recap,
                 imperial = imperialUnits == "imperial",
-                onDismiss = { app.consumeWeeklyRecap() }
+                onDismiss = { app.consumeWeeklyRecap() },
+                onShareCard = {
+                    coroutineScope.launch {
+                        val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            val bitmap = WeeklyRecapCardRenderer.render(
+                                context = context,
+                                recap = recap,
+                                strings = strings,
+                                imperial = imperialUnits == "imperial",
+                            )
+                            try {
+                                WeeklyRecapCardRenderer.writePng(context, bitmap, recap.weekKey)
+                            } finally {
+                                bitmap.recycle()
+                            }
+                        }
+                        `in`.shvms.trackme.ui.history.shareExportedArtifact(
+                            context = context,
+                            file = file,
+                            kind = `in`.shvms.trackme.analytics.ExportArtifactKind.IMAGE,
+                            chooserTitle = strings.weeklyRecapTitle,
+                        )
+                        `in`.shvms.trackme.analytics.AnalyticsManager.trackRecapShared(
+                            weekKey = recap.weekKey,
+                            rideCount = recap.rideCount,
+                            distanceKm = recap.distanceMeters / 1000.0
+                        )
+                    }
+                }
             )
         }
     }
@@ -796,6 +834,19 @@ fun HomeScreen(
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         viewModel.startTracking(persona)
+    }
+
+    LaunchedEffect(pendingQuickStart, uiState.trackingState) {
+        val req = pendingQuickStart ?: return@LaunchedEffect
+        val isIdle = uiState.trackingState == TrackingState.IDLE
+        if (QuickStartRequest.shouldStart(req, System.currentTimeMillis(), isIdle)) {
+            val method = when (req.source) {
+                QuickStartRequest.Source.SHORTCUT -> ActivityStartMethod.SHORTCUT
+                QuickStartRequest.Source.TILE -> ActivityStartMethod.TILE
+            }
+            beginDashboardStart(req.persona, method)
+        }
+        app.consumePendingQuickStart()
     }
 
     if (pendingStartPersona != null && !hasLocationPermission) {

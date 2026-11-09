@@ -6,4 +6,18 @@
     <string name="notification_channel_tracking_description">Ongoing ride tracking status.</string>
     <string name="notification_channel_sync">Sync and updates</string>
     <string name="notification_channel_sync_description">Ride processing and cloud sync updates.</string>
+
+    <!-- TASK-357: Launcher shortcuts -->
+    <string name="shortcut_drive_short">Drive</string>
+    <string name="shortcut_drive_long">Start Drive tracking</string>
+    <string name="shortcut_moto_short">Motorbike</string>
+    <string name="shortcut_moto_long">Start Motorbike tracking</string>
+    <string name="shortcut_walk_short">Walk</string>
+    <string name="shortcut_walk_long">Start Walk tracking</string>
+    <string name="shortcut_cycling_short">Cycling</string>
+    <string name="shortcut_cycling_long">Start Cycling ride</string>
+
+    <!-- TASK-357: Quick Settings tile -->
+    <string name="quick_settings_tile_label">Start Ride</string>
+    <string name="quick_settings_tile_active_label">Recording Ride</string>
 </resources>

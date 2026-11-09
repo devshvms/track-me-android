@@ -81,6 +81,8 @@ class MainActivity : AppCompatActivity() {
     super.onCreate(savedInstanceState)
     app.preferencesManager.reconcileApplicationLocale()
     handleGroupInvite(intent)
+    handleQuickStart(intent)
+    handleWeeklyRecap(intent)
 
     pipDashboardStateSource = PiPDashboardStateSource(
       trackingManager = app.trackingManager,
@@ -215,10 +217,43 @@ class MainActivity : AppCompatActivity() {
       (applicationContext as? TrackMeApp)?.setPendingGroupInvite(invite)
   }
 
+  /**
+   * TASK-357: a launcher shortcut or the Quick Settings tile asked to start a ride. Parsed here,
+   * acted on by Home (see `QuickStartRequest`) so the normal permission/undo path still runs.
+   * Runs on both `onCreate` and `onNewIntent` for the same cold/warm reasons as group invites.
+   */
+  private fun handleQuickStart(intent: android.content.Intent?) {
+      val request = `in`.shvms.trackme.domain.quickstart.QuickStartRequest.parse(
+          action = intent?.action,
+          personaName = intent?.getStringExtra(`in`.shvms.trackme.domain.quickstart.QuickStartRequest.EXTRA_PERSONA),
+          sourceName = intent?.getStringExtra(`in`.shvms.trackme.domain.quickstart.QuickStartRequest.EXTRA_SOURCE),
+          nowMillis = System.currentTimeMillis(),
+      ) ?: return
+      (applicationContext as? TrackMeApp)?.setPendingQuickStart(request)
+      // Consumed: a rotation or re-delivery of this same intent must not queue a second start.
+      intent?.action = null
+  }
+
   override fun onNewIntent(intent: android.content.Intent) {
       super.onNewIntent(intent)
       setIntent(intent)
       handleGroupInvite(intent)
+      handleQuickStart(intent)
+      handleWeeklyRecap(intent)
+  }
+
+  /**
+   * TASK-358: local notification clicked for completed weekly recap.
+   * Marks the open source as "notification" and prompts TrackMeApp to surface the recap dialog,
+   * which emits `recap_opened` once upon presentation.
+   */
+  private fun handleWeeklyRecap(intent: android.content.Intent?) {
+      if (intent?.action != ACTION_OPEN_WEEKLY_RECAP) return
+      (applicationContext as? TrackMeApp)?.apply {
+          markRecapOpenedFromNotification()
+          checkWeeklyRecap()
+      }
+      intent.action = null
   }
 
   /** Keeps Android's auto-enter bit and the single Pause/Resume action aligned to live ride state. */
@@ -392,6 +427,13 @@ class MainActivity : AppCompatActivity() {
   override fun onPause() {
       super.onPause()
       setGroupForeground(false)
+  }
+
+  companion object {
+      const val ACTION_OPEN_WEEKLY_RECAP = "in.shvms.trackme.action.OPEN_WEEKLY_RECAP"
+      const val EXTRA_WEEK_KEY = "extra_week_key"
+      const val EXTRA_RIDE_COUNT = "extra_ride_count"
+      const val EXTRA_DISTANCE_KM = "extra_distance_km"
   }
 
 }

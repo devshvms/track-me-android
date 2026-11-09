@@ -18,6 +18,7 @@ import `in`.shvms.trackme.MainActivity
 import `in`.shvms.trackme.R
 import `in`.shvms.trackme.TrackMeApp
 import `in`.shvms.trackme.data.local.ProactiveLedger
+import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.domain.UnitFormatter
 import `in`.shvms.trackme.domain.notifications.NotificationBudget
 import `in`.shvms.trackme.domain.notifications.WeeklyRecapNotice
@@ -145,11 +146,17 @@ class ProactiveNotificationWorker(
         )
 
         NotificationChannels.ensure(applicationContext, strings)
+        val openIntent = Intent(applicationContext, MainActivity::class.java)
+            .setAction(MainActivity.ACTION_OPEN_WEEKLY_RECAP)
+            .putExtra(MainActivity.EXTRA_WEEK_KEY, ready.weekKey)
+            .putExtra(MainActivity.EXTRA_RIDE_COUNT, ready.rideCount)
+            .putExtra(MainActivity.EXTRA_DISTANCE_KM, ready.distanceMeters / 1000.0)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+
         val open = PendingIntent.getActivity(
             applicationContext,
             NOTIFICATION_ID,
-            Intent(applicationContext, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
@@ -174,6 +181,11 @@ class ProactiveNotificationWorker(
             // again if the user never acknowledges it in-app.
             ledger.recordProactiveSent(now)
             ledger.recordRecapNotified(ready.weekStartEpochDay)
+            AnalyticsManager.trackRecapSent(
+                weekKey = ready.weekKey,
+                rideCount = ready.rideCount,
+                distanceKm = ready.distanceMeters / 1000.0,
+            )
         }
     }
 

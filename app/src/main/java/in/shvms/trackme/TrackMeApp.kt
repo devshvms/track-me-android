@@ -310,6 +310,12 @@ class TrackMeApp : Application() {
                     )
                     if (summary.hasChanges) {
                         _recoveryNotice.value = summary
+                        // TASK-356: make rescued rides visible to PostHog (coarse counts only).
+                        `in`.shvms.trackme.analytics.AnalyticsManager.trackRideRecovered(
+                            recoveredCount = summary.recoveredCount,
+                            discardedCount = summary.discardedCount,
+                            totalMeters = summary.recovered.sumOf { it.distanceMeters },
+                        )
                         // §6.1.7: one row per recovered ride. The notification says "3 rides were
                         // saved" because it has one line; the feed has room to say which three, and
                         // checking whether a particular ride survived is the reason to look.
@@ -581,6 +587,46 @@ class TrackMeApp : Application() {
 
     fun consumePendingGroupInvite() {
         _pendingGroupInvite.value = null
+    }
+
+    private val _pendingQuickStart =
+        MutableStateFlow<`in`.shvms.trackme.domain.quickstart.QuickStartRequest?>(null)
+
+    /**
+     * TASK-357: a ride-start request from a launcher shortcut or the Quick Settings tile.
+     * Held here for the same reason as [pendingGroupInvite]: it can arrive before Home exists.
+     * Home consumes it through the normal start path, so every permission/undo safeguard applies.
+     */
+    val pendingQuickStart: StateFlow<`in`.shvms.trackme.domain.quickstart.QuickStartRequest?> =
+        _pendingQuickStart.asStateFlow()
+
+    fun setPendingQuickStart(request: `in`.shvms.trackme.domain.quickstart.QuickStartRequest?) {
+        _pendingQuickStart.value = request
+    }
+
+    fun consumePendingQuickStart() {
+        _pendingQuickStart.value = null
+    }
+
+    @Volatile
+    private var recapOpenedFromNotification: Boolean = false
+
+    /**
+     * TASK-358: Marks that the upcoming weekly recap presentation was initiated by tapping the
+     * proactive local notification rather than an organic in-app launch.
+     */
+    fun markRecapOpenedFromNotification() {
+        recapOpenedFromNotification = true
+    }
+
+    /**
+     * Consumes and resets the weekly recap open source so `recap_opened` fires once per recap
+     * presentation with accurate attribution ("notification" vs "in_app").
+     */
+    fun consumeRecapOpenSource(): String {
+        val fromNotification = recapOpenedFromNotification
+        recapOpenedFromNotification = false
+        return if (fromNotification) "notification" else "in_app"
     }
 
     /**

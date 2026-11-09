@@ -16,8 +16,14 @@ object AnalyticsManager {
     private const val TAG = "AnalyticsManager"
     private const val PREFS_NAME = "trackme_prefs"
     private const val PREF_KEY_LOCAL_CONSENT = "telemetry_enabled"
+    // TASK-355: persisted once-per-install `Application Installed` ownership (see InstallEventPolicy).
+    private const val PREF_KEY_INSTALL_EVENT_STATE = "install_event_state"
     private var isInitialized = false
     private var configListener: ListenerRegistration? = null
+    private var installPrefs: android.content.SharedPreferences? = null
+    private var installEventState: InstallEventState = InstallEventState.NOT_APPLICABLE
+    private var installVersionName: String? = null
+    private var installVersionCode: Long = 0L
 
     // Local consent is read synchronously from the same store Settings writes. The remote flag
     // remains an emergency kill switch, but it can never grant consent that the user did not give.
@@ -82,7 +88,51 @@ object AnalyticsManager {
         
         PostHogAndroid.setup(application, config)
         isInitialized = true
+        resolveInstallEventState(application, prefs)
         applyOptState()
+    }
+
+    /**
+     * TASK-355: decide, once, whether this process owns an install event that the SDK dropped.
+     * The SDK emits it inside setup() while consent is still false (TASK-330), then never retries.
+     */
+    private fun resolveInstallEventState(
+        application: Application,
+        prefs: android.content.SharedPreferences,
+    ) {
+        installPrefs = prefs
+        val stored = InstallEventState.fromStored(prefs.getString(PREF_KEY_INSTALL_EVENT_STATE, null))
+        val info = runCatching {
+            application.packageManager.getPackageInfo(application.packageName, 0)
+        }.getOrNull()
+        installVersionName = info?.versionName
+        installVersionCode = info?.let {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) it.longVersionCode
+            else @Suppress("DEPRECATION") it.versionCode.toLong()
+        } ?: 0L
+        // Unknown package info must never count as an install: it would inflate acquisition.
+        installEventState = if (info == null && stored == null) {
+            InstallEventState.NOT_APPLICABLE
+        } else {
+            InstallEventPolicy.resolveState(stored, info?.firstInstallTime ?: 0L, info?.lastUpdateTime ?: 0L)
+        }
+        if (stored != installEventState) {
+            prefs.edit().putString(PREF_KEY_INSTALL_EVENT_STATE, installEventState.name).apply()
+        }
+    }
+
+    private fun maybeEmitInstallEvent() {
+        if (!InstallEventPolicy.shouldEmit(installEventState, _isTelemetryEnabled.value)) return
+        installEventState = InstallEventState.SENT
+        installPrefs?.edit()?.putString(PREF_KEY_INSTALL_EVENT_STATE, InstallEventState.SENT.name)?.apply()
+        PostHog.capture(
+            "Application Installed",
+            properties = mapOf(
+                "version" to (installVersionName ?: ""),
+                "build" to installVersionCode,
+                "install_event_source" to "first_consent",
+            ),
+        )
     }
 
     /** Update local consent immediately after the Settings toggle changes. */
@@ -105,6 +155,7 @@ object AnalyticsManager {
         // TASK-250: nothing to opt in or out of when the SDK was never started.
         if (!TelemetryEnvironment.allowsDelivery) return
         if (_isTelemetryEnabled.value) PostHog.optIn() else PostHog.optOut()
+        maybeEmitInstallEvent()
     }
 
     // Authentication
@@ -180,6 +231,16 @@ object AnalyticsManager {
     fun trackSupportContactStarted(faqExpandedCount: Int) {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture("support_contact_started", properties = mapOf("faq_expanded_count" to faqExpandedCount))
+    }
+
+    /** TASK-356: orphaned-ride recovery ran and changed something. Coarse properties only. */
+    fun trackRideRecovered(recoveredCount: Int, discardedCount: Int, totalMeters: Double) {
+        if (!_isTelemetryEnabled.value) return
+        if (!RecoveryTelemetry.shouldReport(recoveredCount, discardedCount)) return
+        PostHog.capture(
+            RecoveryTelemetry.EVENT,
+            properties = RecoveryTelemetry.properties(recoveredCount, discardedCount, totalMeters),
+        )
     }
 
     // Core Rides
@@ -323,6 +384,22 @@ object AnalyticsManager {
             "export_shared",
             properties = mapOf("kind" to kind.value)
         )
+    }
+
+    /** TASK-359: Route card shared to an external destination (attributed social acquisition). */
+    fun trackRouteCardShared(
+        template: String,
+        channel: String? = null,
+        mode: String? = null,
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        val props = mutableMapOf<String, Any>(
+            "template" to template,
+            "utm_source" to "route_card"
+        )
+        channel?.let { props["channel"] = it }
+        mode?.let { props["mode"] = it }
+        PostHog.capture("route_card_shared", properties = props)
     }
 
     fun trackRideStartAborted(method: RideStartAbortMethod) {
@@ -708,6 +785,46 @@ object AnalyticsManager {
         )
     }
 
+    /** TASK-358: Proactive local notification delivered for completed week recap. */
+    fun trackRecapSent(weekKey: String, rideCount: Int, distanceKm: Double) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "recap_sent",
+            properties = mapOf(
+                "week_key" to weekKey,
+                "ride_count" to rideCount,
+                "distance_km" to distanceKm
+            )
+        )
+    }
+
+    /** TASK-358: Weekly recap opened by the rider (source: "notification" or "in_app"). */
+    fun trackRecapOpened(source: String, weekKey: String, rideCount: Int, distanceKm: Double) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "recap_opened",
+            properties = mapOf(
+                "source" to source,
+                "week_key" to weekKey,
+                "ride_count" to rideCount,
+                "distance_km" to distanceKm
+            )
+        )
+    }
+
+    /** TASK-358: Weekly recap card shared to external destination. */
+    fun trackRecapShared(weekKey: String, rideCount: Int, distanceKm: Double) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "recap_shared",
+            properties = mapOf(
+                "week_key" to weekKey,
+                "ride_count" to rideCount,
+                "distance_km" to distanceKm
+            )
+        )
+    }
+
     /** B3 — active-week streak advanced. `froze` reserved for the freeze/tolerance path. */
     fun trackWeeklyStreakUpdated(streakWeeks: Int, froze: Boolean) {
         if (!_isTelemetryEnabled.value) return
@@ -805,6 +922,9 @@ enum class RideStartAbortMethod(val analyticsValue: String) {
 enum class ActivityStartMethod(val analyticsValue: String) {
     PRIMARY("primary"),
     PERSONA_PICKER("persona_picker"),
+    // TASK-357: one-tap start surfaces outside the app.
+    SHORTCUT("shortcut"),
+    TILE("tile"),
 }
 
 /**
