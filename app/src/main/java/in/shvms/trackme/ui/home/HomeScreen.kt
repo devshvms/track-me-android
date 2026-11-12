@@ -57,6 +57,8 @@ import androidx.compose.animation.core.*
 import kotlinx.coroutines.launch
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.home.components.ActiveRideHudPanel
+import `in`.shvms.trackme.ui.home.components.LiveShareBroadcastHudPanel
+import `in`.shvms.trackme.ui.home.components.LiveShareSetupSheet
 import `in`.shvms.trackme.ui.home.components.RadialStartRideButton
 import `in`.shvms.trackme.domain.quickstart.QuickStartRequest
 import `in`.shvms.trackme.ui.components.animateSafely
@@ -176,12 +178,16 @@ fun HomeScreen(
             (LocalContext.current.applicationContext as TrackMeApp).preferencesManager,
             (LocalContext.current.applicationContext as TrackMeApp).homeDashboardRepository,
             (LocalContext.current.applicationContext as TrackMeApp).firestoreSyncManager,
+            (LocalContext.current.applicationContext as TrackMeApp).trustedWatchersRepository,
         )
     )
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
     var showHomeSharing by rememberSaveable { mutableStateOf(false) }
+    var pendingDirectLiveShareDuration by remember { mutableStateOf<Int?>(null) }
+    var showFullRideHudForPrimaryShare by rememberSaveable { mutableStateOf(false) }
+    var openSharesheetOnLiveShareReady by remember { mutableStateOf(false) }
     val messenger = rememberMessenger()
     val mapStyle = rememberMapStyle()
     val app = context.applicationContext as TrackMeApp
@@ -250,12 +256,38 @@ fun HomeScreen(
         }
         if (uiState.trackingState == TrackingState.IDLE) {
             hasRequestedStartRideUndo = false
+            showFullRideHudForPrimaryShare = false
         }
         previousTrackingState = uiState.trackingState
     }
 
+    LaunchedEffect(uiState.liveShareState.status) {
+        if (uiState.liveShareState.status == LiveShareStatus.IDLE) {
+            showFullRideHudForPrimaryShare = false
+        }
+    }
+
     LaunchedEffect(groupSession.isActive) {
         if (!groupSession.isActive) explicitGroupMap = false
+    }
+
+    fun copyLiveShareLink(showToast: Boolean = true) {
+        val shareLink = uiState.liveShareState.shareLink ?: return
+        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clip = android.content.ClipData.newPlainText("Live Share Link", shareLink)
+        clipboard.setPrimaryClip(clip)
+        if (showToast) messenger.show(strings.linkCopied)
+    }
+
+    fun shareLiveShareLink() {
+        val shareLink = uiState.liveShareState.shareLink ?: return
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, strings.liveShareButton)
+            val message = "Hey, you can track my live location here: $shareLink\n\nThanks, ${uiState.userName ?: "Track Me User"}"
+            putExtra(Intent.EXTRA_TEXT, message)
+        }
+        context.startActivity(Intent.createChooser(sendIntent, strings.liveShareButton))
     }
 
     // §8's "clear notice", on Home as well as in the Community tab.
@@ -313,16 +345,35 @@ fun HomeScreen(
                     }
                     context.startService(intent)
                 }
-                HomeViewModel.UiEvent.LiveShareAuthRequired ->
+                HomeViewModel.UiEvent.LiveShareAuthRequired -> {
+                    openSharesheetOnLiveShareReady = false
                     messenger.show(strings.liveShareAuthRequired, duration = SnackbarDuration.Long)
-                is HomeViewModel.UiEvent.LiveShareStarted -> {
-                    val msg = if (event.isTrackingActive) strings.liveShareReadyActive else strings.liveShareReadyIdle
-                    messenger.show(msg, duration = SnackbarDuration.Long)
                 }
-                HomeViewModel.UiEvent.LiveShareAuthExpired ->
+                is HomeViewModel.UiEvent.LiveShareStarted -> {
+                    copyLiveShareLink(showToast = false)
+                    val msg = when {
+                        event.notifiedWatchersCount > 0 -> String.format(
+                            java.util.Locale.getDefault(),
+                            strings.liveShareReadyAutoNotified,
+                            event.notifiedWatchersCount,
+                        )
+                        event.isTrackingActive -> strings.liveShareReadyActive
+                        else -> strings.liveShareReadyIdle
+                    }
+                    messenger.show(msg, duration = SnackbarDuration.Long)
+                    if (openSharesheetOnLiveShareReady) {
+                        openSharesheetOnLiveShareReady = false
+                        shareLiveShareLink()
+                    }
+                }
+                HomeViewModel.UiEvent.LiveShareAuthExpired -> {
+                    openSharesheetOnLiveShareReady = false
                     messenger.show(strings.liveShareAuthExpired, duration = SnackbarDuration.Long)
-                is HomeViewModel.UiEvent.LiveShareGracefulError ->
+                }
+                is HomeViewModel.UiEvent.LiveShareGracefulError -> {
+                    openSharesheetOnLiveShareReady = false
                     messenger.show(event.message, duration = SnackbarDuration.Long)
+                }
                 HomeViewModel.UiEvent.LiveShareStopped ->
                     messenger.show(strings.liveShareStoppedToast)
             }
@@ -428,14 +479,50 @@ fun HomeScreen(
     }
 
     var pendingStartPersona by remember { mutableStateOf<RidePersona?>(null) }
+
+    fun launchDirectLiveShare(durationMinutes: Int) {
+        if (groupSession.isActive) {
+            messenger.show(strings.groupLiveShareBlocked, duration = SnackbarDuration.Long)
+            return
+        }
+        if (!uiState.isAuthenticated) {
+            messenger.show(strings.liveShareAuthRequired, duration = SnackbarDuration.Long)
+            return
+        }
+        if (!hasLocationPermission) {
+            pendingDirectLiveShareDuration = durationMinutes
+            pendingStartPersona = RidePersona.AUTO
+            return
+        }
+        if (requestNotificationPermissionIfNeeded()) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        showFullRideHudForPrimaryShare = false
+        val autoWatchers = uiState.trustedWatchers.filter { it.autoNotify }.take(5)
+        if (uiState.trackingState == TrackingState.IDLE) {
+            viewModel.startTracking(RidePersona.AUTO)
+        }
+        viewModel.startLiveShare(
+            durationMinutes = durationMinutes,
+            stopOnRideEnd = true,
+            watcherUids = autoWatchers.map { it.uid },
+            isLiveSharePrimary = true,
+            sharedWatcherNames = autoWatchers.map { it.displayName },
+        )
+    }
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
         onResult = { permissions ->
             val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
             hasLocationPermission = granted
             val persona = pendingStartPersona
+            val directShareDuration = pendingDirectLiveShareDuration
             pendingStartPersona = null
-            if (granted && persona != null) {
+            pendingDirectLiveShareDuration = null
+            if (granted && directShareDuration != null) {
+                launchDirectLiveShare(directShareDuration)
+            } else if (granted && persona != null) {
                 if (requestNotificationPermissionIfNeeded()) {
                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
@@ -853,6 +940,7 @@ fun HomeScreen(
         AlertDialog(
             onDismissRequest = {
                 pendingStartPersona = null
+                pendingDirectLiveShareDuration = null
                 AnalyticsManager.trackRideStartAborted(RideStartAbortMethod.PRE_COMMIT)
             },
             title = { Text(strings.locationPermissionRequired) },
@@ -870,6 +958,7 @@ fun HomeScreen(
             dismissButton = {
                 TextButton(onClick = {
                     pendingStartPersona = null
+                    pendingDirectLiveShareDuration = null
                     AnalyticsManager.trackRideStartAborted(RideStartAbortMethod.PRE_COMMIT)
                 }) { Text(strings.cancel) }
             },
@@ -939,33 +1028,35 @@ fun HomeScreen(
     }
 
     if (showHomeSharing) {
-        val active = uiState.liveShareState.status == LiveShareStatus.ACTIVE
-        AlertDialog(onDismissRequest = { showHomeSharing = false },
-            title = { Text(strings.homeLiveSharing) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(if (groupSession.isActive) strings.groupLiveShareBlocked else strings.homeSharingExplanation)
-                    if (active) {
-                        TextButton(onClick = {
-                            uiState.liveShareState.shareLink?.let { link ->
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, link)
-                                }
-                                context.startActivity(Intent.createChooser(intent, strings.share))
-                            }
-                        }) { Text(strings.shareLink) }
+        LiveShareSetupSheet(
+            liveShareState = uiState.liveShareState,
+            isAuthenticated = uiState.isAuthenticated,
+            groupActive = groupSession.isActive,
+            trustedWatchers = uiState.trustedWatchers,
+            onDismiss = { showHomeSharing = false },
+            onStartDirectShare = { durationMinutes ->
+                AnalyticsManager.trackLiveShareTappedHome()
+                launchDirectLiveShare(durationMinutes)
+            },
+            onStopShare = { viewModel.stopLiveShare() },
+            onShareLink = { shareLiveShareLink() },
+            onCopyLink = { copyLiveShareLink() },
+            onInviteWatcher = {
+                val inviteUrl = viewModel.buildWatcherInviteLink()
+                if (inviteUrl != null) {
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, strings.trustedWatchersTitle)
+                        putExtra(Intent.EXTRA_TEXT, inviteUrl)
                     }
+                    context.startActivity(Intent.createChooser(sendIntent, strings.trustedWatchersAddCta))
+                } else {
+                    messenger.show(strings.liveShareAuthRequired, duration = SnackbarDuration.Long)
                 }
             },
-            confirmButton = {
-                TextButton(enabled = !groupSession.isActive, onClick = {
-                    if (active) viewModel.stopLiveShare()
-                    else viewModel.startLiveShare(durationMinutes = 30, stopOnRideEnd = true)
-                    showHomeSharing = false
-                }) { Text(if (active) strings.homeStopSharing else strings.homeStartSharing) }
-            },
-            dismissButton = { TextButton(onClick = { showHomeSharing = false }) { Text(strings.close) } })
+            onToggleWatcherAutoNotify = viewModel::toggleWatcherAutoNotify,
+            onRemoveWatcher = viewModel::removeTrustedWatcher,
+        )
     }
 
     Scaffold(
@@ -1501,91 +1592,110 @@ fun HomeScreen(
                         }
                     }
 
-                    ActiveRideHudPanel(
-                    trackingState = uiState.trackingState,
-                    distanceText = uiState.distanceText,
-                    durationText = uiState.durationText,
-                    elapsedDurationText = uiState.elapsedDurationText,
-                    elapsedDurationMillis = uiState.elapsedDurationMillis,
-                    speedText = uiState.speedText,
-                    paceText = uiState.paceText,
-                    v1DistanceMeters = uiState.distanceMeters,
-                    v1SpeedMetersPerSecond = uiState.speedMetersPerSecond,
-                    selectedPersona = uiState.selectedPersona,
-                    isAutoPaused = uiState.isAutoPaused,
-                    timeSinceLastGps = uiState.timeSinceLastGps,
-                    liveShareState = uiState.liveShareState,
-                    isAuthenticated = uiState.isAuthenticated,
-                    liveShareAuthRequired = strings.liveShareAuthRequired,
-                    isOffline = isOffline,
-                    pipEligible = PiPModePolicy.isEligible(uiState.trackingState.toPiPRideState(), pipDashboardEnabled),
-                    onEnterPiP = {
-                        (context.findActivity() as? `in`.shvms.trackme.MainActivity)?.enterPiPFromHud()
-                    },
-                    groupPresencePillShown = groupPresencePillShown,
-                    onPauseToggle = {
-                        if (uiState.trackingState == TrackingState.TRACKING) {
-                            viewModel.pauseTracking()
-                        } else {
-                            viewModel.startTracking(uiState.selectedPersona)
-                        }
-                    },
-                    onStopRide = {
-                        if (uiState.distanceMeters < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DISTANCE_METERS &&
-                            uiState.durationMillis < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DURATION_MILLIS
-                        ) {
-                            showDiscardRideDialog = true
-                        } else {
-                            // No optimistic "Saving ride…" here. Only the service knows whether the
-                            // ride survives, and announcing an intent that the outcome then
-                            // contradicts is what produced two stacked, opposing messages.
-                            viewModel.stopTracking()
-                        }
-                    },
-                    onStartShare = {
-                        // §17.4: "while a Group Ride is live, the Home FAB should be *disabled
-                        // with a reason* rather than hidden — running both simultaneously is a
-                        // battery and confusion problem, and silently removing a control users
-                        // know is worse than explaining it."
-                        //
-                        // Two location broadcasts at once would also double the network cost of a
-                        // feature whose entire battery budget (§7.4) assumes one.
-                        if (groupSession.isActive) {
-                            messenger.show(
-                                strings.groupLiveShareBlocked,
-                                duration = SnackbarDuration.Long,
-                            )
-                        } else {
-                            viewModel.startLiveShare(durationMinutes = 1440, stopOnRideEnd = true)
-                        }
-                    },
-                    onStopShare = {
-                        viewModel.stopLiveShare()
-                        messenger.show(strings.liveShareStoppedToast)
-                    },
-                    onSendShare = {
-                        val shareLink = uiState.liveShareState.shareLink
-                        if (shareLink != null) {
-                            val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(android.content.Intent.EXTRA_SUBJECT, strings.liveShareButton)
-                                val message = "Hey, you can track my live ride until it ends here: $shareLink\n\nThanks, ${uiState.userName ?: "Track Me User"}"
-                                putExtra(android.content.Intent.EXTRA_TEXT, message)
-                            }
-                            context.startActivity(android.content.Intent.createChooser(sendIntent, strings.liveShareButton))
-                        }
-                    },
-                    onCopyShare = {
-                        val shareLink = uiState.liveShareState.shareLink
-                        if (shareLink != null) {
-                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            val clip = android.content.ClipData.newPlainText("Live Share Link", shareLink)
-                            clipboard.setPrimaryClip(clip)
-                            messenger.show(strings.linkCopied)
-                        }
-                    },
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    val showBroadcastHud = uiState.liveShareState.isLiveSharePrimary &&
+                        (uiState.liveShareState.status == LiveShareStatus.ACTIVE ||
+                            uiState.liveShareState.status == LiveShareStatus.STARTING) &&
+                        !showFullRideHudForPrimaryShare
+
+                    if (showBroadcastHud) {
+                        LiveShareBroadcastHudPanel(
+                            trackingState = uiState.trackingState,
+                            distanceText = uiState.distanceText,
+                            elapsedDurationText = uiState.elapsedDurationText,
+                            timeSinceLastGps = uiState.timeSinceLastGps,
+                            liveShareState = uiState.liveShareState,
+                            isOffline = isOffline,
+                            onExpandRideTelemetry = { showFullRideHudForPrimaryShare = true },
+                            onCopyShare = { copyLiveShareLink() },
+                            onSendShare = { shareLiveShareLink() },
+                            onStopShareAndRide = {
+                                if (uiState.distanceMeters < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DISTANCE_METERS &&
+                                    uiState.durationMillis < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DURATION_MILLIS
+                                ) {
+                                    showDiscardRideDialog = true
+                                } else {
+                                    viewModel.stopTracking()
+                                }
+                            },
+                            onKeepRecordingRide = {
+                                showFullRideHudForPrimaryShare = false
+                                viewModel.keepRecordingAfterLiveShare()
+                            },
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    } else {
+                        ActiveRideHudPanel(
+                            trackingState = uiState.trackingState,
+                            distanceText = uiState.distanceText,
+                            durationText = uiState.durationText,
+                            elapsedDurationText = uiState.elapsedDurationText,
+                            elapsedDurationMillis = uiState.elapsedDurationMillis,
+                            speedText = uiState.speedText,
+                            paceText = uiState.paceText,
+                            v1DistanceMeters = uiState.distanceMeters,
+                            v1SpeedMetersPerSecond = uiState.speedMetersPerSecond,
+                            selectedPersona = uiState.selectedPersona,
+                            isAutoPaused = uiState.isAutoPaused,
+                            timeSinceLastGps = uiState.timeSinceLastGps,
+                            liveShareState = uiState.liveShareState,
+                            isAuthenticated = uiState.isAuthenticated,
+                            liveShareAuthRequired = strings.liveShareAuthRequired,
+                            isOffline = isOffline,
+                            pipEligible = PiPModePolicy.isEligible(uiState.trackingState.toPiPRideState(), pipDashboardEnabled),
+                            onEnterPiP = {
+                                (context.findActivity() as? `in`.shvms.trackme.MainActivity)?.enterPiPFromHud()
+                            },
+                            groupPresencePillShown = groupPresencePillShown,
+                            onPauseToggle = {
+                                if (uiState.trackingState == TrackingState.TRACKING) {
+                                    viewModel.pauseTracking()
+                                } else {
+                                    viewModel.startTracking(uiState.selectedPersona)
+                                }
+                            },
+                            onStopRide = {
+                                if (uiState.distanceMeters < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DISTANCE_METERS &&
+                                    uiState.durationMillis < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DURATION_MILLIS
+                                ) {
+                                    showDiscardRideDialog = true
+                                } else {
+                                    // No optimistic "Saving ride…" here. Only the service knows whether the
+                                    // ride survives, and announcing an intent that the outcome then
+                                    // contradicts is what produced two stacked, opposing messages.
+                                    viewModel.stopTracking()
+                                }
+                            },
+                            onStartShare = {
+                                if (groupSession.isActive) {
+                                    messenger.show(
+                                        strings.groupLiveShareBlocked,
+                                        duration = SnackbarDuration.Long,
+                                    )
+                                } else {
+                                    AnalyticsManager.trackLiveShare1TapMidRide()
+                                    openSharesheetOnLiveShareReady = true
+                                    val autoWatchers = uiState.trustedWatchers.filter { it.autoNotify }.take(5)
+                                    viewModel.startLiveShare(
+                                        durationMinutes = 1440,
+                                        stopOnRideEnd = true,
+                                        watcherUids = autoWatchers.map { it.uid },
+                                        isLiveSharePrimary = false,
+                                        sharedWatcherNames = autoWatchers.map { it.displayName },
+                                    )
+                                }
+                            },
+                            onStopShare = {
+                                viewModel.stopLiveShare()
+                                messenger.show(strings.liveShareStoppedToast)
+                            },
+                            onSendShare = { shareLiveShareLink() },
+                            onCopyShare = { copyLiveShareLink() },
+                            modifier = Modifier.padding(bottom = 8.dp),
+                            showBackToBroadcastPill = uiState.liveShareState.isLiveSharePrimary &&
+                                uiState.liveShareState.status == LiveShareStatus.ACTIVE,
+                            onBackToBroadcastHud = { showFullRideHudForPrimaryShare = false },
+                        )
+                    }
                 }
             }
 
@@ -1642,8 +1752,29 @@ fun HomeScreen(
                     onOpenSettings = { openAppSettings(context) },
                     onDismissPermissionNotice = app::dismissLocationPermissionRevokedNoticeForSession,
                     scrollToTopRequest = scrollToTopRequest,
-                    onOpenLiveSharing = { showHomeSharing = true },
+                    onOpenLiveSharing = {
+                        if (uiState.liveShareState.status == LiveShareStatus.ACTIVE) {
+                            showHomeSharing = true
+                        } else if (groupSession.isActive) {
+                            messenger.show(strings.groupLiveShareBlocked, duration = SnackbarDuration.Long)
+                        } else if (!uiState.isAuthenticated) {
+                            showHomeSharing = true
+                        } else {
+                            AnalyticsManager.trackLiveShareTappedHome()
+                            launchDirectLiveShare(30)
+                        }
+                    },
                     liveSharingActive = uiState.liveShareState.status == LiveShareStatus.ACTIVE,
+                    watcherInboxInvite = uiState.watcherInboxInvite,
+                    onWatchLiveInvite = { invite ->
+                        runCatching {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, android.net.Uri.parse(invite.shareUrl))
+                            )
+                        }
+                    },
+                    trustedWatcherCount = uiState.trustedWatchers.size,
+                    onManageWatchers = { showHomeSharing = true },
                 )
             }
 

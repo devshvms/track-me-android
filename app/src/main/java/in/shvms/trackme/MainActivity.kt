@@ -83,6 +83,7 @@ class MainActivity : AppCompatActivity() {
     handleGroupInvite(intent)
     handleQuickStart(intent)
     handleWeeklyRecap(intent)
+    handleLiveShareNotification(intent)
 
     pipDashboardStateSource = PiPDashboardStateSource(
       trackingManager = app.trackingManager,
@@ -240,6 +241,20 @@ class MainActivity : AppCompatActivity() {
       handleGroupInvite(intent)
       handleQuickStart(intent)
       handleWeeklyRecap(intent)
+      handleLiveShareNotification(intent)
+  }
+
+  private fun handleLiveShareNotification(intent: android.content.Intent?) {
+      val type = intent?.getStringExtra("type") ?: return
+      if (type != "live_share_started") return
+      AnalyticsManager.trackWatcherPushOpened()
+      val shareUrl = intent.getStringExtra("shareUrl")?.takeIf { it.isNotBlank() }
+      intent.removeExtra("type")
+      if (shareUrl != null) {
+          runCatching {
+              startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(shareUrl)))
+          }
+      }
   }
 
   /**
@@ -423,6 +438,11 @@ class MainActivity : AppCompatActivity() {
       }
       // B2: surface a weekly recap for a just-completed week (shared foreground trigger).
       app.checkWeeklyRecap()
+      if (app.authManager.currentUser.value != null) {
+          lifecycleScope.launch {
+              app.trustedWatchersRepository.refreshInbox()
+          }
+      }
   }
   override fun onPause() {
       super.onPause()

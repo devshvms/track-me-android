@@ -198,7 +198,9 @@ fun ActiveRideHudPanel(
     onStopShare: () -> Unit,
     onSendShare: () -> Unit,
     onCopyShare: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showBackToBroadcastPill: Boolean = false,
+    onBackToBroadcastHud: () -> Unit = {},
 ) {
     val strings = LocalAppStrings.current
     val elevation = LocalTrackMeElevation.current
@@ -324,13 +326,24 @@ fun ActiveRideHudPanel(
                 )
             }
 
-            // Live Share Pill
+            // Live Share Pill (tappable back to Broadcast HUD when flipped from Direct Share Mode)
             if (liveShareState.status == LiveShareStatus.ACTIVE) {
+                val baseText = if (showBackToBroadcastPill) {
+                    strings.liveShareBackToBroadcastHud
+                } else {
+                    strings.hudLiveSharingPill
+                }
+                val pillText = if (liveShareState.activeViewers > 0) {
+                    "$baseText · ${liveShareState.activeViewers}"
+                } else {
+                    baseText
+                }
                 HudPill(
-                    text = strings.hudLiveSharingPill,
+                    text = pillText,
                     icon = Icons.Default.Sensors,
                     containerColor = CyanBright,
                     contentColor = Color.Black,
+                    onClick = if (showBackToBroadcastPill) onBackToBroadcastHud else null,
                 )
             }
 

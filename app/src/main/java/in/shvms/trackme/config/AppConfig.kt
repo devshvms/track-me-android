@@ -55,6 +55,7 @@ object AppConfig {
     const val LIVE_SHARE_START_ENDPOINT = "$LIVE_SHARE_API_PATH/start"
     const val LIVE_SHARE_LOCATION_ENDPOINT_TEMPLATE = "$LIVE_SHARE_API_PATH/%s/location"
     const val LIVE_SHARE_STOP_ENDPOINT_TEMPLATE = "$LIVE_SHARE_API_PATH/%s/stop"
+    const val LIVE_SHARE_WATCHER_INVITE_PREFIX = "$LIVE_SHARE_BASE_URL/live/watcher"
 
     // --- Group Ride relay (1.7.x) ---
     // Overridable at build time (see app/build.gradle.kts, §6.2 H7) so group development can

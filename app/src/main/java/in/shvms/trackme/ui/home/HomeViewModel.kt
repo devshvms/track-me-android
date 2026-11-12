@@ -6,12 +6,16 @@ import androidx.lifecycle.viewModelScope
 import `in`.shvms.trackme.service.TrackingManager
 import `in`.shvms.trackme.service.TrackingService
 import `in`.shvms.trackme.service.TrackingState
+import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.auth.AuthManager
 import `in`.shvms.trackme.data.local.AppPreferencesManager
 import `in`.shvms.trackme.data.local.HomeDashboardRepository
 import `in`.shvms.trackme.data.local.dao.HomeDashboardRoutePoint
 import `in`.shvms.trackme.data.remote.FirestoreSyncManager
 import `in`.shvms.trackme.data.remote.SyncResult
+import `in`.shvms.trackme.data.remote.TrustedWatcher
+import `in`.shvms.trackme.data.remote.TrustedWatchersRepository
+import `in`.shvms.trackme.data.remote.WatcherInboxInvite
 import `in`.shvms.trackme.domain.home.HomeDashboardSummary
 import `in`.shvms.trackme.domain.processor.TrackingV2Snapshot
 import `in`.shvms.trackme.data.remote.LiveShareManager
@@ -76,7 +80,9 @@ data class HomeUiState(
     val isDashboardReconciling: Boolean = true,
     val dashboardSyncNeedsAction: Boolean = false,
     val isAuthenticated: Boolean = false,
-    val userName: String? = null
+    val userName: String? = null,
+    val trustedWatchers: List<TrustedWatcher> = emptyList(),
+    val watcherInboxInvite: WatcherInboxInvite? = null,
 )
 
 class HomeViewModel(
@@ -86,6 +92,7 @@ class HomeViewModel(
     private val preferencesManager: AppPreferencesManager,
     private val dashboardRepository: HomeDashboardRepository,
     private val firestoreSyncManager: FirestoreSyncManager,
+    private val trustedWatchersRepository: TrustedWatchersRepository,
 ) : ViewModel() {
 
     private val selectedDashboardPersona = MutableStateFlow(preferencesManager.lastStartedPersona.value)
@@ -134,7 +141,10 @@ class HomeViewModel(
     sealed class UiEvent {
         data class SendServiceCommand(val action: String) : UiEvent()
         object LiveShareAuthRequired : UiEvent()
-        data class LiveShareStarted(val isTrackingActive: Boolean) : UiEvent()
+        data class LiveShareStarted(
+            val isTrackingActive: Boolean,
+            val notifiedWatchersCount: Int = 0,
+        ) : UiEvent()
         object LiveShareAuthExpired : UiEvent()
         data class LiveShareGracefulError(val message: String) : UiEvent()
         object LiveShareStopped : UiEvent()
@@ -213,12 +223,18 @@ class HomeViewModel(
 
     val trackingV2LastComparison = trackingManager.trackingV2LastComparison
 
+    private val watcherState = combine(
+        trustedWatchersRepository.watchers,
+        trustedWatchersRepository.inboxInvite,
+    ) { watchers, inboxInvite -> watchers to inboxInvite }
+
     val uiState = combine(
         trackingStats,
         liveShareManager.state,
         authManager.currentUser,
         dashboardState,
-    ) { stats, liveShare, user, dashboard ->
+        watcherState,
+    ) { stats, liveShare, user, dashboard, watchersPair ->
         stats.copy(
             liveShareState = liveShare,
             isAuthenticated = user != null,
@@ -228,6 +244,8 @@ class HomeViewModel(
             dashboardSummaryResolved = dashboard.resolved,
             isDashboardReconciling = dashboard.reconciling,
             dashboardSyncNeedsAction = dashboard.syncNeedsAction,
+            trustedWatchers = watchersPair.first,
+            watcherInboxInvite = watchersPair.second,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
 
@@ -302,17 +320,36 @@ class HomeViewModel(
         viewModelScope.launch { _uiEvent.emit(UiEvent.SendServiceCommand(action)) }
     }
 
-    fun startLiveShare(durationMinutes: Int, stopOnRideEnd: Boolean) {
+    fun startLiveShare(
+        durationMinutes: Int,
+        stopOnRideEnd: Boolean,
+        watcherUids: List<String> = emptyList(),
+        isLiveSharePrimary: Boolean = false,
+        sharedWatcherNames: List<String> = emptyList(),
+    ) {
         viewModelScope.launch {
             if (authManager.currentUser.value == null) {
                 _uiEvent.emit(UiEvent.LiveShareAuthRequired)
                 return@launch
             }
             val username = authManager.currentUser.value?.displayName
-            val result = liveShareManager.startSession(durationMinutes, username, stopOnRideEnd)
-            if (result.isSuccess) {
+            val result = liveShareManager.startSession(
+                durationMinutes = durationMinutes,
+                username = username,
+                stopOnRideEnd = stopOnRideEnd,
+                watcherUids = watcherUids,
+                isLiveSharePrimary = isLiveSharePrimary,
+                sharedWatcherNames = sharedWatcherNames,
+            )
+            val started = result.getOrNull()
+            if (started != null) {
                 val isTracking = uiState.value.trackingState == TrackingState.TRACKING || uiState.value.trackingState == TrackingState.PAUSED
-                _uiEvent.emit(UiEvent.LiveShareStarted(isTracking))
+                _uiEvent.emit(
+                    UiEvent.LiveShareStarted(
+                        isTrackingActive = isTracking,
+                        notifiedWatchersCount = started.notifiedWatchersCount,
+                    )
+                )
             } else {
                 emitLiveShareError(result.exceptionOrNull())
             }
@@ -330,6 +367,32 @@ class HomeViewModel(
         }
     }
 
+    fun keepRecordingAfterLiveShare() {
+        AnalyticsManager.trackLiveShareStoppedKeepRide()
+        liveShareManager.demotePrimaryToRideOnly()
+        stopLiveShare("User stopped live sharing and kept recording ride.")
+    }
+
+    fun toggleWatcherAutoNotify(watcherUid: String, enabled: Boolean) {
+        viewModelScope.launch {
+            trustedWatchersRepository.setAutoNotify(watcherUid, enabled)
+        }
+    }
+
+    fun removeTrustedWatcher(watcherUid: String) {
+        viewModelScope.launch {
+            trustedWatchersRepository.removeWatcher(watcherUid)
+        }
+    }
+
+    fun refreshWatcherInbox() {
+        viewModelScope.launch {
+            trustedWatchersRepository.refreshInbox()
+        }
+    }
+
+    fun buildWatcherInviteLink(): String? = trustedWatchersRepository.buildCurrentUserInviteLink()
+
     private suspend fun emitLiveShareError(error: Throwable?) {
         if (LiveShareManager.isAuthenticationError(error)) {
             _uiEvent.emit(UiEvent.LiveShareAuthExpired)
@@ -346,6 +409,7 @@ class HomeViewModelFactory(
     private val preferencesManager: AppPreferencesManager,
     private val dashboardRepository: HomeDashboardRepository,
     private val firestoreSyncManager: FirestoreSyncManager,
+    private val trustedWatchersRepository: TrustedWatchersRepository,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
@@ -357,6 +421,7 @@ class HomeViewModelFactory(
                 preferencesManager,
                 dashboardRepository,
                 firestoreSyncManager,
+                trustedWatchersRepository,
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

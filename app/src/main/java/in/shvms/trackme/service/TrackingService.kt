@@ -122,6 +122,7 @@ class TrackingService : Service() {
     private var lastGpsPauseTelemetryMs = 0L
     private var lastGpsResumeTelemetryMs = 0L
     private var lastLiveShareTimeMs = 0L
+    private var lastLiveShareSessionId: String? = null
     private var lastNotifyElapsedMs = Long.MIN_VALUE
     private var lastNotifyDistanceMeters = 0f
     private var lastNotifyState: TrackingState? = null
@@ -349,6 +350,10 @@ class TrackingService : Service() {
                 
                 val liveShareState = liveShareManager.state.value
                 if (liveShareState.status == LiveShareStatus.ACTIVE) {
+                    if (liveShareState.sessionId != lastLiveShareSessionId) {
+                        lastLiveShareSessionId = liveShareState.sessionId
+                        lastLiveShareTimeMs = 0L
+                    }
                     val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
                     val freqSec = prefs.getInt("live_share_frequency_sec", 5)
                     val now = System.currentTimeMillis()
@@ -503,7 +508,12 @@ class TrackingService : Service() {
                 withContext(Dispatchers.Main.immediate) { enterStorageLowState() }
             }
         }
-        if (publishLiveLocation && liveShareManager.state.value.status == LiveShareStatus.ACTIVE) {
+        val currentLiveShareState = liveShareManager.state.value
+        if (publishLiveLocation && currentLiveShareState.status == LiveShareStatus.ACTIVE) {
+            if (currentLiveShareState.sessionId != lastLiveShareSessionId) {
+                lastLiveShareSessionId = currentLiveShareState.sessionId
+                lastLiveShareTimeMs = 0L
+            }
             val now = System.currentTimeMillis()
             if (now - lastLiveShareTimeMs >= prefs.getInt("live_share_frequency_sec", 5) * 1000L) {
                 lastLiveShareTimeMs = now

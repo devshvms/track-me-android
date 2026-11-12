@@ -185,7 +185,9 @@ fun InteractiveShareLocationButton(
         contentAlignment = Alignment.Center,
         modifier = modifier
     ) {
-        // Base Push Button (s1, s3, s4) transforms into cross (X) when drawer is open
+        // Base Push Button (s1, s3, s4) transforms into cross (X) when drawer is open.
+        // v1.9.3: when idle/error/expired, 1 tap immediately starts live sharing (skipping the
+        // intermediate PlayArrow sub-drawer). When ACTIVE, tapping toggles the Send/Copy/Stop drawer.
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -193,10 +195,15 @@ fun InteractiveShareLocationButton(
                 .scale(buttonScale.value)
                 .clip(CircleShape)
                 .background(color = animatedBgColor)
-                .clickable(enabled = isAuthenticated) {
+                .clickable(enabled = isAuthenticated && !isStarting) {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     triggerPhysicalVibrate(context, 35L)
-                    isDrawerOpen = !isDrawerOpen
+                    if (isActive) {
+                        isDrawerOpen = !isDrawerOpen
+                    } else {
+                        isDrawerOpen = false
+                        onStartShare()
+                    }
                 }
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -242,26 +249,46 @@ fun InteractiveShareLocationButton(
             }
         }
 
-        // Red notification dot when share link is ready and drawer is closed
+        // Viewer count pill or pulsing ready dot when drawer is closed
         if (isActive && liveShareState.shareLink != null && !isDrawerOpen) {
-            val dotPulse by infiniteTransition.animateFloat(
-                initialValue = 0.85f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(600, easing = FastOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "dotPulse"
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = (-2).dp, y = 2.dp)
-                    .size(12.dp)
-                    .scale(dotPulse)
-                    .clip(CircleShape)
-                    .background(TrackMeRed)
-            )
+            if (liveShareState.activeViewers > 0) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 2.dp, y = (-2).dp)
+                        .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                ) {
+                    Text(
+                        text = liveShareState.activeViewers.toString(),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
+            } else {
+                val dotPulse by infiniteTransition.animateFloat(
+                    initialValue = 0.85f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(600, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "dotPulse"
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = (-2).dp, y = 2.dp)
+                        .size(12.dp)
+                        .scale(dotPulse)
+                        .clip(CircleShape)
+                        .background(TrackMeRed)
+                )
+            }
         }
 
         // Upward Circular Drawer (s2 / s5)
