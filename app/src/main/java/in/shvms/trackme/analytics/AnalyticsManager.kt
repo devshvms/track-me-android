@@ -911,6 +911,64 @@ object AnalyticsManager {
             )
         )
     }
+
+    // ------------------------------------------------------------------------------------
+    // v1.9.3 Live Share 1-tap & Trusted Watchers (zero PII, zero coordinates)
+    // ------------------------------------------------------------------------------------
+
+    fun trackLiveShareTappedHome(watcherAutoCount: Int = 0) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_tapped_home",
+            properties = mapOf(
+                "platform" to "android",
+                "auto_watcher_count" to watcherAutoCount,
+            )
+        )
+    }
+
+    fun trackLiveShare1TapMidRide(watcherAutoCount: Int = 0) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_1tap_mid_ride",
+            properties = mapOf(
+                "platform" to "android",
+                "auto_watcher_count" to watcherAutoCount,
+            )
+        )
+    }
+
+    fun trackLiveShareStoppedKeepRide() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_stopped_keep_ride",
+            properties = mapOf("platform" to "android")
+        )
+    }
+
+    fun trackTrustedWatcherAdded() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "trusted_watcher_added",
+            properties = mapOf("platform" to "android")
+        )
+    }
+
+    fun trackTrustedWatcherRemoved() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "trusted_watcher_removed",
+            properties = mapOf("platform" to "android")
+        )
+    }
+
+    fun trackWatcherPushOpened() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "watcher_push_opened",
+            properties = mapOf("platform" to "android")
+        )
+    }
 }
 
 enum class RideStartAbortMethod(val analyticsValue: String) {

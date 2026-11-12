@@ -121,6 +121,10 @@ internal fun HomeDashboardScreen(
     scrollToTopRequest: Int = 0,
     onOpenLiveSharing: () -> Unit = {},
     liveSharingActive: Boolean = false,
+    watcherInboxInvite: `in`.shvms.trackme.data.remote.WatcherInboxInvite? = null,
+    onWatchLiveInvite: (`in`.shvms.trackme.data.remote.WatcherInboxInvite) -> Unit = {},
+    trustedWatcherCount: Int = 0,
+    onManageWatchers: () -> Unit = {},
 ) {
     val strings = LocalAppStrings.current
     // A first Room emission can still be an empty projection while legacy metadata is being
@@ -147,6 +151,16 @@ internal fun HomeDashboardScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         if (deckResolved) {
+            if (watcherInboxInvite != null) {
+                item {
+                    WatcherInboxBannerCard(
+                        invite = watcherInboxInvite,
+                        strings = strings,
+                        onWatch = { onWatchLiveInvite(watcherInboxInvite) },
+                    )
+                }
+            }
+
             if (locationPermissionRevoked) {
                 item {
                     PermissionRevokedCard(
@@ -186,7 +200,7 @@ internal fun HomeDashboardScreen(
                     Card(modifier = Modifier.width(tileWidth),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
                         Column(Modifier.fillMaxWidth().heightIn(min = 180.dp).padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 // A location mark, not a route: this tile shares *where you are*,
                                 // and the route glyph belongs to the ride tiles below. iOS uses
@@ -211,14 +225,29 @@ internal fun HomeDashboardScreen(
                                     contentDescription = if (liveSharingActive) {
                                         strings.homeManageSharingLabel
                                     } else {
-                                        strings.homeSetUpSharingLabel
+                                        strings.homeShareLiveLocation
                                     }
                                 },
                             ) {
                                 Text(
-                                    if (liveSharingActive) strings.homeManageSharing else strings.homeSetUpSharing,
+                                    if (liveSharingActive) strings.homeManageSharing else strings.homeShareLiveLocation,
                                     // A label that still outgrows the tile in some language should
                                     // shorten, not reflow the button into two lines.
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            TextButton(
+                                onClick = onManageWatchers,
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                            ) {
+                                Text(
+                                    text = String.format(
+                                        Locale.getDefault(),
+                                        strings.trustedWatchersButton,
+                                        trustedWatcherCount,
+                                    ),
+                                    style = MaterialTheme.typography.labelMedium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -778,3 +807,43 @@ private fun ProgressCard(snapshot: GamificationSnapshot, strings: AppStrings, on
         }
     }
 }
+
+@Composable
+private fun WatcherInboxBannerCard(
+    invite: `in`.shvms.trackme.data.remote.WatcherInboxInvite,
+    strings: AppStrings,
+    onWatch: () -> Unit,
+) {
+    Card(
+        onClick = onWatch,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.MyLocation,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = String.format(Locale.getDefault(), strings.watcherInboxBannerTitle, invite.riderName),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            FilledTonalButton(onClick = onWatch) {
+                Text(strings.watcherInboxBannerAction, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+

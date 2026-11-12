@@ -36,6 +36,8 @@ class TrackMeApp : Application() {
         private set
 
     lateinit var liveShareManager: LiveShareManager
+    lateinit var trustedWatchersRepository: `in`.shvms.trackme.data.remote.TrustedWatchersRepository
+        private set
 
     /**
      * Group Ride session state and the sync loop (§4.6). Created here rather than injected because
@@ -263,6 +265,8 @@ class TrackMeApp : Application() {
         pipAlertStore = `in`.shvms.trackme.ui.home.components.PiPAlertStore(applicationScope)
         authManager = AuthManager()
         liveShareManager = LiveShareManager()
+        trustedWatchersRepository = `in`.shvms.trackme.data.remote.TrustedWatchersRepository()
+        trustedWatchersRepository.bindToAuth(authManager, applicationScope)
         groupSessionStore = `in`.shvms.trackme.data.local.GroupSessionStore(this)
         groupSessionManager = `in`.shvms.trackme.data.remote.GroupSessionManager(groupSessionStore)
         // §6.1 B6: a session orphaned by an OS kill has to come back on its own, before any UI

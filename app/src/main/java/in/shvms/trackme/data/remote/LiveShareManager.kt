@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
@@ -29,20 +30,31 @@ data class LiveShareState(
     val shareLink: String? = null,
     val expiresAt: Instant? = null,
     val startedAt: Instant? = null,
-    val stopOnRideEnd: Boolean = false
+    val stopOnRideEnd: Boolean = false,
+    val activeViewers: Int = 0,
+    val isLiveSharePrimary: Boolean = false,
+    val notifiedWatchersCount: Int = 0,
+    val sharedWatcherNames: List<String> = emptyList(),
 )
 
 class LiveShareHttpException(val statusCode: Int) : Exception(
     "Live share request failed with HTTP $statusCode"
 )
 
+internal data class ParsedLiveShareStartResponse(
+    val sessionId: String,
+    val shareLink: String,
+    val expiresAt: Instant,
+    val notifiedWatchersCount: Int,
+)
+
 class LiveShareManager {
     private val _state = MutableStateFlow(LiveShareState())
     val state: StateFlow<LiveShareState> = _state.asStateFlow()
 
-    private suspend fun firebaseIdToken(): String {
+    private suspend fun firebaseIdToken(forceRefresh: Boolean = false): String {
         return FirebaseAuth.getInstance().currentUser
-            ?.getIdToken(true)
+            ?.getIdToken(forceRefresh)
             ?.await()
             ?.token
             ?: throw Exception("You must be signed in to start live sharing.")
@@ -52,56 +64,58 @@ class LiveShareManager {
         setRequestProperty("Authorization", "Bearer $token")
     }
 
-    suspend fun startSession(durationMinutes: Int, username: String? = null, stopOnRideEnd: Boolean = false): Result<LiveShareState> = withContext(Dispatchers.IO) {
-        _state.value = _state.value.copy(status = LiveShareStatus.STARTING)
+    suspend fun startSession(
+        durationMinutes: Int,
+        username: String? = null,
+        stopOnRideEnd: Boolean = false,
+        watcherUids: List<String> = emptyList(),
+        isLiveSharePrimary: Boolean = false,
+        sharedWatcherNames: List<String> = emptyList(),
+    ): Result<LiveShareState> = withContext(Dispatchers.IO) {
+        _state.value = _state.value.copy(
+            status = LiveShareStatus.STARTING,
+            isLiveSharePrimary = isLiveSharePrimary,
+        )
         try {
-            val token = firebaseIdToken()
-            val url = URL(AppConfig.LIVE_SHARE_BASE_URL + AppConfig.LIVE_SHARE_START_ENDPOINT)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 15_000
-            conn.readTimeout = 15_000
-            conn.requestMethod = "POST"
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.setBearerToken(token)
-            conn.doOutput = true
-
-            val requestBody = JSONObject().apply {
-                put("durationMinutes", durationMinutes)
-                if (username != null) {
-                    put("username", username)
-                }
+            val requestBody = buildStartRequestBody(durationMinutes, username, watcherUids)
+            var token = firebaseIdToken(forceRefresh = false)
+            var (statusCode, body) = executePost(
+                url = AppConfig.LIVE_SHARE_BASE_URL + AppConfig.LIVE_SHARE_START_ENDPOINT,
+                token = token,
+                jsonBody = requestBody.toString(),
+            )
+            if (statusCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                token = firebaseIdToken(forceRefresh = true)
+                val retry = executePost(
+                    url = AppConfig.LIVE_SHARE_BASE_URL + AppConfig.LIVE_SHARE_START_ENDPOINT,
+                    token = token,
+                    jsonBody = requestBody.toString(),
+                )
+                statusCode = retry.first
+                body = retry.second
             }
 
-            OutputStreamWriter(conn.outputStream).use { writer ->
-                writer.write(requestBody.toString())
-            }
-
-            if (conn.responseCode == 200) {
-                val responseString = conn.inputStream.bufferedReader().use { it.readText() }
-                val responseJson = JSONObject(responseString)
-                
-                val sessionId = responseJson.getString("sessionId")
-                val shareLink = responseJson.getString("shareLink")
-                val expiresAtStr = responseJson.getString("expiresAt")
-                
-                val expiresAt = Instant.parse(expiresAtStr)
-                
+            if (statusCode == HttpURLConnection.HTTP_OK) {
+                val parsed = parseStartResponse(body)
                 val newState = LiveShareState(
                     status = LiveShareStatus.ACTIVE,
-                    sessionId = sessionId,
-                    shareLink = shareLink,
-                    expiresAt = expiresAt,
+                    sessionId = parsed.sessionId,
+                    shareLink = parsed.shareLink,
+                    expiresAt = parsed.expiresAt,
                     startedAt = Instant.now(),
-                    stopOnRideEnd = stopOnRideEnd
+                    stopOnRideEnd = stopOnRideEnd,
+                    activeViewers = 0,
+                    isLiveSharePrimary = isLiveSharePrimary,
+                    notifiedWatchersCount = parsed.notifiedWatchersCount,
+                    sharedWatcherNames = sharedWatcherNames,
                 )
                 _state.value = newState
-                
-                `in`.shvms.trackme.analytics.AnalyticsManager.trackLiveShareStarted(sessionId, 0)
-                
+
+                `in`.shvms.trackme.analytics.AnalyticsManager.trackLiveShareStarted(parsed.sessionId, 0)
+
                 Result.success(newState)
             } else {
                 _state.value = LiveShareState(status = LiveShareStatus.IDLE)
-                val statusCode = conn.responseCode
                 val error = if (statusCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
                     LiveShareHttpException(statusCode)
                 } else {
@@ -124,7 +138,8 @@ class LiveShareManager {
         powerSaveMode: Boolean = false
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val currentState = _state.value
-        if (currentState.status != LiveShareStatus.ACTIVE || currentState.sessionId == null) {
+        val activeSessionId = currentState.sessionId
+        if (currentState.status != LiveShareStatus.ACTIVE || activeSessionId == null) {
             return@withContext Result.failure(Exception("No active session"))
         }
 
@@ -134,17 +149,6 @@ class LiveShareManager {
         }
 
         try {
-            val token = firebaseIdToken()
-            val endpoint = String.format(AppConfig.LIVE_SHARE_LOCATION_ENDPOINT_TEMPLATE, currentState.sessionId)
-            val url = URL(AppConfig.LIVE_SHARE_BASE_URL + endpoint)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 15_000
-            conn.readTimeout = 15_000
-            conn.requestMethod = "POST"
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.setBearerToken(token)
-            conn.doOutput = true
-
             val requestBody = JSONObject().apply {
                 put("lat", lat)
                 put("lng", lon)
@@ -153,25 +157,54 @@ class LiveShareManager {
                 if (heading != null) put("heading", heading)
                 put("powerSaveMode", powerSaveMode)
                 put("timestamp", DateTimeFormatter.ISO_INSTANT.format(Instant.now()))
+            }.toString()
+
+            val endpoint = String.format(AppConfig.LIVE_SHARE_LOCATION_ENDPOINT_TEMPLATE, activeSessionId)
+            val fullUrl = AppConfig.LIVE_SHARE_BASE_URL + endpoint
+            var token = firebaseIdToken(forceRefresh = false)
+            var (statusCode, body) = executePost(fullUrl, token, requestBody)
+            if (statusCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                token = firebaseIdToken(forceRefresh = true)
+                val retry = executePost(fullUrl, token, requestBody)
+                statusCode = retry.first
+                body = retry.second
             }
 
-            OutputStreamWriter(conn.outputStream).use { writer ->
-                writer.write(requestBody.toString())
-            }
-
-            if (conn.responseCode == 200) {
-                Result.success(Unit)
-            } else if (conn.responseCode == 404) {
-                _state.value = currentState.copy(status = LiveShareStatus.EXPIRED)
-                Result.failure(Exception("Session not found or expired (404)"))
-            } else if (conn.responseCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
-                _state.value = currentState.copy(status = LiveShareStatus.ERROR)
-                Result.failure(LiveShareHttpException(conn.responseCode))
-            } else {
-                Result.failure(Exception("Failed to push location: ${conn.responseCode}"))
+            when (statusCode) {
+                HttpURLConnection.HTTP_OK -> {
+                    val viewers = parseActiveViewers(body, fallback = currentState.activeViewers)
+                    val latest = _state.value
+                    if (latest.status == LiveShareStatus.ACTIVE &&
+                        latest.sessionId == activeSessionId &&
+                        latest.activeViewers != viewers
+                    ) {
+                        _state.value = latest.copy(activeViewers = viewers)
+                    }
+                    Result.success(Unit)
+                }
+                HttpURLConnection.HTTP_NOT_FOUND -> {
+                    _state.value = _state.value.copy(status = LiveShareStatus.EXPIRED)
+                    Result.failure(Exception("Session not found or expired (404)"))
+                }
+                HttpURLConnection.HTTP_UNAUTHORIZED -> {
+                    _state.value = _state.value.copy(status = LiveShareStatus.ERROR)
+                    Result.failure(LiveShareHttpException(statusCode))
+                }
+                else -> Result.failure(Exception("Failed to push location: $statusCode"))
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    /**
+     * Promotes a Direct Share recording into a standard standalone ride UI state (e.g., if user
+     * switches back to full telemetry or keeps recording after stopping live share).
+     */
+    fun demotePrimaryToRideOnly() {
+        val current = _state.value
+        if (current.isLiveSharePrimary) {
+            _state.value = current.copy(isLiveSharePrimary = false)
         }
     }
 
@@ -183,42 +216,28 @@ class LiveShareManager {
         }
 
         try {
-            val token = firebaseIdToken()
+            val token = firebaseIdToken(forceRefresh = false)
             val endpoint = String.format(AppConfig.LIVE_SHARE_STOP_ENDPOINT_TEMPLATE, currentState.sessionId)
-            val url = URL(AppConfig.LIVE_SHARE_BASE_URL + endpoint)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 15_000
-            conn.readTimeout = 15_000
-            conn.requestMethod = "POST"
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.setBearerToken(token)
-            conn.doOutput = true
-
             val requestBody = JSONObject().apply {
                 if (reason != null) {
                     put("stopReason", reason)
                 }
-            }
-
-            OutputStreamWriter(conn.outputStream).use { writer ->
-                writer.write(requestBody.toString())
-            }
+            }.toString()
+            val (statusCode, _) = executePost(AppConfig.LIVE_SHARE_BASE_URL + endpoint, token, requestBody)
 
             val durationSecs = currentState.startedAt?.let {
                 java.time.Duration.between(it, Instant.now()).seconds
             } ?: 0L
-            
+
             `in`.shvms.trackme.analytics.AnalyticsManager.trackLiveShareEnded(currentState.sessionId, durationSecs)
-            
+
             // Regardless of backend response, we stop it locally
             _state.value = LiveShareState(status = LiveShareStatus.IDLE)
-            
-            if (conn.responseCode == 200) {
-                Result.success(Unit)
-            } else if (conn.responseCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
-                Result.failure(LiveShareHttpException(conn.responseCode))
-            } else {
-                Result.failure(Exception("Failed to stop session on server: ${conn.responseCode}"))
+
+            when (statusCode) {
+                HttpURLConnection.HTTP_OK -> Result.success(Unit)
+                HttpURLConnection.HTTP_UNAUTHORIZED -> Result.failure(LiveShareHttpException(statusCode))
+                else -> Result.failure(Exception("Failed to stop session on server: $statusCode"))
             }
         } catch (e: Exception) {
             _state.value = LiveShareState(status = LiveShareStatus.IDLE)
@@ -226,7 +245,72 @@ class LiveShareManager {
         }
     }
 
+    private fun executePost(url: String, token: String, jsonBody: String): Pair<Int, String> {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        return try {
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 15_000
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setBearerToken(token)
+            conn.doOutput = true
+
+            OutputStreamWriter(conn.outputStream).use { writer ->
+                writer.write(jsonBody)
+            }
+
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            code to body
+        } finally {
+            conn.disconnect()
+        }
+    }
+
     companion object {
+        const val MAX_AUTO_WATCHERS = 5
+
+        internal fun buildStartRequestBody(
+            durationMinutes: Int,
+            username: String?,
+            watcherUids: List<String>,
+        ): JSONObject {
+            val cleanedWatchers = watcherUids
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .distinct()
+                .take(MAX_AUTO_WATCHERS)
+            return JSONObject().apply {
+                put("durationMinutes", durationMinutes)
+                if (!username.isNullOrBlank()) {
+                    put("username", username)
+                }
+                if (cleanedWatchers.isNotEmpty()) {
+                    put("watcherUids", JSONArray(cleanedWatchers))
+                }
+            }
+        }
+
+        internal fun parseStartResponse(body: String): ParsedLiveShareStartResponse {
+            val json = JSONObject(body)
+            return ParsedLiveShareStartResponse(
+                sessionId = json.getString("sessionId"),
+                shareLink = json.getString("shareLink"),
+                expiresAt = Instant.parse(json.getString("expiresAt")),
+                notifiedWatchersCount = json.optInt("notifiedWatchersCount", 0).coerceAtLeast(0),
+            )
+        }
+
+        internal fun parseActiveViewers(body: String, fallback: Int = 0): Int {
+            if (body.isBlank()) return fallback
+            return runCatching {
+                val json = JSONObject(body)
+                if (json.has("activeViewers")) json.optInt("activeViewers", fallback).coerceAtLeast(0)
+                else fallback
+            }.getOrDefault(fallback)
+        }
+
         fun isAuthenticationError(e: Throwable?): Boolean {
             return e is LiveShareHttpException && e.statusCode == HttpURLConnection.HTTP_UNAUTHORIZED
         }
