@@ -374,7 +374,7 @@ class TrackingService : Service() {
                                 lat = location.latitude,
                                 lon = location.longitude,
                                 batteryLevel = batteryLevel,
-                                speed = if (location.hasSpeed()) location.speed else null,
+                                speed = if (location.hasSpeed()) (location.speed * 3.6f).coerceAtLeast(0f) else null,
                                 heading = heading,
                                 powerSaveMode = isPowerSave
                             )
@@ -525,7 +525,7 @@ class TrackingService : Service() {
                 val isPowerSave = (getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
                 serviceScope.launch {
                     liveShareManager.pushLocation(lat = location.latitude, lon = location.longitude,
-                        batteryLevel = battery, speed = snapshot.currentSpeedMetersPerSecond,
+                        batteryLevel = battery, speed = (snapshot.currentSpeedMetersPerSecond * 3.6f).coerceAtLeast(0f),
                         heading = if (location.hasBearing()) location.bearing else null,
                         powerSaveMode = isPowerSave)
                 }
