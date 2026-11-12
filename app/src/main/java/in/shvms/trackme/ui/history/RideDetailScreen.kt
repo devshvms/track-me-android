@@ -102,7 +102,9 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import java.text.SimpleDateFormat
@@ -110,6 +112,8 @@ import java.util.Date
 import java.util.Locale
 import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
+import `in`.shvms.trackme.domain.live.LiveShareInterval
+import `in`.shvms.trackme.domain.live.LiveShareIntervals
 import `in`.shvms.trackme.domain.processor.rideTrimWindow
 import `in`.shvms.trackme.domain.config.PersonaAutoPauseConfig
 import `in`.shvms.trackme.domain.processor.RideGaps
@@ -799,6 +803,25 @@ fun RideDetailScreen(
                         }
                     }
 
+                    val chartLiveIntervals = remember(
+                        ride.liveShareIntervalsJson,
+                        ride.isBroadcasted,
+                        ride.startTime,
+                        ride.endTime,
+                        points.lastOrNull()?.timestamp,
+                    ) {
+                        val parsed = LiveShareIntervals.parse(ride.liveShareIntervalsJson)
+                        if (parsed.isNotEmpty()) {
+                            parsed
+                        } else if (ride.isBroadcasted) {
+                            val fallbackEnd = (ride.endTime ?: points.lastOrNull()?.timestamp ?: ride.startTime)
+                                .coerceAtLeast(ride.startTime + 1L)
+                            listOf(LiveShareInterval(ride.startTime, fallbackEnd))
+                        } else {
+                            emptyList()
+                        }
+                    }
+
                     CombinedMetricLineChart(
                         points = points,
                         usesPace = chartUsesPace,
@@ -812,6 +835,8 @@ fun RideDetailScreen(
                         scrubIndex = (scrubIndex ?: points.lastIndex).coerceIn(points.indices),
                         onScrub = { scrubIndex = it },
                         imperial = imperial,
+                        liveShareIntervals = chartLiveIntervals,
+                        liveScrubBadgeText = strings.liveChartScrubLive,
                         modifier = Modifier.fillMaxWidth().height(160.dp).padding(horizontal = 16.dp)
                     )
                     
@@ -1602,6 +1627,71 @@ private fun RideSummaryCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            val showLiveBadge = ride.liveShareMode != null || ride.isBroadcasted
+            val liveBadgeText = if (ride.liveShareMode == LiveShareIntervals.MODE_PARTIAL) {
+                strings.liveShareBadgePartial
+            } else {
+                strings.liveShareBadgeFull
+            }
+            if (showLiveBadge || ride.wasGroupRide) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (showLiveBadge) {
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color(0xFF06B6D4).copy(alpha = 0.14f),
+                            contentColor = Color(0xFF0891B2),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Sensors,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = liveBadgeText,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
+                    if (ride.wasGroupRide) {
+                        val groupLabel = ride.groupRiderCount?.takeIf { it > 1 }
+                            ?.let { "${strings.groupRideBadge} · $it" }
+                            ?: strings.groupRideBadge
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Groups,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = groupLabel,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(16.dp))
             val effortIsPace = ridePersona.usesPace
             val avgMps = (ride.postRideCalculation?.avgSpeed ?: 0f).toDouble()
@@ -1737,6 +1827,8 @@ fun CombinedMetricLineChart(
     scrubIndex: Int? = null,
     onScrub: ((Int) -> Unit)? = null,
     imperial: Boolean = false,
+    liveShareIntervals: List<LiveShareInterval> = emptyList(),
+    liveScrubBadgeText: String = "Live Share",
     modifier: Modifier = Modifier
 ) {
     if (points.isEmpty()) return
@@ -1847,6 +1939,47 @@ fun CombinedMetricLineChart(
 
             val maxX = plotData.last().second.coerceAtLeast(1f)
 
+            // TASK-366 / SCOPE_1.9.3: shade active Live Share intervals on the chart canvas before curves
+            if (liveShareIntervals.isNotEmpty() && plotData.size >= 2) {
+                val firstTs = plotData.first().first.timestamp
+                val lastTs = plotData.last().first.timestamp
+                val liveCyan = Color(0xFF06B6D4)
+                val dashEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
+                liveShareIntervals.forEach { interval ->
+                    if (interval.endMillis > firstTs && interval.startMillis < lastTs) {
+                        val vStart = timestampToVisualTime(plotData, interval.startMillis.coerceIn(firstTs, lastTs))
+                        val vEnd = timestampToVisualTime(plotData, interval.endMillis.coerceIn(firstTs, lastTs))
+                        val xStart = (vStart / maxX) * width
+                        val xEnd = (vEnd / maxX) * width
+                        val bandWidth = (xEnd - xStart).coerceAtLeast(3f)
+                        drawRect(
+                            color = liveCyan.copy(alpha = 0.14f),
+                            topLeft = Offset(xStart, 0f),
+                            size = Size(bandWidth, height),
+                        )
+                        drawRect(
+                            color = liveCyan.copy(alpha = 0.85f),
+                            topLeft = Offset(xStart, 0f),
+                            size = Size(bandWidth, 4f),
+                        )
+                        drawLine(
+                            color = liveCyan.copy(alpha = 0.7f),
+                            start = Offset(xStart, 0f),
+                            end = Offset(xStart, height),
+                            strokeWidth = 2f,
+                            pathEffect = dashEffect,
+                        )
+                        drawLine(
+                            color = liveCyan.copy(alpha = 0.7f),
+                            start = Offset(xStart + bandWidth, 0f),
+                            end = Offset(xStart + bandWidth, height),
+                            strokeWidth = 2f,
+                            pathEffect = dashEffect,
+                        )
+                    }
+                }
+            }
+
             // Draw subtle vertical red dotted lines for GPS signal gaps > 25 seconds
             for (i in 0 until plotData.size - 1) {
                 val (p1, xVal1) = plotData[i]
@@ -1914,6 +2047,23 @@ fun CombinedMetricLineChart(
                 )
                 
                 val p = plotData[scrubIndex].first
+                if (LiveShareIntervals.containsTimestamp(liveShareIntervals, p.timestamp)) {
+                    val liveLayout = textMeasurer.measure(liveScrubBadgeText, style = labelStyle.copy(color = Color.White))
+                    val pillW = liveLayout.size.width + 16f
+                    val pillH = liveLayout.size.height + 6f
+                    val pillX = (scrubX - pillW / 2f).coerceIn(4f, (width - pillW - 4f).coerceAtLeast(4f))
+                    drawRoundRect(
+                        color = Color(0xFF0891B2).copy(alpha = 0.92f),
+                        topLeft = Offset(pillX, 6f),
+                        size = Size(pillW, pillH),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(pillH / 2f, pillH / 2f),
+                    )
+                    drawText(
+                        textLayoutResult = liveLayout,
+                        topLeft = Offset(pillX + 8f, 9f),
+                    )
+                }
+
                 val sVal = effortValue(p.speed, usesPace, imperial).coerceIn(minSpeed, maxSpeed)
                 val aVal = p.altitude.toFloat()
                 
@@ -1969,6 +2119,25 @@ fun CombinedMetricLineChart(
             }
         }
     }
+}
+
+private fun timestampToVisualTime(
+    plotData: List<Pair<GPSPointEntity, Float>>,
+    timestampMillis: Long,
+): Float {
+    if (plotData.isEmpty()) return 0f
+    if (timestampMillis <= plotData.first().first.timestamp) return plotData.first().second
+    if (timestampMillis >= plotData.last().first.timestamp) return plotData.last().second
+    for (i in 1 until plotData.size) {
+        val prev = plotData[i - 1]
+        val curr = plotData[i]
+        if (timestampMillis <= curr.first.timestamp) {
+            val span = (curr.first.timestamp - prev.first.timestamp).coerceAtLeast(1L)
+            val frac = (timestampMillis - prev.first.timestamp).toFloat() / span.toFloat()
+            return prev.second + frac * (curr.second - prev.second)
+        }
+    }
+    return plotData.last().second
 }
 
 internal fun buildChartAccessibilityDescription(points: List<GPSPointEntity>, imperial: Boolean = false): String {

@@ -8,7 +8,9 @@ class HomeDashboardMigrationContractTest {
     @Test fun `database upgrades add and register all dashboard metadata`() {
         val database = read("data/local/AppDatabase.kt")
         val app = read("TrackMeApp.kt")
-        assertTrue(database.contains("version = 22"))
+        assertTrue(database.contains("version = 23"))
+        assertTrue(database.contains("MIGRATION_22_23"))
+        assertTrue(app.contains("AppDatabase.MIGRATION_22_23"))
         assertTrue(database.contains("MIGRATION_21_22"))
         assertTrue(app.contains("AppDatabase.MIGRATION_21_22"))
         assertTrue(app.contains("AppDatabase.MIGRATION_20_21"))

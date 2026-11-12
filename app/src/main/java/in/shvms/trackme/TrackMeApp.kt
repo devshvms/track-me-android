@@ -38,6 +38,8 @@ class TrackMeApp : Application() {
     lateinit var liveShareManager: LiveShareManager
     lateinit var trustedWatchersRepository: `in`.shvms.trackme.data.remote.TrustedWatchersRepository
         private set
+    lateinit var liveSessionViewerRepository: `in`.shvms.trackme.data.remote.LiveSessionViewerRepository
+        private set
 
     /**
      * Group Ride session state and the sync loop (§4.6). Created here rather than injected because
@@ -242,7 +244,7 @@ class TrackMeApp : Application() {
             AppDatabase::class.java,
             "trackme_db"
         )
-        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11, AppDatabase.MIGRATION_11_12, AppDatabase.MIGRATION_12_13, AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17, AppDatabase.MIGRATION_17_18, AppDatabase.MIGRATION_18_19, AppDatabase.MIGRATION_19_20, AppDatabase.MIGRATION_20_21, AppDatabase.MIGRATION_21_22)
+        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11, AppDatabase.MIGRATION_11_12, AppDatabase.MIGRATION_12_13, AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17, AppDatabase.MIGRATION_17_18, AppDatabase.MIGRATION_18_19, AppDatabase.MIGRATION_19_20, AppDatabase.MIGRATION_20_21, AppDatabase.MIGRATION_21_22, AppDatabase.MIGRATION_22_23)
         .fallbackToDestructiveMigration()
         .build()
 
@@ -267,6 +269,7 @@ class TrackMeApp : Application() {
         liveShareManager = LiveShareManager()
         trustedWatchersRepository = `in`.shvms.trackme.data.remote.TrustedWatchersRepository()
         trustedWatchersRepository.bindToAuth(authManager, applicationScope)
+        liveSessionViewerRepository = `in`.shvms.trackme.data.remote.LiveSessionViewerRepository()
         groupSessionStore = `in`.shvms.trackme.data.local.GroupSessionStore(this)
         groupSessionManager = `in`.shvms.trackme.data.remote.GroupSessionManager(groupSessionStore)
         // §6.1 B6: a session orphaned by an OS kill has to come back on its own, before any UI
@@ -681,6 +684,32 @@ class TrackMeApp : Application() {
 
     fun consumePendingMemberFocus() {
         _pendingMemberFocus.value = null
+    }
+
+    private val _activeViewingLiveSessionId = MutableStateFlow<String?>(null)
+    val activeViewingLiveSessionId: StateFlow<String?> = _activeViewingLiveSessionId.asStateFlow()
+
+    fun openLiveSessionViewer(sessionId: String) {
+        sessionId.trim().takeIf { it.isNotEmpty() }?.let {
+            _activeViewingLiveSessionId.value = it
+        }
+    }
+
+    fun dismissLiveSessionViewer() {
+        _activeViewingLiveSessionId.value = null
+    }
+
+    private val _pendingWatcherInvite =
+        MutableStateFlow<`in`.shvms.trackme.domain.live.LiveShareDeepLink.WatcherInvite?>(null)
+    val pendingWatcherInvite: StateFlow<`in`.shvms.trackme.domain.live.LiveShareDeepLink.WatcherInvite?> =
+        _pendingWatcherInvite.asStateFlow()
+
+    fun setPendingWatcherInvite(invite: `in`.shvms.trackme.domain.live.LiveShareDeepLink.WatcherInvite?) {
+        _pendingWatcherInvite.value = invite
+    }
+
+    fun consumePendingWatcherInvite() {
+        _pendingWatcherInvite.value = null
     }
 
 }

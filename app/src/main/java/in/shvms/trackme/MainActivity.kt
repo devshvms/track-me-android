@@ -83,7 +83,7 @@ class MainActivity : AppCompatActivity() {
     handleGroupInvite(intent)
     handleQuickStart(intent)
     handleWeeklyRecap(intent)
-    handleLiveShareNotification(intent)
+    handleLiveShareDeepLink(intent)
 
     pipDashboardStateSource = PiPDashboardStateSource(
       trackingManager = app.trackingManager,
@@ -241,18 +241,34 @@ class MainActivity : AppCompatActivity() {
       handleGroupInvite(intent)
       handleQuickStart(intent)
       handleWeeklyRecap(intent)
-      handleLiveShareNotification(intent)
+      handleLiveShareDeepLink(intent)
   }
 
-  private fun handleLiveShareNotification(intent: android.content.Intent?) {
-      val type = intent?.getStringExtra("type") ?: return
-      if (type != "live_share_started") return
-      AnalyticsManager.trackWatcherPushOpened()
-      val shareUrl = intent.getStringExtra("shareUrl")?.takeIf { it.isNotBlank() }
-      intent.removeExtra("type")
-      if (shareUrl != null) {
-          runCatching {
-              startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(shareUrl)))
+  private fun handleLiveShareDeepLink(intent: android.content.Intent?) {
+      val parsed = `in`.shvms.trackme.domain.live.LiveShareLink.parse(
+          uriString = intent?.data?.toString(),
+          extraSessionId = intent?.getStringExtra("sessionId"),
+          extraType = intent?.getStringExtra("type"),
+          extraShareUrl = intent?.getStringExtra("shareUrl"),
+      ) ?: return
+
+      val app = applicationContext as? TrackMeApp ?: return
+      when (parsed) {
+          is `in`.shvms.trackme.domain.live.LiveShareDeepLink.WatcherInvite -> {
+              app.setPendingWatcherInvite(parsed)
+              intent?.data = null
+          }
+          is `in`.shvms.trackme.domain.live.LiveShareDeepLink.Session -> {
+              if (intent?.getStringExtra("type") == "live_share_started") {
+                  AnalyticsManager.trackWatcherPushOpened()
+              }
+              app.openLiveSessionViewer(parsed.sessionId)
+              intent?.removeExtra("type")
+              intent?.removeExtra("sessionId")
+              intent?.removeExtra("shareUrl")
+              if (`in`.shvms.trackme.domain.live.LiveShareLink.parseSessionUri(intent?.data?.toString().orEmpty()) != null) {
+                  intent?.data = null
+              }
           }
       }
   }
