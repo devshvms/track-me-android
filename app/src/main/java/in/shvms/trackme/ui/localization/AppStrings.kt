@@ -461,6 +461,12 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val liveViewerExpiredNotice: String = s("liveViewerExpiredNotice", "This live share session has ended or expired.")
     val liveViewerLoading: String = s("liveViewerLoading", "Connecting to live share…")
     val liveViewerOpenInBrowser: String = s("liveViewerOpenInBrowser", "Open in browser")
+    val liveViewerWaitingFirstFix: String = s("liveViewerWaitingFirstFix", "Session live — waiting for first GPS signal…")
+    val liveViewerDelayedBadge: String = s("liveViewerDelayedBadge", "Delayed")
+    val liveViewerRecenter: String = s("liveViewerRecenter", "Recenter")
+    val liveViewerFitRoute: String = s("liveViewerFitRoute", "Fit route")
+    val liveViewerReconnecting: String = s("liveViewerReconnecting", "Connection slow — retrying…")
+    val liveViewerUpdatedAgo: String = s("liveViewerUpdatedAgo", "Updated %1\$s")
     val watcherInviteSignInRequired: String = s("watcherInviteSignInRequired", "Sign in to accept this trusted watcher invite.")
     val reminderOff: String = s("reminderOff", "Off")
     val reminderSectionSubtitle: String = s("reminderSectionSubtitle", "Reminders on the days and at the time you choose. Off unless you turn them on.")
@@ -1015,9 +1021,27 @@ val LocalAppStrings = staticCompositionLocalOf { AppStrings() }
 val SUPPORTED_LANGUAGE_CODES: List<String> =
     `in`.shvms.trackme.data.local.AppLanguageCatalog.supportedCodes
 
+private val cachedEnStrings: AppStrings by lazy { AppStrings() }
+private val cachedEsStrings: AppStrings by lazy { createEsAppStrings() }
+private val cachedFrStrings: AppStrings by lazy { createFrAppStrings() }
+private val cachedDeStrings: AppStrings by lazy { createDeAppStrings() }
+private val cachedHiStrings: AppStrings by lazy { createHiAppStrings() }
+private val cachedJaStrings: AppStrings by lazy { createJaAppStrings() }
+private val cachedZhStrings: AppStrings by lazy { createZhAppStrings() }
+
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
-        "es" -> AppStrings(mapOf(
+        "es" -> cachedEsStrings
+        "fr" -> cachedFrStrings
+        "de" -> cachedDeStrings
+        "hi" -> cachedHiStrings
+        "ja" -> cachedJaStrings
+        "zh" -> cachedZhStrings
+        else -> cachedEnStrings
+    }
+}
+
+private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardStartPersona" to "Iniciar %1\$s",
             "dashboardChangeActivity" to "Cambiar actividad",
             "dashboardThisWeek" to "Esta semana",
@@ -1275,6 +1299,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveViewerExpiredNotice" to "Esta sesión de ubicación en vivo terminó o expiró.",
             "liveViewerLoading" to "Conectando con la transmisión en vivo…",
             "liveViewerOpenInBrowser" to "Abrir en el navegador",
+            "liveViewerWaitingFirstFix" to "Sesión en vivo — esperando la primera señal GPS…",
+            "liveViewerDelayedBadge" to "Con retraso",
+            "liveViewerRecenter" to "Centrar",
+            "liveViewerFitRoute" to "Ver ruta completa",
+            "liveViewerReconnecting" to "Conexión lenta — reintentando…",
+            "liveViewerUpdatedAgo" to "Actualizado %1\$s",
             "watcherInviteSignInRequired" to "Inicia sesión para aceptar esta invitación de observador.",
             "reminderOff" to "Desactivado",
             "reminderSectionSubtitle" to "Recordatorios los días y a la hora que elijas. Desactivados hasta que los actives.",
@@ -1805,7 +1835,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticBatteryOptimization" to "Optimización de batería",
             "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
-        "fr" -> AppStrings(mapOf(
+
+private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardStartPersona" to "Démarrer %1\$s",
             "dashboardChangeActivity" to "Changer d’activité",
             "dashboardThisWeek" to "Cette semaine",
@@ -2063,6 +2094,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveViewerExpiredNotice" to "Ce partage de position en direct est terminé ou expiré.",
             "liveViewerLoading" to "Connexion au suivi en direct…",
             "liveViewerOpenInBrowser" to "Ouvrir dans le navigateur",
+            "liveViewerWaitingFirstFix" to "Session en direct — en attente du premier signal GPS…",
+            "liveViewerDelayedBadge" to "Retardé",
+            "liveViewerRecenter" to "Recentrer",
+            "liveViewerFitRoute" to "Voir le trajet",
+            "liveViewerReconnecting" to "Connexion lente — nouvelle tentative…",
+            "liveViewerUpdatedAgo" to "Mis à jour %1\$s",
             "watcherInviteSignInRequired" to "Connectez-vous pour accepter cette invitation de contact de confiance.",
             "reminderOff" to "Désactivé",
             "reminderSectionSubtitle" to "Des rappels aux jours et à l’heure de votre choix. Désactivés tant que vous ne les activez pas.",
@@ -2593,7 +2630,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticBatteryOptimization" to "Optimisation de la batterie",
             "helpDiagnosticSignedIn" to "Session ouverte",
         ))
-        "de" -> AppStrings(mapOf(
+
+private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardStartPersona" to "%1\$s starten",
             "dashboardChangeActivity" to "Aktivität ändern",
             "dashboardThisWeek" to "Diese Woche",
@@ -2851,6 +2889,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveViewerExpiredNotice" to "Diese Live-Standortfreigabe ist beendet oder abgelaufen.",
             "liveViewerLoading" to "Verbinde mit Live-Freigabe…",
             "liveViewerOpenInBrowser" to "Im Browser öffnen",
+            "liveViewerWaitingFirstFix" to "Live — warte auf erstes GPS-Signal…",
+            "liveViewerDelayedBadge" to "Verzögert",
+            "liveViewerRecenter" to "Zentrieren",
+            "liveViewerFitRoute" to "Gesamte Route",
+            "liveViewerReconnecting" to "Verbindung langsam — neuer Versuch…",
+            "liveViewerUpdatedAgo" to "Aktualisiert %1\$s",
             "watcherInviteSignInRequired" to "Melde dich an, um diese Einladung anzunehmen.",
             "reminderOff" to "Aus",
             "reminderSectionSubtitle" to "Erinnerungen an den gewählten Tagen und zur gewählten Uhrzeit. Aus, bis du sie einschaltest.",
@@ -3381,7 +3425,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticBatteryOptimization" to "Akkuoptimierung",
             "helpDiagnosticSignedIn" to "Angemeldet",
         ))
-        "hi" -> AppStrings(mapOf(
+
+private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardStartPersona" to "%1\$s शुरू करें",
             "dashboardChangeActivity" to "गतिविधि बदलें",
             "dashboardThisWeek" to "इस सप्ताह",
@@ -3639,6 +3684,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveViewerExpiredNotice" to "यह लाइव लोकेशन शेयर सत्र समाप्त या समय-सीमा पार हो चुका है।",
             "liveViewerLoading" to "लाइव शेयर से जुड़ रहा है…",
             "liveViewerOpenInBrowser" to "ब्राउज़र में खोलें",
+            "liveViewerWaitingFirstFix" to "सत्र लाइव है — पहले GPS सिग्नल की प्रतीक्षा…",
+            "liveViewerDelayedBadge" to "विलंबित",
+            "liveViewerRecenter" to "केंद्रित करें",
+            "liveViewerFitRoute" to "पूरा मार्ग देखें",
+            "liveViewerReconnecting" to "कनेक्शन धीमा — पुनः प्रयास जारी…",
+            "liveViewerUpdatedAgo" to "अपडेट %1\$s",
             "watcherInviteSignInRequired" to "भरोसेमंद वॉचर आमंत्रण स्वीकार करने के लिए साइन इन करें।",
             "reminderOff" to "बंद",
             "reminderSectionSubtitle" to "आपके चुने दिनों और समय पर अनुस्मारक। चालू करने तक बंद रहेंगे।",
@@ -4169,7 +4220,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticBatteryOptimization" to "बैटरी अनुकूलन",
             "helpDiagnosticSignedIn" to "साइन इन",
         ))
-        "ja" -> AppStrings(mapOf(
+
+private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardStartPersona" to "%1\$sを開始",
             "dashboardChangeActivity" to "アクティビティを変更",
             "dashboardThisWeek" to "今週",
@@ -4427,6 +4479,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveViewerExpiredNotice" to "このライブ位置情報共有は終了したか期限切れです。",
             "liveViewerLoading" to "ライブ共有に接続中…",
             "liveViewerOpenInBrowser" to "ブラウザで開く",
+            "liveViewerWaitingFirstFix" to "ライブ開始 — 初回のGPS信号を待っています…",
+            "liveViewerDelayedBadge" to "遅延",
+            "liveViewerRecenter" to "現在地へ",
+            "liveViewerFitRoute" to "ルート全体",
+            "liveViewerReconnecting" to "接続不安定 — 再試行中…",
+            "liveViewerUpdatedAgo" to "更新 %1\$s",
             "watcherInviteSignInRequired" to "信頼できるウォッチャーの招待を承諾するにはサインインしてください。",
             "reminderOff" to "オフ",
             "reminderSectionSubtitle" to "選んだ曜日と時間にリマインドします。オンにするまでは無効です。",
@@ -4957,7 +5015,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticBatteryOptimization" to "バッテリー最適化",
             "helpDiagnosticSignedIn" to "サインイン済み",
         ))
-        "zh" -> AppStrings(mapOf(
+
+private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardStartPersona" to "开始%1\$s",
             "dashboardChangeActivity" to "更改活动",
             "dashboardThisWeek" to "本周",
@@ -5215,6 +5274,12 @@ fun getAppStrings(languageCode: String): AppStrings {
             "liveViewerExpiredNotice" to "此实时位置共享会话已结束或已过期。",
             "liveViewerLoading" to "正在连接实时共享…",
             "liveViewerOpenInBrowser" to "在浏览器中打开",
+            "liveViewerWaitingFirstFix" to "实时共享已开启 — 正在等待首个 GPS 信号…",
+            "liveViewerDelayedBadge" to "更新延迟",
+            "liveViewerRecenter" to "居中",
+            "liveViewerFitRoute" to "查看全程",
+            "liveViewerReconnecting" to "连接较慢 — 正在重试…",
+            "liveViewerUpdatedAgo" to "更新于 %1\$s",
             "watcherInviteSignInRequired" to "请先登录以接受受信任查看者邀请。",
             "reminderOff" to "关闭",
             "reminderSectionSubtitle" to "在你选择的日期和时间提醒。开启后才会发送。",
@@ -5745,6 +5810,3 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticBatteryOptimization" to "电池优化",
             "helpDiagnosticSignedIn" to "已登录",
         ))
-        else -> AppStrings() // English default
-    }
-}

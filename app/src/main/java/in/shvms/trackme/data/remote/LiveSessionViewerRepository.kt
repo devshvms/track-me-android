@@ -16,12 +16,16 @@ data class LiveViewerPoint(
 data class LiveViewerLastLocation(
     val lat: Double,
     val lng: Double,
-    val speedMps: Float?,
+    /** Wire contract on `/api/track/[sessionId]/location` reports speed in km/h. */
+    val speedKmh: Float?,
     val headingDeg: Float?,
     val batteryLevel: Int?,
     val powerSaveMode: Boolean,
     val timestampIso: String?,
-)
+) {
+    val speedMps: Float?
+        get() = speedKmh?.let { kotlin.math.max(0f, it) / 3.6f }
+}
 
 data class LiveSessionSnapshot(
     val sessionId: String,
@@ -135,7 +139,7 @@ class LiveSessionViewerRepository {
                     else LiveViewerLastLocation(
                         lat = lat,
                         lng = lng,
-                        speedMps = if (loc.has("speed") && !loc.isNull("speed")) loc.optDouble("speed").toFloat().takeIf { it.isFinite() } else null,
+                        speedKmh = if (loc.has("speed") && !loc.isNull("speed")) loc.optDouble("speed").toFloat().takeIf { it.isFinite() } else null,
                         headingDeg = if (loc.has("heading") && !loc.isNull("heading")) loc.optDouble("heading").toFloat().takeIf { it.isFinite() } else null,
                         batteryLevel = if (loc.has("batteryLevel") && !loc.isNull("batteryLevel")) loc.optInt("batteryLevel") else null,
                         powerSaveMode = loc.optBoolean("powerSaveMode", false),
@@ -185,6 +189,28 @@ class LiveSessionViewerRepository {
                     path = path,
                 )
             }.getOrNull()
+        }
+
+        const val DELAYED_UPDATE_THRESHOLD_SECONDS = 45
+
+        fun ageSeconds(
+            timestampIso: String?,
+            nowEpochMillis: Long = System.currentTimeMillis(),
+        ): Int? {
+            val clean = timestampIso?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+            val parsedMs = runCatching { java.time.Instant.parse(clean).toEpochMilli() }.getOrNull()
+                ?: return null
+            return kotlin.math.max(0L, (nowEpochMillis - parsedMs) / 1000L).toInt()
+        }
+
+        fun isDelayedUpdate(
+            powerSaveMode: Boolean,
+            timestampIso: String?,
+            nowEpochMillis: Long = System.currentTimeMillis(),
+        ): Boolean {
+            if (powerSaveMode) return true
+            val age = ageSeconds(timestampIso, nowEpochMillis) ?: return false
+            return age >= DELAYED_UPDATE_THRESHOLD_SECONDS
         }
     }
 }

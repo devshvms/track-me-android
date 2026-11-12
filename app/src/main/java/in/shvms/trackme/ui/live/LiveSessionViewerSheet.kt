@@ -9,11 +9,11 @@ import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,10 +22,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.BatteryStd
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.ZoomOutMap
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,8 +43,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,11 +58,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
+import com.google.maps.android.compose.CameraMoveStartedReason
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
@@ -72,6 +85,7 @@ import `in`.shvms.trackme.ui.history.ExportMarkers
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.UUID
 
@@ -89,41 +103,54 @@ fun LiveSessionViewerSheet(
 ) {
     val strings = LocalAppStrings.current
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
     val viewerId = remember(sessionId) { "android_${UUID.randomUUID()}" }
 
     var snapshot by remember(sessionId) { mutableStateOf<LiveSessionSnapshot?>(null) }
     var isExpiredOrMissing by remember(sessionId) { mutableStateOf(false) }
     var errorMessage by remember(sessionId) { mutableStateOf<String?>(null) }
     var isLoading by remember(sessionId) { mutableStateOf(true) }
+    var isFollowingRider by remember(sessionId) { mutableStateOf(true) }
+    var hasCenteredInitially by remember(sessionId) { mutableStateOf(false) }
+    var nowEpochMillis by remember(sessionId) { mutableLongStateOf(System.currentTimeMillis()) }
 
-    LaunchedEffect(sessionId) {
-        var tick = 0
-        while (isActive) {
-            when (val res = repository.fetchSnapshot(sessionId)) {
-                is LiveSessionFetchResult.Success -> {
-                    snapshot = res.snapshot
-                    isExpiredOrMissing = false
-                    errorMessage = null
-                    isLoading = false
-                    if (res.snapshot.isActive && tick % 3 == 0) {
-                        repository.sendViewerPing(sessionId, viewerId)
+    // Lifecycle-aware polling: pauses completely when backgrounded and refreshes immediately on resume.
+    LaunchedEffect(sessionId, lifecycleOwner) {
+        var stopPolling = false
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            if (stopPolling) return@repeatOnLifecycle
+            var tick = 0
+            while (isActive && !stopPolling) {
+                nowEpochMillis = System.currentTimeMillis()
+                when (val res = repository.fetchSnapshot(sessionId)) {
+                    is LiveSessionFetchResult.Success -> {
+                        snapshot = res.snapshot
+                        isExpiredOrMissing = false
+                        errorMessage = null
+                        isLoading = false
+                        if (res.snapshot.isActive && tick % 3 == 0) {
+                            repository.sendViewerPing(sessionId, viewerId)
+                        }
+                        if (!res.snapshot.isActive) {
+                            stopPolling = true
+                            break
+                        }
                     }
-                    if (!res.snapshot.isActive) {
+                    LiveSessionFetchResult.NotFoundOrExpired -> {
+                        isExpiredOrMissing = true
+                        isLoading = false
+                        stopPolling = true
                         break
                     }
+                    is LiveSessionFetchResult.Error -> {
+                        errorMessage = res.message
+                        isLoading = false
+                    }
                 }
-                LiveSessionFetchResult.NotFoundOrExpired -> {
-                    isExpiredOrMissing = true
-                    isLoading = false
-                    break
-                }
-                is LiveSessionFetchResult.Error -> {
-                    errorMessage = res.message
-                    isLoading = false
-                }
+                tick++
+                delay(5_000L)
             }
-            tick++
-            delay(5_000L)
         }
     }
 
@@ -131,17 +158,40 @@ fun LiveSessionViewerSheet(
         position = CameraPosition.fromLatLngZoom(LatLng(20.5937, 78.9629), 4f)
     }
 
+    LaunchedEffect(cameraPositionState.isMoving) {
+        if (
+            cameraPositionState.isMoving &&
+            cameraPositionState.cameraMoveStartedReason == CameraMoveStartedReason.GESTURE
+        ) {
+            isFollowingRider = false
+        }
+    }
+
     val currentLatLng = snapshot?.lastLocation?.let { LatLng(it.lat, it.lng) }
-    LaunchedEffect(currentLatLng) {
+    LaunchedEffect(currentLatLng, isFollowingRider) {
         val target = currentLatLng ?: return@LaunchedEffect
+        if (!isFollowingRider && hasCenteredInitially) return@LaunchedEffect
         val zoom = cameraPositionState.position.zoom.coerceAtLeast(15.5f)
         cameraPositionState.animateSafely {
             CameraUpdateFactory.newLatLngZoom(target, zoom)
         }
+        hasCenteredInitially = true
     }
 
     val startIcon = remember { runCatching { ExportMarkers.start(ExportMarkerStyle.StartFinish, 44) }.getOrNull() }
     val headingIcon = remember { runCatching { createHeadingConeMarkerBitmap() }.getOrNull() }
+
+    val lastLoc = snapshot?.lastLocation
+    val ageSeconds = remember(lastLoc?.timestampIso, nowEpochMillis) {
+        LiveSessionViewerRepository.ageSeconds(lastLoc?.timestampIso, nowEpochMillis)
+    }
+    val isDelayedUpdate = remember(snapshot?.isActive, lastLoc?.powerSaveMode, lastLoc?.timestampIso, nowEpochMillis) {
+        snapshot?.isActive == true && LiveSessionViewerRepository.isDelayedUpdate(
+            powerSaveMode = lastLoc?.powerSaveMode == true,
+            timestampIso = lastLoc?.timestampIso,
+            nowEpochMillis = nowEpochMillis,
+        )
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -194,6 +244,20 @@ fun LiveSessionViewerSheet(
                                     }
                                 }
                             }
+                            if (isDelayedUpdate) {
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = Color(0xFFF59E0B).copy(alpha = 0.2f),
+                                ) {
+                                    Text(
+                                        text = strings.liveViewerDelayedBadge,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFFF59E0B),
+                                    )
+                                }
+                            }
                         }
                     },
                     navigationIcon = {
@@ -243,7 +307,7 @@ fun LiveSessionViewerSheet(
                             )
                         }
                         currentLatLng?.let { livePoint ->
-                            val bearing = snapshot?.lastLocation?.headingDeg ?: 0f
+                            val bearing = lastLoc?.headingDeg ?: 0f
                             Marker(
                                 state = MarkerState(position = livePoint),
                                 icon = headingIcon,
@@ -306,6 +370,118 @@ fun LiveSessionViewerSheet(
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
+                    } else if (snapshot?.isActive == true && currentLatLng == null) {
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(12.dp),
+                            shape = RoundedCornerShape(50),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                            tonalElevation = 4.dp,
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                                Text(
+                                    text = strings.liveViewerWaitingFirstFix,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    } else if (errorMessage != null) {
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(12.dp),
+                            shape = RoundedCornerShape(50),
+                            color = Color(0xFFF59E0B).copy(alpha = 0.92f),
+                        ) {
+                            Text(
+                                text = strings.liveViewerReconnecting,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF1F2937),
+                            )
+                        }
+                    }
+
+                    // Map camera controls: Recenter (when panned away) & Fit route (when trail has 2+ points)
+                    if (currentLatLng != null || pathLatLng.size >= 2) {
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            if (!isFollowingRider && currentLatLng != null) {
+                                FilledTonalButton(
+                                    onClick = {
+                                        isFollowingRider = true
+                                        coroutineScope.launch {
+                                            val zoom = cameraPositionState.position.zoom.coerceAtLeast(15.5f)
+                                            cameraPositionState.animateSafely {
+                                                CameraUpdateFactory.newLatLngZoom(currentLatLng, zoom)
+                                            }
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                                    ),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.MyLocation,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Color(0xFF06B6D4),
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = strings.liveViewerRecenter,
+                                        style = MaterialTheme.typography.labelMedium,
+                                    )
+                                }
+                            }
+                            if (pathLatLng.size >= 2) {
+                                FilledTonalButton(
+                                    onClick = {
+                                        isFollowingRider = false
+                                        val boundsBuilder = LatLngBounds.Builder()
+                                        pathLatLng.forEach { boundsBuilder.include(it) }
+                                        val bounds = boundsBuilder.build()
+                                        coroutineScope.launch {
+                                            cameraPositionState.animateSafely {
+                                                CameraUpdateFactory.newLatLngBounds(bounds, 96)
+                                            }
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                                    ),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ZoomOutMap,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = strings.liveViewerFitRoute,
+                                        style = MaterialTheme.typography.labelMedium,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -314,73 +490,130 @@ fun LiveSessionViewerSheet(
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
                     tonalElevation = 3.dp,
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            val speedText = snapshot?.lastLocation?.speedMps?.let {
-                                UnitFormatter.speed(it.toDouble(), imperial)
-                            } ?: "—"
+                        val destinationText = snapshot?.destination?.takeIf { it.isNotBlank() }
+                        val showFreshnessRow = destinationText != null || ageSeconds != null
+                        if (showFreshnessRow) {
                             Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Speed,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = Color(0xFF06B6D4),
-                                )
-                                Text(
-                                    text = speedText,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
-
-                            snapshot?.lastLocation?.batteryLevel?.let { battery ->
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(3.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.BatteryStd,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Text(
-                                        text = "$battery%",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                if (destinationText != null) {
+                                    Row(
+                                        modifier = Modifier.weight(1f, fill = false),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Flag,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = Color(0xFF06B6D4),
+                                        )
+                                        Text(
+                                            text = destinationText,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                } else {
+                                    Spacer(modifier = Modifier.width(1.dp))
+                                }
+                                if (ageSeconds != null) {
+                                    val ageLabel = if (ageSeconds < 60) "${ageSeconds}s" else "${ageSeconds / 60}m"
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Schedule,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(13.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Text(
+                                            text = String.format(Locale.getDefault(), strings.liveViewerUpdatedAgo, ageLabel),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
                         }
 
-                        OutlinedButton(
-                            onClick = {
-                                val browserUrl = "${AppConfig.LIVE_SHARE_BASE_URL}/live/$sessionId"
-                                runCatching {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(browserUrl)))
-                                }
-                            },
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(strings.liveViewerOpenInBrowser)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                val speedText = lastLoc?.speedMps?.let {
+                                    UnitFormatter.speed(it.toDouble(), imperial)
+                                } ?: "—"
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Speed,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Color(0xFF06B6D4),
+                                    )
+                                    Text(
+                                        text = speedText,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+
+                                lastLoc?.batteryLevel?.let { battery ->
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.BatteryStd,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Text(
+                                            text = "$battery%",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    val browserUrl = "${AppConfig.LIVE_SHARE_BASE_URL}/live/$sessionId"
+                                    runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(browserUrl)))
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(strings.liveViewerOpenInBrowser)
+                            }
                         }
                     }
                 }

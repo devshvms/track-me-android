@@ -19,7 +19,7 @@ class LiveSessionViewerRepositoryTest {
               "lastLocation": {
                 "lat": 12.9716,
                 "lng": 77.5946,
-                "speed": 7.5,
+                "speed": 36.0,
                 "heading": 142.0,
                 "batteryLevel": 81,
                 "powerSaveMode": false
@@ -38,7 +38,8 @@ class LiveSessionViewerRepositoryTest {
         assertEquals("Shivam", snapshot.username)
         assertTrue(snapshot.isActive)
         assertEquals("Indiranagar", snapshot.destination)
-        assertEquals(7.5f, snapshot.lastLocation!!.speedMps!!, 0.001f)
+        assertEquals(36.0f, snapshot.lastLocation!!.speedKmh!!, 0.001f)
+        assertEquals(10.0f, snapshot.lastLocation!!.speedMps!!, 0.001f)
         assertEquals(142.0f, snapshot.lastLocation!!.headingDeg!!, 0.01f)
         assertEquals(81, snapshot.lastLocation!!.batteryLevel)
         assertEquals(2, snapshot.path.size)
@@ -64,6 +65,22 @@ class LiveSessionViewerRepositoryTest {
         assertEquals("stopped_by_user", snapshot.endReason)
         assertEquals("manual", snapshot.stopReason)
         assertEquals(1, snapshot.path.size)
+    }
+
+    @Test
+    fun `computes freshness age clamped at zero and flags delayed updates`() {
+        val nowMs = 1_700_000_100_000L // exact epoch ms
+        val freshIso = java.time.Instant.ofEpochMilli(nowMs - 12_000L).toString()
+        val staleIso = java.time.Instant.ofEpochMilli(nowMs - 50_000L).toString()
+        val futureIso = java.time.Instant.ofEpochMilli(nowMs + 15_000L).toString()
+
+        assertEquals(12, LiveSessionViewerRepository.ageSeconds(freshIso, nowMs))
+        assertEquals(0, LiveSessionViewerRepository.ageSeconds(futureIso, nowMs))
+        assertNull(LiveSessionViewerRepository.ageSeconds("not-a-timestamp", nowMs))
+
+        assertFalse(LiveSessionViewerRepository.isDelayedUpdate(powerSaveMode = false, timestampIso = freshIso, nowEpochMillis = nowMs))
+        assertTrue(LiveSessionViewerRepository.isDelayedUpdate(powerSaveMode = false, timestampIso = staleIso, nowEpochMillis = nowMs))
+        assertTrue(LiveSessionViewerRepository.isDelayedUpdate(powerSaveMode = true, timestampIso = freshIso, nowEpochMillis = nowMs))
     }
 
     @Test

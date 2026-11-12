@@ -129,6 +129,7 @@ class LiveShareManager {
         }
     }
 
+    /** Pushes the current location snapshot to `/api/track/[sessionId]/location`. [speed] is in km/h. */
     suspend fun pushLocation(
         lat: Double,
         lon: Double,
