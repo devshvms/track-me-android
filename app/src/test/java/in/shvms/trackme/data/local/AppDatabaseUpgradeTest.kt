@@ -137,6 +137,39 @@ class AppDatabaseUpgradeTest {
         } finally { helper.close() }
     }
 
+    @Test fun `MIGRATION_22_23 adds live share columns nullable and keeps rides`() {
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(
+                ApplicationProvider.getApplicationContext()
+            ).name(null).callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(22) {
+                override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    db.execSQL("CREATE TABLE rides (id INTEGER PRIMARY KEY, distance REAL, isBroadcasted INTEGER NOT NULL DEFAULT 0)")
+                    db.execSQL("INSERT INTO rides VALUES (1, 15000.0, 1)")
+                }
+                override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+            }).build()
+        )
+        try {
+            val db = helper.writableDatabase
+            AppDatabase.MIGRATION_22_23.migrate(db)
+            db.query(
+                "SELECT distance, isBroadcasted, liveShareMode, liveShareIntervalsJson FROM rides WHERE id=1"
+            ).use {
+                assertTrue(it.moveToFirst())
+                assertEquals(15000.0, it.getDouble(0), 0.0)
+                assertEquals(1, it.getInt(1))
+                assertTrue(it.isNull(2))
+                assertTrue(it.isNull(3))
+            }
+            db.execSQL("UPDATE rides SET liveShareMode='PARTIAL', liveShareIntervalsJson='[[1000,2000]]' WHERE id=1")
+            db.query("SELECT liveShareMode, liveShareIntervalsJson FROM rides WHERE id=1").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("PARTIAL", it.getString(0))
+                assertEquals("[[1000,2000]]", it.getString(1))
+            }
+        } finally { helper.close() }
+    }
+
     /**
      * Every version between the oldest supported database and the current one must be reachable.
      *
@@ -158,7 +191,7 @@ class AppDatabaseUpgradeTest {
         val declared = Regex("""version\s*=\s*(\d+)""")
             .find(source("data/local/AppDatabase.kt"))
             ?.groupValues?.get(1)?.toInt()
-        assertEquals("could not read the @Database version", 22, declared)
+        assertEquals("could not read the @Database version", 23, declared)
 
         val oldest = registered.minOf { it.first }
         val reachable = registered.toMap()

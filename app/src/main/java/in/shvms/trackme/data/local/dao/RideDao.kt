@@ -46,6 +46,10 @@ data class HistoryRideSummary(
     val wasGroupRide: Boolean,
     /** TASK-232: riders in that group, including this one. Null when never observed. */
     val groupRiderCount: Int?,
+    /** TASK-366 / SCOPE_1.9.3: whether any portion of this ride was live shared. */
+    val isBroadcasted: Boolean = false,
+    /** TASK-366 / SCOPE_1.9.3: "FULL", "PARTIAL", or null. */
+    val liveShareMode: String? = null,
 )
 
 @Dao
@@ -94,7 +98,7 @@ interface RideDao {
         SELECT id, startTime, endTime, isSynced, firestoreId, title, persona, isSample,
                pendingDelete, distance, avgSpeed, dashboardActiveDurationMillis,
                dashboardMetadataVersion, dashboardPointCount, dashboardRoutePolyline,
-               wasGroupRide, groupRiderCount
+               wasGroupRide, groupRiderCount, isBroadcasted, liveShareMode
         FROM rides
         WHERE endTime IS NOT NULL AND endTime > 0
         ORDER BY startTime DESC
@@ -114,7 +118,7 @@ interface RideDao {
         SELECT id, startTime, endTime, isSynced, firestoreId, title, persona, isSample,
                pendingDelete, distance, avgSpeed, dashboardActiveDurationMillis,
                dashboardMetadataVersion, dashboardPointCount, dashboardRoutePolyline,
-               wasGroupRide, groupRiderCount
+               wasGroupRide, groupRiderCount, isBroadcasted, liveShareMode
         FROM rides
         WHERE endTime IS NOT NULL AND endTime > 0
           AND wasGroupRide = 1

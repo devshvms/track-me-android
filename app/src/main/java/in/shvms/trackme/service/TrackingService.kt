@@ -123,6 +123,9 @@ class TrackingService : Service() {
     private var lastGpsResumeTelemetryMs = 0L
     private var lastLiveShareTimeMs = 0L
     private var lastLiveShareSessionId: String? = null
+    private val liveShareIntervals = mutableListOf<`in`.shvms.trackme.domain.live.LiveShareInterval>()
+    private var openLiveShareIntervalStartMs: Long? = null
+    private var liveShareIntervalObserverJob: Job? = null
     private var lastNotifyElapsedMs = Long.MIN_VALUE
     private var lastNotifyDistanceMeters = 0f
     private var lastNotifyState: TrackingState? = null
@@ -557,7 +560,87 @@ class TrackingService : Service() {
         trackingManager = app.trackingManager
         liveShareManager = app.liveShareManager
         groupSessionManager = app.groupSessionManager
-        
+        observeLiveShareIntervals()
+    }
+
+    private fun observeLiveShareIntervals() {
+        liveShareIntervalObserverJob?.cancel()
+        liveShareIntervalObserverJob = serviceScope.launch {
+            liveShareManager.state.collect { state ->
+                if (currentRideId == null && !hasPersistedActiveSession()) return@collect
+                val now = System.currentTimeMillis()
+                if (state.status == LiveShareStatus.ACTIVE) {
+                    if (openLiveShareIntervalStartMs == null) {
+                        openLiveShareIntervalStartMs = now
+                        persistLiveShareIntervals()
+                    }
+                } else {
+                    val started = openLiveShareIntervalStartMs
+                    if (started != null) {
+                        if (now > started) {
+                            liveShareIntervals.add(
+                                `in`.shvms.trackme.domain.live.LiveShareInterval(started, now)
+                            )
+                        }
+                        openLiveShareIntervalStartMs = null
+                        persistLiveShareIntervals()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun resetLiveShareIntervalsForNewRide(rideStartTime: Long) {
+        liveShareIntervals.clear()
+        openLiveShareIntervalStartMs = if (liveShareManager.state.value.status == LiveShareStatus.ACTIVE) {
+            rideStartTime
+        } else {
+            null
+        }
+        persistLiveShareIntervals()
+    }
+
+    private fun restoreLiveShareIntervals() {
+        val prefs = getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+        liveShareIntervals.clear()
+        liveShareIntervals.addAll(
+            `in`.shvms.trackme.domain.live.LiveShareIntervals.parse(
+                prefs.getString(ACTIVE_LIVE_SHARE_INTERVALS_KEY, null)
+            )
+        )
+        val openStart = prefs.getLong(ACTIVE_LIVE_SHARE_OPEN_START_KEY, -1L)
+        openLiveShareIntervalStartMs = openStart.takeIf { it > 0L }
+            ?: if (liveShareManager.state.value.status == LiveShareStatus.ACTIVE) {
+                System.currentTimeMillis()
+            } else {
+                null
+            }
+    }
+
+    private fun snapshotAndClearLiveShareIntervals(now: Long): List<`in`.shvms.trackme.domain.live.LiveShareInterval> {
+        val openStart = openLiveShareIntervalStartMs
+        if (openStart != null && now > openStart) {
+            liveShareIntervals.add(`in`.shvms.trackme.domain.live.LiveShareInterval(openStart, now))
+        }
+        val snapshot = `in`.shvms.trackme.domain.live.LiveShareIntervals.normalize(liveShareIntervals)
+        liveShareIntervals.clear()
+        openLiveShareIntervalStartMs = null
+        getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .remove(ACTIVE_LIVE_SHARE_INTERVALS_KEY)
+            .remove(ACTIVE_LIVE_SHARE_OPEN_START_KEY)
+            .apply()
+        return snapshot
+    }
+
+    private fun persistLiveShareIntervals() {
+        val json = `in`.shvms.trackme.domain.live.LiveShareIntervals.serialize(liveShareIntervals)
+        val openStart = openLiveShareIntervalStartMs ?: -1L
+        getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(ACTIVE_LIVE_SHARE_INTERVALS_KEY, json)
+            .putLong(ACTIVE_LIVE_SHARE_OPEN_START_KEY, openStart)
+            .apply()
     }
 
     override fun onDestroy() {
@@ -674,6 +757,9 @@ class TrackingService : Service() {
                     `in`.shvms.trackme.analytics.AnalyticsManager.trackRideStarted(
                         rideId = rideId.toString()
                     )
+                    resetLiveShareIntervalsForNewRide(startTime)
+                } else {
+                    restoreLiveShareIntervals()
                 }
 
                 withContext(Dispatchers.Main.immediate) {
@@ -1082,6 +1168,11 @@ class TrackingService : Service() {
         val finalDistance = trackingManager.totalDistance.value.toDouble()
         val finalDuration = rideDuration
         val rideToProcess = currentRideId
+        val capturedLiveShareIntervals = if (preserveRideForRecovery) {
+            emptyList()
+        } else {
+            snapshotAndClearLiveShareIntervals(System.currentTimeMillis())
+        }
 
         // Release the ride BEFORE publishing IDLE. §0 contract 2 makes "observed IDLE" mean
         // "nothing is being recorded", so the id has to be gone by the time that claim is made —
@@ -1123,6 +1214,7 @@ class TrackingService : Service() {
                         finalDistance = finalDistance,
                         finalDuration = finalDuration,
                         discardNearEmptyRide = discardNearEmptyRide,
+                        liveShareIntervals = capturedLiveShareIntervals,
                         trackingV2Live = trackingV2Live,
                         trackingV2Final = trackingV2Final,
                         trackingV1Diagnostics = trackingV1Diagnostics,
@@ -1581,6 +1673,7 @@ class TrackingService : Service() {
         finalDistance: Double,
         finalDuration: Long,
         discardNearEmptyRide: Boolean = false,
+        liveShareIntervals: List<`in`.shvms.trackme.domain.live.LiveShareInterval> = emptyList(),
         trackingV2Live: TrackingV2Snapshot? = null,
         trackingV2Final: TrackingV2Snapshot? = null,
         trackingV1Diagnostics: TrackingV1DebugDiagnostics = TrackingV1DebugDiagnostics(),
@@ -1666,9 +1759,24 @@ class TrackingService : Service() {
                 ride.groupRiderCount
             }
 
+            val normalizedIntervals = `in`.shvms.trackme.domain.live.LiveShareIntervals.normalize(
+                intervals = liveShareIntervals,
+                minStartMillis = ride.startTime,
+                maxEndMillis = finishedAt,
+            )
+            val liveShareMode = `in`.shvms.trackme.domain.live.LiveShareIntervals.resolveMode(
+                rideStartMillis = ride.startTime,
+                rideEndMillis = finishedAt,
+                intervals = normalizedIntervals,
+            )
+            val liveShareIntervalsJson = `in`.shvms.trackme.domain.live.LiveShareIntervals.serialize(normalizedIntervals)
+
             val finishedRide = ride.copy(
                 endTime = finishedAt,
                 title = newTitle,
+                isBroadcasted = ride.isBroadcasted || liveShareMode != null,
+                liveShareMode = liveShareMode ?: ride.liveShareMode,
+                liveShareIntervalsJson = liveShareIntervalsJson ?: ride.liveShareIntervalsJson,
                 postRideCalculation = calc,
                 groupRiderCount = groupRiderCount,
             ).let {
@@ -1815,6 +1923,8 @@ class TrackingService : Service() {
         const val TRACKING_PREFS = "trackme_prefs"
         const val ACTIVE_TRACKING_SESSION_KEY = "active_tracking_session"
         const val PAUSED_TRACKING_SESSION_KEY = "paused_tracking_session"
+        private const val ACTIVE_LIVE_SHARE_INTERVALS_KEY = "active_live_share_intervals_json"
+        private const val ACTIVE_LIVE_SHARE_OPEN_START_KEY = "active_live_share_open_start_ms"
 
         @Volatile
         var isRunning: Boolean = false

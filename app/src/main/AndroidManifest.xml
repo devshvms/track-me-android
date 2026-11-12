@@ -94,6 +94,24 @@
                     android:host="trackme.shvms.in"
                     android:pathPrefix="/g" />
             </intent-filter>
+
+            <!-- TASK-366 / SCOPE_1.9.3: Live Share & Trusted Watcher invite deep links -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="trackme" android:host="live" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="trackme.shvms.in"
+                    android:pathPrefix="/live" />
+            </intent-filter>
         </activity>
 
 

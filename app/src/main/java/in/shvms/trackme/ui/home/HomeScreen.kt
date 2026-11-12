@@ -1767,11 +1767,8 @@ fun HomeScreen(
                     liveSharingActive = uiState.liveShareState.status == LiveShareStatus.ACTIVE,
                     watcherInboxInvite = uiState.watcherInboxInvite,
                     onWatchLiveInvite = { invite ->
-                        runCatching {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, android.net.Uri.parse(invite.shareUrl))
-                            )
-                        }
+                        AnalyticsManager.trackWatcherPushOpened()
+                        app.openLiveSessionViewer(invite.sessionId)
                     },
                     trustedWatcherCount = uiState.trustedWatchers.size,
                     onManageWatchers = { showHomeSharing = true },
