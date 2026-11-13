@@ -377,7 +377,7 @@ fun LiveSessionViewerSheet(
                             Text(
                                 text = snapshot?.stopReason?.takeIf { it.isNotBlank() }
                                     ?: snapshot?.endReason?.takeIf { it.isNotBlank() }
-                                    ?: strings.liveViewerExpiredNotice,
+                                    ?: if (snapshot != null && !snapshot!!.isActive) strings.liveViewerRiderEndedNotice else strings.liveViewerExpiredNotice,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,

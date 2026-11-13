@@ -72,6 +72,12 @@ class LiveSessionViewerAccessibilityTest {
                 "Open in browser a11y empty in $lang",
                 strings.liveViewerOpenInBrowserA11y.isBlank()
             )
+
+            // Rider ended notice
+            assertFalse(
+                "Rider ended notice empty in $lang",
+                strings.liveViewerRiderEndedNotice.isBlank()
+            )
         }
     }
 
@@ -86,6 +92,7 @@ class LiveSessionViewerAccessibilityTest {
         assertEquals("Rider speed unavailable", strings.liveViewerSpeedUnavailableA11y)
         assertEquals("Rider battery: %1\$d percent", strings.liveViewerBatteryA11y)
         assertEquals("Open live tracking session in web browser", strings.liveViewerOpenInBrowserA11y)
+        assertEquals("The rider has ended this live trip.", strings.liveViewerRiderEndedNotice)
         assertEquals("Close", strings.close)
     }
 }
