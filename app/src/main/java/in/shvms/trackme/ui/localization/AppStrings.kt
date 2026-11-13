@@ -474,6 +474,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val liveViewerSpeedA11y: String = s("liveViewerSpeedA11y", "Rider speed: %1\$s")
     val liveViewerSpeedUnavailableA11y: String = s("liveViewerSpeedUnavailableA11y", "Rider speed unavailable")
     val liveViewerBatteryA11y: String = s("liveViewerBatteryA11y", "Rider battery: %1\$d percent")
+    val liveViewerBatteryLowA11y: String = s("liveViewerBatteryLowA11y", "Rider battery low: %1\$d percent")
     val liveViewerOpenInBrowserA11y: String = s("liveViewerOpenInBrowserA11y", "Open live tracking session in web browser")
     val watcherInviteSignInRequired: String = s("watcherInviteSignInRequired", "Sign in to accept this trusted watcher invite.")
     val reminderOff: String = s("reminderOff", "Off")
@@ -1320,6 +1321,7 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSpeedA11y" to "Velocidad del usuario: %1\$s",
             "liveViewerSpeedUnavailableA11y" to "Velocidad del usuario no disponible",
             "liveViewerBatteryA11y" to "Batería del usuario: %1\$d por ciento",
+            "liveViewerBatteryLowA11y" to "Batería del usuario baja: %1\$d por ciento",
             "liveViewerOpenInBrowserA11y" to "Abrir sesión de seguimiento en el navegador web",
             "watcherInviteSignInRequired" to "Inicia sesión para aceptar esta invitación de observador.",
             "reminderOff" to "Desactivado",
@@ -2123,6 +2125,7 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSpeedA11y" to "Vitesse du cycliste : %1\$s",
             "liveViewerSpeedUnavailableA11y" to "Vitesse du cycliste non disponible",
             "liveViewerBatteryA11y" to "Batterie du cycliste : %1\$d pour cent",
+            "liveViewerBatteryLowA11y" to "Batterie faible du cycliste : %1\$d pour cent",
             "liveViewerOpenInBrowserA11y" to "Ouvrir la session de suivi en direct dans le navigateur web",
             "watcherInviteSignInRequired" to "Connectez-vous pour accepter cette invitation de contact de confiance.",
             "reminderOff" to "Désactivé",
@@ -2926,6 +2929,7 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSpeedA11y" to "Geschwindigkeit des Fahrers: %1\$s",
             "liveViewerSpeedUnavailableA11y" to "Geschwindigkeit des Fahrers nicht verfügbar",
             "liveViewerBatteryA11y" to "Akkustand des Fahrers: %1\$d Prozent",
+            "liveViewerBatteryLowA11y" to "Niedriger Akkustand des Fahrers: %1\$d Prozent",
             "liveViewerOpenInBrowserA11y" to "Live-Tracking-Sitzung im Webbrowser öffnen",
             "watcherInviteSignInRequired" to "Melde dich an, um diese Einladung anzunehmen.",
             "reminderOff" to "Aus",
@@ -3729,6 +3733,7 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSpeedA11y" to "राइडर की गति: %1\$s",
             "liveViewerSpeedUnavailableA11y" to "राइडर की गति उपलब्ध नहीं है",
             "liveViewerBatteryA11y" to "राइडर की बैटरी: %1\$d प्रतिशत",
+            "liveViewerBatteryLowA11y" to "राइडर की बैटरी कम है: %1\$d प्रतिशत",
             "liveViewerOpenInBrowserA11y" to "वेब ब्राउज़र में लाइव ट्रैकिंग सत्र खोलें",
             "watcherInviteSignInRequired" to "भरोसेमंद वॉचर आमंत्रण स्वीकार करने के लिए साइन इन करें।",
             "reminderOff" to "बंद",
@@ -4532,6 +4537,7 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSpeedA11y" to "ライダーの速度: %1\$s",
             "liveViewerSpeedUnavailableA11y" to "ライダーの速度データなし",
             "liveViewerBatteryA11y" to "ライダーのバッテリー残量: %1\$dパーセント",
+            "liveViewerBatteryLowA11y" to "ライダーのバッテリー残量低下: %1\$dパーセント",
             "liveViewerOpenInBrowserA11y" to "ウェブブラウザでライブ追跡セッションを開く",
             "watcherInviteSignInRequired" to "信頼できるウォッチャーの招待を承諾するにはサインインしてください。",
             "reminderOff" to "オフ",
@@ -5335,6 +5341,7 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSpeedA11y" to "骑手速度：%1\$s",
             "liveViewerSpeedUnavailableA11y" to "骑手速度不可用",
             "liveViewerBatteryA11y" to "骑手电量：%1\$d%%",
+            "liveViewerBatteryLowA11y" to "骑手电量偏低：%1\$d%%",
             "liveViewerOpenInBrowserA11y" to "在网络浏览器中打开实时跟踪会话",
             "watcherInviteSignInRequired" to "请先登录以接受受信任查看者邀请。",
             "reminderOff" to "关闭",

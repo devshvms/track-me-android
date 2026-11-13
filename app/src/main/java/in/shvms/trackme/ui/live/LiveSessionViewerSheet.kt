@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.BatteryStd
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
@@ -626,23 +627,32 @@ fun LiveSessionViewerSheet(
                                 }
 
                                 lastLoc?.batteryLevel?.let { battery ->
+                                    // CIE-008: Visual alert & accessibility announcement when rider battery <= 15%
+                                    val isLowBattery = battery <= 15
+                                    val batteryColor = if (isLowBattery) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                    val batteryA11y = if (isLowBattery) {
+                                        String.format(Locale.getDefault(), strings.liveViewerBatteryLowA11y, battery)
+                                    } else {
+                                        String.format(Locale.getDefault(), strings.liveViewerBatteryA11y, battery)
+                                    }
                                     Row(
                                         modifier = Modifier.semantics(mergeDescendants = true) {
-                                            contentDescription = String.format(Locale.getDefault(), strings.liveViewerBatteryA11y, battery)
+                                            contentDescription = batteryA11y
                                         },
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(3.dp),
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.BatteryStd,
+                                            imageVector = if (isLowBattery) Icons.Default.BatteryAlert else Icons.Default.BatteryStd,
                                             contentDescription = null,
                                             modifier = Modifier.size(16.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = batteryColor,
                                         )
                                         Text(
                                             text = "$battery%",
                                             style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = if (isLowBattery) FontWeight.SemiBold else FontWeight.Normal,
+                                            color = batteryColor,
                                         )
                                     }
                                 }
