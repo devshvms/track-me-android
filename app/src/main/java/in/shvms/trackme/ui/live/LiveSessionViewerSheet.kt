@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Speed
@@ -820,6 +821,31 @@ fun LiveSessionViewerSheet(
                                         )
                                         Text(
                                             text = duration,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                    }
+                                }
+
+                                val totalDistance = snapshot?.totalDistanceMeters ?: 0.0
+                                if (totalDistance > 0.0) {
+                                    val distanceText = snapshot?.formatDistance(useMiles = imperial)
+                                        ?: UnitFormatter.rideDistance(totalDistance, imperial)
+                                    Row(
+                                        modifier = Modifier.semantics(mergeDescendants = true) {
+                                            contentDescription = String.format(Locale.getDefault(), strings.liveViewerDistanceLabel, distanceText)
+                                        },
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Route,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            text = distanceText,
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.SemiBold,
                                         )

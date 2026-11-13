@@ -186,4 +186,70 @@ class LiveSessionViewerRepositoryTest {
         assertEquals("25m", snapshot!!.formatDuration(nowMs))
         assertFalse(snapshot.isStaleSignal(nowMs))
     }
+
+    @Test
+    fun `computes path distance meters handling jitter jumps and invalid coordinates`() {
+        // Empty or single point
+        assertEquals(0.0, LiveSessionViewerRepository.computePathDistanceMeters(null), 0.001)
+        assertEquals(0.0, LiveSessionViewerRepository.computePathDistanceMeters(emptyList()), 0.001)
+        assertEquals(0.0, LiveSessionViewerRepository.computePathDistanceMeters(listOf(LiveViewerPoint(12.9716, 77.5946))), 0.001)
+
+        // 2 points ~111 meters apart
+        val p1 = LiveViewerPoint(12.9716, 77.5946)
+        val p2 = LiveViewerPoint(12.9726, 77.5946)
+        val dist2 = LiveSessionViewerRepository.computePathDistanceMeters(listOf(p1, p2))
+        assertTrue("Expected ~111m, got $dist2", dist2 in 110.0..112.0)
+
+        // Discards sub-2m jitter
+        val pJitter = LiveViewerPoint(12.97260001, 77.5946)
+        val distWithJitter = LiveSessionViewerRepository.computePathDistanceMeters(listOf(p1, p2, pJitter))
+        assertEquals(dist2, distWithJitter, 0.001)
+
+        // Discards supersonic jump (> 50 km)
+        val pJump = LiveViewerPoint(18.0, 77.5946) // ~555 km away
+        val distWithJump = LiveSessionViewerRepository.computePathDistanceMeters(listOf(p1, p2, pJump))
+        assertEquals(dist2, distWithJump, 0.001)
+
+        // Skips Null Island (0,0)
+        val pNullIsland = LiveViewerPoint(0.0, 0.0)
+        val distWithNullIsland = LiveSessionViewerRepository.computePathDistanceMeters(listOf(pNullIsland, p1, p2))
+        assertEquals(dist2, distWithNullIsland, 0.001)
+    }
+
+    @Test
+    fun `formats distance for metric and imperial modes`() {
+        assertEquals("0.0 km", LiveSessionViewerRepository.formatDistance(0.0, useMiles = false))
+        assertEquals("0.0 mi", LiveSessionViewerRepository.formatDistance(0.0, useMiles = true))
+        assertEquals("0.0 km", LiveSessionViewerRepository.formatDistance(-10.0, useMiles = false))
+
+        assertEquals("0.9 km", LiveSessionViewerRepository.formatDistance(900.0, useMiles = false))
+        assertEquals("1.5 km", LiveSessionViewerRepository.formatDistance(1500.0, useMiles = false))
+        assertEquals("14.2 km", LiveSessionViewerRepository.formatDistance(14200.0, useMiles = false))
+
+        assertEquals("1.0 mi", LiveSessionViewerRepository.formatDistance(1609.344, useMiles = true))
+        assertEquals("5.0 mi", LiveSessionViewerRepository.formatDistance(8046.72, useMiles = true))
+        assertEquals("8.8 mi", LiveSessionViewerRepository.formatDistance(14200.0, useMiles = true))
+    }
+
+    @Test
+    fun `snapshot calculates total distance and formats properly`() {
+        val p1 = LiveViewerPoint(12.9716, 77.5946)
+        val p2 = LiveViewerPoint(12.9726, 77.5946)
+        val snapshot = LiveSessionSnapshot(
+            sessionId = "dist_test",
+            username = "Rider",
+            status = "active",
+            stopReason = null,
+            endReason = null,
+            endedAt = null,
+            destination = null,
+            deadlineAt = null,
+            lastLocation = null,
+            path = listOf(p1, p2),
+        )
+
+        assertTrue(snapshot.totalDistanceMeters in 110.0..112.0)
+        assertEquals("0.1 km", snapshot.formatDistance(useMiles = false))
+        assertEquals("0.1 mi", snapshot.formatDistance(useMiles = true))
+    }
 }

@@ -47,6 +47,13 @@ data class LiveSessionSnapshot(
         return LiveSessionViewerRepository.formatDuration(startedAt, endedAt, nowEpochMillis)
     }
 
+    val totalDistanceMeters: Double
+        get() = LiveSessionViewerRepository.computePathDistanceMeters(path)
+
+    fun formatDistance(useMiles: Boolean = false): String {
+        return LiveSessionViewerRepository.formatDistance(totalDistanceMeters, useMiles)
+    }
+
     fun isStaleSignal(nowEpochMillis: Long = System.currentTimeMillis()): Boolean {
         return LiveSessionViewerRepository.isStaleSignal(
             isActive = isActive,
@@ -301,6 +308,73 @@ class LiveSessionViewerRepository {
             val step = increments[stepIndex]
             val jitter = (randomProvider() * 500L).toLong()
             return (baseDelayMs + step + jitter).coerceAtMost(maxDelayMs)
+        }
+
+        const val MAX_PLAUSIBLE_JUMP_METERS = 50_000.0
+        const val MIN_ACCUMULATION_DISPLACEMENT_METERS = 2.0
+
+        /**
+         * Computes geodesic distance in meters between two lat/lng coordinates using the Haversine formula.
+         */
+        fun haversineDistanceMeters(
+            lat1: Double,
+            lon1: Double,
+            lat2: Double,
+            lon2: Double,
+        ): Double {
+            val r = 6_371_000.0 // Earth radius in meters
+            val dLat = Math.toRadians(lat2 - lat1)
+            val dLon = Math.toRadians(lon2 - lon1)
+            val a = Math.sin(dLat / 2.0) * Math.sin(dLat / 2.0) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2.0) * Math.sin(dLon / 2.0)
+            val c = 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0.0, 1.0 - a)))
+            return r * c
+        }
+
+        /**
+         * Computes accumulated distance in meters across the session's coordinate trail.
+         * Discards sub-2m stationarity jitter and supersonic single-hop glitches (> 50 km).
+         * Discards Null Island coordinates.
+         */
+        fun computePathDistanceMeters(path: List<LiveViewerPoint>?): Double {
+            if (path.isNullOrEmpty() || path.size < 2) return 0.0
+            var totalMeters = 0.0
+            var prev: LiveViewerPoint? = null
+
+            for (pt in path) {
+                if (!pt.lat.isFinite() || !pt.lng.isFinite()) continue
+                if (pt.lat < -90.0 || pt.lat > 90.0 || pt.lng < -180.0 || pt.lng > 180.0) continue
+                if (kotlin.math.abs(pt.lat) < 0.0001 && kotlin.math.abs(pt.lng) < 0.0001) continue
+
+                val prevPt = prev
+                if (prevPt != null) {
+                    val dist = haversineDistanceMeters(prevPt.lat, prevPt.lng, pt.lat, pt.lng)
+                    if (dist >= MIN_ACCUMULATION_DISPLACEMENT_METERS && dist <= MAX_PLAUSIBLE_JUMP_METERS) {
+                        totalMeters += dist
+                        prev = pt
+                    }
+                } else {
+                    prev = pt
+                }
+            }
+            return totalMeters
+        }
+
+        /**
+         * Formats meters into human-readable metric or imperial distance ("14.2 km" or "8.8 mi").
+         */
+        fun formatDistance(meters: Double, useMiles: Boolean = false): String {
+            if (!meters.isFinite() || meters <= 0.0) {
+                return if (useMiles) "0.0 mi" else "0.0 km"
+            }
+            return if (useMiles) {
+                val miles = meters / 1609.344
+                String.format(java.util.Locale.US, "%.1f mi", miles)
+            } else {
+                val km = meters / 1000.0
+                String.format(java.util.Locale.US, "%.1f km", km)
+            }
         }
     }
 }
