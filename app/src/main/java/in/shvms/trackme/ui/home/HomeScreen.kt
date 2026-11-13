@@ -14,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import java.util.Locale
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -284,7 +285,7 @@ fun HomeScreen(
         val sendIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, strings.liveShareButton)
-            val message = "Hey, you can track my live location here: $shareLink\n\nThanks, ${uiState.userName ?: "Track Me User"}"
+            val message = String.format(Locale.getDefault(), strings.liveShareShareMessage, shareLink)
             putExtra(Intent.EXTRA_TEXT, message)
         }
         context.startActivity(Intent.createChooser(sendIntent, strings.liveShareButton))
@@ -1047,7 +1048,8 @@ fun HomeScreen(
                     val sendIntent = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
                         putExtra(Intent.EXTRA_SUBJECT, strings.trustedWatchersTitle)
-                        putExtra(Intent.EXTRA_TEXT, inviteUrl)
+                        val message = String.format(Locale.getDefault(), strings.trustedWatcherInviteShareMessage, inviteUrl)
+                        putExtra(Intent.EXTRA_TEXT, message)
                     }
                     context.startActivity(Intent.createChooser(sendIntent, strings.trustedWatchersAddCta))
                 } else {

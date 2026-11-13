@@ -224,6 +224,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupJoinConsent: String = s("groupJoinConsent", "They'll see your location while the group is live.")
     val groupShare: String = s("groupShare", "Share invite")
     val groupShareMessage: String = s("groupShareMessage", "Join my ride on TrackMe — we'll see each other on the map while we go. Code: %1\$s  %2\$s")
+    val liveShareShareMessage: String = s("liveShareShareMessage", "Track my live ride on TrackMe: %1\$s")
+    val trustedWatcherInviteShareMessage: String = s("trustedWatcherInviteShareMessage", "Add me as a trusted contact on TrackMe to see my live rides: %1\$s")
     val groupStart: String = s("groupStart", "Start group")
     val groupEnd: String = s("groupEnd", "End group")
     val groupLeave: String = s("groupLeave", "Leave group")
@@ -1387,6 +1389,8 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "groupJoinConsent" to "Verán tu ubicación mientras el grupo esté activo.",
             "groupShare" to "Compartir invitación",
             "groupShareMessage" to "Únete a mi ruta en TrackMe: nos veremos en el mapa mientras vamos. Código: %1\$s  %2\$s",
+            "liveShareShareMessage" to "Sigue mi ruta en vivo en TrackMe: %1\$s",
+            "trustedWatcherInviteShareMessage" to "Añádeme como contacto de confianza en TrackMe para ver mis rutas en vivo: %1\$s",
             "groupStart" to "Iniciar grupo",
             "groupEnd" to "Finalizar grupo",
             "groupLeave" to "Salir del grupo",
@@ -2198,6 +2202,8 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "groupJoinConsent" to "Ils verront votre position tant que le groupe est actif.",
             "groupShare" to "Partager l'invitation",
             "groupShareMessage" to "Rejoins ma sortie sur TrackMe — on se verra sur la carte en chemin. Code : %1\$s  %2\$s",
+            "liveShareShareMessage" to "Suivez ma sortie en direct sur TrackMe : %1\$s",
+            "trustedWatcherInviteShareMessage" to "Ajoutez-moi comme contact de confiance sur TrackMe pour voir mes sorties en direct : %1\$s",
             "groupStart" to "Démarrer le groupe",
             "groupEnd" to "Terminer le groupe",
             "groupLeave" to "Quitter le groupe",
@@ -3009,6 +3015,8 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "groupJoinConsent" to "Sie sehen deinen Standort, solange die Gruppe aktiv ist.",
             "groupShare" to "Einladung teilen",
             "groupShareMessage" to "Komm zu meiner Fahrt auf TrackMe — wir sehen uns unterwegs auf der Karte. Code: %1\$s  %2\$s",
+            "liveShareShareMessage" to "Verfolge meine Fahrt live auf TrackMe: %1\$s",
+            "trustedWatcherInviteShareMessage" to "Füge mich als vertrauenswürdigen Kontakt auf TrackMe hinzu, um meine Live-Fahrten zu sehen: %1\$s",
             "groupStart" to "Gruppe starten",
             "groupEnd" to "Gruppe beenden",
             "groupLeave" to "Gruppe verlassen",
@@ -3820,6 +3828,8 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "groupJoinConsent" to "जब तक ग्रुप लाइव है, वे आपका स्थान देखेंगे।",
             "groupShare" to "आमंत्रण साझा करें",
             "groupShareMessage" to "TrackMe पर मेरी सवारी में शामिल हों — रास्ते में हम एक-दूसरे को मैप पर देखेंगे। कोड: %1\$s  %2\$s",
+            "liveShareShareMessage" to "TrackMe पर मेरी लाइव सवारी को ट्रैक करें: %1\$s",
+            "trustedWatcherInviteShareMessage" to "मेरी लाइव सवारी देखने के लिए मुझे TrackMe पर एक विश्वसनीय संपर्क के रूप में जोड़ें: %1\$s",
             "groupStart" to "ग्रुप शुरू करें",
             "groupEnd" to "ग्रुप समाप्त करें",
             "groupLeave" to "ग्रुप छोड़ें",
@@ -4631,6 +4641,8 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "groupJoinConsent" to "グループが有効な間、あなたの位置が共有されます。",
             "groupShare" to "招待を共有",
             "groupShareMessage" to "TrackMeで一緒にライドしましょう。道中お互いを地図で確認できます。コード: %1\$s  %2\$s",
+            "liveShareShareMessage" to "TrackMeで私のライブライドを追跡: %1\$s",
+            "trustedWatcherInviteShareMessage" to "私のライブライドを確認するには、TrackMeで信頼できる連絡先として追加してください: %1\$s",
             "groupStart" to "グループを開始",
             "groupEnd" to "グループを終了",
             "groupLeave" to "グループを退出",
@@ -5442,6 +5454,8 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "groupJoinConsent" to "在群组活动期间，他们将看到你的位置。",
             "groupShare" to "分享邀请",
             "groupShareMessage" to "加入我在 TrackMe 的骑行——路上我们能在地图上看到彼此。代码：%1\$s  %2\$s",
+            "liveShareShareMessage" to "在 TrackMe 上关注我的实时骑行：%1\$s",
+            "trustedWatcherInviteShareMessage" to "在 TrackMe 上将我添加为常用联系人以查看我的实时骑行：%1\$s",
             "groupStart" to "开始群组",
             "groupEnd" to "结束群组",
             "groupLeave" to "离开群组",
