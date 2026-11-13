@@ -61,4 +61,35 @@ class LiveShareManagerTest {
         assertEquals(0, LiveShareManager.parseActiveViewers("""{"activeViewers": -1}""", fallback = 5))
         assertEquals(1, LiveShareManager.parseActiveViewers("not-json", fallback = 1))
     }
+
+    @Test
+    fun computePushBackoffDelayScalesPredictablyAndClampsAtCeiling() {
+        val noJitter = { 0.0 }
+        // 0 failures -> base (5000ms)
+        assertEquals(5000L, LiveShareManager.computePushBackoffDelay(0, 5000L, 15000L, noJitter))
+        assertEquals(5000L, LiveShareManager.computePushBackoffDelay(-1, 5000L, 15000L, noJitter))
+
+        // 1 failure -> base + 1000 = 6000ms
+        assertEquals(6000L, LiveShareManager.computePushBackoffDelay(1, 5000L, 15000L, noJitter))
+
+        // 2 failures -> base + 3000 = 8000ms
+        assertEquals(8000L, LiveShareManager.computePushBackoffDelay(2, 5000L, 15000L, noJitter))
+
+        // 3 failures -> base + 6000 = 11000ms
+        assertEquals(11000L, LiveShareManager.computePushBackoffDelay(3, 5000L, 15000L, noJitter))
+
+        // 4 failures -> base + 10000 = 15000ms
+        assertEquals(15000L, LiveShareManager.computePushBackoffDelay(4, 5000L, 15000L, noJitter))
+
+        // 10 failures -> clamped at max (15000ms)
+        assertEquals(15000L, LiveShareManager.computePushBackoffDelay(10, 5000L, 15000L, noJitter))
+
+        // Injects jitter within bounds without exceeding max
+        val fullJitter = { 0.999 }
+        val delayWithJitter = LiveShareManager.computePushBackoffDelay(1, 5000L, 15000L, fullJitter)
+        assertEquals(6499L, delayWithJitter)
+
+        val clampedWithJitter = LiveShareManager.computePushBackoffDelay(4, 5000L, 15000L, fullJitter)
+        assertEquals(15000L, clampedWithJitter)
+    }
 }

@@ -123,6 +123,8 @@ class TrackingService : Service() {
     private var lastGpsResumeTelemetryMs = 0L
     private var lastLiveShareTimeMs = 0L
     private var lastLiveShareSessionId: String? = null
+    private val isLiveSharePushInProgress = java.util.concurrent.atomic.AtomicBoolean(false)
+    private var liveShareConsecutiveFailures = 0
     private val liveShareIntervals = mutableListOf<`in`.shvms.trackme.domain.live.LiveShareInterval>()
     private var openLiveShareIntervalStartMs: Long? = null
     private var liveShareIntervalObserverJob: Job? = null
@@ -351,36 +353,10 @@ class TrackingService : Service() {
                     }
                 }
                 
-                val liveShareState = liveShareManager.state.value
-                if (liveShareState.status == LiveShareStatus.ACTIVE) {
-                    if (liveShareState.sessionId != lastLiveShareSessionId) {
-                        lastLiveShareSessionId = liveShareState.sessionId
-                        lastLiveShareTimeMs = 0L
-                    }
-                    val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
-                    val freqSec = prefs.getInt("live_share_frequency_sec", 5)
-                    val now = System.currentTimeMillis()
-                    
-                    if (now - lastLiveShareTimeMs >= freqSec * 1000L) {
-                        lastLiveShareTimeMs = now
-                        
-                        val manager = getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager
-                        val batteryLevel = manager.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
-                        val heading = if (location.hasBearing()) location.bearing else null
-                        val isPowerSave = (getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
-                        
-                        serviceScope.launch {
-                            liveShareManager.pushLocation(
-                                lat = location.latitude,
-                                lon = location.longitude,
-                                batteryLevel = batteryLevel,
-                                speed = if (location.hasSpeed()) (location.speed * 3.6f).coerceAtLeast(0f) else null,
-                                heading = heading,
-                                powerSaveMode = isPowerSave
-                            )
-                        }
-                    }
-                }
+                maybePushLiveShareLocation(
+                    location = location,
+                    speedKmh = if (location.hasSpeed()) (location.speed * 3.6f).coerceAtLeast(0f) else null,
+                )
             }
         }
     }
@@ -511,24 +487,59 @@ class TrackingService : Service() {
                 withContext(Dispatchers.Main.immediate) { enterStorageLowState() }
             }
         }
-        val currentLiveShareState = liveShareManager.state.value
-        if (publishLiveLocation && currentLiveShareState.status == LiveShareStatus.ACTIVE) {
-            if (currentLiveShareState.sessionId != lastLiveShareSessionId) {
-                lastLiveShareSessionId = currentLiveShareState.sessionId
-                lastLiveShareTimeMs = 0L
-            }
-            val now = System.currentTimeMillis()
-            if (now - lastLiveShareTimeMs >= prefs.getInt("live_share_frequency_sec", 5) * 1000L) {
-                lastLiveShareTimeMs = now
-                val battery = (getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager)
-                    .getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
-                val isPowerSave = (getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
-                serviceScope.launch {
-                    liveShareManager.pushLocation(lat = location.latitude, lon = location.longitude,
-                        batteryLevel = battery, speed = (snapshot.currentSpeedMetersPerSecond * 3.6f).coerceAtLeast(0f),
-                        heading = if (location.hasBearing()) location.bearing else null,
-                        powerSaveMode = isPowerSave)
+        if (publishLiveLocation) {
+            maybePushLiveShareLocation(
+                location = location,
+                speedKmh = (snapshot.currentSpeedMetersPerSecond * 3.6f).coerceAtLeast(0f),
+            )
+        }
+    }
+
+    private fun maybePushLiveShareLocation(location: Location, speedKmh: Float?) {
+        val liveShareState = liveShareManager.state.value
+        if (liveShareState.status != LiveShareStatus.ACTIVE) return
+
+        if (liveShareState.sessionId != lastLiveShareSessionId) {
+            lastLiveShareSessionId = liveShareState.sessionId
+            lastLiveShareTimeMs = 0L
+            liveShareConsecutiveFailures = 0
+            isLiveSharePushInProgress.set(false)
+        }
+
+        val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
+        val freqSec = prefs.getInt("live_share_frequency_sec", 5)
+        val baseIntervalMs = freqSec * 1000L
+        val requiredDelayMs = LiveShareManager.computePushBackoffDelay(liveShareConsecutiveFailures, baseIntervalMs)
+        val now = System.currentTimeMillis()
+
+        if (now - lastLiveShareTimeMs < requiredDelayMs) return
+        if (!isLiveSharePushInProgress.compareAndSet(false, true)) return
+
+        lastLiveShareTimeMs = now
+        val manager = getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
+        val batteryLevel = manager?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: 100
+        val heading = if (location.hasBearing()) location.bearing else null
+        val isPowerSave = (getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
+
+        serviceScope.launch {
+            try {
+                val res = liveShareManager.pushLocation(
+                    lat = location.latitude,
+                    lon = location.longitude,
+                    batteryLevel = batteryLevel,
+                    speed = speedKmh,
+                    heading = heading,
+                    powerSaveMode = isPowerSave
+                )
+                if (res.isSuccess) {
+                    liveShareConsecutiveFailures = 0
+                } else {
+                    liveShareConsecutiveFailures++
                 }
+            } catch (_: Exception) {
+                liveShareConsecutiveFailures++
+            } finally {
+                isLiveSharePushInProgress.set(false)
             }
         }
     }
