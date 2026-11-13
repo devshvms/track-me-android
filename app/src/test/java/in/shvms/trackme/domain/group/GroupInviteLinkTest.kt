@@ -135,4 +135,23 @@ class GroupInviteLinkTest {
         assertEquals("trackme", GroupInviteLink.SCHEME)
         assertEquals("group", GroupInviteLink.HOST)
     }
+
+    @Test
+    fun `an App Link recovers the token directly from uriString without explicit fragment param`() {
+        val invite = GroupInviteLink.parse("https://trackme.shvms.in/g#$token")
+        assertEquals(token, invite!!.token)
+        assertTrue(invite.hasToken)
+    }
+
+    @Test
+    fun `a custom scheme recovers the join code directly from uriString without explicit queryCode param`() {
+        val invite = GroupInviteLink.parse("trackme://group?c=ABC123")
+        assertEquals("ABC123", invite!!.code)
+    }
+
+    @Test
+    fun `supports code parameter in https URL when fragment is absent`() {
+        val invite = GroupInviteLink.parse("https://trackme.shvms.in/g?code=ABC-123")
+        assertEquals("ABC123", invite!!.code)
+    }
 }

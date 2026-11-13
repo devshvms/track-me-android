@@ -65,4 +65,36 @@ class LiveShareLinkTest {
         assertNull(LiveShareLink.parse("https://evil.example/live/abc_12345"))
         assertNull(LiveShareLink.parse("https://trackme.shvms.in/live/a"))
     }
+
+    @Test
+    fun `parses custom trackme uri with triple slash format`() {
+        assertEquals(
+            LiveShareDeepLink.Session("sess_5555"),
+            LiveShareLink.parse("trackme:///live/sess_5555"),
+        )
+    }
+
+    @Test
+    fun `recovers session id when query contains unencoded spaces`() {
+        assertEquals(
+            LiveShareDeepLink.Session("abc_12345"),
+            LiveShareLink.parse("https://trackme.shvms.in/live/abc_12345?name=John Doe&utm=social share"),
+        )
+    }
+
+    @Test
+    fun `decodes percent-encoded session id characters`() {
+        assertEquals(
+            LiveShareDeepLink.Session("ride-99_xy"),
+            LiveShareLink.parse("https://trackme.shvms.in/live/ride%2D99%5Fxy"),
+        )
+    }
+
+    @Test
+    fun `parses www domain host variant`() {
+        assertEquals(
+            LiveShareDeepLink.Session("abc_12345"),
+            LiveShareLink.parse("https://www.trackme.shvms.in/live/abc_12345"),
+        )
+    }
 }
