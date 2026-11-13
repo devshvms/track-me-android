@@ -488,6 +488,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val liveViewerSignalPausedA11y: String = s("liveViewerSignalPausedA11y", "GPS signal paused, waiting for rider location")
     val liveViewerSignalPausedBanner: String = s("liveViewerSignalPausedBanner", "Signal paused · Waiting for rider GPS")
     val liveViewerDurationLabel: String = s("liveViewerDurationLabel", "Duration: %1\$s")
+    val liveViewerDistanceLabel: String = s("liveViewerDistanceLabel", "Distance: %1\$s")
     val watcherInviteSignInRequired: String = s("watcherInviteSignInRequired", "Sign in to accept this trusted watcher invite.")
     val reminderOff: String = s("reminderOff", "Off")
     val reminderSectionSubtitle: String = s("reminderSectionSubtitle", "Reminders on the days and at the time you choose. Off unless you turn them on.")
@@ -1343,6 +1344,7 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSignalPausedA11y" to "Señal GPS en pausa, esperando ubicación del usuario",
             "liveViewerSignalPausedBanner" to "Señal en pausa · Esperando GPS del usuario",
             "liveViewerDurationLabel" to "Duración: %1\$s",
+            "liveViewerDistanceLabel" to "Distancia: %1\$s",
             "watcherInviteSignInRequired" to "Inicia sesión para aceptar esta invitación de observador.",
             "reminderOff" to "Desactivado",
             "reminderSectionSubtitle" to "Recordatorios los días y a la hora que elijas. Desactivados hasta que los actives.",
@@ -2159,6 +2161,7 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSignalPausedA11y" to "Signal GPS en pause, en attente de la position du cycliste",
             "liveViewerSignalPausedBanner" to "Signal en pause · En attente du GPS du cycliste",
             "liveViewerDurationLabel" to "Durée : %1\$s",
+            "liveViewerDistanceLabel" to "Distance : %1\$s",
             "watcherInviteSignInRequired" to "Connectez-vous pour accepter cette invitation de contact de confiance.",
             "reminderOff" to "Désactivé",
             "reminderSectionSubtitle" to "Des rappels aux jours et à l’heure de votre choix. Désactivés tant que vous ne les activez pas.",
@@ -2975,6 +2978,7 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSignalPausedA11y" to "GPS-Signal pausiert, warte auf Standort des Fahrers",
             "liveViewerSignalPausedBanner" to "Signal pausiert · Warte auf GPS des Fahrers",
             "liveViewerDurationLabel" to "Dauer: %1\$s",
+            "liveViewerDistanceLabel" to "Distanz: %1\$s",
             "watcherInviteSignInRequired" to "Melde dich an, um diese Einladung anzunehmen.",
             "reminderOff" to "Aus",
             "reminderSectionSubtitle" to "Erinnerungen an den gewählten Tagen und zur gewählten Uhrzeit. Aus, bis du sie einschaltest.",
@@ -3791,6 +3795,7 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSignalPausedA11y" to "जीपीएस सिग्नल रुका हुआ, राइडर के स्थान की प्रतीक्षा है",
             "liveViewerSignalPausedBanner" to "सिग्नल रुका हुआ · राइडर के जीपीएस की प्रतीक्षा है",
             "liveViewerDurationLabel" to "अवधि: %1\$s",
+            "liveViewerDistanceLabel" to "दूरी: %1\$s",
             "watcherInviteSignInRequired" to "भरोसेमंद वॉचर आमंत्रण स्वीकार करने के लिए साइन इन करें।",
             "reminderOff" to "बंद",
             "reminderSectionSubtitle" to "आपके चुने दिनों और समय पर अनुस्मारक। चालू करने तक बंद रहेंगे।",
@@ -4607,6 +4612,7 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSignalPausedA11y" to "GPS信号が一時停止中、ライダーの位置情報を待機しています",
             "liveViewerSignalPausedBanner" to "信号一時停止中 · ライダーのGPSを待機しています",
             "liveViewerDurationLabel" to "経過時間: %1\$s",
+            "liveViewerDistanceLabel" to "距離: %1\$s",
             "watcherInviteSignInRequired" to "信頼できるウォッチャーの招待を承諾するにはサインインしてください。",
             "reminderOff" to "オフ",
             "reminderSectionSubtitle" to "選んだ曜日と時間にリマインドします。オンにするまでは無効です。",
@@ -5423,6 +5429,7 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSignalPausedA11y" to "GPS信号已暂停，正在等待骑手位置",
             "liveViewerSignalPausedBanner" to "信号暂停 · 正在等待骑手GPS",
             "liveViewerDurationLabel" to "时长：%1\$s",
+            "liveViewerDistanceLabel" to "距离：%1\$s",
             "watcherInviteSignInRequired" to "请先登录以接受受信任查看者邀请。",
             "reminderOff" to "关闭",
             "reminderSectionSubtitle" to "在你选择的日期和时间提醒。开启后才会发送。",
