@@ -467,6 +467,14 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val liveViewerFitRoute: String = s("liveViewerFitRoute", "Fit route")
     val liveViewerReconnecting: String = s("liveViewerReconnecting", "Connection slow — retrying…")
     val liveViewerUpdatedAgo: String = s("liveViewerUpdatedAgo", "Updated %1\$s")
+    val liveViewerDelayedBadgeA11y: String = s("liveViewerDelayedBadgeA11y", "Location updates delayed")
+    val liveViewerRecenterA11y: String = s("liveViewerRecenterA11y", "Re-center map on rider's current location")
+    val liveViewerFitRouteA11y: String = s("liveViewerFitRouteA11y", "Fit entire route in view")
+    val liveViewerDestinationA11y: String = s("liveViewerDestinationA11y", "Destination: %1\$s")
+    val liveViewerSpeedA11y: String = s("liveViewerSpeedA11y", "Rider speed: %1\$s")
+    val liveViewerSpeedUnavailableA11y: String = s("liveViewerSpeedUnavailableA11y", "Rider speed unavailable")
+    val liveViewerBatteryA11y: String = s("liveViewerBatteryA11y", "Rider battery: %1\$d percent")
+    val liveViewerOpenInBrowserA11y: String = s("liveViewerOpenInBrowserA11y", "Open live tracking session in web browser")
     val watcherInviteSignInRequired: String = s("watcherInviteSignInRequired", "Sign in to accept this trusted watcher invite.")
     val reminderOff: String = s("reminderOff", "Off")
     val reminderSectionSubtitle: String = s("reminderSectionSubtitle", "Reminders on the days and at the time you choose. Off unless you turn them on.")
@@ -1305,6 +1313,14 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerFitRoute" to "Ver ruta completa",
             "liveViewerReconnecting" to "Conexión lenta — reintentando…",
             "liveViewerUpdatedAgo" to "Actualizado %1\$s",
+            "liveViewerDelayedBadgeA11y" to "Actualizaciones de ubicación retrasadas",
+            "liveViewerRecenterA11y" to "Re-centrar mapa en la ubicación actual del usuario",
+            "liveViewerFitRouteA11y" to "Ajustar ruta completa en pantalla",
+            "liveViewerDestinationA11y" to "Destino: %1\$s",
+            "liveViewerSpeedA11y" to "Velocidad del usuario: %1\$s",
+            "liveViewerSpeedUnavailableA11y" to "Velocidad del usuario no disponible",
+            "liveViewerBatteryA11y" to "Batería del usuario: %1\$d por ciento",
+            "liveViewerOpenInBrowserA11y" to "Abrir sesión de seguimiento en el navegador web",
             "watcherInviteSignInRequired" to "Inicia sesión para aceptar esta invitación de observador.",
             "reminderOff" to "Desactivado",
             "reminderSectionSubtitle" to "Recordatorios los días y a la hora que elijas. Desactivados hasta que los actives.",
@@ -2100,6 +2116,14 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerFitRoute" to "Voir le trajet",
             "liveViewerReconnecting" to "Connexion lente — nouvelle tentative…",
             "liveViewerUpdatedAgo" to "Mis à jour %1\$s",
+            "liveViewerDelayedBadgeA11y" to "Mises à jour de position retardées",
+            "liveViewerRecenterA11y" to "Recentrer la carte sur la position actuelle du cycliste",
+            "liveViewerFitRouteA11y" to "Ajuster l'ensemble du parcours à l'écran",
+            "liveViewerDestinationA11y" to "Destination : %1\$s",
+            "liveViewerSpeedA11y" to "Vitesse du cycliste : %1\$s",
+            "liveViewerSpeedUnavailableA11y" to "Vitesse du cycliste non disponible",
+            "liveViewerBatteryA11y" to "Batterie du cycliste : %1\$d pour cent",
+            "liveViewerOpenInBrowserA11y" to "Ouvrir la session de suivi en direct dans le navigateur web",
             "watcherInviteSignInRequired" to "Connectez-vous pour accepter cette invitation de contact de confiance.",
             "reminderOff" to "Désactivé",
             "reminderSectionSubtitle" to "Des rappels aux jours et à l’heure de votre choix. Désactivés tant que vous ne les activez pas.",
@@ -2895,6 +2919,14 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerFitRoute" to "Gesamte Route",
             "liveViewerReconnecting" to "Verbindung langsam — neuer Versuch…",
             "liveViewerUpdatedAgo" to "Aktualisiert %1\$s",
+            "liveViewerDelayedBadgeA11y" to "Standortaktualisierungen verzögert",
+            "liveViewerRecenterA11y" to "Karte auf aktuellen Standort des Fahrers zentrieren",
+            "liveViewerFitRouteA11y" to "Gesamte Route in Ansicht einpassen",
+            "liveViewerDestinationA11y" to "Ziel: %1\$s",
+            "liveViewerSpeedA11y" to "Geschwindigkeit des Fahrers: %1\$s",
+            "liveViewerSpeedUnavailableA11y" to "Geschwindigkeit des Fahrers nicht verfügbar",
+            "liveViewerBatteryA11y" to "Akkustand des Fahrers: %1\$d Prozent",
+            "liveViewerOpenInBrowserA11y" to "Live-Tracking-Sitzung im Webbrowser öffnen",
             "watcherInviteSignInRequired" to "Melde dich an, um diese Einladung anzunehmen.",
             "reminderOff" to "Aus",
             "reminderSectionSubtitle" to "Erinnerungen an den gewählten Tagen und zur gewählten Uhrzeit. Aus, bis du sie einschaltest.",
@@ -3690,6 +3722,14 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerFitRoute" to "पूरा मार्ग देखें",
             "liveViewerReconnecting" to "कनेक्शन धीमा — पुनः प्रयास जारी…",
             "liveViewerUpdatedAgo" to "अपडेट %1\$s",
+            "liveViewerDelayedBadgeA11y" to "स्थान अपडेट विलंबित हैं",
+            "liveViewerRecenterA11y" to "राइडर के वर्तमान स्थान पर मानचित्र को पुनः केंद्रित करें",
+            "liveViewerFitRouteA11y" to "पूरे मार्ग को स्क्रीन पर फ़िट करें",
+            "liveViewerDestinationA11y" to "गंतव्य: %1\$s",
+            "liveViewerSpeedA11y" to "राइडर की गति: %1\$s",
+            "liveViewerSpeedUnavailableA11y" to "राइडर की गति उपलब्ध नहीं है",
+            "liveViewerBatteryA11y" to "राइडर की बैटरी: %1\$d प्रतिशत",
+            "liveViewerOpenInBrowserA11y" to "वेब ब्राउज़र में लाइव ट्रैकिंग सत्र खोलें",
             "watcherInviteSignInRequired" to "भरोसेमंद वॉचर आमंत्रण स्वीकार करने के लिए साइन इन करें।",
             "reminderOff" to "बंद",
             "reminderSectionSubtitle" to "आपके चुने दिनों और समय पर अनुस्मारक। चालू करने तक बंद रहेंगे।",
@@ -4485,6 +4525,14 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerFitRoute" to "ルート全体",
             "liveViewerReconnecting" to "接続不安定 — 再試行中…",
             "liveViewerUpdatedAgo" to "更新 %1\$s",
+            "liveViewerDelayedBadgeA11y" to "位置情報の更新が遅延しています",
+            "liveViewerRecenterA11y" to "ライダーの現在地に地図を再センタリング",
+            "liveViewerFitRouteA11y" to "ルート全体を画面に合わせる",
+            "liveViewerDestinationA11y" to "目的地: %1\$s",
+            "liveViewerSpeedA11y" to "ライダーの速度: %1\$s",
+            "liveViewerSpeedUnavailableA11y" to "ライダーの速度データなし",
+            "liveViewerBatteryA11y" to "ライダーのバッテリー残量: %1\$dパーセント",
+            "liveViewerOpenInBrowserA11y" to "ウェブブラウザでライブ追跡セッションを開く",
             "watcherInviteSignInRequired" to "信頼できるウォッチャーの招待を承諾するにはサインインしてください。",
             "reminderOff" to "オフ",
             "reminderSectionSubtitle" to "選んだ曜日と時間にリマインドします。オンにするまでは無効です。",
@@ -5280,6 +5328,14 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerFitRoute" to "查看全程",
             "liveViewerReconnecting" to "连接较慢 — 正在重试…",
             "liveViewerUpdatedAgo" to "更新于 %1\$s",
+            "liveViewerDelayedBadgeA11y" to "位置更新延迟",
+            "liveViewerRecenterA11y" to "重新将地图居中到骑手当前位置",
+            "liveViewerFitRouteA11y" to "缩放地图以适应完整路线",
+            "liveViewerDestinationA11y" to "目的地：%1\$s",
+            "liveViewerSpeedA11y" to "骑手速度：%1\$s",
+            "liveViewerSpeedUnavailableA11y" to "骑手速度不可用",
+            "liveViewerBatteryA11y" to "骑手电量：%1\$d%%",
+            "liveViewerOpenInBrowserA11y" to "在网络浏览器中打开实时跟踪会话",
             "watcherInviteSignInRequired" to "请先登录以接受受信任查看者邀请。",
             "reminderOff" to "关闭",
             "reminderSectionSubtitle" to "在你选择的日期和时间提醒。开启后才会发送。",

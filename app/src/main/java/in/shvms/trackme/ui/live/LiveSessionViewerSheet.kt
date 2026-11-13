@@ -53,6 +53,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -241,6 +245,7 @@ fun LiveSessionViewerSheet(
                                     } else {
                                         MaterialTheme.colorScheme.surfaceVariant
                                     },
+                                    modifier = Modifier.semantics(mergeDescendants = true) {},
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -266,6 +271,9 @@ fun LiveSessionViewerSheet(
                                 Surface(
                                     shape = RoundedCornerShape(50),
                                     color = Color(0xFFF59E0B).copy(alpha = 0.2f),
+                                    modifier = Modifier.semantics {
+                                        contentDescription = strings.liveViewerDelayedBadgeA11y
+                                    },
                                 ) {
                                     Text(
                                         text = strings.liveViewerDelayedBadge,
@@ -280,7 +288,7 @@ fun LiveSessionViewerSheet(
                     },
                     navigationIcon = {
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, contentDescription = strings.cancel)
+                            Icon(Icons.Default.Close, contentDescription = strings.close)
                         }
                     },
                 )
@@ -452,6 +460,10 @@ fun LiveSessionViewerSheet(
                                             }
                                         }
                                     },
+                                    modifier = Modifier.semantics {
+                                        role = Role.Button
+                                        contentDescription = strings.liveViewerRecenterA11y
+                                    },
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                     colors = ButtonDefaults.filledTonalButtonColors(
                                         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
@@ -482,6 +494,10 @@ fun LiveSessionViewerSheet(
                                                 CameraUpdateFactory.newLatLngBounds(bounds, 96)
                                             }
                                         }
+                                    },
+                                    modifier = Modifier.semantics {
+                                        role = Role.Button
+                                        contentDescription = strings.liveViewerFitRouteA11y
                                     },
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                     colors = ButtonDefaults.filledTonalButtonColors(
@@ -525,7 +541,11 @@ fun LiveSessionViewerSheet(
                             ) {
                                 if (destinationText != null) {
                                     Row(
-                                        modifier = Modifier.weight(1f, fill = false),
+                                        modifier = Modifier
+                                            .weight(1f, fill = false)
+                                            .semantics(mergeDescendants = true) {
+                                                contentDescription = String.format(Locale.getDefault(), strings.liveViewerDestinationA11y, destinationText)
+                                            },
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     ) {
@@ -548,6 +568,7 @@ fun LiveSessionViewerSheet(
                                 if (ageSeconds != null) {
                                     val ageLabel = if (ageSeconds < 60) "${ageSeconds}s" else "${ageSeconds / 60}m"
                                     Row(
+                                        modifier = Modifier.semantics(mergeDescendants = true) {},
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     ) {
@@ -581,6 +602,13 @@ fun LiveSessionViewerSheet(
                                     UnitFormatter.speed(it.toDouble(), imperial)
                                 } ?: "—"
                                 Row(
+                                    modifier = Modifier.semantics(mergeDescendants = true) {
+                                        contentDescription = if (lastLoc?.speedMps != null) {
+                                            String.format(Locale.getDefault(), strings.liveViewerSpeedA11y, speedText)
+                                        } else {
+                                            strings.liveViewerSpeedUnavailableA11y
+                                        }
+                                    },
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
@@ -599,6 +627,9 @@ fun LiveSessionViewerSheet(
 
                                 lastLoc?.batteryLevel?.let { battery ->
                                     Row(
+                                        modifier = Modifier.semantics(mergeDescendants = true) {
+                                            contentDescription = String.format(Locale.getDefault(), strings.liveViewerBatteryA11y, battery)
+                                        },
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(3.dp),
                                     ) {
@@ -623,6 +654,10 @@ fun LiveSessionViewerSheet(
                                     runCatching {
                                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(browserUrl)))
                                     }
+                                },
+                                modifier = Modifier.semantics {
+                                    role = Role.Button
+                                    contentDescription = strings.liveViewerOpenInBrowserA11y
                                 },
                             ) {
                                 Icon(
