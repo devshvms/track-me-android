@@ -99,7 +99,35 @@ data class LiveSessionSnapshot(
             nowEpochMillis = nowEpochMillis,
         )
     }
+
+    /**
+     * CIE-039: Evaluates and formats a concluded trip summary with stop reason, elapsed duration,
+     * total distance, and average speed with accessible TalkBack announcement text.
+     */
+    fun concludedSummary(
+        useMiles: Boolean = false,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+    ): LiveViewerConcludedSummary {
+        return LiveSessionViewerRepository.formatConcludedSummary(
+            username = username,
+            startedAt = startedAt,
+            endedAt = endedAt,
+            stopReason = stopReason ?: endReason,
+            totalDistanceMeters = totalDistanceMeters,
+            useMiles = useMiles,
+            nowEpochMillis = nowEpochMillis,
+        )
+    }
 }
+
+data class LiveViewerConcludedSummary(
+    val statusText: String,
+    val detailsText: String,
+    val a11yText: String,
+    val avgSpeedStr: String?,
+    val durationStr: String,
+    val distanceStr: String,
+)
 
 sealed class LiveSessionFetchResult {
     data class Success(val snapshot: LiveSessionSnapshot) : LiveSessionFetchResult()
@@ -137,6 +165,40 @@ class LiveSessionViewerRepository {
         epsilonMeters: Double = 3.5,
         minPointsThreshold: Int = 200
     ): List<LatLng> = Companion.decimateLatLngs(points, epsilonMeters, minPointsThreshold)
+
+    fun computeElapsedSeconds(
+        startedAt: String?,
+        endedAt: String? = null,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+    ): Long? = Companion.computeElapsedSeconds(startedAt, endedAt, nowEpochMillis)
+
+    fun computeAverageSpeed(
+        distanceMeters: Double,
+        elapsedSeconds: Long,
+    ): Double? = Companion.computeAverageSpeed(distanceMeters, elapsedSeconds)
+
+    fun formatAverageSpeed(
+        avgSpeedMps: Double?,
+        useMiles: Boolean = false,
+    ): String? = Companion.formatAverageSpeed(avgSpeedMps, useMiles)
+
+    fun formatConcludedSummary(
+        username: String?,
+        startedAt: String?,
+        endedAt: String?,
+        stopReason: String?,
+        totalDistanceMeters: Double,
+        useMiles: Boolean = false,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+    ): LiveViewerConcludedSummary = Companion.formatConcludedSummary(
+        username = username,
+        startedAt = startedAt,
+        endedAt = endedAt,
+        stopReason = stopReason,
+        totalDistanceMeters = totalDistanceMeters,
+        useMiles = useMiles,
+        nowEpochMillis = nowEpochMillis,
+    )
 
     suspend fun fetchSnapshot(sessionId: String): LiveSessionFetchResult = withContext(Dispatchers.IO) {
         val cleanId = sessionId.trim()
@@ -901,6 +963,100 @@ class LiveSessionViewerRepository {
                 minutes == 0L -> "${hours}h"
                 else -> "${hours}h ${minutes}m"
             }
+        }
+
+        /**
+         * CIE-039: Computes elapsed trip duration in whole seconds between startedAt and endedAt (or now).
+         * Discards negative values and invalid timestamps.
+         */
+        fun computeElapsedSeconds(
+            startedAt: String?,
+            endedAt: String? = null,
+            nowEpochMillis: Long = System.currentTimeMillis(),
+        ): Long? {
+            val startMs = parseTimestampMs(startedAt) ?: return null
+            val endMs = parseTimestampMs(endedAt) ?: nowEpochMillis
+            val elapsedMs = kotlin.math.max(0L, endMs - startMs)
+            return elapsedMs / 1000L
+        }
+
+        /**
+         * CIE-039: Computes average speed in meters per second across the concluded trip.
+         * Discards sub-5s micro trips, negative distances, and supersonic single-hop glitches (> 200 km/h = 55.55 m/s).
+         */
+        fun computeAverageSpeed(
+            distanceMeters: Double,
+            elapsedSeconds: Long,
+        ): Double? {
+            if (!distanceMeters.isFinite() || distanceMeters <= 0.0 || elapsedSeconds < 5L) {
+                return null
+            }
+            val speedMps = distanceMeters / elapsedSeconds.toDouble()
+            if (!speedMps.isFinite() || speedMps < 0.1 || speedMps > 55.55) {
+                return null
+            }
+            return speedMps
+        }
+
+        /**
+         * CIE-039: Formats average speed in m/s into localized metric (km/h) or imperial (mph) string.
+         */
+        fun formatAverageSpeed(
+            avgSpeedMps: Double?,
+            useMiles: Boolean = false,
+        ): String? {
+            if (avgSpeedMps == null || !avgSpeedMps.isFinite() || avgSpeedMps <= 0.0) {
+                return null
+            }
+            return if (useMiles) {
+                val mph = avgSpeedMps * 2.236936
+                String.format(java.util.Locale.US, "%.1f mph", mph)
+            } else {
+                val kmh = avgSpeedMps * 3.6
+                String.format(java.util.Locale.US, "%.1f km/h", kmh)
+            }
+        }
+
+        /**
+         * CIE-039: Formats a unified concluded trip recap with stop reason, elapsed duration,
+         * total distance, and average speed with accessible TalkBack announcement text.
+         */
+        fun formatConcludedSummary(
+            username: String?,
+            startedAt: String?,
+            endedAt: String?,
+            stopReason: String?,
+            totalDistanceMeters: Double,
+            useMiles: Boolean = false,
+            nowEpochMillis: Long = System.currentTimeMillis(),
+        ): LiveViewerConcludedSummary {
+            val elapsedSec = computeElapsedSeconds(startedAt, endedAt, nowEpochMillis)
+            val durationStr = formatDuration(startedAt, endedAt, nowEpochMillis) ?: "0m"
+            val distanceStr = formatDistance(totalDistanceMeters, useMiles)
+            val avgSpeedMps = computeAverageSpeed(totalDistanceMeters, elapsedSec ?: 0L)
+            val avgSpeedStr = formatAverageSpeed(avgSpeedMps, useMiles)
+
+            val statusText = stopReason?.trim()?.takeIf { it.isNotEmpty() } ?: "Trip completed"
+            val detailsText = if (avgSpeedStr != null) {
+                "$distanceStr · $durationStr · Ø $avgSpeedStr"
+            } else {
+                "$distanceStr · $durationStr"
+            }
+            val rider = username?.trim()?.takeIf { it.isNotEmpty() } ?: "Rider"
+            val a11yText = if (avgSpeedStr != null) {
+                "$rider's trip ended: $statusText. Covered $distanceStr in $durationStr, average speed $avgSpeedStr."
+            } else {
+                "$rider's trip ended: $statusText. Covered $distanceStr in $durationStr."
+            }
+
+            return LiveViewerConcludedSummary(
+                statusText = statusText,
+                detailsText = detailsText,
+                a11yText = a11yText,
+                avgSpeedStr = avgSpeedStr,
+                durationStr = durationStr,
+                distanceStr = distanceStr,
+            )
         }
     }
 }

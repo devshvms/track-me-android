@@ -335,6 +335,14 @@ fun LiveSessionViewerSheet(
         )
     }
 
+    val concludedSummary = remember(snapshot, isImperial, nowEpochMillis) {
+        if (snapshot != null && !snapshot!!.isActive) {
+            snapshot!!.concludedSummary(useMiles = isImperial, nowEpochMillis = nowEpochMillis)
+        } else {
+            null
+        }
+    }
+
     LaunchedEffect(snapshot?.lastLocation?.headingDeg, speedStatus.isStationary) {
         val target = snapshot?.lastLocation?.headingDeg ?: return@LaunchedEffect
         if (!hasInitializedBearing) {
@@ -552,7 +560,7 @@ fun LiveSessionViewerSheet(
                                 .padding(12.dp)
                                 .semantics {
                                     liveRegion = LiveRegionMode.Polite
-                                    contentDescription = noticeText
+                                    contentDescription = concludedSummary?.a11yText ?: noticeText
                                 },
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -1046,14 +1054,25 @@ fun LiveSessionViewerSheet(
                                     .weight(1f)
                                     .horizontalScroll(rememberScrollState()),
                             ) {
-                                val speedText = speedStatus.displayText
+                                val isEnded = snapshot?.isActive == false
+                                val avgSpeedStr = concludedSummary?.avgSpeedStr
                                 val currentUnitText = if (isImperial) "mph" else "km/h"
+                                val speedDisplay = if (isEnded && avgSpeedStr != null) {
+                                    "${strings.avgSpeed} $avgSpeedStr"
+                                } else {
+                                    speedStatus.displayText
+                                }
+                                val speedA11y = if (isEnded && avgSpeedStr != null) {
+                                    "${strings.avgSpeed}: $avgSpeedStr. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
+                                } else {
+                                    "${speedStatus.a11yText}. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
+                                }
                                 Row(
                                     modifier = Modifier
                                         .clickable { isImperial = !isImperial }
                                         .semantics(mergeDescendants = true) {
                                             role = Role.Button
-                                            contentDescription = "${speedStatus.a11yText}. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
+                                            contentDescription = speedA11y
                                         },
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -1065,7 +1084,7 @@ fun LiveSessionViewerSheet(
                                         tint = Color(0xFF06B6D4),
                                     )
                                     Text(
-                                        text = speedText,
+                                        text = speedDisplay,
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Bold,
                                     )

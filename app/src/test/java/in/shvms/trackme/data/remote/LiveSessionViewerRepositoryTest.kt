@@ -969,5 +969,148 @@ class LiveSessionViewerRepositoryTest {
         val instanceDecimatedLatLngs = repo.decimateLatLngs(cornerLatLngs, epsilonMeters = 3.5, minPointsThreshold = 0)
         assertEquals(3, instanceDecimatedLatLngs.size)
     }
+
+    @Test
+    fun `computeElapsedSeconds handles valid, missing, and inverted timestamps`() {
+        val nowMs = 1_700_000_100_000L
+        val startIso = java.time.Instant.ofEpochMilli(nowMs - 3_600_000L).toString() // 1 hr ago
+        val endIso = java.time.Instant.ofEpochMilli(nowMs - 600_000L).toString() // 10 min ago
+
+        // Companion & instance parity
+        val repo = LiveSessionViewerRepository()
+        assertEquals(3000L, LiveSessionViewerRepository.computeElapsedSeconds(startIso, endIso, nowMs))
+        assertEquals(3000L, repo.computeElapsedSeconds(startIso, endIso, nowMs))
+
+        // Null start returns null
+        assertNull(LiveSessionViewerRepository.computeElapsedSeconds(null, endIso, nowMs))
+        assertNull(repo.computeElapsedSeconds("", endIso, nowMs))
+
+        // Missing end falls back to nowEpochMillis
+        assertEquals(3600L, LiveSessionViewerRepository.computeElapsedSeconds(startIso, null, nowMs))
+
+        // Inverted timestamps clamp at 0
+        assertEquals(0L, LiveSessionViewerRepository.computeElapsedSeconds(endIso, startIso, nowMs))
+    }
+
+    @Test
+    fun `computeAverageSpeed calculates mps and suppresses anomalies and micro-trips`() {
+        val repo = LiveSessionViewerRepository()
+
+        // 10,000 meters in 1,000 seconds = 10.0 m/s (~36 km/h)
+        val normalSpeed = LiveSessionViewerRepository.computeAverageSpeed(10_000.0, 1_000L)
+        assertNotNull(normalSpeed)
+        assertEquals(10.0, normalSpeed!!, 0.001)
+        assertEquals(10.0, repo.computeAverageSpeed(10_000.0, 1_000L)!!, 0.001)
+
+        // Micro-duration (< 5 seconds) returns null
+        assertNull(LiveSessionViewerRepository.computeAverageSpeed(100.0, 4L))
+        assertNull(LiveSessionViewerRepository.computeAverageSpeed(100.0, 0L))
+        assertNull(LiveSessionViewerRepository.computeAverageSpeed(100.0, -10L))
+
+        // Zero or negative distance returns null
+        assertNull(LiveSessionViewerRepository.computeAverageSpeed(0.0, 60L))
+        assertNull(LiveSessionViewerRepository.computeAverageSpeed(-50.0, 60L))
+
+        // Supersonic teleport anomaly (> 55.55 m/s = 200 km/h) returns null
+        assertNull(LiveSessionViewerRepository.computeAverageSpeed(60_000.0, 100L)) // 600 m/s
+
+        // Sub-0.1 m/s crawl returns null
+        assertNull(LiveSessionViewerRepository.computeAverageSpeed(1.0, 100L)) // 0.01 m/s
+    }
+
+    @Test
+    fun `formatAverageSpeed formats metric and imperial units with US locale numbers`() {
+        val repo = LiveSessionViewerRepository()
+        val speedMps = 10.0 // 36 km/h or ~22.4 mph
+
+        assertEquals("36.0 km/h", LiveSessionViewerRepository.formatAverageSpeed(speedMps, useMiles = false))
+        assertEquals("22.4 mph", LiveSessionViewerRepository.formatAverageSpeed(speedMps, useMiles = true))
+
+        assertEquals("36.0 km/h", repo.formatAverageSpeed(speedMps, useMiles = false))
+        assertEquals("22.4 mph", repo.formatAverageSpeed(speedMps, useMiles = true))
+
+        assertNull(LiveSessionViewerRepository.formatAverageSpeed(null))
+        assertNull(LiveSessionViewerRepository.formatAverageSpeed(Double.NaN))
+        assertNull(LiveSessionViewerRepository.formatAverageSpeed(-5.0))
+        assertNull(LiveSessionViewerRepository.formatAverageSpeed(0.0))
+    }
+
+    @Test
+    fun `formatConcludedSummary formats recap with stopReason, distance, duration, and speed`() {
+        val nowMs = 1_700_000_100_000L
+        val startIso = java.time.Instant.ofEpochMilli(nowMs - 3_600_000L).toString() // 1h ago
+        val endIso = java.time.Instant.ofEpochMilli(nowMs).toString()
+        val distanceMeters = 18_000.0 // 18.0 km in 3600s = 5.0 m/s = 18.0 km/h
+
+        val summary = LiveSessionViewerRepository.formatConcludedSummary(
+            username = "Alice",
+            startedAt = startIso,
+            endedAt = endIso,
+            stopReason = "Arrived at destination",
+            totalDistanceMeters = distanceMeters,
+            useMiles = false,
+            nowEpochMillis = nowMs,
+        )
+
+        assertEquals("Arrived at destination", summary.statusText)
+        assertEquals("18.0 km", summary.distanceStr)
+        assertEquals("1h", summary.durationStr)
+        assertEquals("18.0 km/h", summary.avgSpeedStr)
+        assertEquals("18.0 km · 1h · Ø 18.0 km/h", summary.detailsText)
+        assertEquals(
+            "Alice's trip ended: Arrived at destination. Covered 18.0 km in 1h, average speed 18.0 km/h.",
+            summary.a11yText,
+        )
+
+        // Imperial formatting
+        val imperialSummary = LiveSessionViewerRepository.formatConcludedSummary(
+            username = "Bob",
+            startedAt = startIso,
+            endedAt = endIso,
+            stopReason = null,
+            totalDistanceMeters = distanceMeters,
+            useMiles = true,
+            nowEpochMillis = nowMs,
+        )
+        assertEquals("Trip completed", imperialSummary.statusText)
+        assertEquals("11.2 mi", imperialSummary.distanceStr)
+        assertEquals("11.2 mph", imperialSummary.avgSpeedStr)
+        assertEquals("11.2 mi · 1h · Ø 11.2 mph", imperialSummary.detailsText)
+        assertEquals(
+            "Bob's trip ended: Trip completed. Covered 11.2 mi in 1h, average speed 11.2 mph.",
+            imperialSummary.a11yText,
+        )
+
+        // Snapshot helper integration
+        val snapshot = LiveSessionSnapshot(
+            sessionId = "sess_ended",
+            username = "Charlie",
+            status = "ended",
+            startedAt = startIso,
+            endedAt = endIso,
+            stopReason = "Stopped by rider",
+            endReason = null,
+            destination = null,
+            deadlineAt = null,
+            lastLocation = null,
+            path = listOf(
+                LiveViewerPoint(28.6100, 77.2000),
+                LiveViewerPoint(28.7100, 77.2000),
+            ),
+        )
+        val snapSummary = snapshot.concludedSummary(useMiles = false, nowEpochMillis = nowMs)
+        assertEquals("Stopped by rider", snapSummary.statusText)
+        assertTrue(snapSummary.distanceStr.contains("km"))
+        assertNotNull(snapSummary.avgSpeedStr)
+    }
+
+    @Test
+    fun `avgSpeed localization is present across all 7 shipped languages`() {
+        for (lang in SUPPORTED_LANGUAGE_CODES) {
+            val strings = getAppStrings(lang)
+            val avgSpeed = strings.avgSpeed
+            assertTrue("avgSpeed missing or blank for $lang", avgSpeed.isNotBlank())
+        }
+    }
 }
 
