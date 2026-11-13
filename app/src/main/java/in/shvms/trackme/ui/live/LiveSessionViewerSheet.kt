@@ -1010,8 +1010,8 @@ fun LiveSessionViewerSheet(
                             ) {
                                 FilledTonalButton(
                                     onClick = {
-                                        val browserUrl = "${AppConfig.LIVE_SHARE_BASE_URL}/live/$sessionId"
                                         val riderName = currentSnapshot?.username?.trim()?.takeIf { it.isNotBlank() }
+                                        val browserUrl = LiveSessionViewerRepository.buildShareUrl(AppConfig.LIVE_SHARE_BASE_URL, sessionId, riderName)
                                         val shareMessage = if (riderName != null) {
                                             String.format(Locale.getDefault(), strings.liveViewerShareMessageWithName, riderName, browserUrl)
                                         } else {
@@ -1044,7 +1044,8 @@ fun LiveSessionViewerSheet(
 
                                 OutlinedButton(
                                     onClick = {
-                                        val browserUrl = "${AppConfig.LIVE_SHARE_BASE_URL}/live/$sessionId"
+                                        val riderName = currentSnapshot?.username?.trim()?.takeIf { it.isNotBlank() }
+                                        val browserUrl = LiveSessionViewerRepository.buildShareUrl(AppConfig.LIVE_SHARE_BASE_URL, sessionId, riderName)
                                         runCatching {
                                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(browserUrl)))
                                         }

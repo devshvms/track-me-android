@@ -562,4 +562,27 @@ class LiveSessionViewerRepositoryTest {
         assertEquals("0 mph", zeroImperial.displayText)
         assertEquals("Rider speed: 0 mph", zeroImperial.a11yText)
     }
+
+    @Test
+    fun `buildShareUrl builds canonical URLs with proper parameter encoding and trailing slash handling`() {
+        // Without rider name
+        val urlWithoutName = LiveSessionViewerRepository.buildShareUrl("https://trackme.shvms.in", "ride-123", null)
+        assertEquals("https://trackme.shvms.in/live/ride-123", urlWithoutName)
+
+        // Trailing slashes on base URL stripped
+        val urlTrailingSlash = LiveSessionViewerRepository.buildShareUrl("https://trackme.shvms.in///", "ride-123", "")
+        assertEquals("https://trackme.shvms.in/live/ride-123", urlTrailingSlash)
+
+        // Blank whitespace name omitted
+        val urlBlankName = LiveSessionViewerRepository.buildShareUrl("https://trackme.shvms.in", "ride-123", "   ")
+        assertEquals("https://trackme.shvms.in/live/ride-123", urlBlankName)
+
+        // With rider name encoded
+        val urlWithName = LiveSessionViewerRepository.buildShareUrl("https://trackme.shvms.in", "ride-123", "Alex Rivera")
+        assertEquals("https://trackme.shvms.in/live/ride-123?name=Alex+Rivera", urlWithName)
+
+        // Special characters in rider name and session ID
+        val urlSpecial = LiveSessionViewerRepository.buildShareUrl("https://trackme.shvms.in", "ride/abc", "Jane & John")
+        assertEquals("https://trackme.shvms.in/live/ride%2Fabc?name=Jane+%26+John", urlSpecial)
+    }
 }
