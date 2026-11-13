@@ -153,6 +153,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val statusPaused: String = s("statusPaused", "PAUSED")
     val hudAutoPausedPill: String = s("hudAutoPausedPill", "Auto paused")
     val hudLiveSharingPill: String = s("hudLiveSharingPill", "Live sharing")
+    val hudPowerSavingPill: String = s("hudPowerSavingPill", "Power saving")
+    val hudPowerSavingA11y: String = s("hudPowerSavingA11y", "Power saving mode active: broadcast interval spaced out")
     val hudOfflineShieldPill: String = s("hudOfflineShieldPill", "Offline shield active")
     val hudTouchLockPill: String = s("hudTouchLockPill", "Lock")
     val hudTouchLockedPill: String = s("hudTouchLockedPill", "Locked")
@@ -1474,6 +1476,8 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "statusPaused" to "PAUSADO",
             "hudAutoPausedPill" to "Pausa automática",
             "hudLiveSharingPill" to "Compartiendo en vivo",
+            "hudPowerSavingPill" to "Ahorro de batería",
+            "hudPowerSavingA11y" to "Modo de ahorro de batería activo: intervalo de transmisión espaciado",
             "hudOfflineShieldPill" to "Escudo sin conexión activo",
             "hudTouchLockPill" to "Bloquear",
             "hudTouchLockedPill" to "Bloqueado",
@@ -2283,6 +2287,8 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "statusPaused" to "EN PAUSE",
             "hudAutoPausedPill" to "Pause automatique",
             "hudLiveSharingPill" to "Partage en direct",
+            "hudPowerSavingPill" to "Économie d'énergie",
+            "hudPowerSavingA11y" to "Mode économie d'énergie actif : intervalle de diffusion espacé",
             "hudOfflineShieldPill" to "Bouclier hors ligne actif",
             "hudTouchLockPill" to "Verrouiller",
             "hudTouchLockedPill" to "Verrouillé",
@@ -3092,6 +3098,8 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "statusPaused" to "PAUSIERT",
             "hudAutoPausedPill" to "Automatisch pausiert",
             "hudLiveSharingPill" to "Live-Freigabe",
+            "hudPowerSavingPill" to "Energiesparen",
+            "hudPowerSavingA11y" to "Energiesparmodus aktiv: Übertragungsintervall verlängert",
             "hudOfflineShieldPill" to "Offline-Schutz aktiv",
             "hudTouchLockPill" to "Sperren",
             "hudTouchLockedPill" to "Gesperrt",
@@ -3901,6 +3909,8 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "statusPaused" to "रुका हुआ",
             "hudAutoPausedPill" to "स्वतः रुका",
             "hudLiveSharingPill" to "लाइव साझा",
+            "hudPowerSavingPill" to "बैटरी बचत",
+            "hudPowerSavingA11y" to "बैटरी बचत मोड सक्रिय: प्रसारण अंतराल बढ़ाया गया",
             "hudOfflineShieldPill" to "ऑफ़लाइन शील्ड सक्रिय",
             "hudTouchLockPill" to "लॉक करें",
             "hudTouchLockedPill" to "लॉक है",
@@ -4710,6 +4720,8 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "statusPaused" to "一時停止中",
             "hudAutoPausedPill" to "自動停止中",
             "hudLiveSharingPill" to "ライブ共有中",
+            "hudPowerSavingPill" to "省電力モード",
+            "hudPowerSavingA11y" to "省電力モード有効: 配信間隔が延長されています",
             "hudOfflineShieldPill" to "オフライン保護中",
             "hudTouchLockPill" to "ロック",
             "hudTouchLockedPill" to "ロック中",
@@ -5519,6 +5531,8 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "statusPaused" to "已暂停",
             "hudAutoPausedPill" to "已自动暂停",
             "hudLiveSharingPill" to "实时共享中",
+            "hudPowerSavingPill" to "省电模式",
+            "hudPowerSavingA11y" to "省电模式已开启：播报间隔已延长",
             "hudOfflineShieldPill" to "离线保护已启用",
             "hudTouchLockPill" to "锁定",
             "hudTouchLockedPill" to "已锁定",

@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import android.content.Context
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -44,11 +46,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import `in`.shvms.trackme.service.TrackingState
@@ -107,6 +113,20 @@ fun LiveShareBroadcastHudPanel(
         }
     }
 
+    val context = LocalContext.current
+    val isOsPowerSave = remember(context) {
+        (context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager)?.isPowerSaveMode == true
+    }
+    val batteryManager = remember(context) {
+        context.getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
+    }
+    val batteryLevel = remember(batteryManager) {
+        batteryManager?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: 100
+    }
+    val isPowerSaveActive = remember(isOsPowerSave, batteryLevel) {
+        LiveShareManager.isEffectivePowerSave(isOsPowerSave, batteryLevel)
+    }
+
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -126,6 +146,17 @@ fun LiveShareBroadcastHudPanel(
                 contentColor = Color.Black,
                 shadowElevation = elevation.mapOverlay,
             )
+
+            if (isPowerSaveActive) {
+                BroadcastStatusPill(
+                    text = strings.hudPowerSavingPill,
+                    icon = Icons.Default.BatteryAlert,
+                    containerColor = Color(0xFFF59E0B),
+                    contentColor = Color.Black,
+                    shadowElevation = elevation.mapOverlay,
+                    contentDescription = strings.hudPowerSavingA11y,
+                )
+            }
 
             remainingLabel?.let { remaining ->
                 BroadcastStatusPill(
@@ -366,13 +397,20 @@ private fun BroadcastStatusPill(
     containerColor: Color,
     contentColor: Color,
     shadowElevation: androidx.compose.ui.unit.Dp,
+    contentDescription: String? = null,
 ) {
     Surface(
         shape = RoundedCornerShape(14.dp),
         color = containerColor,
         contentColor = contentColor,
         shadowElevation = shadowElevation,
-        modifier = Modifier.padding(horizontal = 4.dp),
+        modifier = Modifier
+            .padding(horizontal = 4.dp)
+            .semantics(mergeDescendants = true) {
+                if (contentDescription != null) {
+                    this.contentDescription = contentDescription
+                }
+            },
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

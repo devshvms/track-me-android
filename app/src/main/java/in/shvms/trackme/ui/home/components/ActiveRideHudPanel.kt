@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
@@ -206,6 +207,21 @@ fun ActiveRideHudPanel(
     val elevation = LocalTrackMeElevation.current
     val motion = LocalTrackMeMotion.current
     var isTouchLocked by rememberSaveable { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val isOsPowerSave = remember(context) {
+        (context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager)?.isPowerSaveMode == true
+    }
+    val batteryManager = remember(context) {
+        context.getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
+    }
+    val batteryLevel = remember(batteryManager) {
+        batteryManager?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: 100
+    }
+    val isPowerSaveActive = remember(isOsPowerSave, batteryLevel) {
+        `in`.shvms.trackme.data.remote.LiveShareManager.isEffectivePowerSave(isOsPowerSave, batteryLevel)
+    }
+
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -345,6 +361,15 @@ fun ActiveRideHudPanel(
                     contentColor = Color.Black,
                     onClick = if (showBackToBroadcastPill) onBackToBroadcastHud else null,
                 )
+
+                if (isPowerSaveActive) {
+                    HudPill(
+                        text = strings.hudPowerSavingPill,
+                        icon = Icons.Default.BatteryAlert,
+                        containerColor = Color(0xFFF59E0B),
+                        contentColor = Color.Black,
+                    )
+                }
             }
 
             // Offline Shield Pill
