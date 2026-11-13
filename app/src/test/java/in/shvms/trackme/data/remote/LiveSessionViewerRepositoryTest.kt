@@ -865,5 +865,109 @@ class LiveSessionViewerRepositoryTest {
         assertNull(LiveSessionViewerRepository.formatPowerSaveCadenceNotice(powerSaveMode = false, batteryLevel = null))
         assertNull(LiveSessionViewerRepository.formatPowerSaveCadenceNotice(powerSaveMode = false, batteryLevel = -1))
     }
+
+    @Test
+    fun `breadcrumb polyline decimation and memory compaction parity (CIE-038)`() {
+        val repo = LiveSessionViewerRepository()
+
+        // 1. shouldDecimatePolyline (companion and instance)
+        assertFalse(LiveSessionViewerRepository.shouldDecimatePolyline(pointCount = 0, minPointsThreshold = 200))
+        assertFalse(LiveSessionViewerRepository.shouldDecimatePolyline(pointCount = 50, minPointsThreshold = 200))
+        assertFalse(LiveSessionViewerRepository.shouldDecimatePolyline(pointCount = 200, minPointsThreshold = 200))
+        assertTrue(LiveSessionViewerRepository.shouldDecimatePolyline(pointCount = 201, minPointsThreshold = 200))
+        assertTrue(LiveSessionViewerRepository.shouldDecimatePolyline(pointCount = 500, minPointsThreshold = 200))
+        assertTrue(LiveSessionViewerRepository.shouldDecimatePolyline(pointCount = 60, minPointsThreshold = 50))
+        assertFalse(LiveSessionViewerRepository.shouldDecimatePolyline(pointCount = 40, minPointsThreshold = 50))
+
+        assertTrue(repo.shouldDecimatePolyline(300, 200))
+        assertFalse(repo.shouldDecimatePolyline(100, 200))
+
+        // 2. computePerpendicularDistanceMeters
+        val aLat = 28.6139
+        val aLng = 77.2000
+        val bLat = 28.6139
+        val bLng = 77.2100
+
+        // Midpoint on the line
+        val midLat = 28.6139
+        val midLng = 77.2050
+        val zeroDist = LiveSessionViewerRepository.computePerpendicularDistanceMeters(
+            midLat, midLng, aLat, aLng, bLat, bLng
+        )
+        assertEquals(0.0, zeroDist, 0.01)
+
+        // Point offset North by 0.001 deg lat (approx 111.3 meters)
+        val offsetLat = 28.6149
+        val offsetLng = 77.2050
+        val perpDist = LiveSessionViewerRepository.computePerpendicularDistanceMeters(
+            offsetLat, offsetLng, aLat, aLng, bLat, bLng
+        )
+        assertEquals(111.3, perpDist, 1.0)
+
+        // Coincident line endpoints
+        val coincidentDist = LiveSessionViewerRepository.computePerpendicularDistanceMeters(
+            offsetLat, offsetLng, aLat, aLng, aLat, aLng
+        )
+        assertTrue(coincidentDist > 100.0)
+
+        // 3. decimatePoints (companion and instance)
+        // Small arrays bypass
+        val twoPoints = listOf(
+            LiveViewerPoint(28.610, 77.200),
+            LiveViewerPoint(28.615, 77.205)
+        )
+        assertEquals(2, LiveSessionViewerRepository.decimatePoints(twoPoints, minPointsThreshold = 0).size)
+
+        // Threshold bypass
+        val fourPoints = listOf(
+            LiveViewerPoint(28.610, 77.200),
+            LiveViewerPoint(28.611, 77.200),
+            LiveViewerPoint(28.612, 77.200),
+            LiveViewerPoint(28.613, 77.200)
+        )
+        assertEquals(4, LiveSessionViewerRepository.decimatePoints(fourPoints, minPointsThreshold = 10).size)
+
+        // Collinear reduction
+        val collinearPoints = listOf(
+            LiveViewerPoint(28.6100, 77.2000),
+            LiveViewerPoint(28.6110, 77.2000),
+            LiveViewerPoint(28.6120, 77.2000),
+            LiveViewerPoint(28.6130, 77.2000),
+            LiveViewerPoint(28.6140, 77.2000),
+            LiveViewerPoint(28.6150, 77.2000)
+        )
+        val decimatedCollinear = LiveSessionViewerRepository.decimatePoints(collinearPoints, epsilonMeters = 3.5, minPointsThreshold = 0)
+        assertEquals(2, decimatedCollinear.size)
+        assertEquals(collinearPoints.first().lat, decimatedCollinear.first().lat, 0.000001)
+        assertEquals(collinearPoints.last().lat, decimatedCollinear.last().lat, 0.000001)
+
+        // Right-angle corner retention
+        val cornerPoints = listOf(
+            LiveViewerPoint(28.6100, 77.2000), // Start
+            LiveViewerPoint(28.6110, 77.2000), // Leg 1 collinear
+            LiveViewerPoint(28.6120, 77.2000), // Corner turn
+            LiveViewerPoint(28.6120, 77.2010), // Leg 2 collinear
+            LiveViewerPoint(28.6120, 77.2020)  // Finish
+        )
+        val decimatedCorner = LiveSessionViewerRepository.decimatePoints(cornerPoints, epsilonMeters = 3.5, minPointsThreshold = 0)
+        assertEquals(3, decimatedCorner.size)
+        assertEquals(cornerPoints[0].lat, decimatedCorner[0].lat, 0.000001)
+        assertEquals(cornerPoints[2].lat, decimatedCorner[1].lat, 0.000001) // Corner turn preserved
+        assertEquals(cornerPoints[4].lng, decimatedCorner[2].lng, 0.000001) // Finish preserved
+
+        val instanceDecimated = repo.decimatePoints(cornerPoints, epsilonMeters = 3.5, minPointsThreshold = 0)
+        assertEquals(3, instanceDecimated.size)
+
+        // 4. decimateLatLngs (companion and instance)
+        val cornerLatLngs = cornerPoints.map { com.google.android.gms.maps.model.LatLng(it.lat, it.lng) }
+        val decimatedLatLngs = LiveSessionViewerRepository.decimateLatLngs(cornerLatLngs, epsilonMeters = 3.5, minPointsThreshold = 0)
+        assertEquals(3, decimatedLatLngs.size)
+        assertEquals(cornerLatLngs[0].latitude, decimatedLatLngs[0].latitude, 0.000001)
+        assertEquals(cornerLatLngs[2].latitude, decimatedLatLngs[1].latitude, 0.000001)
+        assertEquals(cornerLatLngs[4].longitude, decimatedLatLngs[2].longitude, 0.000001)
+
+        val instanceDecimatedLatLngs = repo.decimateLatLngs(cornerLatLngs, epsilonMeters = 3.5, minPointsThreshold = 0)
+        assertEquals(3, instanceDecimatedLatLngs.size)
+    }
 }
 

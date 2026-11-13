@@ -480,8 +480,11 @@ fun LiveSessionViewerSheet(
                         ),
                     ) {
                         if (pathLatLng.size >= 2) {
+                            val renderPath = remember(pathLatLng) {
+                                LiveSessionViewerRepository.decimateLatLngs(pathLatLng, epsilonMeters = 3.5, minPointsThreshold = 200)
+                            }
                             Polyline(
-                                points = pathLatLng,
+                                points = renderPath,
                                 color = Color(0xFF06B6D4),
                                 width = 10f,
                                 geodesic = true,

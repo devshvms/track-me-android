@@ -10,6 +10,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import kotlin.math.abs
+import com.google.android.gms.maps.model.LatLng
 
 data class LiveViewerSpeedStatus(
     val isStationary: Boolean,
@@ -121,6 +122,21 @@ class LiveSessionViewerRepository {
     fun shouldAnnounceLowBattery(previousBattery: Int?, newBattery: Int?): Boolean = Companion.shouldAnnounceLowBattery(previousBattery, newBattery)
     fun computeViewerAdaptivePollDelay(powerSaveMode: Boolean, batteryLevel: Int?, basePollDelay: Long = 5_000L): Long =
         Companion.computeViewerAdaptivePollDelay(powerSaveMode, batteryLevel, basePollDelay)
+
+    fun shouldDecimatePolyline(pointCount: Int, minPointsThreshold: Int = 200): Boolean =
+        Companion.shouldDecimatePolyline(pointCount, minPointsThreshold)
+
+    fun decimatePoints(
+        points: List<LiveViewerPoint>,
+        epsilonMeters: Double = 3.5,
+        minPointsThreshold: Int = 200
+    ): List<LiveViewerPoint> = Companion.decimatePoints(points, epsilonMeters, minPointsThreshold)
+
+    fun decimateLatLngs(
+        points: List<LatLng>,
+        epsilonMeters: Double = 3.5,
+        minPointsThreshold: Int = 200
+    ): List<LatLng> = Companion.decimateLatLngs(points, epsilonMeters, minPointsThreshold)
 
     suspend fun fetchSnapshot(sessionId: String): LiveSessionFetchResult = withContext(Dispatchers.IO) {
         val cleanId = sessionId.trim()
@@ -293,6 +309,106 @@ class LiveSessionViewerRepository {
             val isEffectivePowerSave = powerSaveMode || (clampedBat != null && clampedBat <= 15)
             if (!isEffectivePowerSave) return null
             return "Power save active · Location updates every ~15s"
+        }
+
+        /**
+         * CIE-038: Evaluates whether breadcrumb polyline decimation should be activated.
+         * Activates when point count strictly exceeds minPointsThreshold (> 200).
+         */
+        fun shouldDecimatePolyline(pointCount: Int, minPointsThreshold: Int = 200): Boolean {
+            return minPointsThreshold in 1 until pointCount
+        }
+
+        /**
+         * CIE-038: Computes perpendicular distance in meters from a point (pLat, pLng)
+         * to a line segment defined by (aLat, aLng) and (bLat, bLng) using equirectangular projection.
+         */
+        fun computePerpendicularDistanceMeters(
+            pLat: Double,
+            pLng: Double,
+            aLat: Double,
+            aLng: Double,
+            bLat: Double,
+            bLng: Double
+        ): Double {
+            val midLatRad = ((aLat + bLat) / 2.0) * (kotlin.math.PI / 180.0)
+            val dx = (bLng - aLng) * kotlin.math.cos(midLatRad)
+            val dy = bLat - aLat
+            val lineLenSq = dx * dx + dy * dy
+
+            if (lineLenSq < 1e-12) {
+                val pMidLatRad = ((aLat + pLat) / 2.0) * (kotlin.math.PI / 180.0)
+                val px = (pLng - aLng) * kotlin.math.cos(pMidLatRad)
+                val py = pLat - aLat
+                return kotlin.math.sqrt(px * px + py * py) * 111320.0
+            }
+
+            val px = (pLng - aLng) * kotlin.math.cos(midLatRad)
+            val py = pLat - aLat
+            val t = kotlin.math.max(0.0, kotlin.math.min(1.0, (px * dx + py * dy) / lineLenSq))
+
+            val projX = t * dx
+            val projY = t * dy
+            val distSq = (px - projX) * (px - projX) + (py - projY) * (py - projY)
+            return kotlin.math.sqrt(distSq) * 111320.0
+        }
+
+        /**
+         * CIE-038: Decimates a sequence of coordinates using the Ramer-Douglas-Peucker (RDP) algorithm.
+         * Reduces GPU memory allocation and frame drops during extended trips (1,000+ points)
+         * while preserving turns, corners, and overall geometry within epsilonMeters tolerance.
+         */
+        fun decimatePoints(
+            points: List<LiveViewerPoint>,
+            epsilonMeters: Double = 3.5,
+            minPointsThreshold: Int = 200
+        ): List<LiveViewerPoint> {
+            if (points.size <= 2) return points
+            if (minPointsThreshold > 0 && points.size <= minPointsThreshold) return points
+
+            fun rdp(subList: List<LiveViewerPoint>): List<LiveViewerPoint> {
+                if (subList.size <= 2) return subList
+                val start = subList.first()
+                val end = subList.last()
+
+                var maxDist = 0.0
+                var maxIndex = 0
+
+                for (i in 1 until subList.size - 1) {
+                    val curr = subList[i]
+                    val dist = computePerpendicularDistanceMeters(
+                        curr.lat, curr.lng,
+                        start.lat, start.lng,
+                        end.lat, end.lng
+                    )
+                    if (dist > maxDist) {
+                        maxDist = dist
+                        maxIndex = i
+                    }
+                }
+
+                return if (maxDist > epsilonMeters && maxIndex > 0) {
+                    val left = rdp(subList.subList(0, maxIndex + 1))
+                    val right = rdp(subList.subList(maxIndex, subList.size))
+                    left.dropLast(1) + right
+                } else {
+                    listOf(start, end)
+                }
+            }
+
+            return rdp(points)
+        }
+
+        fun decimateLatLngs(
+            points: List<LatLng>,
+            epsilonMeters: Double = 3.5,
+            minPointsThreshold: Int = 200
+        ): List<LatLng> {
+            if (points.size <= 2) return points
+            if (minPointsThreshold > 0 && points.size <= minPointsThreshold) return points
+            val livePoints = points.map { LiveViewerPoint(it.latitude, it.longitude) }
+            val decimated = decimatePoints(livePoints, epsilonMeters, minPointsThreshold)
+            return decimated.map { LatLng(it.lat, it.lng) }
         }
 
         /**
