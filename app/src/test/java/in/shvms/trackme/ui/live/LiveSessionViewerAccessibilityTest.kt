@@ -40,6 +40,13 @@ class LiveSessionViewerAccessibilityTest {
                 batteryFormatted.contains("78")
             )
 
+            // Formatted low battery description (CIE-008)
+            val batteryLowFormatted = String.format(locale, strings.liveViewerBatteryLowA11y, 12)
+            assertTrue(
+                "Low battery a11y formatted output should contain '12' in $lang",
+                batteryLowFormatted.contains("12")
+            )
+
             // Formatted speed description
             val speedFormatted = String.format(locale, strings.liveViewerSpeedA11y, "25 km/h")
             assertTrue(
