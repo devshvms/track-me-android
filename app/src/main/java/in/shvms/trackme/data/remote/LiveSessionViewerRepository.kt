@@ -13,6 +13,13 @@ data class LiveViewerPoint(
     val lng: Double,
 )
 
+data class LiveViewerDeadlineStatus(
+    val isOverdue: Boolean,
+    val deadlineEpochMs: Long,
+    val timeFormatted: String,
+    val overdueMinutes: Long,
+)
+
 data class LiveViewerLastLocation(
     val lat: Double,
     val lng: Double,
@@ -52,6 +59,13 @@ data class LiveSessionSnapshot(
 
     fun formatDistance(useMiles: Boolean = false): String {
         return LiveSessionViewerRepository.formatDistance(totalDistanceMeters, useMiles)
+    }
+
+    fun deadlineStatus(
+        nowEpochMillis: Long = System.currentTimeMillis(),
+        timeFormatter: ((Long) -> String)? = null,
+    ): LiveViewerDeadlineStatus? {
+        return LiveSessionViewerRepository.evaluateDeadline(deadlineAt, nowEpochMillis, timeFormatter)
     }
 
     fun isStaleSignal(nowEpochMillis: Long = System.currentTimeMillis()): Boolean {
@@ -147,6 +161,7 @@ class LiveSessionViewerRepository {
                 val startedAt = if (json.has("startedAt") && !json.isNull("startedAt")) json.opt("startedAt")?.toString()?.trim()?.takeIf { it.isNotEmpty() } else null
                 val destination = json.optString("destination").trim().takeIf { it.isNotEmpty() }
                 val deadlineAt = json.optString("deadlineAt").trim().takeIf { it.isNotEmpty() }
+                    ?: json.optString("etaAt").trim().takeIf { it.isNotEmpty() }
 
                 val locObj = json.optJSONObject("lastLocation")
                 val lastLocation = locObj?.let { loc ->
@@ -375,6 +390,31 @@ class LiveSessionViewerRepository {
                 val km = meters / 1000.0
                 String.format(java.util.Locale.US, "%.1f km", km)
             }
+        }
+
+        /**
+         * Evaluates a session's scheduled deadline or ETA (CIE-025).
+         * Calculates overdue status and formats the scheduled time string (e.g. "6:30 PM").
+         */
+        fun evaluateDeadline(
+            deadlineRaw: String?,
+            nowEpochMillis: Long = System.currentTimeMillis(),
+            timeFormatter: ((Long) -> String)? = null,
+        ): LiveViewerDeadlineStatus? {
+            val deadlineMs = parseTimestampMs(deadlineRaw) ?: return null
+            val isOverdue = nowEpochMillis > deadlineMs
+            val overdueMinutes = if (isOverdue) (nowEpochMillis - deadlineMs) / 60_000L else 0L
+            val formattedTime = timeFormatter?.invoke(deadlineMs) ?: run {
+                val date = java.util.Date(deadlineMs)
+                val format = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+                format.format(date)
+            }
+            return LiveViewerDeadlineStatus(
+                isOverdue = isOverdue,
+                deadlineEpochMs = deadlineMs,
+                timeFormatted = formattedTime,
+                overdueMinutes = overdueMinutes,
+            )
         }
     }
 }

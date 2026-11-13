@@ -679,58 +679,103 @@ fun LiveSessionViewerSheet(
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        val destinationText = snapshot?.destination?.takeIf { it.isNotBlank() }
-                        val showFreshnessRow = destinationText != null || ageSeconds != null
-                        if (showFreshnessRow) {
-                            Row(
+                        val currentSnapshot = snapshot
+                        val destinationText = currentSnapshot?.destination?.takeIf { it.isNotBlank() }
+                        val deadlineStatus = if (currentSnapshot?.isActive == true) currentSnapshot.deadlineStatus(nowEpochMillis) else null
+                        val showHeaderMeta = destinationText != null || ageSeconds != null || deadlineStatus != null
+                        if (showHeaderMeta) {
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                if (destinationText != null) {
+                                if (destinationText != null || ageSeconds != null) {
                                     Row(
-                                        modifier = Modifier
-                                            .weight(1f, fill = false)
-                                            .semantics(mergeDescendants = true) {
-                                                contentDescription = String.format(Locale.getDefault(), strings.liveViewerDestinationA11y, destinationText)
-                                            },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Flag,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(14.dp),
-                                            tint = Color(0xFF06B6D4),
-                                        )
-                                        Text(
-                                            text = destinationText,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
+                                        if (destinationText != null) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .weight(1f, fill = false)
+                                                    .semantics(mergeDescendants = true) {
+                                                        contentDescription = String.format(Locale.getDefault(), strings.liveViewerDestinationA11y, destinationText)
+                                                    },
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Flag,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(14.dp),
+                                                    tint = Color(0xFF06B6D4),
+                                                )
+                                                Text(
+                                                    text = destinationText,
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            }
+                                        } else {
+                                            Spacer(modifier = Modifier.width(1.dp))
+                                        }
+                                        if (ageSeconds != null) {
+                                            val ageLabel = if (ageSeconds < 60) "${ageSeconds}s" else "${ageSeconds / 60}m"
+                                            Row(
+                                                modifier = Modifier.semantics(mergeDescendants = true) {},
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Schedule,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(13.dp),
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                                Text(
+                                                    text = String.format(Locale.getDefault(), strings.liveViewerUpdatedAgo, ageLabel),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                        }
                                     }
-                                } else {
-                                    Spacer(modifier = Modifier.width(1.dp))
                                 }
-                                if (ageSeconds != null) {
-                                    val ageLabel = if (ageSeconds < 60) "${ageSeconds}s" else "${ageSeconds / 60}m"
-                                    Row(
-                                        modifier = Modifier.semantics(mergeDescendants = true) {},
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                deadlineStatus?.let { deadline ->
+                                    val deadlineColor = if (deadline.isOverdue) Color(0xFFD97706) else Color(0xFF4338CA)
+                                    val deadlineBg = if (deadline.isOverdue) Color(0xFFFEF3C7) else Color(0xFFEEF2FF)
+                                    val deadlineLabel = if (deadline.isOverdue) {
+                                        String.format(Locale.getDefault(), strings.liveViewerOverdueBy, deadline.timeFormatted)
+                                    } else {
+                                        String.format(Locale.getDefault(), strings.liveViewerExpectedBy, deadline.timeFormatted)
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(999.dp),
+                                        color = deadlineBg,
+                                        modifier = Modifier.semantics(mergeDescendants = true) {
+                                            contentDescription = deadlineLabel
+                                        },
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Schedule,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(13.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                        Text(
-                                            text = String.format(Locale.getDefault(), strings.liveViewerUpdatedAgo, ageLabel),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        ) {
+                                            Icon(
+                                                imageVector = if (deadline.isOverdue) Icons.Default.Warning else Icons.Default.Schedule,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(12.dp),
+                                                tint = deadlineColor,
+                                            )
+                                            Text(
+                                                text = deadlineLabel,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = deadlineColor,
+                                                maxLines = 1,
+                                            )
+                                        }
                                     }
                                 }
                             }
