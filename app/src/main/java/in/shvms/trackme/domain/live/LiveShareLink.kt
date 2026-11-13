@@ -52,29 +52,66 @@ object LiveShareLink {
         return null
     }
 
-    fun parseSessionUri(uriString: String): String? = runCatching {
-        val uri = URI(uriString.trim())
-        val scheme = uri.scheme?.lowercase() ?: return@runCatching null
-        val host = uri.host?.lowercase() ?: ""
-        val path = uri.path.orEmpty().trim('/')
+    fun parseSessionUri(uriString: String): String? {
+        val trimmed = uriString.trim()
+        if (trimmed.isEmpty()) return null
 
-        when {
-            (scheme == "https" || scheme == "http") && host in allowedHttpsHosts -> {
-                if (!path.startsWith("live/")) return@runCatching null
-                val candidate = path.removePrefix("live/").substringBefore('/')
-                candidate.takeIf { it != "watcher" && validSessionIdRegex.matches(it) }
-            }
-            scheme == "trackme" && host == "live" -> {
-                val querySession = parseQueryParam(uri.rawQuery, "sessionId")
-                if (!querySession.isNullOrBlank()) {
-                    return@runCatching querySession.takeIf { validSessionIdRegex.matches(it) }
+        val parsed = runCatching {
+            val sanitized = trimmed.replace(" ", "%20")
+            val uri = URI(sanitized)
+            val scheme = uri.scheme?.lowercase() ?: return@runCatching null
+            val host = uri.host?.lowercase() ?: ""
+            val path = uri.path.orEmpty().trim('/')
+
+            when {
+                (scheme == "https" || scheme == "http") && host in allowedHttpsHosts -> {
+                    if (!path.startsWith("live/")) return@runCatching null
+                    val candidate = path.removePrefix("live/").substringBefore('/')
+                    val decoded = runCatching { URLDecoder.decode(candidate, StandardCharsets.UTF_8.name()) }.getOrDefault(candidate)
+                    decoded.takeIf { it != "watcher" && validSessionIdRegex.matches(it) }
                 }
-                val pathSegment = path.substringBefore('/')
-                pathSegment.takeIf { it.isNotEmpty() && it != "watcher" && validSessionIdRegex.matches(it) }
+                scheme == "trackme" -> {
+                    if (host == "live") {
+                        val querySession = parseQueryParam(uri.rawQuery, "sessionId")
+                        if (!querySession.isNullOrBlank()) {
+                            return@runCatching querySession.takeIf { validSessionIdRegex.matches(it) }
+                        }
+                        val pathSegment = path.substringBefore('/')
+                        val decoded = runCatching { URLDecoder.decode(pathSegment, StandardCharsets.UTF_8.name()) }.getOrDefault(pathSegment)
+                        decoded.takeIf { it.isNotEmpty() && it != "watcher" && validSessionIdRegex.matches(it) }
+                    } else if (host.isEmpty() && path.startsWith("live/")) {
+                        val candidate = path.removePrefix("live/").substringBefore('/')
+                        val decoded = runCatching { URLDecoder.decode(candidate, StandardCharsets.UTF_8.name()) }.getOrDefault(candidate)
+                        decoded.takeIf { it != "watcher" && validSessionIdRegex.matches(it) }
+                    } else {
+                        null
+                    }
+                }
+                else -> null
             }
-            else -> null
+        }.getOrNull()
+
+        if (parsed != null) return parsed
+
+        // Fallback regex extraction for cases with irregular query formatting or raw URI syntax anomalies
+        val httpsRegex = Regex("^https?://(?:www\\.)?trackme\\.shvms\\.in/live/([A-Za-z0-9_%-]+)", RegexOption.IGNORE_CASE)
+        httpsRegex.find(trimmed)?.groupValues?.get(1)?.let { candidate ->
+            val decoded = runCatching { URLDecoder.decode(candidate, StandardCharsets.UTF_8.name()) }.getOrDefault(candidate)
+            if (decoded != "watcher" && validSessionIdRegex.matches(decoded)) {
+                return decoded
+            }
         }
-    }.getOrNull()
+
+        val trackmeRegex = Regex("^trackme://(?:live/|/live/|live\\?sessionId=)([A-Za-z0-9_%-]+)", RegexOption.IGNORE_CASE)
+        trackmeRegex.find(trimmed)?.groupValues?.get(1)?.let { candidate ->
+            val decoded = runCatching { URLDecoder.decode(candidate, StandardCharsets.UTF_8.name()) }.getOrDefault(candidate)
+            if (decoded != "watcher" && validSessionIdRegex.matches(decoded)) {
+                return decoded
+            }
+        }
+
+        return null
+    }
 
     private fun parseQueryParam(rawQuery: String?, key: String): String? {
         if (rawQuery.isNullOrBlank()) return null

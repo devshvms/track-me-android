@@ -216,6 +216,13 @@ class MainActivity : AppCompatActivity() {
       // invite that opens the app and is then abandoned is distinguishable from one nobody tapped.
       `in`.shvms.trackme.analytics.AnalyticsManager.trackGroupInviteOpened(viaCode = false)
       (applicationContext as? TrackMeApp)?.setPendingGroupInvite(invite)
+      // CIE-004: Consumed so activity recreation or configuration changes (e.g. rotation) do not re-queue
+      // duplicate group joins or fire duplicate analytics.
+      intent?.removeExtra(`in`.shvms.trackme.domain.group.GroupInviteLink.EXTRA_TOKEN)
+      intent?.removeExtra(`in`.shvms.trackme.domain.group.GroupInviteLink.EXTRA_CODE)
+      if (data != null && (data.scheme == "trackme" || data.path?.startsWith("/g") == true)) {
+          intent?.data = null
+      }
   }
 
   /**

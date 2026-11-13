@@ -67,15 +67,28 @@ object GroupInviteLink {
         extraToken: String? = null,
         extraCode: String? = null,
     ): Invite? {
-        if (uriString.isNullOrBlank()) return null
+        if (uriString.isNullOrBlank() && extraToken.isNullOrBlank() && extraCode.isNullOrBlank()) return null
 
-        val token = listOf(extraToken, fragment)
+        val resolvedFragment = fragment ?: uriString?.substringAfter('#', "")?.takeIf { it.isNotEmpty() }
+        val token = listOf(extraToken, resolvedFragment)
             .firstOrNull { it != null && TOKEN_PATTERN.matches(it.trim()) }
             ?.trim()
 
+        val resolvedQueryCode = queryCode ?: runCatching {
+            val query = uriString?.substringAfter('?', "")?.substringBefore('#').orEmpty()
+            if (query.isNotEmpty()) {
+                query.split('&').firstNotNullOfOrNull { param ->
+                    val parts = param.split('=', limit = 2)
+                    if (parts.size == 2 && (parts[0] == QUERY_CODE || parts[0].equals("code", ignoreCase = true))) {
+                        java.net.URLDecoder.decode(parts[1], java.nio.charset.StandardCharsets.UTF_8.name())
+                    } else null
+                }
+            } else null
+        }.getOrNull()
+
         // Normalised the same way the join screen normalises typed input, or a lower-case code in
         // a link would derive a different key from the same six characters (crypto contract §1b).
-        val code = listOf(extraCode, queryCode)
+        val code = listOf(extraCode, resolvedQueryCode)
             .asSequence()
             .filterNotNull()
             .map { normaliseCode(it) }
