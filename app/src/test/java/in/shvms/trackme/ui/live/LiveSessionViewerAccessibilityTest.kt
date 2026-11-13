@@ -47,6 +47,13 @@ class LiveSessionViewerAccessibilityTest {
                 batteryLowFormatted.contains("12")
             )
 
+            // Formatted low battery banner (CIE-022)
+            val bannerLowFormatted = String.format(locale, strings.liveViewerLowBatteryBanner, 11)
+            assertTrue(
+                "Low battery banner formatted output should contain '11' in $lang",
+                bannerLowFormatted.contains("11")
+            )
+
             // Formatted speed description
             val speedFormatted = String.format(locale, strings.liveViewerSpeedA11y, "25 km/h")
             assertTrue(
@@ -112,6 +119,7 @@ class LiveSessionViewerAccessibilityTest {
         assertEquals("Rider speed: %1\$s", strings.liveViewerSpeedA11y)
         assertEquals("Rider speed unavailable", strings.liveViewerSpeedUnavailableA11y)
         assertEquals("Rider battery: %1\$d percent", strings.liveViewerBatteryA11y)
+        assertEquals("Rider battery low (%1\$d%%) · Signal may pause if phone powers off", strings.liveViewerLowBatteryBanner)
         assertEquals("Open live tracking session in web browser", strings.liveViewerOpenInBrowserA11y)
         assertEquals("The rider has ended this live trip.", strings.liveViewerRiderEndedNotice)
         assertEquals("Signal paused", strings.liveViewerSignalPausedBadge)

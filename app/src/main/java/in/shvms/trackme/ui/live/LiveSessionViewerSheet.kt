@@ -60,8 +60,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -128,6 +130,7 @@ fun LiveSessionViewerSheet(
     var hasRenderedLocationInitially by remember(sessionId) { mutableStateOf(false) }
     var nowEpochMillis by remember(sessionId) { mutableLongStateOf(System.currentTimeMillis()) }
     var refreshTrigger by remember(sessionId) { mutableIntStateOf(0) }
+    var lastTrackedLowBattery by remember(sessionId) { mutableStateOf<Int?>(null) }
 
     // Lifecycle-aware polling: pauses completely when backgrounded and refreshes immediately on resume or retry.
     LaunchedEffect(sessionId, lifecycleOwner, refreshTrigger) {
@@ -154,6 +157,11 @@ fun LiveSessionViewerSheet(
                                 hasHeading = res.snapshot.lastLocation.headingDeg != null,
                                 isStopped = !res.snapshot.isActive,
                             )
+                        }
+                        val battery = res.snapshot.lastLocation?.batteryLevel
+                        if (res.snapshot.isActive && battery != null && battery in 0..15 && battery != lastTrackedLowBattery) {
+                            lastTrackedLowBattery = battery
+                            AnalyticsManager.trackLiveShareViewerLowBattery(sessionId, battery)
                         }
                         if (res.snapshot.isActive && tick % 3 == 0) {
                             repository.sendViewerPing(sessionId, viewerId)
@@ -462,79 +470,118 @@ fun LiveSessionViewerSheet(
                                 )
                             }
                         }
-                    } else if (isStaleSignal && currentLatLng != null) {
-                        Surface(
+                    } else {
+                        Column(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
                                 .padding(12.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                            border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
-                            tonalElevation = 4.dp,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Row(
-                                modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = null,
-                                    tint = Color(0xFFEF4444),
-                                    modifier = Modifier.size(16.dp),
-                                )
-                                Text(
-                                    text = strings.liveViewerSignalPausedBanner,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Medium,
-                                )
-                                IconButton(
-                                    onClick = { refreshTrigger++ },
-                                    modifier = Modifier.size(28.dp),
+                            if (isStaleSignal && currentLatLng != null) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                                    border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
+                                    tonalElevation = 4.dp,
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Refresh,
-                                        contentDescription = strings.retry,
-                                        tint = Color(0xFFEF4444),
-                                        modifier = Modifier.size(16.dp),
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = Color(0xFFEF4444),
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                        Text(
+                                            text = strings.liveViewerSignalPausedBanner,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                        IconButton(
+                                            onClick = { refreshTrigger++ },
+                                            modifier = Modifier.size(28.dp),
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Refresh,
+                                                contentDescription = strings.retry,
+                                                tint = Color(0xFFEF4444),
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            } else if (errorMessage != null) {
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = Color(0xFFF59E0B).copy(alpha = 0.95f),
+                                    tonalElevation = 4.dp,
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Text(
+                                            text = strings.liveViewerReconnecting,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color(0xFF1F2937),
+                                        )
+                                        FilledTonalButton(
+                                            onClick = { refreshTrigger++ },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                            modifier = Modifier.height(26.dp),
+                                            colors = ButtonDefaults.filledTonalButtonColors(
+                                                containerColor = Color.White.copy(alpha = 0.9f),
+                                                contentColor = Color(0xFF1F2937),
+                                            ),
+                                        ) {
+                                            Text(
+                                                text = strings.retry,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                        }
+                                    }
                                 }
                             }
-                        }
-                    } else if (errorMessage != null) {
-                        Surface(
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .padding(12.dp),
-                            shape = RoundedCornerShape(50),
-                            color = Color(0xFFF59E0B).copy(alpha = 0.95f),
-                            tonalElevation = 4.dp,
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Text(
-                                    text = strings.liveViewerReconnecting,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF1F2937),
-                                )
-                                FilledTonalButton(
-                                    onClick = { refreshTrigger++ },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                    modifier = Modifier.height(26.dp),
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = Color.White.copy(alpha = 0.9f),
-                                        contentColor = Color(0xFF1F2937),
-                                    ),
+
+                            // CIE-022: Low battery warning banner (<15%) with TalkBack liveRegion announcement
+                            val battery = lastLoc?.batteryLevel
+                            val isLowBattery = battery != null && battery in 0..15 && snapshot?.isActive == true
+                            if (isLowBattery && currentLatLng != null) {
+                                val lowBatteryBannerText = String.format(Locale.getDefault(), strings.liveViewerLowBatteryBanner, battery)
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                                    border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
+                                    tonalElevation = 4.dp,
+                                    modifier = Modifier.semantics {
+                                        liveRegion = LiveRegionMode.Polite
+                                        contentDescription = lowBatteryBannerText
+                                    },
                                 ) {
-                                    Text(
-                                        text = strings.retry,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.BatteryAlert,
+                                            contentDescription = null,
+                                            tint = Color(0xFFEF4444),
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                        Text(
+                                            text = lowBatteryBannerText,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                    }
                                 }
                             }
                         }
