@@ -20,6 +20,12 @@ data class LiveViewerDeadlineStatus(
     val overdueMinutes: Long,
 )
 
+data class ViewerForegroundReconnectionState(
+    val shouldFetchImmediately: Boolean,
+    val resetConsecutiveErrors: Boolean,
+    val clearErrorMessage: Boolean,
+)
+
 data class LiveViewerLastLocation(
     val lat: Double,
     val lng: Double,
@@ -414,6 +420,26 @@ class LiveSessionViewerRepository {
                 deadlineEpochMs = deadlineMs,
                 timeFormatted = formattedTime,
                 overdueMinutes = overdueMinutes,
+            )
+        }
+
+        /**
+         * Evaluates foreground reconnection transition for active live session viewers (CIE-027).
+         *
+         * When app returns to foreground:
+         * - If trip has ended or session is expired/missing, suppresses polling.
+         * - If active, triggers immediate location fetch without waiting for delay timer,
+         *   resets consecutive error backoff counter, and clears stale error banner.
+         */
+        fun evaluateForegroundReconnection(
+            isActive: Boolean,
+            isExpiredOrMissing: Boolean,
+        ): ViewerForegroundReconnectionState {
+            val shouldFetch = isActive && !isExpiredOrMissing
+            return ViewerForegroundReconnectionState(
+                shouldFetchImmediately = shouldFetch,
+                resetConsecutiveErrors = true,
+                clearErrorMessage = true,
             )
         }
     }

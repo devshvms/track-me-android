@@ -338,4 +338,34 @@ class LiveSessionViewerRepositoryTest {
             assertTrue(s.liveViewerShareRideSubject.isNotBlank())
         }
     }
+
+    @Test
+    fun `evaluates foreground reconnection state for active and finished sessions`() {
+        // Active and valid session: triggers immediate fetch, clears errors, resets counter
+        val activeRes = LiveSessionViewerRepository.evaluateForegroundReconnection(
+            isActive = true,
+            isExpiredOrMissing = false,
+        )
+        assertTrue(activeRes.shouldFetchImmediately)
+        assertTrue(activeRes.resetConsecutiveErrors)
+        assertTrue(activeRes.clearErrorMessage)
+
+        // Expired or missing session: suppresses polling
+        val expiredRes = LiveSessionViewerRepository.evaluateForegroundReconnection(
+            isActive = true,
+            isExpiredOrMissing = true,
+        )
+        assertFalse(expiredRes.shouldFetchImmediately)
+        assertTrue(expiredRes.resetConsecutiveErrors)
+        assertTrue(expiredRes.clearErrorMessage)
+
+        // Inactive / finished session: suppresses polling
+        val finishedRes = LiveSessionViewerRepository.evaluateForegroundReconnection(
+            isActive = false,
+            isExpiredOrMissing = false,
+        )
+        assertFalse(finishedRes.shouldFetchImmediately)
+        assertTrue(finishedRes.resetConsecutiveErrors)
+        assertTrue(finishedRes.clearErrorMessage)
+    }
 }
