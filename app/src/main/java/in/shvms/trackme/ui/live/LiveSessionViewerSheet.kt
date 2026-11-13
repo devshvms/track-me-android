@@ -215,8 +215,8 @@ fun LiveSessionViewerSheet(
                                 isStopped = !res.snapshot.isActive,
                             )
                         }
-                        val battery = res.snapshot.lastLocation?.batteryLevel
-                        if (res.snapshot.isActive && battery != null && battery in 0..15 && battery != lastTrackedLowBattery) {
+                        val battery = LiveSessionViewerRepository.clampBatteryLevel(res.snapshot.lastLocation?.batteryLevel)
+                        if (res.snapshot.isActive && battery != null && battery <= 15 && battery != lastTrackedLowBattery) {
                             lastTrackedLowBattery = battery
                             AnalyticsManager.trackLiveShareViewerLowBattery(sessionId, battery)
                         }
@@ -227,7 +227,11 @@ fun LiveSessionViewerSheet(
                             stopPolling = true
                             break
                         }
-                        5_000L
+                        LiveSessionViewerRepository.computeViewerAdaptivePollDelay(
+                            powerSaveMode = res.snapshot.lastLocation?.powerSaveMode == true,
+                            batteryLevel = res.snapshot.lastLocation?.batteryLevel,
+                            basePollDelay = 5_000L
+                        )
                     }
                     LiveSessionFetchResult.NotFoundOrExpired -> {
                         isExpiredOrMissing = true
@@ -785,9 +789,9 @@ fun LiveSessionViewerSheet(
                                 }
                             }
 
-                            // CIE-022: Low battery warning banner (<15%) with TalkBack liveRegion announcement
-                            val battery = lastLoc?.batteryLevel
-                            val isLowBattery = battery != null && battery in 0..15 && snapshot?.isActive == true
+                            // CIE-022 / CIE-037: Low battery warning banner (<15%) with TalkBack liveRegion announcement
+                            val battery = LiveSessionViewerRepository.clampBatteryLevel(lastLoc?.batteryLevel)
+                            val isLowBattery = battery != null && battery <= 15 && snapshot?.isActive == true
                             if (isLowBattery && currentLatLng != null) {
                                 val lowBatteryBannerText = String.format(Locale.getDefault(), strings.liveViewerLowBatteryBanner, battery)
                                 Surface(
@@ -1064,7 +1068,8 @@ fun LiveSessionViewerSheet(
                                     )
                                 }
 
-                                lastLoc?.batteryLevel?.let { battery ->
+                                lastLoc?.batteryLevel?.let { rawBattery ->
+                                    val battery = LiveSessionViewerRepository.clampBatteryLevel(rawBattery) ?: return@let
                                     // CIE-008: Visual alert & accessibility announcement when rider battery <= 15%
                                     val isLowBattery = battery <= 15
                                     val batteryColor = if (isLowBattery) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
