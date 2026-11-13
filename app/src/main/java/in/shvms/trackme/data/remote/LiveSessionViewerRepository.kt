@@ -115,6 +115,8 @@ class LiveSessionViewerRepository {
 
     fun getCachedSnapshot(sessionId: String): LiveSessionSnapshot? = Companion.getCachedSnapshot(sessionId)
 
+    fun shouldAnimateTransition(isReducedMotion: Boolean): Boolean = Companion.shouldAnimateTransition(isReducedMotion)
+
     suspend fun fetchSnapshot(sessionId: String): LiveSessionFetchResult = withContext(Dispatchers.IO) {
         val cleanId = sessionId.trim()
         if (cleanId.isEmpty()) return@withContext LiveSessionFetchResult.NotFoundOrExpired
@@ -224,6 +226,12 @@ class LiveSessionViewerRepository {
                 newTargetLng = newTargetLng,
             )
         }
+
+        /**
+         * CIE-036: Evaluates whether camera and UI transitions should be animated based on reduced motion accessibility preference.
+         * When reduced motion is preferred, transitions snap immediately to prevent motion sickness and vestibular discomfort.
+         */
+        fun shouldAnimateTransition(isReducedMotion: Boolean): Boolean = !isReducedMotion
 
         /**
          * TASK-366 / SCOPE_1.9.3 / CIE-031: Builds a canonical live share URL with optional rider attribution.
