@@ -23,6 +23,18 @@ class LiveShareLinkTest {
             LiveShareDeepLink.Session("sess_9876"),
             LiveShareLink.parse("trackme://live?sessionId=sess_9876"),
         )
+        assertEquals(
+            LiveShareDeepLink.Session("sess_9876"),
+            LiveShareLink.parse("trackme://live/sess_9876?name=Alex+Rivera"),
+        )
+        assertEquals(
+            LiveShareDeepLink.Session("sess_9876"),
+            LiveShareLink.parse("trackme://live?sessionId=sess_9876&name=Alex+Rivera"),
+        )
+        assertEquals(
+            LiveShareDeepLink.Session("sess_9876"),
+            LiveShareLink.parse("https://trackme.shvms.in/live/sess_9876?name=Alex+Rivera"),
+        )
     }
 
     @Test
