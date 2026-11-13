@@ -204,6 +204,7 @@ fun LiveSessionViewerSheet(
     }
 
     val startIcon = remember { runCatching { ExportMarkers.start(ExportMarkerStyle.StartFinish, 44) }.getOrNull() }
+    val finishIcon = remember { runCatching { ExportMarkers.finish(ExportMarkerStyle.StartFinish, 44) }.getOrNull() }
     val headingIcon = remember { runCatching { createHeadingConeMarkerBitmap() }.getOrNull() }
     val stationaryDotIcon = remember { runCatching { createStationaryDotMarkerBitmap() }.getOrNull() }
 
@@ -356,15 +357,27 @@ fun LiveSessionViewerSheet(
                             )
                         }
                         currentLatLng?.let { livePoint ->
-                            val hasHeading = lastLoc?.headingDeg != null && snapshot?.isActive == true
+                            val isEnded = snapshot?.isActive == false
+                            val hasHeading = lastLoc?.headingDeg != null && !isEnded
                             val bearing = lastLoc?.headingDeg ?: 0f
+                            val markerIcon = if (isEnded) {
+                                finishIcon ?: (stationaryDotIcon ?: headingIcon)
+                            } else if (hasHeading) {
+                                headingIcon
+                            } else {
+                                stationaryDotIcon ?: headingIcon
+                            }
                             Marker(
                                 state = MarkerState(position = livePoint),
-                                icon = if (hasHeading) headingIcon else (stationaryDotIcon ?: headingIcon),
+                                icon = markerIcon,
                                 rotation = if (hasHeading) bearing else 0f,
-                                flat = true,
+                                flat = !isEnded,
                                 anchor = Offset(0.5f, 0.5f),
-                                title = snapshot?.username,
+                                title = if (isEnded) {
+                                    snapshot?.destination?.takeIf { it.isNotBlank() } ?: snapshot?.username
+                                } else {
+                                    snapshot?.username
+                                },
                             )
                         }
                     }
