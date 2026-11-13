@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.BatteryStd
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Refresh
@@ -103,6 +104,7 @@ import `in`.shvms.trackme.data.remote.LiveSessionSnapshot
 import `in`.shvms.trackme.data.remote.LiveSessionViewerRepository
 import `in`.shvms.trackme.domain.UnitFormatter
 import `in`.shvms.trackme.ui.components.animateSafely
+import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.ui.history.ExportMarkerStyle
 import `in`.shvms.trackme.ui.history.ExportMarkers
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
@@ -144,6 +146,18 @@ fun LiveSessionViewerSheet(
     var hasInitializedBearing by remember(sessionId) { mutableStateOf(false) }
     var stoppedSinceEpochMs by remember(sessionId) { mutableStateOf<Long?>(null) }
     var isImperial by remember(imperial) { mutableStateOf(imperial) }
+    val isOffline = rememberIsOffline()
+    var wasOffline by remember(sessionId) { mutableStateOf(false) }
+
+    LaunchedEffect(isOffline) {
+        if (isOffline) {
+            wasOffline = true
+        } else if (wasOffline) {
+            wasOffline = false
+            errorMessage = null
+            refreshTrigger++
+        }
+    }
 
     val motion = LocalTrackMeMotion.current
     val animatedBearing by animateFloatAsState(
@@ -587,7 +601,42 @@ fun LiveSessionViewerSheet(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            if (isStaleSignal && currentLatLng != null) {
+                            if (isOffline && snapshot != null) {
+                                val offlineA11y = strings.liveViewerNetworkOfflineToast
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
+                                    tonalElevation = 6.dp,
+                                    shadowElevation = 4.dp,
+                                    border = BorderStroke(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    ),
+                                    modifier = Modifier.semantics {
+                                        liveRegion = LiveRegionMode.Polite
+                                        contentDescription = offlineA11y
+                                    },
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudOff,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                        Text(
+                                            text = strings.liveViewerNetworkOfflineToast,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            } else if (isStaleSignal && currentLatLng != null) {
                                 Surface(
                                     shape = RoundedCornerShape(12.dp),
                                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
