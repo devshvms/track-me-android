@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.BatteryStd
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Speed
@@ -47,6 +49,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -124,9 +127,10 @@ fun LiveSessionViewerSheet(
     var hasCenteredInitially by remember(sessionId) { mutableStateOf(false) }
     var hasRenderedLocationInitially by remember(sessionId) { mutableStateOf(false) }
     var nowEpochMillis by remember(sessionId) { mutableLongStateOf(System.currentTimeMillis()) }
+    var refreshTrigger by remember(sessionId) { mutableIntStateOf(0) }
 
-    // Lifecycle-aware polling: pauses completely when backgrounded and refreshes immediately on resume.
-    LaunchedEffect(sessionId, lifecycleOwner) {
+    // Lifecycle-aware polling: pauses completely when backgrounded and refreshes immediately on resume or retry.
+    LaunchedEffect(sessionId, lifecycleOwner, refreshTrigger) {
         AnalyticsManager.trackLiveShareViewed(sessionId, surface = "in_app_viewer")
         var stopPolling = false
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -469,7 +473,7 @@ fun LiveSessionViewerSheet(
                             tonalElevation = 4.dp,
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                                modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
@@ -484,6 +488,17 @@ fun LiveSessionViewerSheet(
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Medium,
                                 )
+                                IconButton(
+                                    onClick = { refreshTrigger++ },
+                                    modifier = Modifier.size(28.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = strings.retry,
+                                        tint = Color(0xFFEF4444),
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
                             }
                         }
                     } else if (errorMessage != null) {
@@ -492,15 +507,36 @@ fun LiveSessionViewerSheet(
                                 .align(Alignment.TopCenter)
                                 .padding(12.dp),
                             shape = RoundedCornerShape(50),
-                            color = Color(0xFFF59E0B).copy(alpha = 0.92f),
+                            color = Color(0xFFF59E0B).copy(alpha = 0.95f),
+                            tonalElevation = 4.dp,
                         ) {
-                            Text(
-                                text = strings.liveViewerReconnecting,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF1F2937),
-                            )
+                            Row(
+                                modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = strings.liveViewerReconnecting,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF1F2937),
+                                )
+                                FilledTonalButton(
+                                    onClick = { refreshTrigger++ },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(26.dp),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = Color.White.copy(alpha = 0.9f),
+                                        contentColor = Color(0xFF1F2937),
+                                    ),
+                                ) {
+                                    Text(
+                                        text = strings.retry,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                            }
                         }
                     }
 
