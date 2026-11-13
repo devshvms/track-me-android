@@ -141,6 +141,7 @@ fun LiveSessionViewerSheet(
     var errorMessage by remember(sessionId) { mutableStateOf<String?>(null) }
     var isLoading by remember(sessionId) { mutableStateOf(snapshot == null) }
     var isFollowingRider by rememberSaveable(sessionId) { mutableStateOf(true) }
+    var lastUserInteractionEpochMs by remember(sessionId) { mutableStateOf<Long?>(System.currentTimeMillis()) }
     var hasCenteredInitially by rememberSaveable(sessionId) { mutableStateOf(cachedSnapshot != null) }
     var hasRenderedLocationInitially by rememberSaveable(sessionId) { mutableStateOf(cachedSnapshot != null) }
     var nowEpochMillis by remember(sessionId) { mutableLongStateOf(System.currentTimeMillis()) }
@@ -223,6 +224,18 @@ fun LiveSessionViewerSheet(
                         if (res.snapshot.isActive && tick % 3 == 0) {
                             repository.sendViewerPing(sessionId, viewerId)
                         }
+
+                        // CIE-040: Auto-resume follow mode after inactivity timeout (20s) if ride is active
+                        if (res.snapshot.isActive && LiveSessionViewerRepository.shouldResumeFollowMode(
+                            isFollowing = isFollowingRider,
+                            isEnded = !res.snapshot.isActive,
+                            lastInteractionEpochMs = lastUserInteractionEpochMs,
+                            nowEpochMillis = nowEpochMillis,
+                            timeoutMs = 20_000L,
+                        )) {
+                            isFollowingRider = true
+                        }
+
                         if (!res.snapshot.isActive) {
                             stopPolling = true
                             break
@@ -256,16 +269,19 @@ fun LiveSessionViewerSheet(
         position = CameraPosition.fromLatLngZoom(LatLng(20.5937, 78.9629), 4f)
     }
 
+    var lastCameraTarget by remember(sessionId) { mutableStateOf<LatLng?>(null) }
+
     LaunchedEffect(cameraPositionState.isMoving) {
         if (
             cameraPositionState.isMoving &&
             cameraPositionState.cameraMoveStartedReason == CameraMoveStartedReason.GESTURE
         ) {
             isFollowingRider = false
+            lastCameraTarget = null
+            lastUserInteractionEpochMs = System.currentTimeMillis()
         }
     }
 
-    var lastCameraTarget by remember(sessionId) { mutableStateOf<LatLng?>(null) }
     val currentLatLng = snapshot?.lastLocation?.let { LatLng(it.lat, it.lng) }
     LaunchedEffect(currentLatLng, isFollowingRider) {
         val target = currentLatLng ?: return@LaunchedEffect
@@ -847,9 +863,29 @@ fun LiveSessionViewerSheet(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             if (!isFollowingRider && currentLatLng != null) {
+                                val offCenterDist = remember(cameraPositionState.position.target, currentLatLng) {
+                                    LiveSessionViewerRepository.computeOffCenterDistanceMeters(
+                                        centerLat = cameraPositionState.position.target.latitude,
+                                        centerLng = cameraPositionState.position.target.longitude,
+                                        riderLat = currentLatLng.latitude,
+                                        riderLng = currentLatLng.longitude,
+                                    )
+                                }
+                                val recenterLabel = LiveSessionViewerRepository.formatRecenterButtonLabel(
+                                    distanceMeters = offCenterDist,
+                                    useMiles = isImperial,
+                                    baseLabel = strings.liveViewerRecenter,
+                                )
+                                val recenterA11y = LiveSessionViewerRepository.formatRecenterAccessibilityLabel(
+                                    distanceMeters = offCenterDist,
+                                    useMiles = isImperial,
+                                    baseLabel = strings.liveViewerRecenterA11y,
+                                )
+
                                 FilledTonalButton(
                                     onClick = {
                                         isFollowingRider = true
+                                        lastUserInteractionEpochMs = System.currentTimeMillis()
                                         coroutineScope.launch {
                                             val zoom = cameraPositionState.position.zoom.coerceAtLeast(15.5f)
                                             if (isReducedMotion) {
@@ -865,7 +901,7 @@ fun LiveSessionViewerSheet(
                                     },
                                     modifier = Modifier.semantics {
                                         role = Role.Button
-                                        contentDescription = strings.liveViewerRecenterA11y
+                                        contentDescription = recenterA11y
                                     },
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                     colors = ButtonDefaults.filledTonalButtonColors(
@@ -880,7 +916,7 @@ fun LiveSessionViewerSheet(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = strings.liveViewerRecenter,
+                                        text = recenterLabel,
                                         style = MaterialTheme.typography.labelMedium,
                                     )
                                 }
@@ -889,6 +925,8 @@ fun LiveSessionViewerSheet(
                                 FilledTonalButton(
                                     onClick = {
                                         isFollowingRider = false
+                                        lastCameraTarget = null
+                                        lastUserInteractionEpochMs = System.currentTimeMillis()
                                         val boundsBuilder = LatLngBounds.Builder()
                                         pathLatLng.forEach { boundsBuilder.include(it) }
                                         val bounds = boundsBuilder.build()
