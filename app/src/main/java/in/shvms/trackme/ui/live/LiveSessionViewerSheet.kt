@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.BatteryStd
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MyLocation
@@ -105,6 +106,7 @@ import `in`.shvms.trackme.data.remote.LiveSessionSnapshot
 import `in`.shvms.trackme.data.remote.LiveSessionViewerRepository
 import `in`.shvms.trackme.domain.UnitFormatter
 import `in`.shvms.trackme.ui.components.animateSafely
+import `in`.shvms.trackme.ui.components.moveSafely
 import `in`.shvms.trackme.ui.components.rememberIsOffline
 import `in`.shvms.trackme.ui.history.ExportMarkerStyle
 import `in`.shvms.trackme.ui.history.ExportMarkers
@@ -150,21 +152,38 @@ fun LiveSessionViewerSheet(
     var isImperial by rememberSaveable(sessionId) { mutableStateOf(imperial) }
     val isOffline = rememberIsOffline()
     var wasOffline by remember(sessionId) { mutableStateOf(false) }
+    var showReconnectedToast by remember(sessionId) { mutableStateOf(false) }
 
     LaunchedEffect(isOffline) {
         if (isOffline) {
             wasOffline = true
+            showReconnectedToast = false
         } else if (wasOffline) {
             wasOffline = false
             errorMessage = null
             refreshTrigger++
+            showReconnectedToast = true
+            delay(3500)
+            showReconnectedToast = false
+        }
+    }
+
+    val isReducedMotion = remember {
+        try {
+            android.provider.Settings.Global.getFloat(
+                context.contentResolver,
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                1f
+            ) == 0f
+        } catch (_: Exception) {
+            false
         }
     }
 
     val motion = LocalTrackMeMotion.current
     val animatedBearing by animateFloatAsState(
         targetValue = continuousBearing,
-        animationSpec = motion.spatialBounded.spec(),
+        animationSpec = if (isReducedMotion) androidx.compose.animation.core.snap() else motion.spatialBounded.spec(),
         label = "viewer_heading_rotation",
     )
 
@@ -256,8 +275,14 @@ fun LiveSessionViewerSheet(
         if (shouldMove) {
             lastCameraTarget = target
             val zoom = cameraPositionState.position.zoom.coerceAtLeast(15.5f)
-            cameraPositionState.animateSafely {
-                CameraUpdateFactory.newLatLngZoom(target, zoom)
+            if (isReducedMotion) {
+                cameraPositionState.moveSafely {
+                    CameraUpdateFactory.newLatLngZoom(target, zoom)
+                }
+            } else {
+                cameraPositionState.animateSafely {
+                    CameraUpdateFactory.newLatLngZoom(target, zoom)
+                }
             }
             hasCenteredInitially = true
         }
@@ -511,18 +536,23 @@ fun LiveSessionViewerSheet(
                             }
                         }
                     } else if (isExpiredOrMissing || (snapshot != null && !snapshot!!.isActive)) {
+                        val noticeText = snapshot?.stopReason?.takeIf { it.isNotBlank() }
+                            ?: snapshot?.endReason?.takeIf { it.isNotBlank() }
+                            ?: if (snapshot != null && !snapshot!!.isActive) strings.liveViewerRiderEndedNotice else strings.liveViewerExpiredNotice
                         Surface(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
-                                .padding(12.dp),
+                                .padding(12.dp)
+                                .semantics {
+                                    liveRegion = LiveRegionMode.Polite
+                                    contentDescription = noticeText
+                                },
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceContainerHigh,
                             tonalElevation = 4.dp,
                         ) {
                             Text(
-                                text = snapshot?.stopReason?.takeIf { it.isNotBlank() }
-                                    ?: snapshot?.endReason?.takeIf { it.isNotBlank() }
-                                    ?: if (snapshot != null && !snapshot!!.isActive) strings.liveViewerRiderEndedNotice else strings.liveViewerExpiredNotice,
+                                text = noticeText,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
@@ -638,12 +668,52 @@ fun LiveSessionViewerSheet(
                                         )
                                     }
                                 }
+                            } else if (showReconnectedToast && snapshot != null) {
+                                val reconnectedA11y = strings.liveViewerNetworkReconnectedToast
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
+                                    tonalElevation = 6.dp,
+                                    shadowElevation = 4.dp,
+                                    border = BorderStroke(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    ),
+                                    modifier = Modifier.semantics {
+                                        liveRegion = LiveRegionMode.Polite
+                                        contentDescription = reconnectedA11y
+                                    },
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudDone,
+                                            contentDescription = null,
+                                            tint = Color(0xFF10B981),
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                        Text(
+                                            text = strings.liveViewerNetworkReconnectedToast,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
                             } else if (isStaleSignal && currentLatLng != null) {
+                                val staleA11y = "${strings.liveViewerSignalPausedBanner}. ${strings.retry}"
                                 Surface(
                                     shape = RoundedCornerShape(12.dp),
                                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
                                     border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
                                     tonalElevation = 4.dp,
+                                    modifier = Modifier.semantics {
+                                        liveRegion = LiveRegionMode.Polite
+                                        contentDescription = staleA11y
+                                    },
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
@@ -767,8 +837,14 @@ fun LiveSessionViewerSheet(
                                         isFollowingRider = true
                                         coroutineScope.launch {
                                             val zoom = cameraPositionState.position.zoom.coerceAtLeast(15.5f)
-                                            cameraPositionState.animateSafely {
-                                                CameraUpdateFactory.newLatLngZoom(currentLatLng, zoom)
+                                            if (isReducedMotion) {
+                                                cameraPositionState.moveSafely {
+                                                    CameraUpdateFactory.newLatLngZoom(currentLatLng, zoom)
+                                                }
+                                            } else {
+                                                cameraPositionState.animateSafely {
+                                                    CameraUpdateFactory.newLatLngZoom(currentLatLng, zoom)
+                                                }
                                             }
                                         }
                                     },
@@ -802,8 +878,14 @@ fun LiveSessionViewerSheet(
                                         pathLatLng.forEach { boundsBuilder.include(it) }
                                         val bounds = boundsBuilder.build()
                                         coroutineScope.launch {
-                                            cameraPositionState.animateSafely {
-                                                CameraUpdateFactory.newLatLngBounds(bounds, 96)
+                                            if (isReducedMotion) {
+                                                cameraPositionState.moveSafely {
+                                                    CameraUpdateFactory.newLatLngBounds(bounds, 96)
+                                                }
+                                            } else {
+                                                cameraPositionState.animateSafely {
+                                                    CameraUpdateFactory.newLatLngBounds(bounds, 96)
+                                                }
                                             }
                                         }
                                     },

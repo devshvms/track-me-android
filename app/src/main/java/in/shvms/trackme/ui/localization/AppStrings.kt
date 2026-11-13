@@ -474,6 +474,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val liveViewerFitRoute: String = s("liveViewerFitRoute", "Fit route")
     val liveViewerReconnecting: String = s("liveViewerReconnecting", "Connection slow — retrying…")
     val liveViewerNetworkOfflineToast: String = s("liveViewerNetworkOfflineToast", "Network offline · Retrying automatically")
+    val liveViewerNetworkReconnectedToast: String = s("liveViewerNetworkReconnectedToast", "Network reconnected · Updating location")
     val liveViewerUpdatedAgo: String = s("liveViewerUpdatedAgo", "Updated %1\$s")
     val liveViewerDelayedBadgeA11y: String = s("liveViewerDelayedBadgeA11y", "Location updates delayed")
     val liveViewerRecenterA11y: String = s("liveViewerRecenterA11y", "Re-center map on rider's current location")
@@ -1341,6 +1342,7 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerFitRoute" to "Ver ruta completa",
             "liveViewerReconnecting" to "Conexión lenta — reintentando…",
             "liveViewerNetworkOfflineToast" to "Sin conexión · Reintentando automáticamente",
+            "liveViewerNetworkReconnectedToast" to "Conexión restablecida · Actualizando ubicación",
             "liveViewerUpdatedAgo" to "Actualizado %1\$s",
             "liveViewerDelayedBadgeA11y" to "Actualizaciones de ubicación retrasadas",
             "liveViewerRecenterA11y" to "Re-centrar mapa en la ubicación actual del usuario",
@@ -2169,6 +2171,7 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerFitRoute" to "Voir le trajet",
             "liveViewerReconnecting" to "Connexion lente — nouvelle tentative…",
             "liveViewerNetworkOfflineToast" to "Réseau hors ligne · Nouvelle tentative automatique",
+            "liveViewerNetworkReconnectedToast" to "Réseau reconnecté · Mise à jour de la position",
             "liveViewerUpdatedAgo" to "Mis à jour %1\$s",
             "liveViewerDelayedBadgeA11y" to "Mises à jour de position retardées",
             "liveViewerRecenterA11y" to "Recentrer la carte sur la position actuelle du cycliste",
@@ -2997,6 +3000,7 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerFitRoute" to "Gesamte Route",
             "liveViewerReconnecting" to "Verbindung langsam — neuer Versuch…",
             "liveViewerNetworkOfflineToast" to "Netzwerk offline · Automatischer Neuversuch",
+            "liveViewerNetworkReconnectedToast" to "Netzwerk wiederhergestellt · Standort wird aktualisiert",
             "liveViewerUpdatedAgo" to "Aktualisiert %1\$s",
             "liveViewerDelayedBadgeA11y" to "Standortaktualisierungen verzögert",
             "liveViewerRecenterA11y" to "Karte auf aktuellen Standort des Fahrers zentrieren",
@@ -3825,6 +3829,7 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerFitRoute" to "पूरा मार्ग देखें",
             "liveViewerReconnecting" to "कनेक्शन धीमा — पुनः प्रयास जारी…",
             "liveViewerNetworkOfflineToast" to "नेटवर्क ऑफ़लाइन · स्वचालित पुनः प्रयास जारी",
+            "liveViewerNetworkReconnectedToast" to "नेटवर्क पुनः कनेक्ट हुआ · स्थान अपडेट हो रहा है",
             "liveViewerUpdatedAgo" to "अपडेट %1\$s",
             "liveViewerDelayedBadgeA11y" to "स्थान अपडेट विलंबित हैं",
             "liveViewerRecenterA11y" to "राइडर के वर्तमान स्थान पर मानचित्र को पुनः केंद्रित करें",
@@ -4653,6 +4658,7 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerFitRoute" to "ルート全体",
             "liveViewerReconnecting" to "接続不安定 — 再試行中…",
             "liveViewerNetworkOfflineToast" to "ネットワークオフライン · 自動再試行中",
+            "liveViewerNetworkReconnectedToast" to "再接続しました · 位置情報を更新中",
             "liveViewerUpdatedAgo" to "更新 %1\$s",
             "liveViewerDelayedBadgeA11y" to "位置情報の更新が遅延しています",
             "liveViewerRecenterA11y" to "ライダーの現在地に地図を再センタリング",
@@ -5481,6 +5487,7 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerFitRoute" to "查看全程",
             "liveViewerReconnecting" to "连接较慢 — 正在重试…",
             "liveViewerNetworkOfflineToast" to "网络离线 · 正在自动重试",
+            "liveViewerNetworkReconnectedToast" to "网络已重新连接 · 正在更新位置",
             "liveViewerUpdatedAgo" to "更新于 %1\$s",
             "liveViewerDelayedBadgeA11y" to "位置更新延迟",
             "liveViewerRecenterA11y" to "重新将地图居中到骑手当前位置",

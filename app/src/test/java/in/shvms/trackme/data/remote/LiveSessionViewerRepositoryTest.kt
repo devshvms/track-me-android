@@ -774,5 +774,24 @@ class LiveSessionViewerRepositoryTest {
         )
         assertFalse(shouldMoveJitter)
     }
+
+    @Test
+    fun `reduced motion and screen reader accessibility parity (CIE-036)`() {
+        // 1. Companion reduced motion evaluation
+        assertTrue(LiveSessionViewerRepository.shouldAnimateTransition(isReducedMotion = false))
+        assertFalse(LiveSessionViewerRepository.shouldAnimateTransition(isReducedMotion = true))
+
+        // 2. Instance reduced motion evaluation
+        val repo = LiveSessionViewerRepository()
+        assertTrue(repo.shouldAnimateTransition(isReducedMotion = false))
+        assertFalse(repo.shouldAnimateTransition(isReducedMotion = true))
+
+        // 3. 7-locale parity for new network reconnected toast
+        val languages = listOf("en", "es", "fr", "de", "hi", "ja", "zh")
+        for (lang in languages) {
+            val s = getAppStrings(lang)
+            assertTrue("reconnected toast must not be empty for $lang", s.liveViewerNetworkReconnectedToast.isNotBlank())
+        }
+    }
 }
 
