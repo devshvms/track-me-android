@@ -64,6 +64,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -132,20 +133,21 @@ fun LiveSessionViewerSheet(
     val coroutineScope = rememberCoroutineScope()
     val viewerId = remember(sessionId) { "android_${UUID.randomUUID()}" }
 
-    var snapshot by remember(sessionId) { mutableStateOf<LiveSessionSnapshot?>(null) }
+    val cachedSnapshot: LiveSessionSnapshot? = remember(sessionId) { repository.getCachedSnapshot(sessionId) }
+    var snapshot by remember(sessionId) { mutableStateOf<LiveSessionSnapshot?>(cachedSnapshot) }
     var isExpiredOrMissing by remember(sessionId) { mutableStateOf(false) }
     var errorMessage by remember(sessionId) { mutableStateOf<String?>(null) }
-    var isLoading by remember(sessionId) { mutableStateOf(true) }
-    var isFollowingRider by remember(sessionId) { mutableStateOf(true) }
-    var hasCenteredInitially by remember(sessionId) { mutableStateOf(false) }
-    var hasRenderedLocationInitially by remember(sessionId) { mutableStateOf(false) }
+    var isLoading by remember(sessionId) { mutableStateOf(snapshot == null) }
+    var isFollowingRider by rememberSaveable(sessionId) { mutableStateOf(true) }
+    var hasCenteredInitially by rememberSaveable(sessionId) { mutableStateOf(cachedSnapshot != null) }
+    var hasRenderedLocationInitially by rememberSaveable(sessionId) { mutableStateOf(cachedSnapshot != null) }
     var nowEpochMillis by remember(sessionId) { mutableLongStateOf(System.currentTimeMillis()) }
     var refreshTrigger by remember(sessionId) { mutableIntStateOf(0) }
     var lastTrackedLowBattery by remember(sessionId) { mutableStateOf<Int?>(null) }
     var continuousBearing by remember(sessionId) { mutableFloatStateOf(0f) }
     var hasInitializedBearing by remember(sessionId) { mutableStateOf(false) }
     var stoppedSinceEpochMs by remember(sessionId) { mutableStateOf<Long?>(null) }
-    var isImperial by remember(imperial) { mutableStateOf(imperial) }
+    var isImperial by rememberSaveable(sessionId) { mutableStateOf(imperial) }
     val isOffline = rememberIsOffline()
     var wasOffline by remember(sessionId) { mutableStateOf(false) }
 

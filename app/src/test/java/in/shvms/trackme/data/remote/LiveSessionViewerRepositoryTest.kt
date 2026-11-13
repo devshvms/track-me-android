@@ -689,5 +689,90 @@ class LiveSessionViewerRepositoryTest {
         assertFalse(endedState.resetConsecutiveErrors)
         assertFalse(endedState.showOfflineToast)
     }
+
+    @Test
+    fun `snapshot caching and viewport preservation across configuration changes (CIE-035)`() {
+        val testSessionId = "cie035_test_session"
+        val sampleSnapshot = LiveSessionSnapshot(
+            sessionId = testSessionId,
+            username = "Rider",
+            status = "active",
+            stopReason = null,
+            endReason = null,
+            endedAt = null,
+            destination = "Central Park",
+            deadlineAt = null,
+            lastLocation = LiveViewerLastLocation(
+                lat = 28.6139,
+                lng = 77.2090,
+                speedKmh = 18f,
+                headingDeg = 90f,
+                batteryLevel = 85,
+                powerSaveMode = false,
+                timestampIso = "2026-11-13T12:00:00Z",
+            ),
+            path = listOf(LiveViewerPoint(28.6139, 77.2090)),
+        )
+
+        // Initial state
+        LiveSessionViewerRepository.clearCachedSnapshot(testSessionId)
+        assertNull(LiveSessionViewerRepository.getCachedSnapshot(testSessionId))
+
+        // Cache snapshot
+        LiveSessionViewerRepository.cacheSnapshot(testSessionId, sampleSnapshot)
+        val retrieved = LiveSessionViewerRepository.getCachedSnapshot(testSessionId)
+        assertNotNull(retrieved)
+        assertEquals("Central Park", retrieved?.destination)
+        assertEquals(85, retrieved?.lastLocation?.batteryLevel)
+
+        // Clear cache
+        LiveSessionViewerRepository.clearCachedSnapshot(testSessionId)
+        assertNull(LiveSessionViewerRepository.getCachedSnapshot(testSessionId))
+
+        // Viewport preservation evaluation:
+        // 1. If not following rider and already centered initially, camera should not move
+        val shouldMoveUserPanned = LiveSessionViewerRepository.evaluateViewportPreservation(
+            isFollowingRider = false,
+            lastTargetLat = 28.6139,
+            lastTargetLng = 77.2090,
+            newTargetLat = 28.6200,
+            newTargetLng = 77.2100,
+            hasCenteredInitially = true,
+        )
+        assertFalse(shouldMoveUserPanned)
+
+        // 2. If not centered initially, camera must move regardless of follow mode
+        val shouldMoveInitial = LiveSessionViewerRepository.evaluateViewportPreservation(
+            isFollowingRider = false,
+            lastTargetLat = null,
+            lastTargetLng = null,
+            newTargetLat = 28.6139,
+            newTargetLng = 77.2090,
+            hasCenteredInitially = false,
+        )
+        assertTrue(shouldMoveInitial)
+
+        // 3. If following rider and rider moved >= 3m, camera should animate
+        val shouldMoveFollow = LiveSessionViewerRepository.evaluateViewportPreservation(
+            isFollowingRider = true,
+            lastTargetLat = 28.6139,
+            lastTargetLng = 77.2090,
+            newTargetLat = 28.6150,
+            newTargetLng = 77.2090, // ~122m displacement
+            hasCenteredInitially = true,
+        )
+        assertTrue(shouldMoveFollow)
+
+        // 4. If following rider but displacement < 3m, suppress camera jitter
+        val shouldMoveJitter = LiveSessionViewerRepository.evaluateViewportPreservation(
+            isFollowingRider = true,
+            lastTargetLat = 28.6139,
+            lastTargetLng = 77.2090,
+            newTargetLat = 28.6139001,
+            newTargetLng = 77.2090,
+            hasCenteredInitially = true,
+        )
+        assertFalse(shouldMoveJitter)
+    }
 }
 

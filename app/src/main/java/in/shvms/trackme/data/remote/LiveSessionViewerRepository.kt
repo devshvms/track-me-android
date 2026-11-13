@@ -113,6 +113,8 @@ sealed class LiveSessionFetchResult {
  */
 class LiveSessionViewerRepository {
 
+    fun getCachedSnapshot(sessionId: String): LiveSessionSnapshot? = Companion.getCachedSnapshot(sessionId)
+
     suspend fun fetchSnapshot(sessionId: String): LiveSessionFetchResult = withContext(Dispatchers.IO) {
         val cleanId = sessionId.trim()
         if (cleanId.isEmpty()) return@withContext LiveSessionFetchResult.NotFoundOrExpired
@@ -139,6 +141,7 @@ class LiveSessionViewerRepository {
                 }
                 val parsed = parseSnapshot(cleanId, body)
                     ?: return@runCatching LiveSessionFetchResult.Error("Invalid response payload")
+                cacheSnapshot(cleanId, parsed)
                 LiveSessionFetchResult.Success(parsed)
             } finally {
                 conn.disconnect()
@@ -172,6 +175,56 @@ class LiveSessionViewerRepository {
     }
 
     companion object {
+        /**
+         * CIE-035: In-memory snapshot cache to eliminate blank screen flicker and loading spinners
+         * across device orientation (portrait <-> landscape) and theme configuration changes.
+         */
+        private val snapshotCache = java.util.concurrent.ConcurrentHashMap<String, LiveSessionSnapshot>()
+
+        fun getCachedSnapshot(sessionId: String): LiveSessionSnapshot? {
+            val clean = sessionId.trim()
+            return if (clean.isNotEmpty()) snapshotCache[clean] else null
+        }
+
+        fun cacheSnapshot(sessionId: String, snapshot: LiveSessionSnapshot) {
+            val clean = sessionId.trim()
+            if (clean.isNotEmpty()) {
+                snapshotCache[clean] = snapshot
+            }
+        }
+
+        fun clearCachedSnapshot(sessionId: String) {
+            val clean = sessionId.trim()
+            if (clean.isNotEmpty()) {
+                snapshotCache.remove(clean)
+            }
+        }
+
+        fun clearAllCachedSnapshots() {
+            snapshotCache.clear()
+        }
+
+        /**
+         * CIE-035: Evaluates camera movement necessity considering follow mode and initial centering.
+         */
+        fun evaluateViewportPreservation(
+            isFollowingRider: Boolean,
+            lastTargetLat: Double?,
+            lastTargetLng: Double?,
+            newTargetLat: Double?,
+            newTargetLng: Double?,
+            hasCenteredInitially: Boolean,
+        ): Boolean {
+            if (newTargetLat == null || newTargetLng == null) return false
+            if (!isFollowingRider && hasCenteredInitially) return false
+            return !hasCenteredInitially || shouldAnimateCamera(
+                lastTargetLat = lastTargetLat,
+                lastTargetLng = lastTargetLng,
+                newTargetLat = newTargetLat,
+                newTargetLng = newTargetLng,
+            )
+        }
+
         /**
          * TASK-366 / SCOPE_1.9.3 / CIE-031: Builds a canonical live share URL with optional rider attribution.
          * Appending ?name=... enables rich social link previews on messaging apps (WhatsApp, iMessage, Telegram, etc.).
