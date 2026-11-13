@@ -7,6 +7,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.BatteryStd
 import androidx.compose.material.icons.filled.Close
@@ -789,7 +792,9 @@ fun LiveSessionViewerSheet(
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .horizontalScroll(rememberScrollState()),
                             ) {
                                 val speedText = lastLoc?.speedMps?.let {
                                     UnitFormatter.speed(it.toDouble(), imperial)
@@ -898,25 +903,65 @@ fun LiveSessionViewerSheet(
                                 }
                             }
 
-                            OutlinedButton(
-                                onClick = {
-                                    val browserUrl = "${AppConfig.LIVE_SHARE_BASE_URL}/live/$sessionId"
-                                    runCatching {
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(browserUrl)))
-                                    }
-                                },
-                                modifier = Modifier.semantics {
-                                    role = Role.Button
-                                    contentDescription = strings.liveViewerOpenInBrowserA11y
-                                },
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(strings.liveViewerOpenInBrowser)
+                                FilledTonalButton(
+                                    onClick = {
+                                        val browserUrl = "${AppConfig.LIVE_SHARE_BASE_URL}/live/$sessionId"
+                                        val riderName = currentSnapshot?.username?.trim()?.takeIf { it.isNotBlank() }
+                                        val shareMessage = if (riderName != null) {
+                                            String.format(Locale.getDefault(), strings.liveViewerShareMessageWithName, riderName, browserUrl)
+                                        } else {
+                                            String.format(Locale.getDefault(), strings.liveViewerShareMessageFallback, browserUrl)
+                                        }
+                                        AnalyticsManager.trackLiveShareViewerShareClicked(sessionId)
+                                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_SUBJECT, strings.liveViewerShareRideSubject)
+                                            putExtra(Intent.EXTRA_TEXT, shareMessage)
+                                        }
+                                        runCatching {
+                                            context.startActivity(Intent.createChooser(sendIntent, strings.liveViewerShareRide))
+                                        }
+                                    },
+                                    modifier = Modifier.semantics {
+                                        role = Role.Button
+                                        contentDescription = strings.liveViewerShareRideA11y
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(strings.liveViewerShareRide)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        val browserUrl = "${AppConfig.LIVE_SHARE_BASE_URL}/live/$sessionId"
+                                        runCatching {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(browserUrl)))
+                                        }
+                                    },
+                                    modifier = Modifier.semantics {
+                                        role = Role.Button
+                                        contentDescription = strings.liveViewerOpenInBrowserA11y
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(strings.liveViewerOpenInBrowser)
+                                }
                             }
                         }
                     }
