@@ -31,6 +31,7 @@ data class LiveSessionSnapshot(
     val sessionId: String,
     val username: String,
     val status: String,
+    val startedAt: String? = null,
     val stopReason: String?,
     val endReason: String?,
     val endedAt: String?,
@@ -41,6 +42,18 @@ data class LiveSessionSnapshot(
 ) {
     val isActive: Boolean
         get() = status.equals("active", ignoreCase = true)
+
+    fun formatDuration(nowEpochMillis: Long = System.currentTimeMillis()): String? {
+        return LiveSessionViewerRepository.formatDuration(startedAt, endedAt, nowEpochMillis)
+    }
+
+    fun isStaleSignal(nowEpochMillis: Long = System.currentTimeMillis()): Boolean {
+        return LiveSessionViewerRepository.isStaleSignal(
+            isActive = isActive,
+            timestampIso = lastLocation?.timestampIso,
+            nowEpochMillis = nowEpochMillis,
+        )
+    }
 }
 
 sealed class LiveSessionFetchResult {
@@ -124,6 +137,7 @@ class LiveSessionViewerRepository {
                 val stopReason = json.optString("stopReason").trim().takeIf { it.isNotEmpty() }
                 val endReason = json.optString("endReason").trim().takeIf { it.isNotEmpty() }
                 val endedAt = json.optString("endedAt").trim().takeIf { it.isNotEmpty() }
+                val startedAt = if (json.has("startedAt") && !json.isNull("startedAt")) json.opt("startedAt")?.toString()?.trim()?.takeIf { it.isNotEmpty() } else null
                 val destination = json.optString("destination").trim().takeIf { it.isNotEmpty() }
                 val deadlineAt = json.optString("deadlineAt").trim().takeIf { it.isNotEmpty() }
 
@@ -180,6 +194,7 @@ class LiveSessionViewerRepository {
                     sessionId = sessionId,
                     username = username,
                     status = status,
+                    startedAt = startedAt,
                     stopReason = stopReason,
                     endReason = endReason,
                     endedAt = endedAt,
@@ -192,14 +207,23 @@ class LiveSessionViewerRepository {
         }
 
         const val DELAYED_UPDATE_THRESHOLD_SECONDS = 45
+        const val STALE_SIGNAL_THRESHOLD_SECONDS = 180
+
+        fun parseTimestampMs(raw: String?): Long? {
+            val clean = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+            clean.toLongOrNull()?.takeIf { it > 0 }?.let { return it }
+            clean.toDoubleOrNull()?.takeIf { it > 0 && it.isFinite() }?.let { return it.toLong() }
+            val instantMs = runCatching { java.time.Instant.parse(clean).toEpochMilli() }.getOrNull()
+            if (instantMs != null) return instantMs
+            return runCatching { java.time.OffsetDateTime.parse(clean).toInstant().toEpochMilli() }.getOrNull()
+        }
 
         fun ageSeconds(
             timestampIso: String?,
             nowEpochMillis: Long = System.currentTimeMillis(),
         ): Int? {
             val clean = timestampIso?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-            val parsedMs = runCatching { java.time.Instant.parse(clean).toEpochMilli() }.getOrNull()
-                ?: return null
+            val parsedMs = parseTimestampMs(clean) ?: return null
             return kotlin.math.max(0L, (nowEpochMillis - parsedMs) / 1000L).toInt()
         }
 
@@ -211,6 +235,48 @@ class LiveSessionViewerRepository {
             if (powerSaveMode) return true
             val age = ageSeconds(timestampIso, nowEpochMillis) ?: return false
             return age >= DELAYED_UPDATE_THRESHOLD_SECONDS
+        }
+
+        fun isStaleSignal(
+            isActive: Boolean,
+            timestampIso: String?,
+            nowEpochMillis: Long = System.currentTimeMillis(),
+            thresholdSeconds: Int = STALE_SIGNAL_THRESHOLD_SECONDS,
+        ): Boolean {
+            if (!isActive) return false
+            val age = ageSeconds(timestampIso, nowEpochMillis) ?: return false
+            return age >= thresholdSeconds
+        }
+
+        /**
+         * Formats the elapsed or total trip duration into a concise string.
+         * Examples:
+         * - < 1 min: "< 1m"
+         * - 45 min: "45m"
+         * - 1 hour 15 min: "1h 15m"
+         * - 2 hours exactly: "2h"
+         */
+        fun formatDuration(
+            startedAtRaw: String?,
+            endedAtRaw: String? = null,
+            nowEpochMillis: Long = System.currentTimeMillis(),
+        ): String? {
+            val startMs = parseTimestampMs(startedAtRaw) ?: return null
+            val endMs = parseTimestampMs(endedAtRaw) ?: nowEpochMillis
+            val durationMs = kotlin.math.max(0L, endMs - startMs)
+            val totalMinutes = durationMs / 60_000L
+
+            if (totalMinutes < 1L) {
+                return "< 1m"
+            }
+            val hours = totalMinutes / 60L
+            val minutes = totalMinutes % 60L
+
+            return when {
+                hours == 0L -> "${minutes}m"
+                minutes == 0L -> "${hours}h"
+                else -> "${hours}h ${minutes}m"
+            }
         }
 
         /**
