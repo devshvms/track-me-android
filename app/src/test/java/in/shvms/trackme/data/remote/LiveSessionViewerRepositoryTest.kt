@@ -642,4 +642,52 @@ class LiveSessionViewerRepositoryTest {
         assertTrue(LiveSessionViewerRepository.shouldUpdateBearing(currentBearing = 45f, targetBearing = 48f, isStationary = false))
         assertTrue(LiveSessionViewerRepository.shouldUpdateBearing(currentBearing = 355f, targetBearing = 2f, isStationary = false)) // 7 degree shortest arc
     }
+
+    @Test
+    fun `evaluateNetworkReconnection handles offline, reconnection, and ended transitions correctly`() {
+        // Offline during active session: show offline toast, do not fetch immediately
+        val offlineState = LiveSessionViewerRepository.evaluateNetworkReconnection(
+            isOffline = true,
+            wasOffline = false,
+            isActive = true,
+            isExpiredOrMissing = false,
+        )
+        assertFalse(offlineState.shouldFetchImmediately)
+        assertFalse(offlineState.resetConsecutiveErrors)
+        assertTrue(offlineState.showOfflineToast)
+
+        // Reconnecting from offline to online: fetch immediately, reset errors, dismiss toast
+        val reconnectingState = LiveSessionViewerRepository.evaluateNetworkReconnection(
+            isOffline = false,
+            wasOffline = true,
+            isActive = true,
+            isExpiredOrMissing = false,
+        )
+        assertTrue(reconnectingState.shouldFetchImmediately)
+        assertTrue(reconnectingState.resetConsecutiveErrors)
+        assertFalse(reconnectingState.showOfflineToast)
+
+        // Steady online state: no toast, no immediate trigger needed
+        val steadyOnline = LiveSessionViewerRepository.evaluateNetworkReconnection(
+            isOffline = false,
+            wasOffline = false,
+            isActive = true,
+            isExpiredOrMissing = false,
+        )
+        assertFalse(steadyOnline.shouldFetchImmediately)
+        assertFalse(steadyOnline.resetConsecutiveErrors)
+        assertFalse(steadyOnline.showOfflineToast)
+
+        // Ended or expired session: suppresses toasts and immediate fetch
+        val endedState = LiveSessionViewerRepository.evaluateNetworkReconnection(
+            isOffline = true,
+            wasOffline = true,
+            isActive = false,
+            isExpiredOrMissing = false,
+        )
+        assertFalse(endedState.shouldFetchImmediately)
+        assertFalse(endedState.resetConsecutiveErrors)
+        assertFalse(endedState.showOfflineToast)
+    }
 }
+

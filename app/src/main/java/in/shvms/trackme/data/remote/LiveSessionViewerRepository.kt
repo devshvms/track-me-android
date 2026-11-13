@@ -37,6 +37,12 @@ data class ViewerForegroundReconnectionState(
     val clearErrorMessage: Boolean,
 )
 
+data class ViewerNetworkReconnectionState(
+    val shouldFetchImmediately: Boolean,
+    val resetConsecutiveErrors: Boolean,
+    val showOfflineToast: Boolean,
+)
+
 data class LiveViewerLastLocation(
     val lat: Double,
     val lng: Double,
@@ -504,6 +510,37 @@ class LiveSessionViewerRepository {
                 shouldFetchImmediately = shouldFetch,
                 resetConsecutiveErrors = true,
                 clearErrorMessage = true,
+            )
+        }
+
+        /**
+         * Evaluates network reconnection state transitions for live session viewers (CIE-034).
+         *
+         * When connection state changes:
+         * - If trip has ended or session is missing/expired, suppresses network toasts and polling.
+         * - If currently offline: shows non-blocking persistent offline toast pill.
+         * - If transitioning from offline to online (reconnecting):
+         *   triggers immediate location fetch without waiting for delay timer,
+         *   and resets consecutive error backoff counter.
+         */
+        fun evaluateNetworkReconnection(
+            isOffline: Boolean,
+            wasOffline: Boolean,
+            isActive: Boolean,
+            isExpiredOrMissing: Boolean = false,
+        ): ViewerNetworkReconnectionState {
+            if (!isActive || isExpiredOrMissing) {
+                return ViewerNetworkReconnectionState(
+                    shouldFetchImmediately = false,
+                    resetConsecutiveErrors = false,
+                    showOfflineToast = false,
+                )
+            }
+            val isReconnecting = wasOffline && !isOffline
+            return ViewerNetworkReconnectionState(
+                shouldFetchImmediately = isReconnecting,
+                resetConsecutiveErrors = isReconnecting,
+                showOfflineToast = isOffline,
             )
         }
 
