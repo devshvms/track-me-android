@@ -726,6 +726,7 @@ object AnalyticsManager {
             "live_share_started",
             properties = mapOf(
                 "share_id" to shareId,
+                "session_id" to shareId,
                 "recipient_count" to recipientCount
             )
         )
@@ -737,6 +738,7 @@ object AnalyticsManager {
             "live_share_ended",
             properties = mapOf(
                 "share_id" to shareId,
+                "session_id" to shareId,
                 "duration_seconds" to durationSeconds
             )
         )
@@ -943,6 +945,50 @@ object AnalyticsManager {
         PostHog.capture(
             "live_share_stopped_keep_ride",
             properties = mapOf("platform" to "android")
+        )
+    }
+
+    fun trackLiveShareStoppedRide() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_stopped_ride",
+            properties = mapOf("platform" to "android")
+        )
+    }
+
+    fun trackLiveShareViewed(sessionId: String, surface: String = "in_app_viewer") {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_viewed",
+            properties = mapOf(
+                "session_id" to sessionId,
+                "sessionId" to sessionId,
+                "surface" to surface,
+                "platform" to "android"
+            )
+        )
+    }
+
+    fun trackLiveShareLocationRendered(
+        sessionId: String,
+        pathPoints: Int,
+        hasHeading: Boolean,
+        isStopped: Boolean
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_location_rendered",
+            properties = mapOf(
+                "session_id" to sessionId,
+                "sessionId" to sessionId,
+                "path_points" to pathPoints,
+                "pathPoints" to pathPoints,
+                "has_heading" to hasHeading,
+                "hasHeading" to hasHeading,
+                "is_stopped" to isStopped,
+                "isStopped" to isStopped,
+                "platform" to "android"
+            )
         )
     }
 
