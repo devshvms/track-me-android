@@ -368,4 +368,34 @@ class LiveSessionViewerRepositoryTest {
         assertTrue(finishedRes.resetConsecutiveErrors)
         assertTrue(finishedRes.clearErrorMessage)
     }
+
+    @Test
+    fun `computeShortestArcDelta and computeContinuousBearing handle north boundary crossing smoothly`() {
+        // Crossing north clockwise: 355° to 5° should be +10° delta, not -350°
+        val deltaClockwise = LiveSessionViewerRepository.computeShortestArcDelta(355.0, 5.0)
+        assertEquals(10.0, deltaClockwise, 0.001)
+        val continuousClockwise = LiveSessionViewerRepository.computeContinuousBearing(355f, 5f)
+        assertEquals(365f, continuousClockwise, 0.001f)
+
+        // Crossing north counter-clockwise: 5° to 355° should be -10° delta, not +350°
+        val deltaCounter = LiveSessionViewerRepository.computeShortestArcDelta(5.0, 355.0)
+        assertEquals(-10.0, deltaCounter, 0.001)
+        val continuousCounter = LiveSessionViewerRepository.computeContinuousBearing(5f, 355f)
+        assertEquals(-5f, continuousCounter, 0.001f)
+
+        // Normal turn: 90° to 120°
+        val deltaNormal = LiveSessionViewerRepository.computeShortestArcDelta(90.0, 120.0)
+        assertEquals(30.0, deltaNormal, 0.001)
+        val continuousNormal = LiveSessionViewerRepository.computeContinuousBearing(90f, 120f)
+        assertEquals(120f, continuousNormal, 0.001f)
+
+        // Preserves continuous angle across multi-revolution turns
+        val multiTurn = LiveSessionViewerRepository.computeContinuousBearing(725f, 15f)
+        // 725 % 360 = 5°, 5° to 15° is +10° -> 725 + 10 = 735°
+        assertEquals(735f, multiTurn, 0.001f)
+
+        // Edge case: NaN / Infinity
+        assertEquals(0.0, LiveSessionViewerRepository.computeShortestArcDelta(Double.NaN, 5.0), 0.001)
+        assertEquals(45f, LiveSessionViewerRepository.computeContinuousBearing(45f, Float.NaN), 0.001f)
+    }
 }

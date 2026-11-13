@@ -50,9 +50,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.animation.core.animateFloatAsState
+import `in`.shvms.trackme.theme.LocalTrackMeMotion
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -135,6 +138,25 @@ fun LiveSessionViewerSheet(
     var nowEpochMillis by remember(sessionId) { mutableLongStateOf(System.currentTimeMillis()) }
     var refreshTrigger by remember(sessionId) { mutableIntStateOf(0) }
     var lastTrackedLowBattery by remember(sessionId) { mutableStateOf<Int?>(null) }
+    var continuousBearing by remember(sessionId) { mutableFloatStateOf(0f) }
+    var hasInitializedBearing by remember(sessionId) { mutableStateOf(false) }
+
+    LaunchedEffect(snapshot?.lastLocation?.headingDeg) {
+        val target = snapshot?.lastLocation?.headingDeg ?: return@LaunchedEffect
+        if (!hasInitializedBearing) {
+            continuousBearing = target
+            hasInitializedBearing = true
+        } else {
+            continuousBearing = LiveSessionViewerRepository.computeContinuousBearing(continuousBearing, target)
+        }
+    }
+
+    val motion = LocalTrackMeMotion.current
+    val animatedBearing by animateFloatAsState(
+        targetValue = continuousBearing,
+        animationSpec = motion.spatialBounded.spec(),
+        label = "viewer_heading_rotation",
+    )
 
     // Lifecycle-aware polling: pauses completely when backgrounded and refreshes immediately on resume or retry.
     LaunchedEffect(sessionId, lifecycleOwner, refreshTrigger) {
@@ -388,7 +410,7 @@ fun LiveSessionViewerSheet(
                             Marker(
                                 state = MarkerState(position = livePoint),
                                 icon = markerIcon,
-                                rotation = if (hasHeading) bearing else 0f,
+                                rotation = if (hasHeading) animatedBearing else 0f,
                                 flat = !isEnded,
                                 anchor = Offset(0.5f, 0.5f),
                                 title = if (isEnded) {
