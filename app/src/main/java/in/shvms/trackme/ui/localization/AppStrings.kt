@@ -459,6 +459,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val liveViewerActiveBadge: String = s("liveViewerActiveBadge", "Live now")
     val liveViewerEndedBadge: String = s("liveViewerEndedBadge", "Session ended")
     val liveViewerExpiredNotice: String = s("liveViewerExpiredNotice", "This live share session has ended or expired.")
+    val liveViewerRiderEndedNotice: String = s("liveViewerRiderEndedNotice", "The rider has ended this live trip.")
     val liveViewerLoading: String = s("liveViewerLoading", "Connecting to live share…")
     val liveViewerOpenInBrowser: String = s("liveViewerOpenInBrowser", "Open in browser")
     val liveViewerWaitingFirstFix: String = s("liveViewerWaitingFirstFix", "Session live — waiting for first GPS signal…")
@@ -1306,6 +1307,7 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerActiveBadge" to "Transmitiendo ahora",
             "liveViewerEndedBadge" to "Sesión finalizada",
             "liveViewerExpiredNotice" to "Esta sesión de ubicación en vivo terminó o expiró.",
+            "liveViewerRiderEndedNotice" to "El usuario ha finalizado este recorrido en vivo.",
             "liveViewerLoading" to "Conectando con la transmisión en vivo…",
             "liveViewerOpenInBrowser" to "Abrir en el navegador",
             "liveViewerWaitingFirstFix" to "Sesión en vivo — esperando la primera señal GPS…",
@@ -2110,6 +2112,7 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerActiveBadge" to "En cours",
             "liveViewerEndedBadge" to "Session terminée",
             "liveViewerExpiredNotice" to "Ce partage de position en direct est terminé ou expiré.",
+            "liveViewerRiderEndedNotice" to "Le cycliste a terminé ce trajet en direct.",
             "liveViewerLoading" to "Connexion au suivi en direct…",
             "liveViewerOpenInBrowser" to "Ouvrir dans le navigateur",
             "liveViewerWaitingFirstFix" to "Session en direct — en attente du premier signal GPS…",
@@ -2914,6 +2917,7 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerActiveBadge" to "Jetzt live",
             "liveViewerEndedBadge" to "Beendet",
             "liveViewerExpiredNotice" to "Diese Live-Standortfreigabe ist beendet oder abgelaufen.",
+            "liveViewerRiderEndedNotice" to "Der Fahrer hat diese Live-Fahrt beendet.",
             "liveViewerLoading" to "Verbinde mit Live-Freigabe…",
             "liveViewerOpenInBrowser" to "Im Browser öffnen",
             "liveViewerWaitingFirstFix" to "Live — warte auf erstes GPS-Signal…",
@@ -3718,6 +3722,7 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerActiveBadge" to "अभी लाइव",
             "liveViewerEndedBadge" to "सत्र समाप्त",
             "liveViewerExpiredNotice" to "यह लाइव लोकेशन शेयर सत्र समाप्त या समय-सीमा पार हो चुका है।",
+            "liveViewerRiderEndedNotice" to "राइडर ने यह लाइव ट्रिप समाप्त कर दी है।",
             "liveViewerLoading" to "लाइव शेयर से जुड़ रहा है…",
             "liveViewerOpenInBrowser" to "ब्राउज़र में खोलें",
             "liveViewerWaitingFirstFix" to "सत्र लाइव है — पहले GPS सिग्नल की प्रतीक्षा…",
@@ -4522,6 +4527,7 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerActiveBadge" to "ライブ中",
             "liveViewerEndedBadge" to "終了",
             "liveViewerExpiredNotice" to "このライブ位置情報共有は終了したか期限切れです。",
+            "liveViewerRiderEndedNotice" to "ライダーがこのライブトリップを終了しました。",
             "liveViewerLoading" to "ライブ共有に接続中…",
             "liveViewerOpenInBrowser" to "ブラウザで開く",
             "liveViewerWaitingFirstFix" to "ライブ開始 — 初回のGPS信号を待っています…",
@@ -5326,6 +5332,7 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerActiveBadge" to "直播中",
             "liveViewerEndedBadge" to "已结束",
             "liveViewerExpiredNotice" to "此实时位置共享会话已结束或已过期。",
+            "liveViewerRiderEndedNotice" to "骑手已结束此实时行程。",
             "liveViewerLoading" to "正在连接实时共享…",
             "liveViewerOpenInBrowser" to "在浏览器中打开",
             "liveViewerWaitingFirstFix" to "实时共享已开启 — 正在等待首个 GPS 信号…",
