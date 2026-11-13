@@ -480,6 +480,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val liveViewerSpeedUnavailableA11y: String = s("liveViewerSpeedUnavailableA11y", "Rider speed unavailable")
     val liveViewerBatteryA11y: String = s("liveViewerBatteryA11y", "Rider battery: %1\$d percent")
     val liveViewerBatteryLowA11y: String = s("liveViewerBatteryLowA11y", "Rider battery low: %1\$d percent")
+    val liveViewerLowBatteryBanner: String = s("liveViewerLowBatteryBanner", "Rider battery low (%1\$d%%) · Signal may pause if phone powers off")
     val liveViewerOpenInBrowserA11y: String = s("liveViewerOpenInBrowserA11y", "Open live tracking session in web browser")
     val liveViewerSignalPausedBadge: String = s("liveViewerSignalPausedBadge", "Signal paused")
     val liveViewerSignalPausedA11y: String = s("liveViewerSignalPausedA11y", "GPS signal paused, waiting for rider location")
@@ -1332,6 +1333,7 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSpeedUnavailableA11y" to "Velocidad del usuario no disponible",
             "liveViewerBatteryA11y" to "Batería del usuario: %1\$d por ciento",
             "liveViewerBatteryLowA11y" to "Batería del usuario baja: %1\$d por ciento",
+            "liveViewerLowBatteryBanner" to "Batería del ciclista baja (%1\$d%%) · La señal puede pausarse si el teléfono se apaga",
             "liveViewerOpenInBrowserA11y" to "Abrir sesión de seguimiento en el navegador web",
             "liveViewerSignalPausedBadge" to "Señal en pausa",
             "liveViewerSignalPausedA11y" to "Señal GPS en pausa, esperando ubicación del usuario",
@@ -2145,6 +2147,7 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSpeedUnavailableA11y" to "Vitesse du cycliste non disponible",
             "liveViewerBatteryA11y" to "Batterie du cycliste : %1\$d pour cent",
             "liveViewerBatteryLowA11y" to "Batterie faible du cycliste : %1\$d pour cent",
+            "liveViewerLowBatteryBanner" to "Batterie du cycliste faible (%1\$d%%) · Le signal peut s'interrompre si le téléphone s'éteint",
             "liveViewerOpenInBrowserA11y" to "Ouvrir la session de suivi en direct dans le navigateur web",
             "liveViewerSignalPausedBadge" to "Signal en pause",
             "liveViewerSignalPausedA11y" to "Signal GPS en pause, en attente de la position du cycliste",
@@ -2958,6 +2961,7 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSpeedUnavailableA11y" to "Geschwindigkeit des Fahrers nicht verfügbar",
             "liveViewerBatteryA11y" to "Akkustand des Fahrers: %1\$d Prozent",
             "liveViewerBatteryLowA11y" to "Niedriger Akkustand des Fahrers: %1\$d Prozent",
+            "liveViewerLowBatteryBanner" to "Fahrer-Akku schwach (%1\$d%%) · Signal kann pausieren, wenn sich das Telefon ausschaltet",
             "liveViewerOpenInBrowserA11y" to "Live-Tracking-Sitzung im Webbrowser öffnen",
             "liveViewerSignalPausedBadge" to "Signal pausiert",
             "liveViewerSignalPausedA11y" to "GPS-Signal pausiert, warte auf Standort des Fahrers",
@@ -3771,6 +3775,7 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSpeedUnavailableA11y" to "राइडर की गति उपलब्ध नहीं है",
             "liveViewerBatteryA11y" to "राइडर की बैटरी: %1\$d प्रतिशत",
             "liveViewerBatteryLowA11y" to "राइडर की बैटरी कम है: %1\$d प्रतिशत",
+            "liveViewerLowBatteryBanner" to "राइडर की बैटरी कम है (%1\$d%%) · फ़ोन बंद होने पर सिग्नल रुक सकता है",
             "liveViewerOpenInBrowserA11y" to "वेब ब्राउज़र में लाइव ट्रैकिंग सत्र खोलें",
             "liveViewerSignalPausedBadge" to "सिग्नल रुका हुआ",
             "liveViewerSignalPausedA11y" to "जीपीएस सिग्नल रुका हुआ, राइडर के स्थान की प्रतीक्षा है",
@@ -4584,6 +4589,7 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSpeedUnavailableA11y" to "ライダーの速度データなし",
             "liveViewerBatteryA11y" to "ライダーのバッテリー残量: %1\$dパーセント",
             "liveViewerBatteryLowA11y" to "ライダーのバッテリー残量低下: %1\$dパーセント",
+            "liveViewerLowBatteryBanner" to "ライダーのバッテリー低下 (%1\$d%%) · 電源が切れると信号が停止する可能性があります",
             "liveViewerOpenInBrowserA11y" to "ウェブブラウザでライブ追跡セッションを開く",
             "liveViewerSignalPausedBadge" to "一時停止中",
             "liveViewerSignalPausedA11y" to "GPS信号が一時停止中、ライダーの位置情報を待機しています",
@@ -5397,6 +5403,7 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSpeedUnavailableA11y" to "骑手速度不可用",
             "liveViewerBatteryA11y" to "骑手电量：%1\$d%%",
             "liveViewerBatteryLowA11y" to "骑手电量偏低：%1\$d%%",
+            "liveViewerLowBatteryBanner" to "骑手电量偏低 (%1\$d%%) · 如果手机关机，信号可能会暂停",
             "liveViewerOpenInBrowserA11y" to "在网络浏览器中打开实时跟踪会话",
             "liveViewerSignalPausedBadge" to "信号暂停",
             "liveViewerSignalPausedA11y" to "GPS信号已暂停，正在等待骑手位置",

@@ -992,6 +992,20 @@ object AnalyticsManager {
         )
     }
 
+    fun trackLiveShareViewerLowBattery(sessionId: String, batteryLevel: Int) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_viewer_low_battery_shown",
+            properties = mapOf(
+                "session_id" to sessionId,
+                "sessionId" to sessionId,
+                "battery_level" to batteryLevel,
+                "batteryLevel" to batteryLevel,
+                "platform" to "android"
+            )
+        )
+    }
+
     fun trackTrustedWatcherAdded() {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture(
