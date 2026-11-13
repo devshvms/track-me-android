@@ -1609,6 +1609,7 @@ fun HomeScreen(
                             onCopyShare = { copyLiveShareLink() },
                             onSendShare = { shareLiveShareLink() },
                             onStopShareAndRide = {
+                                AnalyticsManager.trackLiveShareStoppedRide()
                                 if (uiState.distanceMeters < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DISTANCE_METERS &&
                                     uiState.durationMillis < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DURATION_MILLIS
                                 ) {

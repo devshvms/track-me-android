@@ -74,6 +74,7 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.config.AppConfig
 import `in`.shvms.trackme.data.remote.LiveSessionFetchResult
 import `in`.shvms.trackme.data.remote.LiveSessionSnapshot
@@ -113,10 +114,12 @@ fun LiveSessionViewerSheet(
     var isLoading by remember(sessionId) { mutableStateOf(true) }
     var isFollowingRider by remember(sessionId) { mutableStateOf(true) }
     var hasCenteredInitially by remember(sessionId) { mutableStateOf(false) }
+    var hasRenderedLocationInitially by remember(sessionId) { mutableStateOf(false) }
     var nowEpochMillis by remember(sessionId) { mutableLongStateOf(System.currentTimeMillis()) }
 
     // Lifecycle-aware polling: pauses completely when backgrounded and refreshes immediately on resume.
     LaunchedEffect(sessionId, lifecycleOwner) {
+        AnalyticsManager.trackLiveShareViewed(sessionId, surface = "in_app_viewer")
         var stopPolling = false
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             if (stopPolling) return@repeatOnLifecycle
@@ -129,6 +132,15 @@ fun LiveSessionViewerSheet(
                         isExpiredOrMissing = false
                         errorMessage = null
                         isLoading = false
+                        if (!hasRenderedLocationInitially && res.snapshot.lastLocation != null) {
+                            hasRenderedLocationInitially = true
+                            AnalyticsManager.trackLiveShareLocationRendered(
+                                sessionId = sessionId,
+                                pathPoints = res.snapshot.path.size,
+                                hasHeading = res.snapshot.lastLocation.headingDeg != null,
+                                isStopped = !res.snapshot.isActive,
+                            )
+                        }
                         if (res.snapshot.isActive && tick % 3 == 0) {
                             repository.sendViewerPing(sessionId, viewerId)
                         }
@@ -180,6 +192,7 @@ fun LiveSessionViewerSheet(
 
     val startIcon = remember { runCatching { ExportMarkers.start(ExportMarkerStyle.StartFinish, 44) }.getOrNull() }
     val headingIcon = remember { runCatching { createHeadingConeMarkerBitmap() }.getOrNull() }
+    val stationaryDotIcon = remember { runCatching { createStationaryDotMarkerBitmap() }.getOrNull() }
 
     val lastLoc = snapshot?.lastLocation
     val ageSeconds = remember(lastLoc?.timestampIso, nowEpochMillis) {
@@ -307,11 +320,12 @@ fun LiveSessionViewerSheet(
                             )
                         }
                         currentLatLng?.let { livePoint ->
+                            val hasHeading = lastLoc?.headingDeg != null && snapshot?.isActive == true
                             val bearing = lastLoc?.headingDeg ?: 0f
                             Marker(
                                 state = MarkerState(position = livePoint),
-                                icon = headingIcon,
-                                rotation = bearing,
+                                icon = if (hasHeading) headingIcon else (stationaryDotIcon ?: headingIcon),
+                                rotation = if (hasHeading) bearing else 0f,
                                 flat = true,
                                 anchor = Offset(0.5f, 0.5f),
                                 title = snapshot?.username,
@@ -669,6 +683,37 @@ private fun createHeadingConeMarkerBitmap(): BitmapDescriptor {
         close()
     }
     canvas.drawPath(arrowPath, arrowPaint)
+
+    return BitmapDescriptorFactory.fromBitmap(bitmap)
+}
+
+private fun createStationaryDotMarkerBitmap(): BitmapDescriptor {
+    val size = 64
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val cx = size / 2f
+    val cy = size / 2f
+
+    // Outer subtle translucent pulse ring
+    val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.argb(48, 6, 182, 212)
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(cx, cy, 22f, ringPaint)
+
+    // White halo ring
+    val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(cx, cy, 15f, haloPaint)
+
+    // Solid cyan center dot
+    val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.rgb(6, 182, 212)
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(cx, cy, 11f, dotPaint)
 
     return BitmapDescriptorFactory.fromBitmap(bitmap)
 }
