@@ -9,6 +9,7 @@ import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +50,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.animation.core.animateFloatAsState
 import `in`.shvms.trackme.theme.LocalTrackMeMotion
@@ -141,6 +143,7 @@ fun LiveSessionViewerSheet(
     var continuousBearing by remember(sessionId) { mutableFloatStateOf(0f) }
     var hasInitializedBearing by remember(sessionId) { mutableStateOf(false) }
     var stoppedSinceEpochMs by remember(sessionId) { mutableStateOf<Long?>(null) }
+    var isImperial by remember(imperial) { mutableStateOf(imperial) }
 
     LaunchedEffect(snapshot?.lastLocation?.headingDeg) {
         val target = snapshot?.lastLocation?.headingDeg ?: return@LaunchedEffect
@@ -277,12 +280,12 @@ fun LiveSessionViewerSheet(
         )
     }
 
-    val speedStatus = remember(lastLoc?.speedKmh, stoppedSinceEpochMs, nowEpochMillis, imperial, strings) {
+    val speedStatus = remember(lastLoc?.speedKmh, stoppedSinceEpochMs, nowEpochMillis, isImperial, strings) {
         LiveSessionViewerRepository.evaluateSpeedOrStopped(
             speedKmh = lastLoc?.speedKmh,
             stoppedSinceEpochMs = stoppedSinceEpochMs,
             nowEpochMillis = nowEpochMillis,
-            useMiles = imperial,
+            useMiles = isImperial,
             strings = strings,
         )
     }
@@ -377,6 +380,23 @@ fun LiveSessionViewerSheet(
                     navigationIcon = {
                         IconButton(onClick = onDismiss) {
                             Icon(Icons.Default.Close, contentDescription = strings.close)
+                        }
+                    },
+                    actions = {
+                        val currentUnitText = if (isImperial) "mph" else "km/h"
+                        TextButton(
+                            onClick = { isImperial = !isImperial },
+                            modifier = Modifier.semantics {
+                                role = Role.Button
+                                contentDescription = String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)
+                            },
+                        ) {
+                            Text(
+                                text = currentUnitText,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
                         }
                     },
                 )
@@ -877,10 +897,14 @@ fun LiveSessionViewerSheet(
                                     .horizontalScroll(rememberScrollState()),
                             ) {
                                 val speedText = speedStatus.displayText
+                                val currentUnitText = if (isImperial) "mph" else "km/h"
                                 Row(
-                                    modifier = Modifier.semantics(mergeDescendants = true) {
-                                        contentDescription = speedStatus.a11yText
-                                    },
+                                    modifier = Modifier
+                                        .clickable { isImperial = !isImperial }
+                                        .semantics(mergeDescendants = true) {
+                                            role = Role.Button
+                                            contentDescription = "${speedStatus.a11yText}. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
+                                        },
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
@@ -953,12 +977,15 @@ fun LiveSessionViewerSheet(
 
                                 val totalDistance = snapshot?.totalDistanceMeters ?: 0.0
                                 if (totalDistance > 0.0) {
-                                    val distanceText = snapshot?.formatDistance(useMiles = imperial)
-                                        ?: UnitFormatter.rideDistance(totalDistance, imperial)
+                                    val distanceText = snapshot?.formatDistance(useMiles = isImperial)
+                                        ?: UnitFormatter.rideDistance(totalDistance, isImperial)
                                     Row(
-                                        modifier = Modifier.semantics(mergeDescendants = true) {
-                                            contentDescription = String.format(Locale.getDefault(), strings.liveViewerDistanceLabel, distanceText)
-                                        },
+                                        modifier = Modifier
+                                            .clickable { isImperial = !isImperial }
+                                            .semantics(mergeDescendants = true) {
+                                                role = Role.Button
+                                                contentDescription = "${String.format(Locale.getDefault(), strings.liveViewerDistanceLabel, distanceText)}. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
+                                            },
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(3.dp),
                                     ) {
