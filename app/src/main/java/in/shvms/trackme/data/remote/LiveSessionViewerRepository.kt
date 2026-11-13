@@ -1,12 +1,21 @@
 package `in`.shvms.trackme.data.remote
 
 import `in`.shvms.trackme.config.AppConfig
+import `in`.shvms.trackme.ui.localization.AppStrings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+
+data class LiveViewerSpeedStatus(
+    val isStationary: Boolean,
+    val isStoppedTimerActive: Boolean,
+    val stoppedMinutes: Int,
+    val displayText: String,
+    val a11yText: String,
+)
 
 data class LiveViewerPoint(
     val lat: Double,
@@ -467,6 +476,100 @@ class LiveSessionViewerRepository {
             if (!currentContinuousBearing.isFinite()) return targetBearing
             val delta = computeShortestArcDelta(currentContinuousBearing.toDouble(), targetBearing.toDouble()).toFloat()
             return currentContinuousBearing + delta
+        }
+
+        const val STATIONARY_SPEED_THRESHOLD_KMH = 3.0f
+
+        /**
+         * Tracks stationary start timestamp across location updates (CIE-029).
+         * Resets to null when moving (>= 3.0 km/h).
+         */
+        fun computeStoppedSinceEpochMs(
+            speedKmh: Float?,
+            previousStoppedSinceMs: Long?,
+            lastLocationTimestampEpochMs: Long?,
+            nowEpochMillis: Long = System.currentTimeMillis(),
+        ): Long? {
+            if (speedKmh != null && speedKmh >= STATIONARY_SPEED_THRESHOLD_KMH) {
+                return null
+            }
+            if (previousStoppedSinceMs != null) {
+                return previousStoppedSinceMs
+            }
+            if (lastLocationTimestampEpochMs != null && (nowEpochMillis - lastLocationTimestampEpochMs) in 0L..1_800_000L) {
+                return lastLocationTimestampEpochMs
+            }
+            return nowEpochMillis
+        }
+
+        /**
+         * Evaluates live rider speed vs stationary state and stopped duration (CIE-029).
+         * When stationary for >= 60 seconds, displays "Stopped · Xm" instead of "0 km/h".
+         */
+        fun evaluateSpeedOrStopped(
+            speedKmh: Float?,
+            stoppedSinceEpochMs: Long?,
+            nowEpochMillis: Long = System.currentTimeMillis(),
+            useMiles: Boolean = false,
+            strings: AppStrings,
+        ): LiveViewerSpeedStatus {
+            val isSpeedValid = speedKmh != null && speedKmh.isFinite()
+            val effectiveSpeed = if (isSpeedValid) kotlin.math.max(0f, speedKmh!!) else null
+            val isStationary = effectiveSpeed == null || effectiveSpeed < STATIONARY_SPEED_THRESHOLD_KMH
+            val unit = if (useMiles) "mph" else "km/h"
+
+            if (!isStationary) {
+                val rawVal = if (useMiles) (effectiveSpeed!! * 0.621371f) else effectiveSpeed!!
+                val rounded = kotlin.math.round(rawVal).toInt()
+                val text = "$rounded $unit"
+                val a11y = String.format(java.util.Locale.getDefault(), strings.liveViewerSpeedA11y, text)
+                return LiveViewerSpeedStatus(
+                    isStationary = false,
+                    isStoppedTimerActive = false,
+                    stoppedMinutes = 0,
+                    displayText = text,
+                    a11yText = a11y,
+                )
+            }
+
+            if (stoppedSinceEpochMs != null && nowEpochMillis >= stoppedSinceEpochMs) {
+                val stoppedDurationMs = kotlin.math.max(0L, nowEpochMillis - stoppedSinceEpochMs)
+                val stoppedMinutes = (stoppedDurationMs / 60_000L).toInt()
+                if (stoppedMinutes >= 1) {
+                    val durationStr = formatDurationMs(stoppedDurationMs)
+                    val text = String.format(java.util.Locale.getDefault(), strings.liveViewerStopped, durationStr)
+                    val a11y = String.format(java.util.Locale.getDefault(), strings.liveViewerStoppedA11y, durationStr)
+                    return LiveViewerSpeedStatus(
+                        isStationary = true,
+                        isStoppedTimerActive = true,
+                        stoppedMinutes = stoppedMinutes,
+                        displayText = text,
+                        a11yText = a11y,
+                    )
+                }
+            }
+
+            val zeroText = "0 $unit"
+            val zeroA11y = String.format(java.util.Locale.getDefault(), strings.liveViewerSpeedA11y, zeroText)
+            return LiveViewerSpeedStatus(
+                isStationary = true,
+                isStoppedTimerActive = false,
+                stoppedMinutes = 0,
+                displayText = zeroText,
+                a11yText = zeroA11y,
+            )
+        }
+
+        fun formatDurationMs(durationMs: Long): String {
+            val totalMinutes = kotlin.math.max(0L, durationMs) / 60_000L
+            if (totalMinutes < 1L) return "< 1m"
+            val hours = totalMinutes / 60L
+            val minutes = totalMinutes % 60L
+            return when {
+                hours == 0L -> "${minutes}m"
+                minutes == 0L -> "${hours}h"
+                else -> "${hours}h ${minutes}m"
+            }
         }
     }
 }
