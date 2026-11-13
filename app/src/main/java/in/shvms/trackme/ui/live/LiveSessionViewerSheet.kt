@@ -140,6 +140,7 @@ fun LiveSessionViewerSheet(
     var lastTrackedLowBattery by remember(sessionId) { mutableStateOf<Int?>(null) }
     var continuousBearing by remember(sessionId) { mutableFloatStateOf(0f) }
     var hasInitializedBearing by remember(sessionId) { mutableStateOf(false) }
+    var stoppedSinceEpochMs by remember(sessionId) { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(snapshot?.lastLocation?.headingDeg) {
         val target = snapshot?.lastLocation?.headingDeg ?: return@LaunchedEffect
@@ -260,6 +261,29 @@ fun LiveSessionViewerSheet(
             powerSaveMode = lastLoc?.powerSaveMode == true,
             timestampIso = lastLoc?.timestampIso,
             nowEpochMillis = nowEpochMillis,
+        )
+    }
+
+    val lastLocEpochMs = remember(lastLoc?.timestampIso) {
+        LiveSessionViewerRepository.parseTimestampMs(lastLoc?.timestampIso)
+    }
+
+    LaunchedEffect(lastLoc?.speedKmh, lastLocEpochMs) {
+        stoppedSinceEpochMs = LiveSessionViewerRepository.computeStoppedSinceEpochMs(
+            speedKmh = lastLoc?.speedKmh,
+            previousStoppedSinceMs = stoppedSinceEpochMs,
+            lastLocationTimestampEpochMs = lastLocEpochMs,
+            nowEpochMillis = nowEpochMillis,
+        )
+    }
+
+    val speedStatus = remember(lastLoc?.speedKmh, stoppedSinceEpochMs, nowEpochMillis, imperial, strings) {
+        LiveSessionViewerRepository.evaluateSpeedOrStopped(
+            speedKmh = lastLoc?.speedKmh,
+            stoppedSinceEpochMs = stoppedSinceEpochMs,
+            nowEpochMillis = nowEpochMillis,
+            useMiles = imperial,
+            strings = strings,
         )
     }
 
@@ -398,8 +422,8 @@ fun LiveSessionViewerSheet(
                         }
                         currentLatLng?.let { livePoint ->
                             val isEnded = snapshot?.isActive == false
-                            val hasHeading = lastLoc?.headingDeg != null && !isEnded
-                            val bearing = lastLoc?.headingDeg ?: 0f
+                            val isStationary = speedStatus.isStationary
+                            val hasHeading = lastLoc?.headingDeg != null && !isEnded && !isStationary
                             val markerIcon = if (isEnded) {
                                 finishIcon ?: (stationaryDotIcon ?: headingIcon)
                             } else if (hasHeading) {
@@ -852,16 +876,10 @@ fun LiveSessionViewerSheet(
                                     .weight(1f)
                                     .horizontalScroll(rememberScrollState()),
                             ) {
-                                val speedText = lastLoc?.speedMps?.let {
-                                    UnitFormatter.speed(it.toDouble(), imperial)
-                                } ?: "—"
+                                val speedText = speedStatus.displayText
                                 Row(
                                     modifier = Modifier.semantics(mergeDescendants = true) {
-                                        contentDescription = if (lastLoc?.speedMps != null) {
-                                            String.format(Locale.getDefault(), strings.liveViewerSpeedA11y, speedText)
-                                        } else {
-                                            strings.liveViewerSpeedUnavailableA11y
-                                        }
+                                        contentDescription = speedStatus.a11yText
                                     },
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),

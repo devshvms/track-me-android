@@ -398,4 +398,126 @@ class LiveSessionViewerRepositoryTest {
         assertEquals(0.0, LiveSessionViewerRepository.computeShortestArcDelta(Double.NaN, 5.0), 0.001)
         assertEquals(45f, LiveSessionViewerRepository.computeContinuousBearing(45f, Float.NaN), 0.001f)
     }
+
+    @Test
+    fun `computeStoppedSinceEpochMs handles transitions between motion and rest`() {
+        val nowMs = 1_700_000_100_000L
+        val locTimeMs = nowMs - 5 * 60_000L // 5m ago
+
+        // In motion (speed >= 3.0 km/h) -> returns null (clears stopped timer)
+        val inMotion = LiveSessionViewerRepository.computeStoppedSinceEpochMs(
+            speedKmh = 18.5f,
+            previousStoppedSinceMs = 1_700_000_000_000L,
+            lastLocationTimestampEpochMs = locTimeMs,
+            nowEpochMillis = nowMs,
+        )
+        assertNull(inMotion)
+
+        // Stationary (speed < 3.0 km/h) with existing stopped timer -> preserves existing timestamp
+        val existingStopped = 1_700_000_050_000L
+        val keptStopped = LiveSessionViewerRepository.computeStoppedSinceEpochMs(
+            speedKmh = 1.2f,
+            previousStoppedSinceMs = existingStopped,
+            lastLocationTimestampEpochMs = locTimeMs,
+            nowEpochMillis = nowMs,
+        )
+        assertEquals(existingStopped, keptStopped)
+
+        // Stationary without existing timer, recent location timestamp -> initializes to locTimeMs
+        val initFromLoc = LiveSessionViewerRepository.computeStoppedSinceEpochMs(
+            speedKmh = 0.0f,
+            previousStoppedSinceMs = null,
+            lastLocationTimestampEpochMs = locTimeMs,
+            nowEpochMillis = nowMs,
+        )
+        assertEquals(locTimeMs, initFromLoc)
+
+        // Stationary without existing timer, very stale location (> 30 min ago) -> initializes to nowMs
+        val staleLocTimeMs = nowMs - 45 * 60_000L
+        val initFromNow = LiveSessionViewerRepository.computeStoppedSinceEpochMs(
+            speedKmh = 0.0f,
+            previousStoppedSinceMs = null,
+            lastLocationTimestampEpochMs = staleLocTimeMs,
+            nowEpochMillis = nowMs,
+        )
+        assertEquals(nowMs, initFromNow)
+    }
+
+    @Test
+    fun `evaluateSpeedOrStopped formats speed, stationary short pause, and stopped duration accurately`() {
+        val strings = `in`.shvms.trackme.ui.localization.AppStrings()
+        val nowMs = 1_700_000_200_000L
+
+        // 1. Moving at 25 km/h
+        val moving = LiveSessionViewerRepository.evaluateSpeedOrStopped(
+            speedKmh = 25.0f,
+            stoppedSinceEpochMs = null,
+            nowEpochMillis = nowMs,
+            useMiles = false,
+            strings = strings,
+        )
+        assertFalse(moving.isStationary)
+        assertEquals("25 km/h", moving.displayText)
+        assertEquals("Rider speed: 25 km/h", moving.a11yText)
+
+        // 2. Moving imperial (approx 16 mph)
+        val movingImperial = LiveSessionViewerRepository.evaluateSpeedOrStopped(
+            speedKmh = 25.0f,
+            stoppedSinceEpochMs = null,
+            nowEpochMillis = nowMs,
+            useMiles = true,
+            strings = strings,
+        )
+        assertFalse(movingImperial.isStationary)
+        assertEquals("16 mph", movingImperial.displayText)
+        assertEquals("Rider speed: 16 mph", movingImperial.a11yText)
+
+        // 3. Just stopped (< 60s) -> displays 0 km/h
+        val justStopped = LiveSessionViewerRepository.evaluateSpeedOrStopped(
+            speedKmh = 0.5f,
+            stoppedSinceEpochMs = nowMs - 35_000L, // 35s ago
+            nowEpochMillis = nowMs,
+            useMiles = false,
+            strings = strings,
+        )
+        assertTrue(justStopped.isStationary)
+        assertEquals("0 km/h", justStopped.displayText)
+        assertEquals("Rider speed: 0 km/h", justStopped.a11yText)
+
+        // 4. Stopped for 5 minutes (>= 60s) -> displays "Stopped · 5m"
+        val stopped5m = LiveSessionViewerRepository.evaluateSpeedOrStopped(
+            speedKmh = 0.0f,
+            stoppedSinceEpochMs = nowMs - 5 * 60_000L,
+            nowEpochMillis = nowMs,
+            useMiles = false,
+            strings = strings,
+        )
+        assertTrue(stopped5m.isStationary)
+        assertEquals("Stopped · 5m", stopped5m.displayText)
+        assertEquals("Rider stopped for 5m", stopped5m.a11yText)
+
+        // 5. Stopped for 1 hour 15 minutes -> displays "Stopped · 1h 15m"
+        val stoppedLong = LiveSessionViewerRepository.evaluateSpeedOrStopped(
+            speedKmh = 1.0f,
+            stoppedSinceEpochMs = nowMs - (75 * 60_000L),
+            nowEpochMillis = nowMs,
+            useMiles = false,
+            strings = strings,
+        )
+        assertTrue(stoppedLong.isStationary)
+        assertEquals("Stopped · 1h 15m", stoppedLong.displayText)
+        assertEquals("Rider stopped for 1h 15m", stoppedLong.a11yText)
+
+        // 6. Null speed -> treated as stationary 0 km/h
+        val nullSpeed = LiveSessionViewerRepository.evaluateSpeedOrStopped(
+            speedKmh = null,
+            stoppedSinceEpochMs = null,
+            nowEpochMillis = nowMs,
+            useMiles = false,
+            strings = strings,
+        )
+        assertTrue(nullSpeed.isStationary)
+        assertEquals("0 km/h", nullSpeed.displayText)
+        assertEquals("Rider speed: 0 km/h", nullSpeed.a11yText)
+    }
 }
