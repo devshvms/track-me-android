@@ -117,6 +117,11 @@ class LiveSessionViewerRepository {
 
     fun shouldAnimateTransition(isReducedMotion: Boolean): Boolean = Companion.shouldAnimateTransition(isReducedMotion)
 
+    fun clampBatteryLevel(battery: Int?): Int? = Companion.clampBatteryLevel(battery)
+    fun shouldAnnounceLowBattery(previousBattery: Int?, newBattery: Int?): Boolean = Companion.shouldAnnounceLowBattery(previousBattery, newBattery)
+    fun computeViewerAdaptivePollDelay(powerSaveMode: Boolean, batteryLevel: Int?, basePollDelay: Long = 5_000L): Long =
+        Companion.computeViewerAdaptivePollDelay(powerSaveMode, batteryLevel, basePollDelay)
+
     suspend fun fetchSnapshot(sessionId: String): LiveSessionFetchResult = withContext(Dispatchers.IO) {
         val cleanId = sessionId.trim()
         if (cleanId.isEmpty()) return@withContext LiveSessionFetchResult.NotFoundOrExpired
@@ -232,6 +237,63 @@ class LiveSessionViewerRepository {
          * When reduced motion is preferred, transitions snap immediately to prevent motion sickness and vestibular discomfort.
          */
         fun shouldAnimateTransition(isReducedMotion: Boolean): Boolean = !isReducedMotion
+
+        /**
+         * CIE-037: Sanitize and clamp battery level to 0-100%, rejecting negative simulator fallbacks (-1) and out-of-bounds values.
+         */
+        fun clampBatteryLevel(battery: Int?): Int? {
+            if (battery == null || battery < 0 || battery > 100) return null
+            return battery.coerceIn(0, 100)
+        }
+
+        /**
+         * CIE-037: Evaluates whether an auditory/TalkBack announcement should be made for low battery.
+         * Throttles announcements to prevent auditory spam:
+         * - Fires when first transitioning into low battery (<= 15%).
+         * - Fires when battery drops to critical level (<= 5%) from a higher level.
+         * - Suppresses redundant announcements on intermediate 1% drops (e.g. 14%, 13%, 12%).
+         */
+        fun shouldAnnounceLowBattery(previousBattery: Int?, newBattery: Int?): Boolean {
+            val curr = clampBatteryLevel(newBattery) ?: return false
+            val prev = clampBatteryLevel(previousBattery)
+
+            // 1. Initial warning when dipping into low battery (<= 15%)
+            if (curr <= 15 && (prev == null || prev > 15)) {
+                return true
+            }
+
+            // 2. Critical warning when dipping into <= 5%
+            if (curr <= 5 && prev != null && prev > 5) {
+                return true
+            }
+
+            return false
+        }
+
+        /**
+         * CIE-037: Computes adaptive polling interval for the live viewer.
+         * When the rider is in power-save mode (or battery <= 15%), broadcaster pushes occur at ~15s cadence.
+         * Adapting the viewer polling interval to 12s avoids burning ~66% unnecessary Redis queries on the $0/mo free tier.
+         */
+        fun computeViewerAdaptivePollDelay(
+            powerSaveMode: Boolean,
+            batteryLevel: Int?,
+            basePollDelay: Long = 5_000L
+        ): Long {
+            val clampedBat = clampBatteryLevel(batteryLevel)
+            val isEffectivePowerSave = powerSaveMode || (clampedBat != null && clampedBat <= 15)
+            return if (isEffectivePowerSave) 12_000L else basePollDelay
+        }
+
+        /**
+         * CIE-037: Formats user-facing disclosure when updates arrive at relaxed interval due to power saving.
+         */
+        fun formatPowerSaveCadenceNotice(powerSaveMode: Boolean, batteryLevel: Int?): String? {
+            val clampedBat = clampBatteryLevel(batteryLevel)
+            val isEffectivePowerSave = powerSaveMode || (clampedBat != null && clampedBat <= 15)
+            if (!isEffectivePowerSave) return null
+            return "Power save active · Location updates every ~15s"
+        }
 
         /**
          * TASK-366 / SCOPE_1.9.3 / CIE-031: Builds a canonical live share URL with optional rider attribution.

@@ -793,5 +793,77 @@ class LiveSessionViewerRepositoryTest {
             assertTrue("reconnected toast must not be empty for $lang", s.liveViewerNetworkReconnectedToast.isNotBlank())
         }
     }
+
+    @Test
+    fun `low battery throttle and power-save mode parity (CIE-037)`() {
+        val repo = LiveSessionViewerRepository()
+
+        // 1. clampBatteryLevel (companion and instance)
+        assertEquals(0, LiveSessionViewerRepository.clampBatteryLevel(0))
+        assertEquals(15, LiveSessionViewerRepository.clampBatteryLevel(15))
+        assertEquals(80, LiveSessionViewerRepository.clampBatteryLevel(80))
+        assertEquals(100, LiveSessionViewerRepository.clampBatteryLevel(100))
+        assertNull(LiveSessionViewerRepository.clampBatteryLevel(-1)) // Simulator fallback
+        assertNull(LiveSessionViewerRepository.clampBatteryLevel(-25))
+        assertNull(LiveSessionViewerRepository.clampBatteryLevel(101))
+        assertNull(LiveSessionViewerRepository.clampBatteryLevel(250))
+        assertNull(LiveSessionViewerRepository.clampBatteryLevel(null))
+
+        assertEquals(50, repo.clampBatteryLevel(50))
+        assertNull(repo.clampBatteryLevel(-1))
+
+        // 2. shouldAnnounceLowBattery (companion and instance)
+        // Initial entry into <= 15%
+        assertTrue(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = null, newBattery = 15))
+        assertTrue(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 80, newBattery = 15))
+        assertTrue(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 16, newBattery = 14))
+
+        // Suppresses intermediate 1% drops
+        assertFalse(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 15, newBattery = 14))
+        assertFalse(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 14, newBattery = 13))
+        assertFalse(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 13, newBattery = 10))
+        assertFalse(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 10, newBattery = 8))
+
+        // Critical entry (<= 5%)
+        assertTrue(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 12, newBattery = 5))
+        assertTrue(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 6, newBattery = 4))
+        assertTrue(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 15, newBattery = 3))
+
+        // Suppresses intermediate drops in critical zone
+        assertFalse(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 5, newBattery = 4))
+        assertFalse(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 4, newBattery = 2))
+
+        // Normal, charging, or invalid inputs
+        assertFalse(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = null, newBattery = 80))
+        assertFalse(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 15, newBattery = 20))
+        assertFalse(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 5, newBattery = 5))
+        assertFalse(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = null, newBattery = -1))
+        assertFalse(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = -1, newBattery = -1))
+        assertFalse(LiveSessionViewerRepository.shouldAnnounceLowBattery(previousBattery = 80, newBattery = null))
+
+        assertTrue(repo.shouldAnnounceLowBattery(previousBattery = 50, newBattery = 15))
+        assertFalse(repo.shouldAnnounceLowBattery(previousBattery = 15, newBattery = 14))
+
+        // 3. computeViewerAdaptivePollDelay (companion and instance)
+        assertEquals(12_000L, LiveSessionViewerRepository.computeViewerAdaptivePollDelay(powerSaveMode = true, batteryLevel = 80))
+        assertEquals(12_000L, LiveSessionViewerRepository.computeViewerAdaptivePollDelay(powerSaveMode = true, batteryLevel = null))
+        assertEquals(12_000L, LiveSessionViewerRepository.computeViewerAdaptivePollDelay(powerSaveMode = false, batteryLevel = 15))
+        assertEquals(12_000L, LiveSessionViewerRepository.computeViewerAdaptivePollDelay(powerSaveMode = false, batteryLevel = 5))
+        assertEquals(5_000L, LiveSessionViewerRepository.computeViewerAdaptivePollDelay(powerSaveMode = false, batteryLevel = 80))
+        assertEquals(5_000L, LiveSessionViewerRepository.computeViewerAdaptivePollDelay(powerSaveMode = false, batteryLevel = null))
+        assertEquals(5_000L, LiveSessionViewerRepository.computeViewerAdaptivePollDelay(powerSaveMode = false, batteryLevel = -1))
+        assertEquals(7_000L, LiveSessionViewerRepository.computeViewerAdaptivePollDelay(powerSaveMode = false, batteryLevel = 80, basePollDelay = 7_000L))
+        assertEquals(12_000L, LiveSessionViewerRepository.computeViewerAdaptivePollDelay(powerSaveMode = true, batteryLevel = 80, basePollDelay = 7_000L))
+
+        assertEquals(12_000L, repo.computeViewerAdaptivePollDelay(powerSaveMode = true, batteryLevel = 80))
+        assertEquals(5_000L, repo.computeViewerAdaptivePollDelay(powerSaveMode = false, batteryLevel = 80))
+
+        // 4. formatPowerSaveCadenceNotice
+        assertNotNull(LiveSessionViewerRepository.formatPowerSaveCadenceNotice(powerSaveMode = true, batteryLevel = 80))
+        assertNotNull(LiveSessionViewerRepository.formatPowerSaveCadenceNotice(powerSaveMode = false, batteryLevel = 14))
+        assertNull(LiveSessionViewerRepository.formatPowerSaveCadenceNotice(powerSaveMode = false, batteryLevel = 50))
+        assertNull(LiveSessionViewerRepository.formatPowerSaveCadenceNotice(powerSaveMode = false, batteryLevel = null))
+        assertNull(LiveSessionViewerRepository.formatPowerSaveCadenceNotice(powerSaveMode = false, batteryLevel = -1))
+    }
 }
 
