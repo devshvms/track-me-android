@@ -92,4 +92,37 @@ class LiveShareManagerTest {
         val clampedWithJitter = LiveShareManager.computePushBackoffDelay(4, 5000L, 15000L, fullJitter)
         assertEquals(15000L, clampedWithJitter)
     }
+
+    @Test
+    fun isEffectivePowerSaveActivatesOnLowBatteryThresholdAndOsPowerSave() {
+        // <= 15% battery triggers effective power save regardless of OS power save switch
+        assertEquals(true, LiveShareManager.isEffectivePowerSave(isOsPowerSave = false, batteryLevel = 15))
+        assertEquals(true, LiveShareManager.isEffectivePowerSave(isOsPowerSave = false, batteryLevel = 10))
+        assertEquals(true, LiveShareManager.isEffectivePowerSave(isOsPowerSave = false, batteryLevel = 0))
+
+        // > 15% battery does not trigger effective power save if OS power save is off
+        assertEquals(false, LiveShareManager.isEffectivePowerSave(isOsPowerSave = false, batteryLevel = 16))
+        assertEquals(false, LiveShareManager.isEffectivePowerSave(isOsPowerSave = false, batteryLevel = 85))
+        assertEquals(false, LiveShareManager.isEffectivePowerSave(isOsPowerSave = false, batteryLevel = null))
+
+        // OS power save mode active always triggers effective power save regardless of battery level
+        assertEquals(true, LiveShareManager.isEffectivePowerSave(isOsPowerSave = true, batteryLevel = 100))
+        assertEquals(true, LiveShareManager.isEffectivePowerSave(isOsPowerSave = true, batteryLevel = 50))
+        assertEquals(true, LiveShareManager.isEffectivePowerSave(isOsPowerSave = true, batteryLevel = null))
+    }
+
+    @Test
+    fun computeAdaptiveBaseIntervalMsThrottlesUnderPowerSaveOrLowBattery() {
+        // When active, minimum interval is throttled to POWER_SAVE_MIN_INTERVAL_MS (15,000ms)
+        assertEquals(15000L, LiveShareManager.computeAdaptiveBaseIntervalMs(5000L, isPowerSaveOrLowBattery = true))
+        assertEquals(15000L, LiveShareManager.computeAdaptiveBaseIntervalMs(10000L, isPowerSaveOrLowBattery = true))
+
+        // User-configured intervals longer than 15s are respected
+        assertEquals(30000L, LiveShareManager.computeAdaptiveBaseIntervalMs(30000L, isPowerSaveOrLowBattery = true))
+        assertEquals(60000L, LiveShareManager.computeAdaptiveBaseIntervalMs(60000L, isPowerSaveOrLowBattery = true))
+
+        // When inactive, original configured interval is preserved untouched
+        assertEquals(5000L, LiveShareManager.computeAdaptiveBaseIntervalMs(5000L, isPowerSaveOrLowBattery = false))
+        assertEquals(10000L, LiveShareManager.computeAdaptiveBaseIntervalMs(10000L, isPowerSaveOrLowBattery = false))
+    }
 }

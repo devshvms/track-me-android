@@ -149,6 +149,8 @@ class LiveShareManager {
             return@withContext Result.failure(Exception("Session expired"))
         }
 
+        val effectivePowerSave = isEffectivePowerSave(powerSaveMode, batteryLevel)
+
         try {
             val requestBody = JSONObject().apply {
                 put("lat", lat)
@@ -156,7 +158,7 @@ class LiveShareManager {
                 if (batteryLevel != null) put("batteryLevel", batteryLevel)
                 if (speed != null) put("speed", speed)
                 if (heading != null) put("heading", heading)
-                put("powerSaveMode", powerSaveMode)
+                put("powerSaveMode", effectivePowerSave)
                 put("timestamp", DateTimeFormatter.ISO_INSTANT.format(Instant.now()))
             }.toString()
 
@@ -310,6 +312,38 @@ class LiveShareManager {
                 if (json.has("activeViewers")) json.optInt("activeViewers", fallback).coerceAtLeast(0)
                 else fallback
             }.getOrDefault(fallback)
+        }
+
+        /** Battery level threshold (percentage) at or below which power save cadence is enforced. */
+        const val LOW_BATTERY_THRESHOLD_PERCENT = 15
+
+        /** Minimum broadcast interval (15s) enforced when device is in low battery or power save mode. */
+        const val POWER_SAVE_MIN_INTERVAL_MS = 15_000L
+
+        /**
+         * Resolves whether power save mode should be active based on OS power save mode
+         * and low battery threshold (<= 15%).
+         */
+        fun isEffectivePowerSave(isOsPowerSave: Boolean, batteryLevel: Int?): Boolean {
+            if (isOsPowerSave) return true
+            if (batteryLevel != null && batteryLevel in 0..LOW_BATTERY_THRESHOLD_PERCENT) return true
+            return false
+        }
+
+        /**
+         * Computes the adaptive base interval for location pushes (CIE-015).
+         * When in power saving mode or low battery (<= 15%), updates are throttled
+         * to at least [POWER_SAVE_MIN_INTERVAL_MS] (15s) to defend the rider's remaining battery.
+         */
+        fun computeAdaptiveBaseIntervalMs(
+            configuredIntervalMs: Long,
+            isPowerSaveOrLowBattery: Boolean
+        ): Long {
+            return if (isPowerSaveOrLowBattery) {
+                maxOf(configuredIntervalMs, POWER_SAVE_MIN_INTERVAL_MS)
+            } else {
+                configuredIntervalMs
+            }
         }
 
         /**
