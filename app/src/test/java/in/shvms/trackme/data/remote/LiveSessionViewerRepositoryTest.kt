@@ -252,4 +252,62 @@ class LiveSessionViewerRepositoryTest {
         assertEquals("0.1 km", snapshot.formatDistance(useMiles = false))
         assertEquals("0.1 mi", snapshot.formatDistance(useMiles = true))
     }
+
+    @Test
+    fun `evaluates deadline status for on-time and overdue sessions`() {
+        val deadlineMs = 1_700_000_000_000L
+        val fixedFormatter: (Long) -> String = { "6:30 PM" }
+
+        // Null / invalid
+        assertNull(LiveSessionViewerRepository.evaluateDeadline(null))
+        assertNull(LiveSessionViewerRepository.evaluateDeadline(""))
+        assertNull(LiveSessionViewerRepository.evaluateDeadline("invalid_date"))
+
+        // On-time (15 minutes prior)
+        val onTimeNow = deadlineMs - 15 * 60_000L
+        val onTime = LiveSessionViewerRepository.evaluateDeadline(deadlineMs.toString(), onTimeNow, fixedFormatter)
+        org.junit.Assert.assertNotNull(onTime)
+        assertFalse(onTime!!.isOverdue)
+        assertEquals(0L, onTime.overdueMinutes)
+        assertEquals(deadlineMs, onTime.deadlineEpochMs)
+        assertEquals("6:30 PM", onTime.timeFormatted)
+
+        // Overdue (25 minutes past)
+        val overdueNow = deadlineMs + 25 * 60_000L
+        val overdue = LiveSessionViewerRepository.evaluateDeadline(deadlineMs.toString(), overdueNow, fixedFormatter)
+        org.junit.Assert.assertNotNull(overdue)
+        assertTrue(overdue!!.isOverdue)
+        assertEquals(25L, overdue.overdueMinutes)
+        assertEquals(deadlineMs, overdue.deadlineEpochMs)
+        assertEquals("6:30 PM", overdue.timeFormatted)
+
+        // Snapshot helper
+        val snapshot = LiveSessionSnapshot(
+            sessionId = "dl_test",
+            username = "Rider",
+            status = "active",
+            stopReason = null,
+            endReason = null,
+            endedAt = null,
+            destination = "Office",
+            deadlineAt = deadlineMs.toString(),
+            lastLocation = null,
+            path = emptyList(),
+        )
+        val status = snapshot.deadlineStatus(overdueNow, fixedFormatter)
+        org.junit.Assert.assertNotNull(status)
+        assertTrue(status!!.isOverdue)
+        assertEquals(25L, status.overdueMinutes)
+    }
+
+    @Test
+    fun `parseSnapshot falls back to etaAt when deadlineAt is missing`() {
+        val jsonWithDeadline = """{"username":"Rider","status":"active","deadlineAt":"1700000000000"}"""
+        val snapWithDeadline = LiveSessionViewerRepository.parseSnapshot("s1", jsonWithDeadline)
+        assertEquals("1700000000000", snapWithDeadline?.deadlineAt)
+
+        val jsonWithEta = """{"username":"Rider","status":"active","etaAt":"1700000000000"}"""
+        val snapWithEta = LiveSessionViewerRepository.parseSnapshot("s2", jsonWithEta)
+        assertEquals("1700000000000", snapWithEta?.deadlineAt)
+    }
 }
