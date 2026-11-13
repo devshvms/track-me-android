@@ -443,6 +443,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val trustedWatchersMaxNote: String = s("trustedWatchersMaxNote", "Up to 5 trusted watchers can be notified automatically.")
     val trustedWatchersAutoNotify: String = s("trustedWatchersAutoNotify", "Auto-notify")
     val trustedWatchersRemove: String = s("trustedWatchersRemove", "Remove watcher")
+    val trustedWatchersRemoveConfirmTitle: String = s("trustedWatchersRemoveConfirmTitle", "Remove trusted watcher?")
+    val trustedWatchersRemoveConfirmMessage: String = s("trustedWatchersRemoveConfirmMessage", "Remove %1\$s from trusted watchers? They will no longer receive live ride alerts automatically.")
     val liveShareDurationLabel: String = s("liveShareDurationLabel", "Share duration")
     val liveShareViewersWatching: String = s("liveShareViewersWatching", "%1\$d watching live")
     val liveShareNoViewersYet: String = s("liveShareNoViewersYet", "No viewers yet")
@@ -1296,6 +1298,8 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "trustedWatchersMaxNote" to "Se puede notificar automáticamente hasta a 5 observadores de confianza.",
             "trustedWatchersAutoNotify" to "Auto-avisar",
             "trustedWatchersRemove" to "Eliminar observador",
+            "trustedWatchersRemoveConfirmTitle" to "¿Eliminar observador de confianza?",
+            "trustedWatchersRemoveConfirmMessage" to "¿Eliminar a %1\$s de los observadores de confianza? Ya no recibirá alertas de viaje en vivo automáticamente.",
             "liveShareDurationLabel" to "Duración",
             "liveShareViewersWatching" to "%1\$d viendo en vivo",
             "liveShareNoViewersYet" to "Sin espectadores aún",
@@ -2110,6 +2114,8 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "trustedWatchersMaxNote" to "Jusqu’à 5 contacts de confiance peuvent être avertis automatiquement.",
             "trustedWatchersAutoNotify" to "Alerte auto",
             "trustedWatchersRemove" to "Retirer le contact",
+            "trustedWatchersRemoveConfirmTitle" to "Supprimer le contact de confiance ?",
+            "trustedWatchersRemoveConfirmMessage" to "Supprimer %1\$s des contacts de confiance ? Cette personne ne recevra plus automatiquement vos alertes de trajet en direct.",
             "liveShareDurationLabel" to "Durée du partage",
             "liveShareViewersWatching" to "%1\$d regardent en direct",
             "liveShareNoViewersYet" to "Aucun spectateur pour l’instant",
@@ -2924,6 +2930,8 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "trustedWatchersMaxNote" to "Bis zu 5 vertraute Beobachter können automatisch benachrichtigt werden.",
             "trustedWatchersAutoNotify" to "Auto-Hinweis",
             "trustedWatchersRemove" to "Beobachter entfernen",
+            "trustedWatchersRemoveConfirmTitle" to "Vertrauten Beobachter entfernen?",
+            "trustedWatchersRemoveConfirmMessage" to "Möchtest du %1\$s aus den vertrauten Beobachtern entfernen? Die Person erhält künftig keine automatischen Live-Fahrtbenachrichtigungen mehr.",
             "liveShareDurationLabel" to "Freigabedauer",
             "liveShareViewersWatching" to "%1\$d sehen live zu",
             "liveShareNoViewersYet" to "Noch keine Zuschauer",
@@ -3738,6 +3746,8 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "trustedWatchersMaxNote" to "अधिकतम 5 भरोसेमंद वॉचर्स को स्वतः सूचित किया जा सकता है।",
             "trustedWatchersAutoNotify" to "स्वतः सूचना",
             "trustedWatchersRemove" to "वॉचर हटाएँ",
+            "trustedWatchersRemoveConfirmTitle" to "भरोसेमंद वॉचर हटाएँ?",
+            "trustedWatchersRemoveConfirmMessage" to "क्या %1\$s को भरोसेमंद वॉचर्स से हटाना चाहते हैं? उन्हें अब लाइव राइड की सूचनाएँ स्वतः नहीं मिलेंगी।",
             "liveShareDurationLabel" to "साझा करने की अवधि",
             "liveShareViewersWatching" to "%1\$d लाइव देख रहे हैं",
             "liveShareNoViewersYet" to "अभी कोई दर्शक नहीं",
@@ -4552,6 +4562,8 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "trustedWatchersMaxNote" to "最大5人まで自動的に通知できます。",
             "trustedWatchersAutoNotify" to "自動通知",
             "trustedWatchersRemove" to "ウォッチャーを削除",
+            "trustedWatchersRemoveConfirmTitle" to "信頼できるウォッチャーを削除しますか？",
+            "trustedWatchersRemoveConfirmMessage" to "%1\$s を信頼できるウォッチャーから削除しますか？今後のライブライド通知が自動で届かなくなります。",
             "liveShareDurationLabel" to "共有時間",
             "liveShareViewersWatching" to "%1\$d 人がライブ視聴中",
             "liveShareNoViewersYet" to "まだ視聴者はいません",
@@ -5366,6 +5378,8 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "trustedWatchersMaxNote" to "最多可自动通知 5 位受信任的查看者。",
             "trustedWatchersAutoNotify" to "自动通知",
             "trustedWatchersRemove" to "移除查看者",
+            "trustedWatchersRemoveConfirmTitle" to "移除受信任的查看者？",
+            "trustedWatchersRemoveConfirmMessage" to "要将 %1\$s 从受信任的查看者中移除吗？对方将不再自动接收实时骑行提醒。",
             "liveShareDurationLabel" to "共享时长",
             "liveShareViewersWatching" to "%1\$d 人正在实时观看",
             "liveShareNoViewersYet" to "暂无观看者",

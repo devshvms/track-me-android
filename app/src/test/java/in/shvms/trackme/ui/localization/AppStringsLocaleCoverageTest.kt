@@ -209,4 +209,22 @@ class AppStringsLocaleCoverageTest {
             assertEquals(AppStrings().appName, getAppStrings(code).appName)
         }
     }
+
+    @Test
+    fun `trusted watcher removal confirmation strings resolve and format in all supported locales`() {
+        SUPPORTED_LANGUAGE_CODES.forEach { code ->
+            val strings = getAppStrings(code)
+            assertTrue(
+                "trustedWatchersRemoveConfirmTitle empty for $code",
+                strings.trustedWatchersRemoveConfirmTitle.isNotBlank(),
+            )
+            assertTrue(
+                "trustedWatchersRemoveConfirmMessage empty for $code",
+                strings.trustedWatchersRemoveConfirmMessage.isNotBlank(),
+            )
+            val formatted = String.format(java.util.Locale.US, strings.trustedWatchersRemoveConfirmMessage, "Alice")
+            assertTrue("formatted message must contain watcher name Alice in $code", formatted.contains("Alice"))
+            assertTrue("formatted message must not contain raw %1\$s specifier in $code", !formatted.contains("%1\$s"))
+        }
+    }
 }
