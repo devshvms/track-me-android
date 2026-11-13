@@ -9,6 +9,7 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import kotlin.math.abs
 
 data class LiveViewerSpeedStatus(
     val isStationary: Boolean,
@@ -179,6 +180,43 @@ class LiveSessionViewerRepository {
             } else {
                 "$cleanBase/live/$cleanSession"
             }
+        }
+
+        /**
+         * TASK-366 / SCOPE_1.9.3 / CIE-032: Deadband thresholds to throttle camera pans and heading rotations,
+         * reducing battery and GPU draw while stationary or experiencing GPS/compass jitter.
+         */
+        const val CAMERA_DEADBAND_METERS = 3.0
+        const val BEARING_DEADBAND_DEGREES = 3.0f
+
+        fun computeDistanceMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
+            if (lat1 == lat2 && lng1 == lng2) return 0.0
+            return haversineDistanceMeters(lat1, lng1, lat2, lng2)
+        }
+
+        fun shouldAnimateCamera(
+            lastTargetLat: Double?,
+            lastTargetLng: Double?,
+            newTargetLat: Double,
+            newTargetLng: Double,
+            thresholdMeters: Double = CAMERA_DEADBAND_METERS,
+        ): Boolean {
+            if (lastTargetLat == null || lastTargetLng == null) return true
+            val dist = computeDistanceMeters(lastTargetLat, lastTargetLng, newTargetLat, newTargetLng)
+            return dist >= thresholdMeters
+        }
+
+        fun shouldUpdateBearing(
+            currentBearing: Float,
+            targetBearing: Float,
+            isStationary: Boolean,
+            thresholdDegrees: Float = BEARING_DEADBAND_DEGREES,
+        ): Boolean {
+            if (isStationary) return false
+            if (targetBearing.isNaN() || targetBearing.isInfinite()) return false
+            if (currentBearing.isNaN() || currentBearing.isInfinite()) return true
+            val delta = abs(computeShortestArcDelta(currentBearing.toDouble(), targetBearing.toDouble()))
+            return delta >= thresholdDegrees
         }
 
         fun parseSnapshot(sessionId: String, body: String): LiveSessionSnapshot? {

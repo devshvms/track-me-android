@@ -145,16 +145,6 @@ fun LiveSessionViewerSheet(
     var stoppedSinceEpochMs by remember(sessionId) { mutableStateOf<Long?>(null) }
     var isImperial by remember(imperial) { mutableStateOf(imperial) }
 
-    LaunchedEffect(snapshot?.lastLocation?.headingDeg) {
-        val target = snapshot?.lastLocation?.headingDeg ?: return@LaunchedEffect
-        if (!hasInitializedBearing) {
-            continuousBearing = target
-            hasInitializedBearing = true
-        } else {
-            continuousBearing = LiveSessionViewerRepository.computeContinuousBearing(continuousBearing, target)
-        }
-    }
-
     val motion = LocalTrackMeMotion.current
     val animatedBearing by animateFloatAsState(
         targetValue = continuousBearing,
@@ -236,15 +226,25 @@ fun LiveSessionViewerSheet(
         }
     }
 
+    var lastCameraTarget by remember(sessionId) { mutableStateOf<LatLng?>(null) }
     val currentLatLng = snapshot?.lastLocation?.let { LatLng(it.lat, it.lng) }
     LaunchedEffect(currentLatLng, isFollowingRider) {
         val target = currentLatLng ?: return@LaunchedEffect
         if (!isFollowingRider && hasCenteredInitially) return@LaunchedEffect
-        val zoom = cameraPositionState.position.zoom.coerceAtLeast(15.5f)
-        cameraPositionState.animateSafely {
-            CameraUpdateFactory.newLatLngZoom(target, zoom)
+        val shouldMove = !hasCenteredInitially || LiveSessionViewerRepository.shouldAnimateCamera(
+            lastTargetLat = lastCameraTarget?.latitude,
+            lastTargetLng = lastCameraTarget?.longitude,
+            newTargetLat = target.latitude,
+            newTargetLng = target.longitude,
+        )
+        if (shouldMove) {
+            lastCameraTarget = target
+            val zoom = cameraPositionState.position.zoom.coerceAtLeast(15.5f)
+            cameraPositionState.animateSafely {
+                CameraUpdateFactory.newLatLngZoom(target, zoom)
+            }
+            hasCenteredInitially = true
         }
-        hasCenteredInitially = true
     }
 
     val startIcon = remember { runCatching { ExportMarkers.start(ExportMarkerStyle.StartFinish, 44) }.getOrNull() }
@@ -288,6 +288,16 @@ fun LiveSessionViewerSheet(
             useMiles = isImperial,
             strings = strings,
         )
+    }
+
+    LaunchedEffect(snapshot?.lastLocation?.headingDeg, speedStatus.isStationary) {
+        val target = snapshot?.lastLocation?.headingDeg ?: return@LaunchedEffect
+        if (!hasInitializedBearing) {
+            continuousBearing = target
+            hasInitializedBearing = true
+        } else if (LiveSessionViewerRepository.shouldUpdateBearing(continuousBearing, target, speedStatus.isStationary)) {
+            continuousBearing = LiveSessionViewerRepository.computeContinuousBearing(continuousBearing, target)
+        }
     }
 
     Dialog(

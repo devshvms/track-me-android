@@ -585,4 +585,61 @@ class LiveSessionViewerRepositoryTest {
         val urlSpecial = LiveSessionViewerRepository.buildShareUrl("https://trackme.shvms.in", "ride/abc", "Jane & John")
         assertEquals("https://trackme.shvms.in/live/ride%2Fabc?name=Jane+%26+John", urlSpecial)
     }
+
+    @Test
+    fun `computeDistanceMeters returns zero for identical coordinates and accurate distance for displacements`() {
+        val zero = LiveSessionViewerRepository.computeDistanceMeters(12.9716, 77.5946, 12.9716, 77.5946)
+        assertEquals(0.0, zero, 0.001)
+
+        // 1 degree latitude is approx 111.139 km
+        val oneDegLatDist = LiveSessionViewerRepository.computeDistanceMeters(0.0, 0.0, 1.0, 0.0)
+        assertTrue(oneDegLatDist in 111_000.0..112_000.0)
+    }
+
+    @Test
+    fun `shouldAnimateCamera honors 3-meter deadband threshold`() {
+        // Null initial targets should always animate to establish initial center
+        assertTrue(LiveSessionViewerRepository.shouldAnimateCamera(null, null, 12.9716, 77.5946))
+        assertTrue(LiveSessionViewerRepository.shouldAnimateCamera(12.9716, null, 12.9716, 77.5946))
+
+        // Tiny jitter (< 3m, e.g. ~1m displacement) should NOT animate
+        // ~0.00001 deg lat is ~1.11 meters
+        val jitterLat = 12.9716 + 0.00001
+        assertFalse(
+            LiveSessionViewerRepository.shouldAnimateCamera(
+                lastTargetLat = 12.9716,
+                lastTargetLng = 77.5946,
+                newTargetLat = jitterLat,
+                newTargetLng = 77.5946,
+            )
+        )
+
+        // Larger displacement (> 3m, e.g. ~0.00005 deg lat is ~5.55 meters) SHOULD animate
+        val movedLat = 12.9716 + 0.00005
+        assertTrue(
+            LiveSessionViewerRepository.shouldAnimateCamera(
+                lastTargetLat = 12.9716,
+                lastTargetLng = 77.5946,
+                newTargetLat = movedLat,
+                newTargetLng = 77.5946,
+            )
+        )
+    }
+
+    @Test
+    fun `shouldUpdateBearing honors stationary status and 3-degree deadband threshold`() {
+        // Stationary should NEVER update bearing (saves battery and preserves last known facing direction)
+        assertFalse(LiveSessionViewerRepository.shouldUpdateBearing(currentBearing = 45f, targetBearing = 90f, isStationary = true))
+
+        // NaN target should be ignored
+        assertFalse(LiveSessionViewerRepository.shouldUpdateBearing(currentBearing = 45f, targetBearing = Float.NaN, isStationary = false))
+
+        // Small jitter (< 3 degrees) while in motion should be suppressed
+        assertFalse(LiveSessionViewerRepository.shouldUpdateBearing(currentBearing = 45f, targetBearing = 47f, isStationary = false))
+        assertFalse(LiveSessionViewerRepository.shouldUpdateBearing(currentBearing = 1f, targetBearing = 359f, isStationary = false)) // 2 degree shortest arc
+
+        // Substantial change (>= 3 degrees) while in motion should update
+        assertTrue(LiveSessionViewerRepository.shouldUpdateBearing(currentBearing = 45f, targetBearing = 48f, isStationary = false))
+        assertTrue(LiveSessionViewerRepository.shouldUpdateBearing(currentBearing = 355f, targetBearing = 2f, isStationary = false)) // 7 degree shortest arc
+    }
 }
