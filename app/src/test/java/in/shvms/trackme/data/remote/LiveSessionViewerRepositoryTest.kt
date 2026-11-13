@@ -520,4 +520,46 @@ class LiveSessionViewerRepositoryTest {
         assertEquals("0 km/h", nullSpeed.displayText)
         assertEquals("Rider speed: 0 km/h", nullSpeed.a11yText)
     }
+
+    @Test
+    fun `evaluates metric and imperial speed and distance formats accurately`() {
+        val nowMs = 1_700_000_100_000L
+        val strings = `in`.shvms.trackme.ui.localization.AppStrings()
+
+        // 35 km/h in metric -> "35 km/h"
+        val metricSpeed = LiveSessionViewerRepository.evaluateSpeedOrStopped(
+            speedKmh = 35.0f,
+            stoppedSinceEpochMs = null,
+            nowEpochMillis = nowMs,
+            useMiles = false,
+            strings = strings,
+        )
+        assertFalse(metricSpeed.isStationary)
+        assertEquals("35 km/h", metricSpeed.displayText)
+        assertEquals("Rider speed: 35 km/h", metricSpeed.a11yText)
+
+        // 35 km/h in imperial -> 35 * 0.621371 = 21.748 -> round = 22 mph
+        val imperialSpeed = LiveSessionViewerRepository.evaluateSpeedOrStopped(
+            speedKmh = 35.0f,
+            stoppedSinceEpochMs = null,
+            nowEpochMillis = nowMs,
+            useMiles = true,
+            strings = strings,
+        )
+        assertFalse(imperialSpeed.isStationary)
+        assertEquals("22 mph", imperialSpeed.displayText)
+        assertEquals("Rider speed: 22 mph", imperialSpeed.a11yText)
+
+        // Stationary 0 in imperial -> "0 mph"
+        val zeroImperial = LiveSessionViewerRepository.evaluateSpeedOrStopped(
+            speedKmh = 0.0f,
+            stoppedSinceEpochMs = null,
+            nowEpochMillis = nowMs,
+            useMiles = true,
+            strings = strings,
+        )
+        assertTrue(zeroImperial.isStationary)
+        assertEquals("0 mph", zeroImperial.displayText)
+        assertEquals("Rider speed: 0 mph", zeroImperial.a11yText)
+    }
 }
