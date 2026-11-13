@@ -8,6 +8,7 @@ import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 
 data class LiveViewerSpeedStatus(
     val isStationary: Boolean,
@@ -164,6 +165,22 @@ class LiveSessionViewerRepository {
     }
 
     companion object {
+        /**
+         * TASK-366 / SCOPE_1.9.3 / CIE-031: Builds a canonical live share URL with optional rider attribution.
+         * Appending ?name=... enables rich social link previews on messaging apps (WhatsApp, iMessage, Telegram, etc.).
+         */
+        fun buildShareUrl(baseUrl: String, sessionId: String, riderName: String? = null): String {
+            val cleanBase = baseUrl.trimEnd('/')
+            val cleanSession = URLEncoder.encode(sessionId.trim(), "UTF-8")
+            val cleanName = riderName?.trim()?.takeIf { it.isNotBlank() }
+            return if (cleanName != null) {
+                val encodedName = URLEncoder.encode(cleanName, "UTF-8")
+                "$cleanBase/live/$cleanSession?name=$encodedName"
+            } else {
+                "$cleanBase/live/$cleanSession"
+            }
+        }
+
         fun parseSnapshot(sessionId: String, body: String): LiveSessionSnapshot? {
             if (body.isBlank()) return null
             return runCatching {
