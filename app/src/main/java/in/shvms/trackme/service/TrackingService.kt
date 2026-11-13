@@ -506,9 +506,15 @@ class TrackingService : Service() {
             isLiveSharePushInProgress.set(false)
         }
 
+        val manager = getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
+        val batteryLevel = manager?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: 100
+        val isPowerSave = (getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
+        val effectivePowerSave = LiveShareManager.isEffectivePowerSave(isPowerSave, batteryLevel)
+
         val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
         val freqSec = prefs.getInt("live_share_frequency_sec", 5)
-        val baseIntervalMs = freqSec * 1000L
+        val configuredIntervalMs = freqSec * 1000L
+        val baseIntervalMs = LiveShareManager.computeAdaptiveBaseIntervalMs(configuredIntervalMs, effectivePowerSave)
         val requiredDelayMs = LiveShareManager.computePushBackoffDelay(liveShareConsecutiveFailures, baseIntervalMs)
         val now = System.currentTimeMillis()
 
@@ -516,10 +522,7 @@ class TrackingService : Service() {
         if (!isLiveSharePushInProgress.compareAndSet(false, true)) return
 
         lastLiveShareTimeMs = now
-        val manager = getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
-        val batteryLevel = manager?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: 100
         val heading = if (location.hasBearing()) location.bearing else null
-        val isPowerSave = (getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
 
         serviceScope.launch {
             try {
@@ -529,7 +532,7 @@ class TrackingService : Service() {
                     batteryLevel = batteryLevel,
                     speed = speedKmh,
                     heading = heading,
-                    powerSaveMode = isPowerSave
+                    powerSaveMode = effectivePowerSave
                 )
                 if (res.isSuccess) {
                     liveShareConsecutiveFailures = 0
