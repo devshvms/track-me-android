@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,8 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -208,8 +211,11 @@ fun LiveSessionViewerSheet(
     val ageSeconds = remember(lastLoc?.timestampIso, nowEpochMillis) {
         LiveSessionViewerRepository.ageSeconds(lastLoc?.timestampIso, nowEpochMillis)
     }
-    val isDelayedUpdate = remember(snapshot?.isActive, lastLoc?.powerSaveMode, lastLoc?.timestampIso, nowEpochMillis) {
-        snapshot?.isActive == true && LiveSessionViewerRepository.isDelayedUpdate(
+    val isStaleSignal = remember(snapshot?.isActive, lastLoc?.timestampIso, nowEpochMillis) {
+        snapshot?.isStaleSignal(nowEpochMillis) == true
+    }
+    val isDelayedUpdate = remember(snapshot?.isActive, lastLoc?.powerSaveMode, lastLoc?.timestampIso, isStaleSignal, nowEpochMillis) {
+        snapshot?.isActive == true && !isStaleSignal && LiveSessionViewerRepository.isDelayedUpdate(
             powerSaveMode = lastLoc?.powerSaveMode == true,
             timestampIso = lastLoc?.timestampIso,
             nowEpochMillis = nowEpochMillis,
@@ -268,7 +274,23 @@ fun LiveSessionViewerSheet(
                                     }
                                 }
                             }
-                            if (isDelayedUpdate) {
+                            if (isStaleSignal) {
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = Color(0xFFEF4444).copy(alpha = 0.2f),
+                                    modifier = Modifier.semantics {
+                                        contentDescription = strings.liveViewerSignalPausedA11y
+                                    },
+                                ) {
+                                    Text(
+                                        text = strings.liveViewerSignalPausedBadge,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFFEF4444),
+                                    )
+                                }
+                            } else if (isDelayedUpdate) {
                                 Surface(
                                     shape = RoundedCornerShape(50),
                                     color = Color(0xFFF59E0B).copy(alpha = 0.2f),
@@ -418,6 +440,34 @@ fun LiveSessionViewerSheet(
                                 )
                                 Text(
                                     text = strings.liveViewerWaitingFirstFix,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    } else if (isStaleSignal && currentLatLng != null) {
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(12.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                            border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
+                            tonalElevation = 4.dp,
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = Color(0xFFEF4444),
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Text(
+                                    text = strings.liveViewerSignalPausedBanner,
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Medium,
                                 )
@@ -653,6 +703,29 @@ fun LiveSessionViewerSheet(
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = if (isLowBattery) FontWeight.SemiBold else FontWeight.Normal,
                                             color = batteryColor,
+                                        )
+                                    }
+                                }
+
+                                val durationText = snapshot?.formatDuration(nowEpochMillis)
+                                durationText?.let { duration ->
+                                    Row(
+                                        modifier = Modifier.semantics(mergeDescendants = true) {
+                                            contentDescription = String.format(Locale.getDefault(), strings.liveViewerDurationLabel, duration)
+                                        },
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Timer,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = Color(0xFF06B6D4),
+                                        )
+                                        Text(
+                                            text = duration,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
                                         )
                                     }
                                 }

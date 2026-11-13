@@ -477,6 +477,10 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val liveViewerBatteryA11y: String = s("liveViewerBatteryA11y", "Rider battery: %1\$d percent")
     val liveViewerBatteryLowA11y: String = s("liveViewerBatteryLowA11y", "Rider battery low: %1\$d percent")
     val liveViewerOpenInBrowserA11y: String = s("liveViewerOpenInBrowserA11y", "Open live tracking session in web browser")
+    val liveViewerSignalPausedBadge: String = s("liveViewerSignalPausedBadge", "Signal paused")
+    val liveViewerSignalPausedA11y: String = s("liveViewerSignalPausedA11y", "GPS signal paused, waiting for rider location")
+    val liveViewerSignalPausedBanner: String = s("liveViewerSignalPausedBanner", "Signal paused · Waiting for rider GPS")
+    val liveViewerDurationLabel: String = s("liveViewerDurationLabel", "Duration: %1\$s")
     val watcherInviteSignInRequired: String = s("watcherInviteSignInRequired", "Sign in to accept this trusted watcher invite.")
     val reminderOff: String = s("reminderOff", "Off")
     val reminderSectionSubtitle: String = s("reminderSectionSubtitle", "Reminders on the days and at the time you choose. Off unless you turn them on.")
@@ -1325,6 +1329,10 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerBatteryA11y" to "Batería del usuario: %1\$d por ciento",
             "liveViewerBatteryLowA11y" to "Batería del usuario baja: %1\$d por ciento",
             "liveViewerOpenInBrowserA11y" to "Abrir sesión de seguimiento en el navegador web",
+            "liveViewerSignalPausedBadge" to "Señal en pausa",
+            "liveViewerSignalPausedA11y" to "Señal GPS en pausa, esperando ubicación del usuario",
+            "liveViewerSignalPausedBanner" to "Señal en pausa · Esperando GPS del usuario",
+            "liveViewerDurationLabel" to "Duración: %1\$s",
             "watcherInviteSignInRequired" to "Inicia sesión para aceptar esta invitación de observador.",
             "reminderOff" to "Desactivado",
             "reminderSectionSubtitle" to "Recordatorios los días y a la hora que elijas. Desactivados hasta que los actives.",
@@ -2130,6 +2138,10 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerBatteryA11y" to "Batterie du cycliste : %1\$d pour cent",
             "liveViewerBatteryLowA11y" to "Batterie faible du cycliste : %1\$d pour cent",
             "liveViewerOpenInBrowserA11y" to "Ouvrir la session de suivi en direct dans le navigateur web",
+            "liveViewerSignalPausedBadge" to "Signal en pause",
+            "liveViewerSignalPausedA11y" to "Signal GPS en pause, en attente de la position du cycliste",
+            "liveViewerSignalPausedBanner" to "Signal en pause · En attente du GPS du cycliste",
+            "liveViewerDurationLabel" to "Durée : %1\$s",
             "watcherInviteSignInRequired" to "Connectez-vous pour accepter cette invitation de contact de confiance.",
             "reminderOff" to "Désactivé",
             "reminderSectionSubtitle" to "Des rappels aux jours et à l’heure de votre choix. Désactivés tant que vous ne les activez pas.",
@@ -2935,6 +2947,10 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerBatteryA11y" to "Akkustand des Fahrers: %1\$d Prozent",
             "liveViewerBatteryLowA11y" to "Niedriger Akkustand des Fahrers: %1\$d Prozent",
             "liveViewerOpenInBrowserA11y" to "Live-Tracking-Sitzung im Webbrowser öffnen",
+            "liveViewerSignalPausedBadge" to "Signal pausiert",
+            "liveViewerSignalPausedA11y" to "GPS-Signal pausiert, warte auf Standort des Fahrers",
+            "liveViewerSignalPausedBanner" to "Signal pausiert · Warte auf GPS des Fahrers",
+            "liveViewerDurationLabel" to "Dauer: %1\$s",
             "watcherInviteSignInRequired" to "Melde dich an, um diese Einladung anzunehmen.",
             "reminderOff" to "Aus",
             "reminderSectionSubtitle" to "Erinnerungen an den gewählten Tagen und zur gewählten Uhrzeit. Aus, bis du sie einschaltest.",
@@ -3740,6 +3756,10 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerBatteryA11y" to "राइडर की बैटरी: %1\$d प्रतिशत",
             "liveViewerBatteryLowA11y" to "राइडर की बैटरी कम है: %1\$d प्रतिशत",
             "liveViewerOpenInBrowserA11y" to "वेब ब्राउज़र में लाइव ट्रैकिंग सत्र खोलें",
+            "liveViewerSignalPausedBadge" to "सिग्नल रुका हुआ",
+            "liveViewerSignalPausedA11y" to "जीपीएस सिग्नल रुका हुआ, राइडर के स्थान की प्रतीक्षा है",
+            "liveViewerSignalPausedBanner" to "सिग्नल रुका हुआ · राइडर के जीपीएस की प्रतीक्षा है",
+            "liveViewerDurationLabel" to "अवधि: %1\$s",
             "watcherInviteSignInRequired" to "भरोसेमंद वॉचर आमंत्रण स्वीकार करने के लिए साइन इन करें।",
             "reminderOff" to "बंद",
             "reminderSectionSubtitle" to "आपके चुने दिनों और समय पर अनुस्मारक। चालू करने तक बंद रहेंगे।",
@@ -4545,6 +4565,10 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerBatteryA11y" to "ライダーのバッテリー残量: %1\$dパーセント",
             "liveViewerBatteryLowA11y" to "ライダーのバッテリー残量低下: %1\$dパーセント",
             "liveViewerOpenInBrowserA11y" to "ウェブブラウザでライブ追跡セッションを開く",
+            "liveViewerSignalPausedBadge" to "一時停止中",
+            "liveViewerSignalPausedA11y" to "GPS信号が一時停止中、ライダーの位置情報を待機しています",
+            "liveViewerSignalPausedBanner" to "信号一時停止中 · ライダーのGPSを待機しています",
+            "liveViewerDurationLabel" to "経過時間: %1\$s",
             "watcherInviteSignInRequired" to "信頼できるウォッチャーの招待を承諾するにはサインインしてください。",
             "reminderOff" to "オフ",
             "reminderSectionSubtitle" to "選んだ曜日と時間にリマインドします。オンにするまでは無効です。",
@@ -5350,6 +5374,10 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerBatteryA11y" to "骑手电量：%1\$d%%",
             "liveViewerBatteryLowA11y" to "骑手电量偏低：%1\$d%%",
             "liveViewerOpenInBrowserA11y" to "在网络浏览器中打开实时跟踪会话",
+            "liveViewerSignalPausedBadge" to "信号暂停",
+            "liveViewerSignalPausedA11y" to "GPS信号已暂停，正在等待骑手位置",
+            "liveViewerSignalPausedBanner" to "信号暂停 · 正在等待骑手GPS",
+            "liveViewerDurationLabel" to "时长：%1\$s",
             "watcherInviteSignInRequired" to "请先登录以接受受信任查看者邀请。",
             "reminderOff" to "关闭",
             "reminderSectionSubtitle" to "在你选择的日期和时间提醒。开启后才会发送。",

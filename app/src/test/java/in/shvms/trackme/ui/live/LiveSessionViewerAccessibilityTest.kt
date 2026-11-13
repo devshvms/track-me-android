@@ -78,6 +78,27 @@ class LiveSessionViewerAccessibilityTest {
                 "Rider ended notice empty in $lang",
                 strings.liveViewerRiderEndedNotice.isBlank()
             )
+
+            // Stale signal badge, banner, and a11y description (CIE-011)
+            assertFalse(
+                "Signal paused badge empty in $lang",
+                strings.liveViewerSignalPausedBadge.isBlank()
+            )
+            assertFalse(
+                "Signal paused banner empty in $lang",
+                strings.liveViewerSignalPausedBanner.isBlank()
+            )
+            assertFalse(
+                "Signal paused a11y empty in $lang",
+                strings.liveViewerSignalPausedA11y.isBlank()
+            )
+
+            // Duration label formatted output
+            val durationFormatted = String.format(locale, strings.liveViewerDurationLabel, "42m")
+            assertTrue(
+                "Duration label formatted output should contain '42m' in $lang",
+                durationFormatted.contains("42m")
+            )
         }
     }
 
@@ -93,6 +114,10 @@ class LiveSessionViewerAccessibilityTest {
         assertEquals("Rider battery: %1\$d percent", strings.liveViewerBatteryA11y)
         assertEquals("Open live tracking session in web browser", strings.liveViewerOpenInBrowserA11y)
         assertEquals("The rider has ended this live trip.", strings.liveViewerRiderEndedNotice)
+        assertEquals("Signal paused", strings.liveViewerSignalPausedBadge)
+        assertEquals("GPS signal paused, waiting for rider location", strings.liveViewerSignalPausedA11y)
+        assertEquals("Signal paused · Waiting for rider GPS", strings.liveViewerSignalPausedBanner)
+        assertEquals("Duration: %1\$s", strings.liveViewerDurationLabel)
         assertEquals("Close", strings.close)
     }
 }

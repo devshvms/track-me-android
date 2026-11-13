@@ -115,4 +115,75 @@ class LiveSessionViewerRepositoryTest {
         assertEquals(6250L, LiveSessionViewerRepository.computeViewerBackoffDelay(1, randomProvider = halfJitter))
         assertEquals(15000L, LiveSessionViewerRepository.computeViewerBackoffDelay(4, randomProvider = halfJitter))
     }
+
+    @Test
+    fun `parses timestamp ms from numbers and iso strings`() {
+        val nowMs = 1_700_000_100_000L
+        val isoStr = java.time.Instant.ofEpochMilli(nowMs).toString()
+
+        assertEquals(nowMs, LiveSessionViewerRepository.parseTimestampMs(nowMs.toString()))
+        assertEquals(nowMs, LiveSessionViewerRepository.parseTimestampMs(isoStr))
+        assertNull(LiveSessionViewerRepository.parseTimestampMs(null))
+        assertNull(LiveSessionViewerRepository.parseTimestampMs(""))
+        assertNull(LiveSessionViewerRepository.parseTimestampMs("not_a_time"))
+        assertNull(LiveSessionViewerRepository.parseTimestampMs("-500"))
+    }
+
+    @Test
+    fun `detects stale signals when inactive or older than threshold`() {
+        val nowMs = 1_700_000_100_000L
+        val freshIso = java.time.Instant.ofEpochMilli(nowMs - 30_000L).toString() // 30s ago
+        val staleIso = java.time.Instant.ofEpochMilli(nowMs - 190_000L).toString() // > 3 min ago
+
+        // Inactive ride never flags stale
+        assertFalse(LiveSessionViewerRepository.isStaleSignal(isActive = false, timestampIso = staleIso, nowEpochMillis = nowMs))
+
+        // Active ride: fresh vs stale
+        assertFalse(LiveSessionViewerRepository.isStaleSignal(isActive = true, timestampIso = freshIso, nowEpochMillis = nowMs))
+        assertTrue(LiveSessionViewerRepository.isStaleSignal(isActive = true, timestampIso = staleIso, nowEpochMillis = nowMs))
+    }
+
+    @Test
+    fun `formats trip duration accurately across minutes and hours`() {
+        val startMs = 1_700_000_000_000L
+
+        // Under 1 minute
+        assertEquals("< 1m", LiveSessionViewerRepository.formatDuration(startMs.toString(), (startMs + 45_000L).toString()))
+
+        // 42 minutes
+        assertEquals("42m", LiveSessionViewerRepository.formatDuration(startMs.toString(), (startMs + 42 * 60_000L).toString()))
+
+        // Exact hour
+        assertEquals("2h", LiveSessionViewerRepository.formatDuration(startMs.toString(), (startMs + 120 * 60_000L).toString()))
+
+        // Hours and minutes
+        assertEquals("1h 15m", LiveSessionViewerRepository.formatDuration(startMs.toString(), (startMs + 75 * 60_000L).toString()))
+
+        // Invalid or null
+        assertNull(LiveSessionViewerRepository.formatDuration(null))
+        assertNull(LiveSessionViewerRepository.formatDuration("invalid"))
+    }
+
+    @Test
+    fun `parses startedAt and formats snapshot duration`() {
+        val startMs = 1_700_000_000_000L
+        val nowMs = startMs + 25 * 60_000L // 25m later
+        val json = """
+            {
+              "username": "Rider",
+              "status": "active",
+              "startedAt": "$startMs",
+              "lastLocation": {
+                "lat": 12.97,
+                "lng": 77.59,
+                "timestamp": "${java.time.Instant.ofEpochMilli(nowMs).toString()}"
+              }
+            }
+        """.trimIndent()
+
+        val snapshot = LiveSessionViewerRepository.parseSnapshot("sess_dur", json)
+        assertNotNull(snapshot)
+        assertEquals("25m", snapshot!!.formatDuration(nowMs))
+        assertFalse(snapshot.isStaleSignal(nowMs))
+    }
 }
