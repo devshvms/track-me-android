@@ -491,6 +491,11 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val liveViewerDistanceLabel: String = s("liveViewerDistanceLabel", "Distance: %1\$s")
     val liveViewerExpectedBy: String = s("liveViewerExpectedBy", "Expected by %1\$s")
     val liveViewerOverdueBy: String = s("liveViewerOverdueBy", "Overdue · Expected by %1\$s")
+    val liveViewerShareRide: String = s("liveViewerShareRide", "Share")
+    val liveViewerShareRideA11y: String = s("liveViewerShareRideA11y", "Share this live tracking session")
+    val liveViewerShareRideSubject: String = s("liveViewerShareRideSubject", "TrackMe Live Ride")
+    val liveViewerShareMessageWithName: String = s("liveViewerShareMessageWithName", "Track %1\$s's live ride on TrackMe: %2\$s")
+    val liveViewerShareMessageFallback: String = s("liveViewerShareMessageFallback", "Track this live ride on TrackMe: %1\$s")
     val watcherInviteSignInRequired: String = s("watcherInviteSignInRequired", "Sign in to accept this trusted watcher invite.")
     val reminderOff: String = s("reminderOff", "Off")
     val reminderSectionSubtitle: String = s("reminderSectionSubtitle", "Reminders on the days and at the time you choose. Off unless you turn them on.")
@@ -1349,6 +1354,11 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerDistanceLabel" to "Distancia: %1\$s",
             "liveViewerExpectedBy" to "Llegada prevista: %1\$s",
             "liveViewerOverdueBy" to "Atrasado · Llegada prevista: %1\$s",
+            "liveViewerShareRide" to "Compartir",
+            "liveViewerShareRideA11y" to "Compartir esta sesión de seguimiento en vivo",
+            "liveViewerShareRideSubject" to "Ruta en vivo en TrackMe",
+            "liveViewerShareMessageWithName" to "Sigue la ruta en vivo de %1\$s en TrackMe: %2\$s",
+            "liveViewerShareMessageFallback" to "Sigue esta ruta en vivo en TrackMe: %1\$s",
             "watcherInviteSignInRequired" to "Inicia sesión para aceptar esta invitación de observador.",
             "reminderOff" to "Desactivado",
             "reminderSectionSubtitle" to "Recordatorios los días y a la hora que elijas. Desactivados hasta que los actives.",
@@ -2168,6 +2178,11 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerDistanceLabel" to "Distance : %1\$s",
             "liveViewerExpectedBy" to "Arrivée prévue à %1\$s",
             "liveViewerOverdueBy" to "En retard · Arrivée prévue à %1\$s",
+            "liveViewerShareRide" to "Partager",
+            "liveViewerShareRideA11y" to "Partager cette session de suivi en direct",
+            "liveViewerShareRideSubject" to "Sortie en direct sur TrackMe",
+            "liveViewerShareMessageWithName" to "Suivez la sortie en direct de %1\$s sur TrackMe : %2\$s",
+            "liveViewerShareMessageFallback" to "Suivez cette sortie en direct sur TrackMe : %1\$s",
             "watcherInviteSignInRequired" to "Connectez-vous pour accepter cette invitation de contact de confiance.",
             "reminderOff" to "Désactivé",
             "reminderSectionSubtitle" to "Des rappels aux jours et à l’heure de votre choix. Désactivés tant que vous ne les activez pas.",
@@ -2987,6 +3002,11 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerDistanceLabel" to "Distanz: %1\$s",
             "liveViewerExpectedBy" to "Erwartet um %1\$s",
             "liveViewerOverdueBy" to "Überfällig · Erwartet um %1\$s",
+            "liveViewerShareRide" to "Teilen",
+            "liveViewerShareRideA11y" to "Diese Live-Tracking-Sitzung teilen",
+            "liveViewerShareRideSubject" to "TrackMe Live-Fahrt",
+            "liveViewerShareMessageWithName" to "Verfolge die Live-Fahrt von %1\$s auf TrackMe: %2\$s",
+            "liveViewerShareMessageFallback" to "Verfolge diese Live-Fahrt auf TrackMe: %1\$s",
             "watcherInviteSignInRequired" to "Melde dich an, um diese Einladung anzunehmen.",
             "reminderOff" to "Aus",
             "reminderSectionSubtitle" to "Erinnerungen an den gewählten Tagen und zur gewählten Uhrzeit. Aus, bis du sie einschaltest.",
@@ -3806,6 +3826,11 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerDistanceLabel" to "दूरी: %1\$s",
             "liveViewerExpectedBy" to "अपेक्षित समय %1\$s",
             "liveViewerOverdueBy" to "विलंबित · अपेक्षित समय %1\$s",
+            "liveViewerShareRide" to "शेयर करें",
+            "liveViewerShareRideA11y" to "इस लाइव ट्रैकिंग सत्र को साझा करें",
+            "liveViewerShareRideSubject" to "TrackMe लाइव सवारी",
+            "liveViewerShareMessageWithName" to "TrackMe पर %1\$s की लाइव सवारी को ट्रैक करें: %2\$s",
+            "liveViewerShareMessageFallback" to "TrackMe पर इस लाइव सवारी को ट्रैक करें: %1\$s",
             "watcherInviteSignInRequired" to "भरोसेमंद वॉचर आमंत्रण स्वीकार करने के लिए साइन इन करें।",
             "reminderOff" to "बंद",
             "reminderSectionSubtitle" to "आपके चुने दिनों और समय पर अनुस्मारक। चालू करने तक बंद रहेंगे।",
@@ -4625,6 +4650,11 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerDistanceLabel" to "距離: %1\$s",
             "liveViewerExpectedBy" to "到着予定: %1\$s",
             "liveViewerOverdueBy" to "遅延中 · 到着予定: %1\$s",
+            "liveViewerShareRide" to "共有",
+            "liveViewerShareRideA11y" to "このライブ追跡セッションを共有",
+            "liveViewerShareRideSubject" to "TrackMe ライブライド",
+            "liveViewerShareMessageWithName" to "TrackMeで%1\$sのライブライドを追跡: %2\$s",
+            "liveViewerShareMessageFallback" to "TrackMeでこのライブライドを追跡: %1\$s",
             "watcherInviteSignInRequired" to "信頼できるウォッチャーの招待を承諾するにはサインインしてください。",
             "reminderOff" to "オフ",
             "reminderSectionSubtitle" to "選んだ曜日と時間にリマインドします。オンにするまでは無効です。",
@@ -5444,6 +5474,11 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerDistanceLabel" to "距离：%1\$s",
             "liveViewerExpectedBy" to "预计到达时间：%1\$s",
             "liveViewerOverdueBy" to "已逾期 · 预计到达时间：%1\$s",
+            "liveViewerShareRide" to "分享",
+            "liveViewerShareRideA11y" to "分享此实时跟踪会话",
+            "liveViewerShareRideSubject" to "TrackMe 实时骑行",
+            "liveViewerShareMessageWithName" to "在 TrackMe 上关注 %1\$s 的实时骑行：%2\$s",
+            "liveViewerShareMessageFallback" to "在 TrackMe 上关注此实时骑行：%1\$s",
             "watcherInviteSignInRequired" to "请先登录以接受受信任查看者邀请。",
             "reminderOff" to "关闭",
             "reminderSectionSubtitle" to "在你选择的日期和时间提醒。开启后才会发送。",

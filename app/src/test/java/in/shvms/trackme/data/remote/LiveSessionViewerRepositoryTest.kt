@@ -6,6 +6,10 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import `in`.shvms.trackme.ui.localization.AppStrings
+import `in`.shvms.trackme.ui.localization.SUPPORTED_LANGUAGE_CODES
+import `in`.shvms.trackme.ui.localization.getAppStrings
+import java.util.Locale
 
 class LiveSessionViewerRepositoryTest {
 
@@ -309,5 +313,29 @@ class LiveSessionViewerRepositoryTest {
         val jsonWithEta = """{"username":"Rider","status":"active","etaAt":"1700000000000"}"""
         val snapWithEta = LiveSessionViewerRepository.parseSnapshot("s2", jsonWithEta)
         assertEquals("1700000000000", snapWithEta?.deadlineAt)
+    }
+
+    @Test
+    fun `formats live viewer share ride message with username and fallback`() {
+        val strings = AppStrings()
+        val url = "https://trackme.shvms.in/live/abc-123"
+        val withName = String.format(Locale.getDefault(), strings.liveViewerShareMessageWithName, "Alice", url)
+        val fallback = String.format(Locale.getDefault(), strings.liveViewerShareMessageFallback, url)
+
+        assertEquals("Track Alice's live ride on TrackMe: https://trackme.shvms.in/live/abc-123", withName)
+        assertEquals("Track this live ride on TrackMe: https://trackme.shvms.in/live/abc-123", fallback)
+
+        // Verify across all supported languages
+        for (lang in SUPPORTED_LANGUAGE_CODES) {
+            val s = getAppStrings(lang)
+            val localizedWithName = String.format(Locale.getDefault(), s.liveViewerShareMessageWithName, "Bob", url)
+            val localizedFallback = String.format(Locale.getDefault(), s.liveViewerShareMessageFallback, url)
+            assertTrue(localizedWithName.contains("Bob"))
+            assertTrue(localizedWithName.contains(url))
+            assertTrue(localizedFallback.contains(url))
+            assertTrue(s.liveViewerShareRide.isNotBlank())
+            assertTrue(s.liveViewerShareRideA11y.isNotBlank())
+            assertTrue(s.liveViewerShareRideSubject.isNotBlank())
+        }
     }
 }

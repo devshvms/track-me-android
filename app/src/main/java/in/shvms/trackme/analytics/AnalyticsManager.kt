@@ -1006,6 +1006,18 @@ object AnalyticsManager {
         )
     }
 
+    fun trackLiveShareViewerShareClicked(sessionId: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_viewer_share_clicked",
+            properties = mapOf(
+                "session_id" to sessionId,
+                "sessionId" to sessionId,
+                "platform" to "android"
+            )
+        )
+    }
+
     fun trackTrustedWatcherAdded() {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture(
