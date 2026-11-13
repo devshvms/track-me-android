@@ -200,6 +200,47 @@ class LiveSessionViewerRepository {
         nowEpochMillis = nowEpochMillis,
     )
 
+    fun computeOffCenterDistanceMeters(
+        centerLat: Double,
+        centerLng: Double,
+        riderLat: Double,
+        riderLng: Double,
+    ): Double = Companion.computeOffCenterDistanceMeters(centerLat, centerLng, riderLat, riderLng)
+
+    fun formatOffCenterDistance(
+        distanceMeters: Double?,
+        useMiles: Boolean = false,
+        thresholdMeters: Double = 250.0,
+    ): String? = Companion.formatOffCenterDistance(distanceMeters, useMiles, thresholdMeters)
+
+    fun formatRecenterButtonLabel(
+        distanceMeters: Double?,
+        useMiles: Boolean = false,
+        thresholdMeters: Double = 250.0,
+        baseLabel: String = "Recenter",
+    ): String = Companion.formatRecenterButtonLabel(distanceMeters, useMiles, thresholdMeters, baseLabel)
+
+    fun formatRecenterAccessibilityLabel(
+        distanceMeters: Double?,
+        useMiles: Boolean = false,
+        thresholdMeters: Double = 250.0,
+        baseLabel: String = "Recenter on rider",
+    ): String = Companion.formatRecenterAccessibilityLabel(distanceMeters, useMiles, thresholdMeters, baseLabel)
+
+    fun shouldResumeFollowMode(
+        isFollowing: Boolean,
+        isEnded: Boolean,
+        lastInteractionEpochMs: Long?,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+        timeoutMs: Long = 20_000L,
+    ): Boolean = Companion.shouldResumeFollowMode(
+        isFollowing = isFollowing,
+        isEnded = isEnded,
+        lastInteractionEpochMs = lastInteractionEpochMs,
+        nowEpochMillis = nowEpochMillis,
+        timeoutMs = timeoutMs,
+    )
+
     suspend fun fetchSnapshot(sessionId: String): LiveSessionFetchResult = withContext(Dispatchers.IO) {
         val cleanId = sessionId.trim()
         if (cleanId.isEmpty()) return@withContext LiveSessionFetchResult.NotFoundOrExpired
@@ -1057,6 +1098,91 @@ class LiveSessionViewerRepository {
                 durationStr = durationStr,
                 distanceStr = distanceStr,
             )
+        }
+
+        /**
+         * CIE-040: Computes geodesic distance in meters between viewport camera center and rider coordinate.
+         */
+        fun computeOffCenterDistanceMeters(
+            centerLat: Double,
+            centerLng: Double,
+            riderLat: Double,
+            riderLng: Double,
+        ): Double {
+            return computeDistanceMeters(centerLat, centerLng, riderLat, riderLng)
+        }
+
+        /**
+         * CIE-040: Formats off-center distance badge string when distance exceeds threshold (default 250m).
+         * Returns null when rider is close to center (< 250m) so button remains clean.
+         */
+        fun formatOffCenterDistance(
+            distanceMeters: Double?,
+            useMiles: Boolean = false,
+            thresholdMeters: Double = 250.0,
+        ): String? {
+            if (distanceMeters == null || !distanceMeters.isFinite() || distanceMeters < thresholdMeters) {
+                return null
+            }
+            return if (useMiles) {
+                val miles = distanceMeters / 1609.344
+                String.format(java.util.Locale.US, "%.1f mi", miles)
+            } else {
+                val km = distanceMeters / 1000.0
+                String.format(java.util.Locale.US, "%.1f km", km)
+            }
+        }
+
+        /**
+         * CIE-040: Formats recenter button label with optional distance badge ("Recenter · 1.4 km").
+         */
+        fun formatRecenterButtonLabel(
+            distanceMeters: Double?,
+            useMiles: Boolean = false,
+            thresholdMeters: Double = 250.0,
+            baseLabel: String = "Recenter",
+        ): String {
+            val distStr = formatOffCenterDistance(distanceMeters, useMiles, thresholdMeters)
+            return if (distStr != null) {
+                "$baseLabel · $distStr"
+            } else {
+                baseLabel
+            }
+        }
+
+        /**
+         * CIE-040: Formats recenter button accessibility label ("Recenter on rider, 1.4 km away").
+         */
+        fun formatRecenterAccessibilityLabel(
+            distanceMeters: Double?,
+            useMiles: Boolean = false,
+            thresholdMeters: Double = 250.0,
+            baseLabel: String = "Recenter on rider",
+        ): String {
+            val distStr = formatOffCenterDistance(distanceMeters, useMiles, thresholdMeters)
+            return if (distStr != null) {
+                "$baseLabel, $distStr away"
+            } else {
+                baseLabel
+            }
+        }
+
+        /**
+         * CIE-040: Evaluates whether follow mode should automatically resume after inactivity timeout (default 20s).
+         * Suppresses auto-resume when trip has ended or when user is currently in follow mode.
+         */
+        fun shouldResumeFollowMode(
+            isFollowing: Boolean,
+            isEnded: Boolean,
+            lastInteractionEpochMs: Long?,
+            nowEpochMillis: Long = System.currentTimeMillis(),
+            timeoutMs: Long = 20_000L,
+        ): Boolean {
+            if (isFollowing || isEnded || lastInteractionEpochMs == null) {
+                return false
+            }
+            val elapsed = nowEpochMillis - lastInteractionEpochMs
+            return elapsed >= timeoutMs
         }
     }
 }

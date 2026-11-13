@@ -1112,5 +1112,114 @@ class LiveSessionViewerRepositoryTest {
             assertTrue("avgSpeed missing or blank for $lang", avgSpeed.isNotBlank())
         }
     }
+
+    @Test
+    fun `evaluates off-screen distance badge and follow mode auto-resume`() {
+        val centerLat = 37.7749
+        val centerLng = -122.4194
+        val nearLat = 37.7755
+        val nearLng = -122.4190 // ~80m
+        val farLat = 37.7880
+        val farLng = -122.4050 // ~1.9km
+
+        val nearDist = LiveSessionViewerRepository.computeOffCenterDistanceMeters(centerLat, centerLng, nearLat, nearLng)
+        val farDist = LiveSessionViewerRepository.computeOffCenterDistanceMeters(centerLat, centerLng, farLat, farLng)
+        assertTrue(nearDist < 200.0)
+        assertTrue(farDist > 1000.0)
+
+        // Threshold suppressions
+        assertNull(LiveSessionViewerRepository.formatOffCenterDistance(null))
+        assertNull(LiveSessionViewerRepository.formatOffCenterDistance(-50.0))
+        assertNull(LiveSessionViewerRepository.formatOffCenterDistance(Double.NaN))
+        assertNull(LiveSessionViewerRepository.formatOffCenterDistance(249.0, thresholdMeters = 250.0))
+
+        // Formatting above threshold
+        assertEquals("1.4 km", LiveSessionViewerRepository.formatOffCenterDistance(1400.0, useMiles = false))
+        assertEquals("1.0 mi", LiveSessionViewerRepository.formatOffCenterDistance(1609.344, useMiles = true))
+
+        // Recenter button label
+        assertEquals(
+            "Recenter",
+            LiveSessionViewerRepository.formatRecenterButtonLabel(100.0, baseLabel = "Recenter"),
+        )
+        assertEquals(
+            "Recenter · 1.4 km",
+            LiveSessionViewerRepository.formatRecenterButtonLabel(1400.0, baseLabel = "Recenter"),
+        )
+        assertEquals(
+            "Recenter · 1.0 mi",
+            LiveSessionViewerRepository.formatRecenterButtonLabel(1609.344, useMiles = true, baseLabel = "Recenter"),
+        )
+
+        // Recenter accessibility label
+        assertEquals(
+            "Recenter on rider",
+            LiveSessionViewerRepository.formatRecenterAccessibilityLabel(100.0, baseLabel = "Recenter on rider"),
+        )
+        assertEquals(
+            "Recenter on rider, 1.4 km away",
+            LiveSessionViewerRepository.formatRecenterAccessibilityLabel(1400.0, baseLabel = "Recenter on rider"),
+        )
+
+        // Follow-mode auto resume
+        val baseMs = 1_700_000_000_000L
+        val twentyOneSecLater = baseMs + 21_000L
+        val tenSecLater = baseMs + 10_000L
+
+        // Already following -> false
+        assertFalse(
+            LiveSessionViewerRepository.shouldResumeFollowMode(
+                isFollowing = true,
+                isEnded = false,
+                lastInteractionEpochMs = baseMs,
+                nowEpochMillis = twentyOneSecLater,
+                timeoutMs = 20_000L,
+            )
+        )
+
+        // Ended trip -> false
+        assertFalse(
+            LiveSessionViewerRepository.shouldResumeFollowMode(
+                isFollowing = false,
+                isEnded = true,
+                lastInteractionEpochMs = baseMs,
+                nowEpochMillis = twentyOneSecLater,
+                timeoutMs = 20_000L,
+            )
+        )
+
+        // Null last interaction -> false
+        assertFalse(
+            LiveSessionViewerRepository.shouldResumeFollowMode(
+                isFollowing = false,
+                isEnded = false,
+                lastInteractionEpochMs = null,
+                nowEpochMillis = twentyOneSecLater,
+                timeoutMs = 20_000L,
+            )
+        )
+
+        // Elapsed < timeout -> false
+        assertFalse(
+            LiveSessionViewerRepository.shouldResumeFollowMode(
+                isFollowing = false,
+                isEnded = false,
+                lastInteractionEpochMs = baseMs,
+                nowEpochMillis = tenSecLater,
+                timeoutMs = 20_000L,
+            )
+        )
+
+        // Elapsed >= timeout -> true
+        assertTrue(
+            LiveSessionViewerRepository.shouldResumeFollowMode(
+                isFollowing = false,
+                isEnded = false,
+                lastInteractionEpochMs = baseMs,
+                nowEpochMillis = twentyOneSecLater,
+                timeoutMs = 20_000L,
+            )
+        )
+    }
 }
 
