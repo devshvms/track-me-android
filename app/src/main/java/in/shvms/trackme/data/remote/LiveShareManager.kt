@@ -312,6 +312,29 @@ class LiveShareManager {
             }.getOrDefault(fallback)
         }
 
+        /**
+         * Calculates an adaptive, jittered exponential backoff delay for location pushes during live sharing (CIE-003).
+         * Progression:
+         * - 0 failures: [baseIntervalMs] (standard broadcast cadence, e.g. 5,000ms)
+         * - 1 failure:  base + 1,000ms + jitter
+         * - 2 failures: base + 3,000ms + jitter
+         * - 3 failures: base + 6,000ms + jitter
+         * - 4+ failures: capped at [maxIntervalMs] (default 15,000ms)
+         */
+        fun computePushBackoffDelay(
+            consecutiveFailures: Int,
+            baseIntervalMs: Long = 5_000L,
+            maxIntervalMs: Long = 15_000L,
+            randomProvider: () -> Double = { Math.random() },
+        ): Long {
+            if (consecutiveFailures <= 0) return baseIntervalMs
+            val stepIncrements = longArrayOf(1_000L, 3_000L, 6_000L, 10_000L)
+            val stepIndex = (consecutiveFailures - 1).coerceIn(0, stepIncrements.lastIndex)
+            val step = stepIncrements[stepIndex]
+            val jitter = (randomProvider() * 500L).toLong()
+            return (baseIntervalMs + step + jitter).coerceAtMost(maxIntervalMs)
+        }
+
         fun isAuthenticationError(e: Throwable?): Boolean {
             return e is LiveShareHttpException && e.statusCode == HttpURLConnection.HTTP_UNAUTHORIZED
         }

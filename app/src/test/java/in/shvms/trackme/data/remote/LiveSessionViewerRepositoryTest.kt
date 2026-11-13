@@ -87,4 +87,32 @@ class LiveSessionViewerRepositoryTest {
     fun `returns null on malformed json`() {
         assertNull(LiveSessionViewerRepository.parseSnapshot("sess_bad", "{not-json"))
     }
+
+    @Test
+    fun `computes viewer backoff delay with progression and jitter ceiling`() {
+        val noJitter = { 0.0 }
+        // 0 errors -> base (5000ms)
+        assertEquals(5000L, LiveSessionViewerRepository.computeViewerBackoffDelay(0, randomProvider = noJitter))
+        assertEquals(5000L, LiveSessionViewerRepository.computeViewerBackoffDelay(-1, randomProvider = noJitter))
+
+        // 1 error -> base + 1000 = 6000ms
+        assertEquals(6000L, LiveSessionViewerRepository.computeViewerBackoffDelay(1, randomProvider = noJitter))
+
+        // 2 errors -> base + 3000 = 8000ms
+        assertEquals(8000L, LiveSessionViewerRepository.computeViewerBackoffDelay(2, randomProvider = noJitter))
+
+        // 3 errors -> base + 6000 = 11000ms
+        assertEquals(11000L, LiveSessionViewerRepository.computeViewerBackoffDelay(3, randomProvider = noJitter))
+
+        // 4 errors -> base + 10000 = 15000ms
+        assertEquals(15000L, LiveSessionViewerRepository.computeViewerBackoffDelay(4, randomProvider = noJitter))
+
+        // 8 errors -> clamped to 15000ms
+        assertEquals(15000L, LiveSessionViewerRepository.computeViewerBackoffDelay(8, randomProvider = noJitter))
+
+        // Injects jitter without exceeding max
+        val halfJitter = { 0.5 }
+        assertEquals(6250L, LiveSessionViewerRepository.computeViewerBackoffDelay(1, randomProvider = halfJitter))
+        assertEquals(15000L, LiveSessionViewerRepository.computeViewerBackoffDelay(4, randomProvider = halfJitter))
+    }
 }

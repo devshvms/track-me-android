@@ -124,10 +124,12 @@ fun LiveSessionViewerSheet(
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             if (stopPolling) return@repeatOnLifecycle
             var tick = 0
+            var consecutiveErrors = 0
             while (isActive && !stopPolling) {
                 nowEpochMillis = System.currentTimeMillis()
-                when (val res = repository.fetchSnapshot(sessionId)) {
+                val nextDelay = when (val res = repository.fetchSnapshot(sessionId)) {
                     is LiveSessionFetchResult.Success -> {
+                        consecutiveErrors = 0
                         snapshot = res.snapshot
                         isExpiredOrMissing = false
                         errorMessage = null
@@ -148,6 +150,7 @@ fun LiveSessionViewerSheet(
                             stopPolling = true
                             break
                         }
+                        5_000L
                     }
                     LiveSessionFetchResult.NotFoundOrExpired -> {
                         isExpiredOrMissing = true
@@ -156,12 +159,14 @@ fun LiveSessionViewerSheet(
                         break
                     }
                     is LiveSessionFetchResult.Error -> {
+                        consecutiveErrors++
                         errorMessage = res.message
                         isLoading = false
+                        LiveSessionViewerRepository.computeViewerBackoffDelay(consecutiveErrors)
                     }
                 }
                 tick++
-                delay(5_000L)
+                delay(nextDelay)
             }
         }
     }

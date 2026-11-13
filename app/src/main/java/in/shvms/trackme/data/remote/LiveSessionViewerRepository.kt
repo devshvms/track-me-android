@@ -212,5 +212,29 @@ class LiveSessionViewerRepository {
             val age = ageSeconds(timestampIso, nowEpochMillis) ?: return false
             return age >= DELAYED_UPDATE_THRESHOLD_SECONDS
         }
+
+        /**
+         * Computes an adaptive, jittered polling delay for Live Share viewers during network errors or server hiccups (CIE-003).
+         * Backs off consecutive errors to avoid stampeding Redis and Vercel serverless ($0/mo cost mandate).
+         * Progression:
+         * - 0 errors: [baseDelayMs] (standard 5,000ms polling)
+         * - 1 error:  base + 1,000ms + jitter (~6,000-6,500ms)
+         * - 2 errors: base + 3,000ms + jitter (~8,000-8,500ms)
+         * - 3 errors: base + 6,000ms + jitter (~11,000-11,500ms)
+         * - 4+ errors: capped at [maxDelayMs] (15,000ms)
+         */
+        fun computeViewerBackoffDelay(
+            consecutiveErrors: Int,
+            baseDelayMs: Long = 5_000L,
+            maxDelayMs: Long = 15_000L,
+            randomProvider: () -> Double = { Math.random() },
+        ): Long {
+            if (consecutiveErrors <= 0) return baseDelayMs
+            val increments = longArrayOf(1_000L, 3_000L, 6_000L, 10_000L)
+            val stepIndex = (consecutiveErrors - 1).coerceIn(0, increments.lastIndex)
+            val step = increments[stepIndex]
+            val jitter = (randomProvider() * 500L).toLong()
+            return (baseDelayMs + step + jitter).coerceAtMost(maxDelayMs)
+        }
     }
 }
