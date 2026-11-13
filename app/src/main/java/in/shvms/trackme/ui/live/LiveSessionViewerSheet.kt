@@ -144,6 +144,8 @@ fun LiveSessionViewerSheet(
             if (stopPolling) return@repeatOnLifecycle
             var tick = 0
             var consecutiveErrors = 0
+            // Clear any stale error message upon returning to foreground so fresh fetch displays cleanly (CIE-027)
+            errorMessage = null
             while (isActive && !stopPolling) {
                 nowEpochMillis = System.currentTimeMillis()
                 val nextDelay = when (val res = repository.fetchSnapshot(sessionId)) {
@@ -435,19 +437,46 @@ fun LiveSessionViewerSheet(
                             )
                         }
                     } else if (errorMessage != null && snapshot == null) {
+                        val errorBannerA11y = "${errorMessage.orEmpty()}. ${strings.retry}"
                         Surface(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
-                                .padding(12.dp),
+                                .padding(12.dp)
+                                .semantics {
+                                    liveRegion = LiveRegionMode.Polite
+                                    contentDescription = errorBannerA11y
+                                },
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.errorContainer,
+                            tonalElevation = 4.dp,
                         ) {
-                            Text(
-                                text = errorMessage.orEmpty(),
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Text(
+                                    text = errorMessage.orEmpty(),
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                )
+                                FilledTonalButton(
+                                    onClick = { refreshTrigger++ },
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(30.dp),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.onErrorContainer,
+                                        contentColor = MaterialTheme.colorScheme.errorContainer,
+                                    ),
+                                ) {
+                                    Text(
+                                        text = strings.retry,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                            }
                         }
                     } else if (snapshot?.isActive == true && currentLatLng == null) {
                         Surface(
@@ -519,10 +548,15 @@ fun LiveSessionViewerSheet(
                                     }
                                 }
                             } else if (errorMessage != null) {
+                                val reconnectingA11y = "${strings.liveViewerReconnecting}. ${strings.retry}"
                                 Surface(
                                     shape = RoundedCornerShape(50),
                                     color = Color(0xFFF59E0B).copy(alpha = 0.95f),
                                     tonalElevation = 4.dp,
+                                    modifier = Modifier.semantics {
+                                        liveRegion = LiveRegionMode.Polite
+                                        contentDescription = reconnectingA11y
+                                    },
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
