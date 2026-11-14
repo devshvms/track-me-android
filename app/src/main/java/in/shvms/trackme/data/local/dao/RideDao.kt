@@ -175,6 +175,12 @@ interface RideDao {
     suspend fun deletePointsForRide(rideId: Long): Int
 
     /**
+     * TASK-369: Prunes trailing indoor dwell GPS points recorded after the dwell anchor was established.
+     */
+    @Query("DELETE FROM gps_points WHERE rideId = :rideId AND timestamp > :afterTimestamp")
+    suspend fun deletePointsAfterTimestamp(rideId: Long, afterTimestamp: Long): Int
+
+    /**
      * SCOPE_1.8.7 §6.1.5 #23: how many rides are waiting for the cloud.
      *
      * `pendingDelete = 0` because a ride on its way out is not a ride at risk — counting it would
