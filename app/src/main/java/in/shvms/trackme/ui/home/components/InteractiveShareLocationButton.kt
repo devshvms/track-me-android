@@ -6,6 +6,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import `in`.shvms.trackme.theme.*
 import `in`.shvms.trackme.ui.components.HapticFeedbackUtils.triggerPhysicalVibrate
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -303,23 +304,25 @@ fun InteractiveShareLocationButton(
                 onDismissRequest = { isDrawerOpen = false },
                 properties = PopupProperties(focusable = true)
             ) {
-                // 90% transparent background container hugging the circular 52dp buttons
                 Surface(
-                    shape = RoundedCornerShape(32.dp),
-                    color = TrackMeGreyLight.copy(alpha = 0.10f),
-                    shadowElevation = 0.dp
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                    shadowElevation = 8.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+                    modifier = Modifier.width(185.dp)
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp)
+                        modifier = Modifier.padding(8.dp)
                     ) {
                         if (isActive) {
-                            // s5: Active sharing symbol options drawer
-                            DrawerOptionCircleButton(
+                            DrawerOptionPillButton(
                                 icon = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = strings.send,
-                                color = optionButtonColor,
+                                label = strings.shareLink,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                textColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     triggerPhysicalVibrate(context, 40L)
@@ -327,10 +330,12 @@ fun InteractiveShareLocationButton(
                                     onSendShare()
                                 }
                             )
-                            DrawerOptionCircleButton(
+                            DrawerOptionPillButton(
                                 icon = Icons.Default.ContentCopy,
-                                contentDescription = strings.copy,
-                                color = optionButtonColor,
+                                label = strings.copyLink,
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                textColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     triggerPhysicalVibrate(context, 40L)
@@ -338,11 +343,12 @@ fun InteractiveShareLocationButton(
                                     onCopyShare()
                                 }
                             )
-                            DrawerOptionCircleButton(
+                            DrawerOptionPillButton(
                                 icon = Icons.Default.Stop,
-                                contentDescription = strings.stopTracking,
-                                color = Color(0xFFFFCDD2),
-                                iconTint = TrackMeRed,
+                                label = strings.stopSharing,
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                textColor = MaterialTheme.colorScheme.onErrorContainer,
+                                iconTint = MaterialTheme.colorScheme.onErrorContainer,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     triggerPhysicalVibrate(context, 65L)
@@ -351,11 +357,12 @@ fun InteractiveShareLocationButton(
                                 }
                             )
                         } else {
-                            // s2: Inactive sharing drawer
-                            DrawerOptionCircleButton(
+                            DrawerOptionPillButton(
                                 icon = Icons.Default.PlayArrow,
-                                contentDescription = strings.startTracking,
-                                color = optionButtonColor,
+                                label = strings.startSharing,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                textColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     triggerPhysicalVibrate(context, 50L)
@@ -372,28 +379,40 @@ fun InteractiveShareLocationButton(
 }
 
 @Composable
-private fun DrawerOptionCircleButton(
+private fun DrawerOptionPillButton(
     icon: ImageVector,
-    contentDescription: String,
+    label: String,
     color: Color,
-    iconTint: Color = Color.Black.copy(alpha = 0.85f),
+    textColor: Color,
+    iconTint: Color,
     onClick: () -> Unit
 ) {
-    // onClick on the Surface, not a .clickable above it — otherwise the press indication is drawn
-    // on the square layout bounds instead of inside the circle. See MapControlCircleButton.
     Surface(
         onClick = onClick,
-        shape = CircleShape,
+        shape = RoundedCornerShape(22.dp),
         color = color,
         shadowElevation = 2.dp,
-        modifier = Modifier.size(52.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 14.dp)
+        ) {
             Icon(
                 imageVector = icon,
-                contentDescription = contentDescription,
+                contentDescription = null,
                 tint = iconTint,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = textColor,
+                maxLines = 1
             )
         }
     }

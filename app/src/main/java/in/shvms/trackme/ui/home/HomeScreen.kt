@@ -499,6 +499,7 @@ fun HomeScreen(
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         showFullRideHudForPrimaryShare = false
+        openSharesheetOnLiveShareReady = true
         val autoWatchers = uiState.trustedWatchers.filter { it.autoNotify }.take(5)
         if (uiState.trackingState == TrackingState.IDLE) {
             viewModel.startTracking(RidePersona.AUTO)
