@@ -158,9 +158,49 @@ fun MainNavigation() {
         if (pendingInvite != null) navigateToTab("community")
     }
 
+    val activeViewingLiveSessionId by app.activeViewingLiveSessionId.collectAsStateWithLifecycle()
+    val pendingWatcherInvite by app.pendingWatcherInvite.collectAsStateWithLifecycle()
+    val currentUser by app.authManager.currentUser.collectAsStateWithLifecycle()
+    val unitSystem by app.preferencesManager.unitSystem.collectAsStateWithLifecycle()
+    val imperial = unitSystem == "imperial"
+    var promptedWatcherSignInCode by remember { mutableStateOf<String?>(null) }
+
     // App-scoped so a message survives the screen that sent it being popped — "Ride deleted"
     // is shown immediately before popBackStack(). See Messenger.kt.
     val messenger = `in`.shvms.trackme.ui.components.rememberAppMessenger(snackbarHostState)
+
+    LaunchedEffect(pendingWatcherInvite, currentUser) {
+        val invite = pendingWatcherInvite ?: return@LaunchedEffect
+        if (currentUser == null) {
+            if (promptedWatcherSignInCode != invite.code) {
+                promptedWatcherSignInCode = invite.code
+                messenger.show(strings.watcherInviteSignInRequired, duration = SnackbarDuration.Long)
+                navigateToTab("settings")
+            }
+            return@LaunchedEffect
+        }
+        promptedWatcherSignInCode = null
+        app.consumePendingWatcherInvite()
+        val result = app.trustedWatchersRepository.acceptWatcherInvite(
+            code = invite.code,
+            inviterName = invite.inviterName,
+        )
+        if (result.isSuccess) {
+            messenger.show(
+                String.format(
+                    java.util.Locale.getDefault(),
+                    strings.watcherInviteAcceptedToast,
+                    invite.inviterName ?: "TrackMe Rider",
+                ),
+                duration = SnackbarDuration.Long,
+            )
+        } else {
+            messenger.show(
+                result.exceptionOrNull()?.message ?: strings.unknown,
+                duration = SnackbarDuration.Long,
+            )
+        }
+    }
 
     CompositionLocalProvider(
         LocalSnackbarHostState provides snackbarHostState,
@@ -317,6 +357,14 @@ fun MainNavigation() {
                     }
                 }
             }
+        }
+        activeViewingLiveSessionId?.let { liveSessionId ->
+            `in`.shvms.trackme.ui.live.LiveSessionViewerSheet(
+                sessionId = liveSessionId,
+                repository = app.liveSessionViewerRepository,
+                imperial = imperial,
+                onDismiss = { app.dismissLiveSessionViewer() },
+            )
         }
     }
 }

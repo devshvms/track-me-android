@@ -83,6 +83,7 @@ class MainActivity : AppCompatActivity() {
     handleGroupInvite(intent)
     handleQuickStart(intent)
     handleWeeklyRecap(intent)
+    handleLiveShareDeepLink(intent)
 
     pipDashboardStateSource = PiPDashboardStateSource(
       trackingManager = app.trackingManager,
@@ -215,6 +216,13 @@ class MainActivity : AppCompatActivity() {
       // invite that opens the app and is then abandoned is distinguishable from one nobody tapped.
       `in`.shvms.trackme.analytics.AnalyticsManager.trackGroupInviteOpened(viaCode = false)
       (applicationContext as? TrackMeApp)?.setPendingGroupInvite(invite)
+      // CIE-004: Consumed so activity recreation or configuration changes (e.g. rotation) do not re-queue
+      // duplicate group joins or fire duplicate analytics.
+      intent?.removeExtra(`in`.shvms.trackme.domain.group.GroupInviteLink.EXTRA_TOKEN)
+      intent?.removeExtra(`in`.shvms.trackme.domain.group.GroupInviteLink.EXTRA_CODE)
+      if (data != null && (data.scheme == "trackme" || data.path?.startsWith("/g") == true)) {
+          intent?.data = null
+      }
   }
 
   /**
@@ -240,6 +248,36 @@ class MainActivity : AppCompatActivity() {
       handleGroupInvite(intent)
       handleQuickStart(intent)
       handleWeeklyRecap(intent)
+      handleLiveShareDeepLink(intent)
+  }
+
+  private fun handleLiveShareDeepLink(intent: android.content.Intent?) {
+      val parsed = `in`.shvms.trackme.domain.live.LiveShareLink.parse(
+          uriString = intent?.data?.toString(),
+          extraSessionId = intent?.getStringExtra("sessionId"),
+          extraType = intent?.getStringExtra("type"),
+          extraShareUrl = intent?.getStringExtra("shareUrl"),
+      ) ?: return
+
+      val app = applicationContext as? TrackMeApp ?: return
+      when (parsed) {
+          is `in`.shvms.trackme.domain.live.LiveShareDeepLink.WatcherInvite -> {
+              app.setPendingWatcherInvite(parsed)
+              intent?.data = null
+          }
+          is `in`.shvms.trackme.domain.live.LiveShareDeepLink.Session -> {
+              if (intent?.getStringExtra("type") == "live_share_started") {
+                  AnalyticsManager.trackWatcherPushOpened()
+              }
+              app.openLiveSessionViewer(parsed.sessionId)
+              intent?.removeExtra("type")
+              intent?.removeExtra("sessionId")
+              intent?.removeExtra("shareUrl")
+              if (`in`.shvms.trackme.domain.live.LiveShareLink.parseSessionUri(intent?.data?.toString().orEmpty()) != null) {
+                  intent?.data = null
+              }
+          }
+      }
   }
 
   /**
@@ -423,6 +461,11 @@ class MainActivity : AppCompatActivity() {
       }
       // B2: surface a weekly recap for a just-completed week (shared foreground trigger).
       app.checkWeeklyRecap()
+      if (app.authManager.currentUser.value != null) {
+          lifecycleScope.launch {
+              app.trustedWatchersRepository.refreshInbox()
+          }
+      }
   }
   override fun onPause() {
       super.onPause()

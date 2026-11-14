@@ -107,6 +107,13 @@ class TrackingManager {
     val trackingV2LastComparison: StateFlow<TrackingV2DebugComparison?> =
         _trackingV2LastComparison.asStateFlow()
 
+    private val _isStandbyActive = MutableStateFlow(false)
+    val isStandbyActive: StateFlow<Boolean> = _isStandbyActive.asStateFlow()
+
+    fun setStandbyActive(active: Boolean) {
+        _isStandbyActive.value = active
+    }
+
     fun updateState(state: TrackingState) {
         _trackingState.value = state
     }
@@ -184,5 +191,6 @@ class TrackingManager {
         _timeSinceLastGps.value = 0L
         _trackingState.value = TrackingState.IDLE
         _selectedPersona.value = `in`.shvms.trackme.domain.model.RidePersona.AUTO
+        _isStandbyActive.value = false
     }
 }

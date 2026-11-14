@@ -36,6 +36,11 @@ import `in`.shvms.trackme.ui.localization.getAppStrings
 class TrackMeMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
+        if (message.data["type"] == "live_share_started") {
+            handleLiveShareStartedPush(message)
+            return
+        }
+
         val broadcast = OperatorBroadcast.parse(message.data) ?: return
 
         // Not true for this build. An update notice telling someone already on the fixed version to
@@ -65,9 +70,55 @@ class TrackMeMessagingService : FirebaseMessagingService() {
     }
 
     override fun onNewToken(token: String) {
-        // Nothing is done with the token, deliberately — see BroadcastSubscription. Re-subscribing
-        // is still required: a rotated token is not carried over to existing topic subscriptions.
-        BroadcastSubscription.sync(applicationContext, (applicationContext as? TrackMeApp)?.errorLogger)
+        val app = applicationContext as? TrackMeApp
+        BroadcastSubscription.sync(applicationContext, app?.errorLogger)
+        app?.trustedWatchersRepository?.syncFcmToken(token)
+    }
+
+    private fun handleLiveShareStartedPush(message: RemoteMessage) {
+        val sessionId = message.data["sessionId"]?.trim().orEmpty()
+        if (sessionId.isEmpty()) return
+        val riderName = message.data["riderName"]?.trim()?.takeIf { it.isNotEmpty() } ?: "TrackMe"
+        val shareUrl = message.data["shareUrl"]?.trim()?.takeIf {
+            it.startsWith("https://trackme.shvms.in/live/")
+        } ?: "https://trackme.shvms.in/live/$sessionId"
+
+        if (!BroadcastSubscription.hasNotificationPermission(applicationContext)) return
+
+        val strings = getAppStrings(
+            (applicationContext as? TrackMeApp)?.preferencesManager?.appLanguage?.value ?: "en"
+        )
+        NotificationChannels.ensure(applicationContext, strings)
+
+        val openIntent = Intent(applicationContext, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra("type", "live_share_started")
+            putExtra("sessionId", sessionId)
+            putExtra("shareUrl", shareUrl)
+            putExtra("riderName", riderName)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            applicationContext,
+            sessionId.hashCode(),
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val title = String.format(java.util.Locale.getDefault(), strings.watcherLivePushTitle, riderName)
+        val notification = NotificationCompat.Builder(applicationContext, NotificationChannels.LIVE_SHARE)
+            .setSmallIcon(R.drawable.ic_trackme_logo_transparent)
+            .setContentTitle(title)
+            .setContentText(strings.watcherLivePushBody)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_SOCIAL)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+
+        runCatching {
+            applicationContext.getSystemService(NotificationManager::class.java)
+                ?.notify(sessionId.hashCode(), notification)
+        }
     }
 
     private fun post(broadcast: OperatorBroadcast) {

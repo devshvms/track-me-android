@@ -1,0 +1,113 @@
+package `in`.shvms.trackme.domain.live
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class LiveShareLinkTest {
+
+    @Test
+    fun `parses https live session link and ignores trailing slash`() {
+        val parsed = LiveShareLink.parse("https://trackme.shvms.in/live/abc_12345/")
+        assertEquals(LiveShareDeepLink.Session("abc_12345"), parsed)
+    }
+
+    @Test
+    fun `parses custom trackme live session uri in both path and query forms`() {
+        assertEquals(
+            LiveShareDeepLink.Session("sess_9876"),
+            LiveShareLink.parse("trackme://live/sess_9876"),
+        )
+        assertEquals(
+            LiveShareDeepLink.Session("sess_9876"),
+            LiveShareLink.parse("trackme://live?sessionId=sess_9876"),
+        )
+        assertEquals(
+            LiveShareDeepLink.Session("sess_9876"),
+            LiveShareLink.parse("trackme://live/sess_9876?name=Alex+Rivera"),
+        )
+        assertEquals(
+            LiveShareDeepLink.Session("sess_9876"),
+            LiveShareLink.parse("trackme://live?sessionId=sess_9876&name=Alex+Rivera"),
+        )
+        assertEquals(
+            LiveShareDeepLink.Session("sess_9876"),
+            LiveShareLink.parse("https://trackme.shvms.in/live/sess_9876?name=Alex+Rivera"),
+        )
+    }
+
+    @Test
+    fun `parses watcher invite uri without mistaking watcher segment for sessionId`() {
+        val parsed = LiveShareLink.parse(
+            "https://trackme.shvms.in/live/watcher?code=code_1234567890ab&inviterName=Shivam+Sharma"
+        )
+        assertTrue(parsed is LiveShareDeepLink.WatcherInvite)
+        val invite = parsed as LiveShareDeepLink.WatcherInvite
+        assertEquals("code_1234567890ab", invite.code)
+        assertEquals("Shivam Sharma", invite.inviterName)
+
+        assertNull(LiveShareLink.parse("https://trackme.shvms.in/live/watcher"))
+        assertNull(LiveShareLink.parse("https://trackme.shvms.in/live/watcher?inviterUid=uid_123"))
+    }
+
+    @Test
+    fun `parses live_share_started notification extras with fallback to shareUrl`() {
+        assertEquals(
+            LiveShareDeepLink.Session("push_sess_1"),
+            LiveShareLink.parse(
+                uriString = null,
+                extraSessionId = "push_sess_1",
+                extraType = "live_share_started",
+                extraShareUrl = "https://trackme.shvms.in/live/push_sess_1",
+            ),
+        )
+        assertEquals(
+            LiveShareDeepLink.Session("fallback_sess"),
+            LiveShareLink.parse(
+                uriString = null,
+                extraSessionId = null,
+                extraType = "live_share_started",
+                extraShareUrl = "https://trackme.shvms.in/live/fallback_sess",
+            ),
+        )
+    }
+
+    @Test
+    fun `rejects foreign hosts and malformed session ids`() {
+        assertNull(LiveShareLink.parse("https://evil.example/live/abc_12345"))
+        assertNull(LiveShareLink.parse("https://trackme.shvms.in/live/a"))
+    }
+
+    @Test
+    fun `parses custom trackme uri with triple slash format`() {
+        assertEquals(
+            LiveShareDeepLink.Session("sess_5555"),
+            LiveShareLink.parse("trackme:///live/sess_5555"),
+        )
+    }
+
+    @Test
+    fun `recovers session id when query contains unencoded spaces`() {
+        assertEquals(
+            LiveShareDeepLink.Session("abc_12345"),
+            LiveShareLink.parse("https://trackme.shvms.in/live/abc_12345?name=John Doe&utm=social share"),
+        )
+    }
+
+    @Test
+    fun `decodes percent-encoded session id characters`() {
+        assertEquals(
+            LiveShareDeepLink.Session("ride-99_xy"),
+            LiveShareLink.parse("https://trackme.shvms.in/live/ride%2D99%5Fxy"),
+        )
+    }
+
+    @Test
+    fun `parses www domain host variant`() {
+        assertEquals(
+            LiveShareDeepLink.Session("abc_12345"),
+            LiveShareLink.parse("https://www.trackme.shvms.in/live/abc_12345"),
+        )
+    }
+}

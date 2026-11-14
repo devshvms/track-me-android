@@ -146,6 +146,15 @@ data class RideEntity(
      */
     val placeLabelStart: String? = null,
     val placeLabelEnd: String? = null,
+    /**
+     * TASK-366 / SCOPE_1.9.3: `"FULL"`, `"PARTIAL"`, or null when no Live Share ran during the ride.
+     */
+    val liveShareMode: String? = null,
+    /**
+     * TASK-366 / SCOPE_1.9.3: JSON array of `[startEpochMs, endEpochMs]` intervals while Live Share
+     * was active during this ride.
+     */
+    val liveShareIntervalsJson: String? = null,
     @Embedded
     val postRideCalculation: PostRideCalculation? = null
 )

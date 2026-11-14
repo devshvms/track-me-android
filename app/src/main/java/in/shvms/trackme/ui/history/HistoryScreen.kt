@@ -23,10 +23,13 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import `in`.shvms.trackme.domain.model.RidePersona
 import `in`.shvms.trackme.ui.components.icon
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Share
+import `in`.shvms.trackme.domain.live.LiveShareIntervals
 import androidx.compose.material3.*
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -611,11 +614,21 @@ fun RideHistoryCard(
     val distanceText = `in`.shvms.trackme.domain.UnitFormatter.distance(ride.distance ?: 0.0, imperial, decimals = 1)
     val durationText = ride.dashboardActiveDurationMillis.takeIf { ride.dashboardMetadataVersion >= HOME_DASHBOARD_METADATA_VERSION }?.let(::formatDuration) ?: strings.unknown
     val avgSpeedText = `in`.shvms.trackme.domain.UnitFormatter.speed(ride.avgSpeed?.toDouble() ?: 0.0, imperial)
+    val showLiveBadge = ride.liveShareMode != null || ride.isBroadcasted
+    val liveBadgeText = if (ride.liveShareMode == LiveShareIntervals.MODE_PARTIAL) {
+        strings.liveShareBadgePartial
+    } else {
+        strings.liveShareBadgeFull
+    }
+    val showGroupBadge = ride.wasGroupRide
+
     val cardDescription = String.format(
         Locale.getDefault(),
         strings.rideCardAccessibilityDescription,
         buildString {
             if (ride.isSample) append("${strings.sampleRideBadge} - ")
+            if (showLiveBadge) append("$liveBadgeText - ")
+            if (showGroupBadge) append("${strings.groupRideBadge} - ")
             append("${strings.personaLabel(personaObj)} - $rideTitle")
         },
         formatDateTime(ride.startTime),
@@ -751,14 +764,79 @@ fun RideHistoryCard(
                     )
                 }
 
-                // Subtitle: Date & Time
-                Text(
-                    text = formatDateTime(ride.startTime),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                // Subtitle: Date & Time + Live Share / Group Ride context badges
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = formatDateTime(ride.startTime),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (showLiveBadge || showGroupBadge) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(start = 6.dp),
+                        ) {
+                            if (showLiveBadge) {
+                                Surface(
+                                    color = androidx.compose.ui.graphics.Color(0xFF06B6D4).copy(alpha = 0.14f),
+                                    contentColor = androidx.compose.ui.graphics.Color(0xFF0891B2),
+                                    shape = RoundedCornerShape(50),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Sensors,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(10.dp),
+                                        )
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Text(
+                                            text = liveBadgeText,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
+                            }
+                            if (showGroupBadge) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    shape = RoundedCornerShape(50),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Groups,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(10.dp),
+                                        )
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Text(
+                                            text = strings.groupRideBadge,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // Bottom Compact Metrics Row
                 Row(
@@ -830,6 +908,8 @@ fun RideHistoryCard(
             dashboardRoutePolyline = dashboardRoutePolylineFromPoints(rideWithPoints.points),
             wasGroupRide = ride.wasGroupRide,
             groupRiderCount = ride.groupRiderCount,
+            isBroadcasted = ride.isBroadcasted,
+            liveShareMode = ride.liveShareMode,
         ),
         onClick = onClick,
         modifier = modifier,

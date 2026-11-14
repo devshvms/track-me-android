@@ -48,11 +48,16 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import `in`.shvms.trackme.data.local.countsAsMovingTime
+import `in`.shvms.trackme.data.local.dashboardActiveDurationFromPoints
 import `in`.shvms.trackme.domain.processor.TrackingV2Estimator
 import `in`.shvms.trackme.domain.processor.TrackingV2PowerMode
 import `in`.shvms.trackme.domain.processor.TrackingV2Point
 import `in`.shvms.trackme.domain.processor.TrackingV2Sample
 import `in`.shvms.trackme.domain.processor.TrackingV2Snapshot
+import `in`.shvms.trackme.domain.tracking.DwellDetector
+import `in`.shvms.trackme.domain.tracking.DwellState
+import `in`.shvms.trackme.domain.tracking.DwellEvaluationResult
+import `in`.shvms.trackme.service.notifications.AutoTripNotifier
 
 enum class TrackingState {
     IDLE, TRACKING, PAUSED, GPS_LOST, GPS_DISABLED, STORAGE_LOW
@@ -122,6 +127,13 @@ class TrackingService : Service() {
     private var lastGpsPauseTelemetryMs = 0L
     private var lastGpsResumeTelemetryMs = 0L
     private var lastLiveShareTimeMs = 0L
+    private var lastLiveShareSessionId: String? = null
+    private val isLiveSharePushInProgress = java.util.concurrent.atomic.AtomicBoolean(false)
+    private var liveShareConsecutiveFailures = 0
+    private var lastReportedZeroViewerHibernating: Boolean? = null
+    private val liveShareIntervals = mutableListOf<`in`.shvms.trackme.domain.live.LiveShareInterval>()
+    private var openLiveShareIntervalStartMs: Long? = null
+    private var liveShareIntervalObserverJob: Job? = null
     private var lastNotifyElapsedMs = Long.MIN_VALUE
     private var lastNotifyDistanceMeters = 0f
     private var lastNotifyState: TrackingState? = null
@@ -133,6 +145,7 @@ class TrackingService : Service() {
     private var stillnessStartedAtMillis: Long? = null
     private var forgottenRideAsked = false
     private var motionThrottleJob: Job? = null
+    private var standbyTimeoutJob: Job? = null
 
     private val adaptiveAutoPauseEngine = `in`.shvms.trackme.domain.processor.AdaptiveAutoPauseEngine()
     private lateinit var motionSensorManager: MotionSensorManager
@@ -142,6 +155,7 @@ class TrackingService : Service() {
     private var lastV2DisplayPoint: TrackingV2Point? = null
     private lateinit var trackingV2StepSensor: TrackingV2StepSensor
     private var trackingV1DebugDiagnostics = TrackingV1DebugDiagnostics()
+    private val dwellDetector = DwellDetector()
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -167,6 +181,30 @@ class TrackingService : Service() {
             // so it runs before the recorder's states are consulted at all — paused at a café,
             // searching for GPS, out of storage, or not riding yet.
             pushGroupPresence(location)
+
+            if (dwellDetector.state == DwellState.STANDBY_WAITING_FOR_NEXT_TRIP) {
+                if (!dwellDetector.isAutoTripChainingEnabled || isLiveShareBlockingDwell()) {
+                    stopStandbyMode()
+                    return
+                }
+                val speedKmh = if (location.hasSpeed()) (location.speed * 3.6f).toDouble() else 0.0
+                val dwellResult = dwellDetector.evaluate(
+                    lat = location.latitude,
+                    lng = location.longitude,
+                    speedKmh = speedKmh,
+                    nowEpochMs = location.time,
+                    accuracyMeters = locationAccuracyOrNull(location),
+                )
+                if (dwellResult.shouldStopStandby) {
+                    stopStandbyMode()
+                    return
+                }
+                if (dwellResult.shouldAutoStartNextRide) {
+                    startNewAutoChainedRide(location)
+                }
+                return
+            }
+
             if (trackingAlgorithmVersion == 2 && currentRideId != null &&
                 (currentState == TrackingState.TRACKING || shouldEmitGpsResumeTelemetry(currentState))) {
                 orderedLocations.forEachIndexed { index, fix ->
@@ -255,8 +293,25 @@ class TrackingService : Service() {
                 // §6.1.1 #4. Deliberately derived from the raw stillness signal rather than from
                 // `isPointPaused`: auto-pause can be switched off, and a rider who turned it off is
                 // if anything *more* likely to end up with a ride running in a pocket, because
-                // nothing else is watching for stillness on their behalf.
                 updateStillness(isHardwareStill || isStationaryDrift, location.time)
+
+                if (isLiveShareBlockingDwell()) {
+                    if (dwellDetector.state != DwellState.ACTIVE_TRACKING) {
+                        dwellDetector.reset()
+                    }
+                } else {
+                    val dwellResult = dwellDetector.evaluate(
+                        lat = location.latitude,
+                        lng = location.longitude,
+                        speedKmh = (effectiveSpeed * 3.6f).toDouble(),
+                        nowEpochMs = location.time,
+                        accuracyMeters = locationAccuracyOrNull(location),
+                    )
+                    if (dwellResult.shouldAutoEndRide) {
+                        handleAutoEndRide(dwellResult, location)
+                        return
+                    }
+                }
 
                 trackingManager.updateSpeed(effectiveSpeed)
                 trackingManager.setAutoPaused(isPointPaused)
@@ -347,32 +402,10 @@ class TrackingService : Service() {
                     }
                 }
                 
-                val liveShareState = liveShareManager.state.value
-                if (liveShareState.status == LiveShareStatus.ACTIVE) {
-                    val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
-                    val freqSec = prefs.getInt("live_share_frequency_sec", 5)
-                    val now = System.currentTimeMillis()
-                    
-                    if (now - lastLiveShareTimeMs >= freqSec * 1000L) {
-                        lastLiveShareTimeMs = now
-                        
-                        val manager = getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager
-                        val batteryLevel = manager.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
-                        val heading = if (location.hasBearing()) location.bearing else null
-                        val isPowerSave = (getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
-                        
-                        serviceScope.launch {
-                            liveShareManager.pushLocation(
-                                lat = location.latitude,
-                                lon = location.longitude,
-                                batteryLevel = batteryLevel,
-                                speed = if (location.hasSpeed()) location.speed else null,
-                                heading = heading,
-                                powerSaveMode = isPowerSave
-                            )
-                        }
-                    }
-                }
+                maybePushLiveShareLocation(
+                    location = location,
+                    speedKmh = if (location.hasSpeed()) (location.speed * 3.6f).coerceAtLeast(0f) else null,
+                )
             }
         }
     }
@@ -475,6 +508,26 @@ class TrackingService : Service() {
             trackingManager.addPathPoint(displayLatLng)
         }
         updateStillness(stationary, location.time)
+
+        if (isLiveShareBlockingDwell()) {
+            if (dwellDetector.state != DwellState.ACTIVE_TRACKING) {
+                dwellDetector.reset()
+            }
+        } else {
+            val v2SpeedKmh = if (location.hasSpeed()) (location.speed * 3.6f).toDouble() else (snapshot.currentSpeedMetersPerSecond * 3.6)
+            val dwellResult = dwellDetector.evaluate(
+                lat = location.latitude,
+                lng = location.longitude,
+                speedKmh = v2SpeedKmh,
+                nowEpochMs = location.time,
+                accuracyMeters = locationAccuracyOrNull(location),
+            )
+            if (dwellResult.shouldAutoEndRide) {
+                handleAutoEndRide(dwellResult, location)
+                return
+            }
+        }
+
         lastLocation = location
         val total = v2Session.distanceMeters
         val duration = v2Session.movingDurationMillis
@@ -503,19 +556,109 @@ class TrackingService : Service() {
                 withContext(Dispatchers.Main.immediate) { enterStorageLowState() }
             }
         }
-        if (publishLiveLocation && liveShareManager.state.value.status == LiveShareStatus.ACTIVE) {
-            val now = System.currentTimeMillis()
-            if (now - lastLiveShareTimeMs >= prefs.getInt("live_share_frequency_sec", 5) * 1000L) {
-                lastLiveShareTimeMs = now
-                val battery = (getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager)
-                    .getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
-                val isPowerSave = (getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
-                serviceScope.launch {
-                    liveShareManager.pushLocation(lat = location.latitude, lon = location.longitude,
-                        batteryLevel = battery, speed = snapshot.currentSpeedMetersPerSecond,
-                        heading = if (location.hasBearing()) location.bearing else null,
-                        powerSaveMode = isPowerSave)
+        if (publishLiveLocation) {
+            maybePushLiveShareLocation(
+                location = location,
+                speedKmh = (snapshot.currentSpeedMetersPerSecond * 3.6f).coerceAtLeast(0f),
+            )
+        }
+    }
+
+    private fun maybePushLiveShareLocation(location: Location, speedKmh: Float?) {
+        val liveShareState = liveShareManager.state.value
+        if (liveShareState.status != LiveShareStatus.ACTIVE) return
+
+        if (liveShareState.sessionId != lastLiveShareSessionId) {
+            lastLiveShareSessionId = liveShareState.sessionId
+            lastLiveShareTimeMs = 0L
+            liveShareConsecutiveFailures = 0
+            lastReportedZeroViewerHibernating = null
+            isLiveSharePushInProgress.set(false)
+        }
+
+        val manager = getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
+        val batteryLevel = manager?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: 100
+        val isPowerSave = (getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
+        val effectivePowerSave = LiveShareManager.isEffectivePowerSave(isPowerSave, batteryLevel)
+
+        val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
+        val freqSec = prefs.getInt("live_share_frequency_sec", 5)
+        val configuredIntervalMs = freqSec * 1000L
+        val now = System.currentTimeMillis()
+        val hibernation = LiveShareManager.evaluateZeroViewerHibernation(
+            activeViewers = liveShareState.activeViewers,
+            zeroViewersSinceEpochMs = liveShareState.zeroViewersSinceEpochMs ?: liveShareState.startedAt?.toEpochMilli(),
+            nowEpochMs = now,
+            configuredIntervalMs = configuredIntervalMs,
+            isPowerSaveOrLowBattery = effectivePowerSave,
+        )
+        if (liveShareState.isZeroViewerHibernating != hibernation.isHibernating ||
+            liveShareState.zeroViewersSinceEpochMs != hibernation.zeroViewersSinceEpochMs
+        ) {
+            liveShareState.sessionId?.let { activeId ->
+                liveShareManager.syncZeroViewerHibernation(
+                    sessionId = activeId,
+                    isHibernating = hibernation.isHibernating,
+                    zeroViewersSinceEpochMs = hibernation.zeroViewersSinceEpochMs,
+                )
+            }
+        }
+        if (hibernation.isHibernating && lastReportedZeroViewerHibernating != true) {
+            lastReportedZeroViewerHibernating = true
+            liveShareState.sessionId?.let { activeId ->
+                AnalyticsManager.trackLiveShareZeroViewerHibernation(
+                    sessionId = activeId,
+                    isHibernating = true,
+                    idleSeconds = hibernation.idleDurationMs / 1000L,
+                    intervalSeconds = hibernation.effectiveIntervalMs / 1000L,
+                )
+            }
+        } else if (!hibernation.isHibernating && lastReportedZeroViewerHibernating == true) {
+            lastReportedZeroViewerHibernating = false
+            liveShareState.sessionId?.let { activeId ->
+                AnalyticsManager.trackLiveShareZeroViewerHibernation(
+                    sessionId = activeId,
+                    isHibernating = false,
+                    idleSeconds = 0L,
+                    intervalSeconds = hibernation.effectiveIntervalMs / 1000L,
+                )
+            }
+        }
+        val maxPushDelayMs = maxOf(
+            15_000L,
+            hibernation.effectiveIntervalMs + if (hibernation.isHibernating) 15_000L else 0L
+        )
+        val requiredDelayMs = LiveShareManager.computePushBackoffDelay(
+            consecutiveFailures = liveShareConsecutiveFailures,
+            baseIntervalMs = hibernation.effectiveIntervalMs,
+            maxIntervalMs = maxPushDelayMs,
+        )
+
+        if (now - lastLiveShareTimeMs < requiredDelayMs) return
+        if (!isLiveSharePushInProgress.compareAndSet(false, true)) return
+
+        lastLiveShareTimeMs = now
+        val heading = if (location.hasBearing()) location.bearing else null
+
+        serviceScope.launch {
+            try {
+                val res = liveShareManager.pushLocation(
+                    lat = location.latitude,
+                    lon = location.longitude,
+                    batteryLevel = batteryLevel,
+                    speed = speedKmh,
+                    heading = heading,
+                    powerSaveMode = effectivePowerSave
+                )
+                if (res.isSuccess) {
+                    liveShareConsecutiveFailures = 0
+                } else {
+                    liveShareConsecutiveFailures++
                 }
+            } catch (_: Exception) {
+                liveShareConsecutiveFailures++
+            } finally {
+                isLiveSharePushInProgress.set(false)
             }
         }
     }
@@ -547,11 +690,140 @@ class TrackingService : Service() {
         trackingManager = app.trackingManager
         liveShareManager = app.liveShareManager
         groupSessionManager = app.groupSessionManager
-        
+        observeLiveShareIntervals()
+
+        dwellDetector.isAutoTripChainingEnabled = app.preferencesManager.autoTripChainingEnabled.value
+        dwellDetector.autoEndDwellMinutes = app.preferencesManager.autoEndDwellMinutes.value
+        dwellDetector.isAutoEndCropDwellEnabled = app.preferencesManager.autoEndCropDwellEnabled.value
+
+        serviceScope.launch {
+            app.preferencesManager.autoTripChainingEnabled.collect { enabled ->
+                withContext(Dispatchers.Main.immediate) {
+                    dwellDetector.isAutoTripChainingEnabled = enabled
+                    if (!enabled &&
+                        (dwellDetector.state == DwellState.STANDBY_WAITING_FOR_NEXT_TRIP ||
+                            trackingManager.isStandbyActive.value)
+                    ) {
+                        stopStandbyMode()
+                    }
+                }
+            }
+        }
+        serviceScope.launch {
+            liveShareManager.state.collect { lsState ->
+                if (lsState.status == LiveShareStatus.ACTIVE || lsState.status == LiveShareStatus.STARTING) {
+                    withContext(Dispatchers.Main.immediate) {
+                        if (currentRideId != null && dwellDetector.state != DwellState.ACTIVE_TRACKING) {
+                            dwellDetector.reset()
+                        }
+                        if (currentRideId == null &&
+                            (dwellDetector.state == DwellState.STANDBY_WAITING_FOR_NEXT_TRIP ||
+                                trackingManager.isStandbyActive.value)
+                        ) {
+                            stopStandbyMode()
+                        }
+                    }
+                }
+            }
+        }
+        serviceScope.launch {
+            app.preferencesManager.autoEndDwellMinutes.collect {
+                dwellDetector.autoEndDwellMinutes = it
+            }
+        }
+        serviceScope.launch {
+            app.preferencesManager.autoEndCropDwellEnabled.collect {
+                dwellDetector.isAutoEndCropDwellEnabled = it
+            }
+        }
+    }
+
+    private fun observeLiveShareIntervals() {
+        liveShareIntervalObserverJob?.cancel()
+        liveShareIntervalObserverJob = serviceScope.launch {
+            liveShareManager.state.collect { state ->
+                if (currentRideId == null && !hasPersistedActiveSession()) return@collect
+                val now = System.currentTimeMillis()
+                if (state.status == LiveShareStatus.ACTIVE) {
+                    if (openLiveShareIntervalStartMs == null) {
+                        openLiveShareIntervalStartMs = now
+                        persistLiveShareIntervals()
+                    }
+                } else {
+                    val started = openLiveShareIntervalStartMs
+                    if (started != null) {
+                        if (now > started) {
+                            liveShareIntervals.add(
+                                `in`.shvms.trackme.domain.live.LiveShareInterval(started, now)
+                            )
+                        }
+                        openLiveShareIntervalStartMs = null
+                        persistLiveShareIntervals()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun resetLiveShareIntervalsForNewRide(rideStartTime: Long) {
+        liveShareIntervals.clear()
+        openLiveShareIntervalStartMs = if (liveShareManager.state.value.status == LiveShareStatus.ACTIVE) {
+            rideStartTime
+        } else {
+            null
+        }
+        persistLiveShareIntervals()
+    }
+
+    private fun restoreLiveShareIntervals() {
+        val prefs = getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+        liveShareIntervals.clear()
+        liveShareIntervals.addAll(
+            `in`.shvms.trackme.domain.live.LiveShareIntervals.parse(
+                prefs.getString(ACTIVE_LIVE_SHARE_INTERVALS_KEY, null)
+            )
+        )
+        val openStart = prefs.getLong(ACTIVE_LIVE_SHARE_OPEN_START_KEY, -1L)
+        openLiveShareIntervalStartMs = openStart.takeIf { it > 0L }
+            ?: if (liveShareManager.state.value.status == LiveShareStatus.ACTIVE) {
+                System.currentTimeMillis()
+            } else {
+                null
+            }
+    }
+
+    private fun snapshotAndClearLiveShareIntervals(now: Long): List<`in`.shvms.trackme.domain.live.LiveShareInterval> {
+        val openStart = openLiveShareIntervalStartMs
+        if (openStart != null && now > openStart) {
+            liveShareIntervals.add(`in`.shvms.trackme.domain.live.LiveShareInterval(openStart, now))
+        }
+        val snapshot = `in`.shvms.trackme.domain.live.LiveShareIntervals.normalize(liveShareIntervals)
+        liveShareIntervals.clear()
+        openLiveShareIntervalStartMs = null
+        getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .remove(ACTIVE_LIVE_SHARE_INTERVALS_KEY)
+            .remove(ACTIVE_LIVE_SHARE_OPEN_START_KEY)
+            .apply()
+        return snapshot
+    }
+
+    private fun persistLiveShareIntervals() {
+        val json = `in`.shvms.trackme.domain.live.LiveShareIntervals.serialize(liveShareIntervals)
+        val openStart = openLiveShareIntervalStartMs ?: -1L
+        getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(ACTIVE_LIVE_SHARE_INTERVALS_KEY, json)
+            .putLong(ACTIVE_LIVE_SHARE_OPEN_START_KEY, openStart)
+            .apply()
     }
 
     override fun onDestroy() {
         isRunning = false
+        standbyTimeoutJob?.cancel()
+        standbyTimeoutJob = null
+        trackingManager.setStandbyActive(false)
+        dwellDetector.reset()
         trackingV2StepSensor.stop()
         serviceScope.cancel()
         super.onDestroy()
@@ -569,12 +841,29 @@ class TrackingService : Service() {
             ACTION_START_GROUP_PRESENCE -> startGroupPresence()
             ACTION_STOP_GROUP_PRESENCE -> stopGroupPresence()
             ACTION_PAUSE_SERVICE -> pauseTracking()
-            ACTION_STOP_SERVICE -> stopTracking()
-            ACTION_DISCARD_NEAR_EMPTY_RIDE -> stopTracking(discardNearEmptyRide = true)
+            ACTION_STOP_STANDBY -> {
+                stopStandbyMode()
+                if (currentRideId == null &&
+                    currentState == TrackingState.IDLE &&
+                    PresenceStreamPolicy.canStopService(currentState, presenceMode)
+                ) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
+            }
+            ACTION_STOP_SERVICE -> {
+                dwellDetector.reset()
+                stopTracking()
+            }
+            ACTION_DISCARD_NEAR_EMPTY_RIDE -> {
+                dwellDetector.reset()
+                stopTracking(discardNearEmptyRide = true)
+            }
             // §6.1.1 #4. "Finish ride" is routed through the ordinary stop path rather than a
             // private one: a shortcut that skipped the save would turn a helpful question into the
             // worst bug in the release.
             ForgottenRideNotifier.ACTION_FINISH_RIDE -> {
+                dwellDetector.reset()
                 ForgottenRideNotifier.cancel(this)
                 stopTracking()
             }
@@ -598,6 +887,10 @@ class TrackingService : Service() {
     }
 
     private fun startForegroundService() {
+        standbyTimeoutJob?.cancel()
+        standbyTimeoutJob = null
+        dwellDetector.reset()
+        trackingManager.setStandbyActive(false)
         try {
             createNotificationChannels()
         wireGroupAlerts()
@@ -664,6 +957,9 @@ class TrackingService : Service() {
                     `in`.shvms.trackme.analytics.AnalyticsManager.trackRideStarted(
                         rideId = rideId.toString()
                     )
+                    resetLiveShareIntervalsForNewRide(startTime)
+                } else {
+                    restoreLiveShareIntervals()
                 }
 
                 withContext(Dispatchers.Main.immediate) {
@@ -724,7 +1020,11 @@ class TrackingService : Service() {
         startForeground(
             NOTIFICATION_ID,
             if (currentState == TrackingState.IDLE) {
-                buildPresenceNotification()
+                if (dwellDetector.state == DwellState.STANDBY_WAITING_FOR_NEXT_TRIP) {
+                    buildStandbyNotification()
+                } else {
+                    buildPresenceNotification()
+                }
             } else {
                 getNotification(
                     durationMillis = rideDuration,
@@ -1049,10 +1349,22 @@ class TrackingService : Service() {
         stopTracking(preserveRideForRecovery = true)
     }
 
+    private fun isLiveShareBlockingDwell(): Boolean {
+        val status = liveShareManager.state.value.status
+        return status == LiveShareStatus.ACTIVE || status == LiveShareStatus.STARTING
+    }
+
+    private fun locationAccuracyOrNull(location: Location): Float? =
+        if (location.hasAccuracy()) location.accuracy else null
+
     private fun stopTracking(
         discardNearEmptyRide: Boolean = false,
-        preserveRideForRecovery: Boolean = false
+        preserveRideForRecovery: Boolean = false,
+        pruneAfterTimestampEpochMs: Long? = null,
     ) {
+        standbyTimeoutJob?.cancel()
+        standbyTimeoutJob = null
+        trackingManager.setStandbyActive(false)
         isTimerEnabled = false
         motionSensorManager.stopListening()
         stopMotionThrottleWatcher()
@@ -1072,6 +1384,11 @@ class TrackingService : Service() {
         val finalDistance = trackingManager.totalDistance.value.toDouble()
         val finalDuration = rideDuration
         val rideToProcess = currentRideId
+        val capturedLiveShareIntervals = if (preserveRideForRecovery) {
+            emptyList()
+        } else {
+            snapshotAndClearLiveShareIntervals(System.currentTimeMillis())
+        }
 
         // Release the ride BEFORE publishing IDLE. §0 contract 2 makes "observed IDLE" mean
         // "nothing is being recorded", so the id has to be gone by the time that claim is made —
@@ -1113,6 +1430,8 @@ class TrackingService : Service() {
                         finalDistance = finalDistance,
                         finalDuration = finalDuration,
                         discardNearEmptyRide = discardNearEmptyRide,
+                        pruneAfterTimestampEpochMs = pruneAfterTimestampEpochMs,
+                        liveShareIntervals = capturedLiveShareIntervals,
                         trackingV2Live = trackingV2Live,
                         trackingV2Final = trackingV2Final,
                         trackingV1Diagnostics = trackingV1Diagnostics,
@@ -1135,6 +1454,202 @@ class TrackingService : Service() {
 
             if (!keepAliveForPresence) {
                 stopSelf()
+            }
+        }
+    }
+
+    private fun handleAutoEndRide(result: DwellEvaluationResult, lastLoc: Location) {
+        if (currentRideId == null || currentState == TrackingState.IDLE) return
+        val app = application as TrackMeApp
+        val strings = getAppStrings(app.preferencesManager.appLanguage.value)
+        val persona = trackingManager.selectedPersona.value
+        val personaLabel = strings.personaLabel(persona)
+        val distanceKm = trackingManager.totalDistance.value / 1000f
+        val distanceFormatted = String.format(Locale.getDefault(), "%.1f km", distanceKm)
+        val pruneCutoff = if (result.shouldPruneTrailingPoints) result.autoEndTimestampEpochMs else null
+
+        AutoTripNotifier.notifyAutoTripCompleted(
+            context = this@TrackingService,
+            personaLabel = personaLabel,
+            distanceFormatted = distanceFormatted,
+        )
+
+        if (dwellDetector.isAutoTripChainingEnabled && !isLiveShareBlockingDwell()) {
+            stopTrackingForAutoChaining(
+                lastLoc = lastLoc,
+                result = result,
+                pruneAfterTimestampEpochMs = pruneCutoff,
+            )
+        } else {
+            dwellDetector.reset()
+            stopTracking(pruneAfterTimestampEpochMs = pruneCutoff)
+        }
+    }
+
+    private fun stopTrackingForAutoChaining(
+        lastLoc: Location,
+        result: DwellEvaluationResult,
+        pruneAfterTimestampEpochMs: Long? = null,
+    ) {
+        val rideId = currentRideId ?: return
+        isTimerEnabled = false
+        motionSensorManager.stopListening()
+        stopMotionThrottleWatcher()
+        val trackingV2Live = if (BuildConfig.DEBUG) trackingV2Estimator.snapshot() else null
+        val trackingV2Final = if (BuildConfig.DEBUG) trackingV2Estimator.finish() else null
+        val trackingV1Diagnostics = trackingV1DebugDiagnostics
+        trackingV2StepSensor.stop()
+        locationHelper.stopLocationTracking(locationCallback)
+        presenceStreamActive = false
+        ForgottenRideNotifier.cancel(this)
+        stillnessStartedAtMillis = null
+        forgottenRideAsked = false
+
+        val finalDistance = trackingManager.totalDistance.value.toDouble()
+        val finalDuration = rideDuration
+        val capturedLiveShareIntervals = snapshotAndClearLiveShareIntervals(System.currentTimeMillis())
+
+        currentRideId = null
+        activeRideId = null
+        updateState(TrackingState.IDLE)
+        trackingManager.reset()
+        rideDuration = 0L
+        lastLocation = null
+        setPersistedActiveSession(false)
+        setPersistedPausedSession(false)
+
+        serviceScope.launch {
+            pointWriteChain.awaitPending()
+            if (liveShareManager.state.value.status == LiveShareStatus.ACTIVE || liveShareManager.state.value.stopOnRideEnd) {
+                liveShareManager.stopSession("Ride auto-ended.")
+            }
+            finalizeRide(
+                rideId = rideId,
+                finalDistance = finalDistance,
+                finalDuration = finalDuration,
+                discardNearEmptyRide = false,
+                pruneAfterTimestampEpochMs = pruneAfterTimestampEpochMs,
+                liveShareIntervals = capturedLiveShareIntervals,
+                trackingV2Live = trackingV2Live,
+                trackingV2Final = trackingV2Final,
+                trackingV1Diagnostics = trackingV1Diagnostics,
+            )
+
+            enterStandbyMode(lastLoc, result)
+        }
+    }
+
+    private suspend fun enterStandbyMode(lastLoc: Location, result: DwellEvaluationResult) {
+        if (!dwellDetector.isAutoTripChainingEnabled || isLiveShareBlockingDwell() || currentRideId != null) {
+            withContext(Dispatchers.Main.immediate) {
+                stopStandbyMode()
+            }
+            return
+        }
+
+        dwellDetector.transitionToStandby(
+            lastAnchorLat = result.dwellAnchorLat ?: lastLoc.latitude,
+            lastAnchorLng = result.dwellAnchorLng ?: lastLoc.longitude,
+            nowEpochMs = System.currentTimeMillis(),
+        )
+        trackingManager.setStandbyActive(true)
+        standbyTimeoutJob?.cancel()
+        standbyTimeoutJob = serviceScope.launch {
+            delay(MAX_STANDBY_DURATION_MS)
+            withContext(Dispatchers.Main.immediate) {
+                stopStandbyMode()
+            }
+        }
+
+        withContext(Dispatchers.Main.immediate) {
+            if (!dwellDetector.isAutoTripChainingEnabled || isLiveShareBlockingDwell() || currentRideId != null) {
+                stopStandbyMode()
+            } else {
+                locationHelper.startStandbyTracking(locationCallback)
+                postTrackingNotification(force = true)
+            }
+        }
+    }
+
+    private fun stopStandbyMode() {
+        standbyTimeoutJob?.cancel()
+        standbyTimeoutJob = null
+        val wasStandby = dwellDetector.state == DwellState.STANDBY_WAITING_FOR_NEXT_TRIP ||
+            trackingManager.isStandbyActive.value
+        trackingManager.setStandbyActive(false)
+        if (currentRideId != null || currentState != TrackingState.IDLE) return
+
+        dwellDetector.reset()
+        if (!wasStandby) return
+
+        locationHelper.stopLocationTracking(locationCallback)
+        presenceStreamActive = false
+        val keepAliveForPresence = !PresenceStreamPolicy.canStopService(TrackingState.IDLE, presenceMode)
+        if (keepAliveForPresence) {
+            reconcileLocationStreams()
+            postTrackingNotification(force = true)
+        } else {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }
+    }
+
+    private fun startNewAutoChainedRide(location: Location) {
+        standbyTimeoutJob?.cancel()
+        standbyTimeoutJob = null
+        trackingManager.setStandbyActive(false)
+        serviceScope.launch {
+            try {
+                if (!dwellDetector.isAutoTripChainingEnabled || isLiveShareBlockingDwell()) {
+                    withContext(Dispatchers.Main.immediate) {
+                        stopStandbyMode()
+                    }
+                    return@launch
+                }
+                trackingAlgorithmVersion = 2
+                restoredV2Peak = 0.0
+                lastV2DisplayPoint = null
+                val startTime = System.currentTimeMillis()
+                val groupAtStart = groupSessionManager.state.value
+                val persona = trackingManager.selectedPersona.value
+                val rideId = rideDao.insertRide(
+                    RideEntity(
+                        startTime = startTime,
+                        title = RideUtils.getDefaultTitle(startTime, persona),
+                        persona = persona.name,
+                        startZoneId = java.time.ZoneId.systemDefault().id,
+                        trackingAlgorithmVersion = 2,
+                        wasGroupRide = groupAtStart.isActive,
+                        groupRiderCount = groupAtStart.roster.size.takeIf {
+                            groupAtStart.isActive && it > 0
+                        },
+                    )
+                )
+                currentRideId = rideId
+                activeRideId = rideId
+                setPersistedActiveSession(true)
+                setPersistedPausedSession(false)
+
+                withContext(Dispatchers.Main.immediate) {
+                    lastGpsTimeMs = System.currentTimeMillis()
+                    presenceStreamActive = false
+                    motionSensorManager.startListening()
+                    startTrackingV2Shadow()
+                    updateState(TrackingState.TRACKING)
+                    locationHelper.startLocationTracking(locationCallback)
+                    startMotionThrottleWatcher()
+                    startTimer()
+                    AutoTripNotifier.notifyAutoTripStarted(this@TrackingService)
+                }
+
+                AnalyticsManager.trackRideStarted(
+                    rideId = rideId.toString()
+                )
+                resetLiveShareIntervalsForNewRide(startTime)
+            } catch (_: SQLiteException) {
+                withContext(Dispatchers.Main.immediate) {
+                    enterStorageLowState()
+                }
             }
         }
     }
@@ -1330,7 +1845,9 @@ class TrackingService : Service() {
             this, 0, intent, android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
         )
 
-        val contentText = when (state) {
+        val contentText = if (dwellDetector.state == DwellState.STANDBY_WAITING_FOR_NEXT_TRIP) {
+            strings.hudStationaryHint
+        } else when (state) {
             TrackingState.PAUSED -> String.format(
                 java.util.Locale.getDefault(),
                 strings.notifTrackingPaused,
@@ -1466,12 +1983,48 @@ class TrackingService : Service() {
             .build()
     }
 
+    private fun buildStandbyNotification(): Notification {
+        val strings = appStrings()
+        val intent = android.content.Intent(this, `in`.shvms.trackme.MainActivity::class.java).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
+        val stopStandbyIntent = android.app.PendingIntent.getService(
+            this,
+            4,
+            android.content.Intent(this, TrackingService::class.java).apply { action = ACTION_STOP_STANDBY },
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setAutoCancel(false)
+            .setOngoing(true)
+            .setSmallIcon(R.drawable.ic_notification_trackme)
+            .setColor(NOTIFICATION_ACCENT)
+            .setColorized(false)
+            .setContentTitle(strings.notifStandbyTitle)
+            .setContentText(strings.notifStandbyBody)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(strings.notifStandbyBody))
+            .setContentIntent(pendingIntent)
+            .addAction(
+                R.drawable.ic_notif_stop,
+                strings.stopStandby,
+                stopStandbyIntent,
+            )
+            .build()
+    }
+
     private fun postTrackingNotification(force: Boolean = false) {
         val state = currentState
+        val standbyOnly = state == TrackingState.IDLE && dwellDetector.state == DwellState.STANDBY_WAITING_FOR_NEXT_TRIP
         // Presence with no ride still owns the foreground notification — otherwise the service
         // would be running with stale "recording your ride" text, or none at all.
-        val presenceOnly = presenceMode && state == TrackingState.IDLE
-        if (!presenceOnly && (state == TrackingState.IDLE || state == TrackingState.STORAGE_LOW)) return
+        val presenceOnly = presenceMode && state == TrackingState.IDLE && !standbyOnly
+        if (!presenceOnly && !standbyOnly && (state == TrackingState.IDLE || state == TrackingState.STORAGE_LOW)) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
@@ -1492,10 +2045,10 @@ class TrackingService : Service() {
 
         NotificationManagerCompat.from(this).notify(
             NOTIFICATION_ID,
-            if (presenceOnly) {
-                buildPresenceNotification()
-            } else {
-                getNotification(
+            when {
+                standbyOnly -> buildStandbyNotification()
+                presenceOnly -> buildPresenceNotification()
+                else -> getNotification(
                     durationMillis = rideDuration,
                     distanceMeters = distanceMeters,
                     speedMps = trackingManager.currentSpeed.value,
@@ -1571,10 +2124,15 @@ class TrackingService : Service() {
         finalDistance: Double,
         finalDuration: Long,
         discardNearEmptyRide: Boolean = false,
+        pruneAfterTimestampEpochMs: Long? = null,
+        liveShareIntervals: List<`in`.shvms.trackme.domain.live.LiveShareInterval> = emptyList(),
         trackingV2Live: TrackingV2Snapshot? = null,
         trackingV2Final: TrackingV2Snapshot? = null,
         trackingV1Diagnostics: TrackingV1DebugDiagnostics = TrackingV1DebugDiagnostics(),
     ) {
+        if (pruneAfterTimestampEpochMs != null) {
+            rideDao.deletePointsAfterTimestamp(rideId, pruneAfterTimestampEpochMs)
+        }
         val rideWithPoints = rideDao.getRideWithPointsById(rideId)
         if (rideWithPoints != null) {
             val ride = rideWithPoints.ride
@@ -1622,22 +2180,44 @@ class TrackingService : Service() {
                 maxSpeed = points[0].speed
             }
 
+            val resolvedDuration = if (pruneAfterTimestampEpochMs != null) {
+                val croppedActive = dashboardActiveDurationFromPoints(points)
+                    ?: (points.last().timestamp - ride.startTime).coerceAtLeast(0L)
+                croppedActive.coerceAtMost(finalDuration)
+            } else {
+                finalDuration
+            }
+            val resolvedDistance = if (pruneAfterTimestampEpochMs != null && ride.trackingAlgorithmVersion == 2) {
+                points.last().cumulativeDistanceMeters
+                    ?.takeIf { it.isFinite() && it >= 0.0 }
+                    ?.coerceAtMost(finalDistance)
+                    ?: finalDistance
+            } else {
+                finalDistance
+            }
+
             // Keep the distance filtered by TrackingManager; recomputing raw point-to-point
             // distance here would count GPS drift and movement recorded during pauses.
             if (ride.trackingAlgorithmVersion == 2) {
-                activeTimeMs = finalDuration
+                activeTimeMs = resolvedDuration
                 maxSpeed = ride.postRideCalculation?.maxSpeed ?: 0f
+            } else if (pruneAfterTimestampEpochMs != null) {
+                activeTimeMs = activeTimeMs.coerceAtMost(resolvedDuration)
             }
-            val avgSpeed = if (activeTimeMs > 0) (finalDistance / (activeTimeMs / 1000f)).toFloat() else 0f
+            val avgSpeed = if (activeTimeMs > 0) (resolvedDistance / (activeTimeMs / 1000f)).toFloat() else 0f
 
             val persona = RideUtils.personaFromStoredName(ride.persona)
             val newTitle = if (RideUtils.isGeneratedTitle(ride.title, ride.startTime, persona)) {
                 RideUtils.getDefaultTitle(ride.startTime, persona, maxSpeed * 3.6f)
             } else ride.title
 
-            val finishedAt = System.currentTimeMillis()
+            val finishedAt = if (pruneAfterTimestampEpochMs != null) {
+                minOf(System.currentTimeMillis(), points.last().timestamp.coerceAtLeast(ride.startTime))
+            } else {
+                System.currentTimeMillis()
+            }
             val calc = `in`.shvms.trackme.data.local.entity.PostRideCalculation(
-                distance = finalDistance,
+                distance = resolvedDistance,
                 maxSpeed = maxSpeed,
                 avgSpeed = avgSpeed,
                 pauseDuration = (finishedAt - ride.startTime - activeTimeMs).coerceAtLeast(0L),
@@ -1656,9 +2236,24 @@ class TrackingService : Service() {
                 ride.groupRiderCount
             }
 
+            val normalizedIntervals = `in`.shvms.trackme.domain.live.LiveShareIntervals.normalize(
+                intervals = liveShareIntervals,
+                minStartMillis = ride.startTime,
+                maxEndMillis = finishedAt,
+            )
+            val liveShareMode = `in`.shvms.trackme.domain.live.LiveShareIntervals.resolveMode(
+                rideStartMillis = ride.startTime,
+                rideEndMillis = finishedAt,
+                intervals = normalizedIntervals,
+            )
+            val liveShareIntervalsJson = `in`.shvms.trackme.domain.live.LiveShareIntervals.serialize(normalizedIntervals)
+
             val finishedRide = ride.copy(
                 endTime = finishedAt,
                 title = newTitle,
+                isBroadcasted = ride.isBroadcasted || liveShareMode != null,
+                liveShareMode = liveShareMode ?: ride.liveShareMode,
+                liveShareIntervalsJson = liveShareIntervalsJson ?: ride.liveShareIntervalsJson,
                 postRideCalculation = calc,
                 groupRiderCount = groupRiderCount,
             ).let {
@@ -1675,7 +2270,7 @@ class TrackingService : Service() {
             `in`.shvms.trackme.analytics.AnalyticsManager.trackRideCompleted(
                 rideId = rideId.toString(),
                 durationSeconds = activeTimeMs / 1000L,
-                distanceKm = finalDistance / 1000.0
+                distanceKm = resolvedDistance / 1000.0
             )
 
             // A1: shared good-ride hook. Fold the just-saved ride into the aggregate store.
@@ -1685,7 +2280,7 @@ class TrackingService : Service() {
             // Decision (decision_log 2026-07-20): NEVER credit sub-threshold "junk" rides to
             // retention stats, even when the user chose to keep them (discardNearEmptyRide=false).
             // Mirror iOS's guard so the eligibility rule is identical on both platforms.
-            val isJunkRide = finalDistance < JUNK_RIDE_DISTANCE_METERS &&
+            val isJunkRide = resolvedDistance < JUNK_RIDE_DISTANCE_METERS &&
                 activeTimeMs < JUNK_RIDE_DURATION_MILLIS
             if (!isJunkRide) {
                 try {
@@ -1693,9 +2288,9 @@ class TrackingService : Service() {
                     val transition = app?.rideStatsStore?.recordGoodRide(
                         `in`.shvms.trackme.domain.stats.GoodRideSummary(
                             rideId = rideId,
-                            finishedAtMillis = finishedRide.endTime ?: System.currentTimeMillis(),
+                            finishedAtMillis = finishedRide.endTime ?: finishedAt,
                             durationMillis = activeTimeMs,
-                            distanceMeters = finalDistance
+                            distanceMeters = resolvedDistance
                         )
                     )
                     // B1: pick the bounded reveal from the transition and persist it as a durable
@@ -1781,7 +2376,9 @@ class TrackingService : Service() {
         const val ACTION_START_OR_RESUME_SERVICE = "ACTION_START_OR_RESUME_SERVICE"
         const val ACTION_PAUSE_SERVICE = "ACTION_PAUSE_SERVICE"
         const val ACTION_STOP_SERVICE = "ACTION_STOP_SERVICE"
+        const val ACTION_STOP_STANDBY = "ACTION_STOP_STANDBY"
         const val ACTION_DISCARD_NEAR_EMPTY_RIDE = "ACTION_DISCARD_NEAR_EMPTY_RIDE"
+        const val MAX_STANDBY_DURATION_MS = 2 * 60 * 60 * 1000L
 
         /** §4.6: presence composes with the recorder rather than replacing it. */
         const val ACTION_START_GROUP_PRESENCE = "ACTION_START_GROUP_PRESENCE"
@@ -1805,6 +2402,8 @@ class TrackingService : Service() {
         const val TRACKING_PREFS = "trackme_prefs"
         const val ACTIVE_TRACKING_SESSION_KEY = "active_tracking_session"
         const val PAUSED_TRACKING_SESSION_KEY = "paused_tracking_session"
+        private const val ACTIVE_LIVE_SHARE_INTERVALS_KEY = "active_live_share_intervals_json"
+        private const val ACTIVE_LIVE_SHARE_OPEN_START_KEY = "active_live_share_open_start_ms"
 
         @Volatile
         var isRunning: Boolean = false

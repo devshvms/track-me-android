@@ -518,10 +518,14 @@ class FirestoreSyncManager(
             }
 
             val persona = doc.getString("persona") ?: "AUTO"
+            val syncedLiveShareMode = doc.getString("liveShareMode")
+            val syncedLiveShareIntervalsJson = doc.getString("liveShareIntervalsJson")
+            val syncedIsBroadcasted = doc.getBoolean("isBroadcasted") == true || syncedLiveShareMode != null
             val ride = RideEntity(
                 startTime = startTime,
                 endTime = endTime,
                 sourceInfo = sourceInfo,
+                isBroadcasted = syncedIsBroadcasted,
                 isSynced = true,
                 firestoreId = docId,
                 title = title,
@@ -531,6 +535,8 @@ class FirestoreSyncManager(
                 revealKind = doc.getString("revealKind"),
                 revealPreviousBest = doc.getDouble("revealPreviousBest"),
                 revealMilestoneCount = doc.getLong("revealMilestoneCount")?.toInt(),
+                liveShareMode = syncedLiveShareMode,
+                liveShareIntervalsJson = syncedLiveShareIntervalsJson,
                 postRideCalculation = calc
             )
             val reconstructedActiveDuration =
@@ -681,6 +687,9 @@ class FirestoreSyncManager(
                 "revealKind" to rideWithPoints.ride.revealKind,
                 "revealPreviousBest" to rideWithPoints.ride.revealPreviousBest,
                 "revealMilestoneCount" to rideWithPoints.ride.revealMilestoneCount,
+                "isBroadcasted" to rideWithPoints.ride.isBroadcasted,
+                "liveShareMode" to rideWithPoints.ride.liveShareMode,
+                "liveShareIntervalsJson" to rideWithPoints.ride.liveShareIntervalsJson,
                 RideChunking.CHUNK_COUNT_FIELD to chunks.size
             ) + dashboardCloudMetadata(rideWithPoints.ride, rideWithPoints.points.size)
 

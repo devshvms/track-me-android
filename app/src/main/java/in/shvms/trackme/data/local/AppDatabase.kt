@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RideEntity::class, 
         GPSPointEntity::class
     ], 
-    version = 22,
+    version = 23,
     exportSchema = false
 )
 @TypeConverters(PauseOriginConverters::class)
@@ -53,6 +53,14 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE gps_points ADD COLUMN displayLatitude REAL")
                 database.execSQL("ALTER TABLE gps_points ADD COLUMN displayLongitude REAL")
+            }
+        }
+
+        /** TASK-366 / SCOPE_1.9.3: additive Live Share mode and interval spans on rides. */
+        val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `rides` ADD COLUMN `liveShareMode` TEXT")
+                database.execSQL("ALTER TABLE `rides` ADD COLUMN `liveShareIntervalsJson` TEXT")
             }
         }
         val MIGRATION_2_3 = object : Migration(2, 3) {

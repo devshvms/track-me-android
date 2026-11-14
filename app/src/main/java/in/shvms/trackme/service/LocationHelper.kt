@@ -81,6 +81,29 @@ class LocationHelper(private val context: Context) {
         }
     }
 
+    /**
+     * TASK-369: Low-power standby tracking for continuous trip chaining.
+     * Uses balanced power accuracy and displacement trigger (>= 25m) so phone doesn't burn
+     * continuous high-accuracy GPS while dwelling indoors.
+     */
+    @SuppressLint("MissingPermission")
+    fun startStandbyTracking(callback: LocationCallback): Boolean {
+        isGpsThrottled = false
+        val request = LocationRequest.Builder(
+            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            15_000L,
+        )
+            .setMinUpdateIntervalMillis(10_000L)
+            .setMinUpdateDistanceMeters(25f)
+            .build()
+        return try {
+            client.requestLocationUpdates(request, callback, Looper.getMainLooper())
+            true
+        } catch (_: SecurityException) {
+            false
+        }
+    }
+
     fun stopLocationTracking(callback: LocationCallback) {
         isGpsThrottled = false
         client.removeLocationUpdates(callback)

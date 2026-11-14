@@ -153,6 +153,9 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val statusPaused: String = s("statusPaused", "PAUSED")
     val hudAutoPausedPill: String = s("hudAutoPausedPill", "Auto paused")
     val hudLiveSharingPill: String = s("hudLiveSharingPill", "Live sharing")
+    val hudPowerSavingPill: String = s("hudPowerSavingPill", "Power saving")
+    val hudPowerSavingA11y: String = s("hudPowerSavingA11y", "Power saving mode active: broadcast interval spaced out")
+    val hudHibernatingPill: String = s("hudHibernatingPill", "Eco · 30s")
     val hudOfflineShieldPill: String = s("hudOfflineShieldPill", "Offline shield active")
     val hudTouchLockPill: String = s("hudTouchLockPill", "Lock")
     val hudTouchLockedPill: String = s("hudTouchLockedPill", "Locked")
@@ -222,6 +225,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val groupJoinConsent: String = s("groupJoinConsent", "They'll see your location while the group is live.")
     val groupShare: String = s("groupShare", "Share invite")
     val groupShareMessage: String = s("groupShareMessage", "Join my ride on TrackMe — we'll see each other on the map while we go. Code: %1\$s  %2\$s")
+    val liveShareShareMessage: String = s("liveShareShareMessage", "Track my live ride on TrackMe: %1\$s")
+    val trustedWatcherInviteShareMessage: String = s("trustedWatcherInviteShareMessage", "Add me as a trusted contact on TrackMe to see my live rides: %1\$s")
     val groupStart: String = s("groupStart", "Start group")
     val groupEnd: String = s("groupEnd", "End group")
     val groupLeave: String = s("groupLeave", "Leave group")
@@ -426,6 +431,84 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val homeStartSharing: String = s("homeStartSharing", "Start sharing")
     val homeStopSharing: String = s("homeStopSharing", "Stop sharing")
     val homeSharingExplanation: String = s("homeSharingExplanation", "Prepare a link valid for 30 minutes. Your location appears while recording. Anyone with the link can view it. Opening this page shares nothing.")
+    val channelLiveShareName: String = s("channelLiveShareName", "Live location alerts")
+    val channelLiveShareDescription: String = s("channelLiveShareDescription", "Alerts when trusted riders start sharing their live location with you.")
+    val watcherLivePushTitle: String = s("watcherLivePushTitle", "%1\$s is sharing live location")
+    val watcherLivePushBody: String = s("watcherLivePushBody", "Tap to follow their live route on TrackMe.")
+    val homeShareLiveLocation: String = s("homeShareLiveLocation", "Share Live Location")
+    val trustedWatchersButton: String = s("trustedWatchersButton", "Trusted watchers (%1\$d)")
+    val trustedWatchersTitle: String = s("trustedWatchersTitle", "Trusted watchers")
+    val trustedWatchersSubtitle: String = s("trustedWatchersSubtitle", "Auto-notify up to 5 trusted friends or family when you start live sharing — no contacts permission needed.")
+    val trustedWatchersAddCta: String = s("trustedWatchersAddCta", "Invite trusted watcher")
+    val trustedWatchersEmpty: String = s("trustedWatchersEmpty", "No trusted watchers yet. Send an invite link so they get an alert whenever you share live location.")
+    val trustedWatchersMaxNote: String = s("trustedWatchersMaxNote", "Up to 5 trusted watchers can be notified automatically.")
+    val trustedWatchersAutoNotify: String = s("trustedWatchersAutoNotify", "Auto-notify")
+    val trustedWatchersRemove: String = s("trustedWatchersRemove", "Remove watcher")
+    val trustedWatchersRemoveConfirmTitle: String = s("trustedWatchersRemoveConfirmTitle", "Remove trusted watcher?")
+    val trustedWatchersRemoveConfirmMessage: String = s("trustedWatchersRemoveConfirmMessage", "Remove %1\$s from trusted watchers? They will no longer receive live ride alerts automatically.")
+    val liveShareDurationLabel: String = s("liveShareDurationLabel", "Share duration")
+    val liveShareViewersWatching: String = s("liveShareViewersWatching", "%1\$d watching live")
+    val liveShareNoViewersYet: String = s("liveShareNoViewersYet", "No viewers yet")
+    val liveShareEncapsulatedRideHint: String = s("liveShareEncapsulatedRideHint", "Ride recording active · Tap for telemetry")
+    val liveShareKeepRecordingRide: String = s("liveShareKeepRecordingRide", "Keep ride")
+    val liveShareStopAndSaveRide: String = s("liveShareStopAndSaveRide", "Stop sharing")
+    val liveShareBackToBroadcastHud: String = s("liveShareBackToBroadcastHud", "Live Share")
+    val liveShareSharedWithCount: String = s("liveShareSharedWithCount", "Notified %1\$d trusted watcher(s)")
+    val liveShareReadyAutoNotified: String = s("liveShareReadyAutoNotified", "Live sharing active. %1\$d trusted watcher(s) notified and link copied.")
+    val watcherInboxBannerTitle: String = s("watcherInboxBannerTitle", "%1\$s is sharing live location")
+    val watcherInboxBannerAction: String = s("watcherInboxBannerAction", "Watch")
+    val watcherInviteAcceptedToast: String = s("watcherInviteAcceptedToast", "You are now a trusted watcher for %1\$s.")
+    val liveShareBadgeFull: String = s("liveShareBadgeFull", "Live Shared")
+    val liveShareBadgePartial: String = s("liveShareBadgePartial", "Partial Live")
+    val groupRideBadge: String = s("groupRideBadge", "Group")
+    val liveChartScrubLive: String = s("liveChartScrubLive", "Live Share")
+    val liveViewerTitle: String = s("liveViewerTitle", "%1\$s — Live")
+    val liveViewerActiveBadge: String = s("liveViewerActiveBadge", "Live now")
+    val liveViewerEndedBadge: String = s("liveViewerEndedBadge", "Session ended")
+    val liveViewerExpiredNotice: String = s("liveViewerExpiredNotice", "This live share session has ended or expired.")
+    val liveViewerRiderEndedNotice: String = s("liveViewerRiderEndedNotice", "The rider has ended this live trip.")
+    val liveViewerLoading: String = s("liveViewerLoading", "Connecting to live share…")
+    val liveViewerOpenInBrowser: String = s("liveViewerOpenInBrowser", "Open in browser")
+    val liveViewerWaitingFirstFix: String = s("liveViewerWaitingFirstFix", "Session live — waiting for first GPS signal…")
+    val liveViewerDelayedBadge: String = s("liveViewerDelayedBadge", "Delayed")
+    val liveViewerRecenter: String = s("liveViewerRecenter", "Recenter")
+    val liveViewerFitRoute: String = s("liveViewerFitRoute", "Fit route")
+    val liveViewerReconnecting: String = s("liveViewerReconnecting", "Connection slow — retrying…")
+    val liveViewerNetworkOfflineToast: String = s("liveViewerNetworkOfflineToast", "Network offline · Retrying automatically")
+    val liveViewerNetworkReconnectedToast: String = s("liveViewerNetworkReconnectedToast", "Network reconnected · Updating location")
+    val liveViewerUpdatedAgo: String = s("liveViewerUpdatedAgo", "Updated %1\$s")
+    val liveViewerDelayedBadgeA11y: String = s("liveViewerDelayedBadgeA11y", "Location updates delayed")
+    val liveViewerRecenterA11y: String = s("liveViewerRecenterA11y", "Re-center map on rider's current location")
+    val liveViewerFitRouteA11y: String = s("liveViewerFitRouteA11y", "Fit entire route in view")
+    val liveViewerDestinationA11y: String = s("liveViewerDestinationA11y", "Destination: %1\$s")
+    val liveViewerSpeedA11y: String = s("liveViewerSpeedA11y", "Rider speed: %1\$s")
+    val liveViewerSpeedUnavailableA11y: String = s("liveViewerSpeedUnavailableA11y", "Rider speed unavailable")
+    val liveViewerBatteryA11y: String = s("liveViewerBatteryA11y", "Rider battery: %1\$d percent")
+    val liveViewerBatteryLowA11y: String = s("liveViewerBatteryLowA11y", "Rider battery low: %1\$d percent")
+    val liveViewerLowBatteryBanner: String = s("liveViewerLowBatteryBanner", "Rider battery low (%1\$d%%) · Signal may pause if phone powers off")
+    val liveViewerOpenInBrowserA11y: String = s("liveViewerOpenInBrowserA11y", "Open live tracking session in web browser")
+    val liveViewerSignalPausedBadge: String = s("liveViewerSignalPausedBadge", "Signal paused")
+    val liveViewerSignalPausedA11y: String = s("liveViewerSignalPausedA11y", "GPS signal paused, waiting for rider location")
+    val liveViewerSignalPausedBanner: String = s("liveViewerSignalPausedBanner", "Signal paused · Waiting for rider GPS")
+    val liveViewerDurationLabel: String = s("liveViewerDurationLabel", "Duration: %1\$s")
+    val liveViewerDistanceLabel: String = s("liveViewerDistanceLabel", "Distance: %1\$s")
+    val liveViewerExpectedBy: String = s("liveViewerExpectedBy", "Expected by %1\$s")
+    val liveViewerOverdueBy: String = s("liveViewerOverdueBy", "Overdue · Expected by %1\$s")
+    val liveViewerShareRide: String = s("liveViewerShareRide", "Share")
+    val liveViewerShareRideA11y: String = s("liveViewerShareRideA11y", "Share this live tracking session")
+    val liveViewerShareRideSubject: String = s("liveViewerShareRideSubject", "TrackMe Live Ride")
+    val liveViewerShareMessageWithName: String = s("liveViewerShareMessageWithName", "Track %1\$s's live ride on TrackMe: %2\$s")
+    val liveViewerShareMessageFallback: String = s("liveViewerShareMessageFallback", "Track this live ride on TrackMe: %1\$s")
+    val liveViewerDirectionsA11y: String = s("liveViewerDirectionsA11y", "Open directions to rider in maps")
+    val liveViewerStopped: String = s("liveViewerStopped", "Stopped · %1\$s")
+    val liveViewerStoppedA11y: String = s("liveViewerStoppedA11y", "Rider stopped for %1\$s")
+    val liveViewerToggleUnitsA11y: String = s("liveViewerToggleUnitsA11y", "Toggle speed and distance units. Current: %1\$s")
+    val liveViewerIdleThrottledNotice: String = s("liveViewerIdleThrottledNotice", "Viewer idle · Updates slowed to save battery")
+    val liveViewerPowerSaveThrottledNotice: String = s("liveViewerPowerSaveThrottledNotice", "Power save active · Location updates every ~15s")
+    val liveViewerLowDataModeTitle: String = s("liveViewerLowDataModeTitle", "Low-data mode")
+    val liveViewerLowDataModeA11y: String = s("liveViewerLowDataModeA11y", "Toggle low-data mode. Updates slowed to 30 seconds.")
+    val liveViewerLowDataNotice: String = s("liveViewerLowDataNotice", "Low-data mode active · Polling every 30s")
+    val watcherInviteSignInRequired: String = s("watcherInviteSignInRequired", "Sign in to accept this trusted watcher invite.")
     val reminderOff: String = s("reminderOff", "Off")
     val reminderSectionSubtitle: String = s("reminderSectionSubtitle", "Reminders on the days and at the time you choose. Off unless you turn them on.")
     val reminderEnable: String = s("reminderEnable", "Remind me weekly")
@@ -548,6 +631,20 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val debugTrackingControlsTitle: String = s("debugTrackingControlsTitle", "Tracking controls")
     val intelligentAutoPauseTitle: String = s("intelligentAutoPauseTitle", "Intelligent Auto-Pause")
     val intelligentAutoPauseDescription: String = s("intelligentAutoPauseDescription", "Dynamically pauses moving time based on the activity speed profile.")
+    val autoTripChainingTitle: String = s("autoTripChainingTitle", "Continuous Trip Tracking")
+    val autoTripChainingSubtitle: String = s("autoTripChainingSubtitle", "Automatically completes your ride when stopped indoors, and auto-starts the next ride when moving again.")
+    val autoEndDwellMinutesTitle: String = s("autoEndDwellMinutesTitle", "Auto-End Inactivity Window")
+    val autoEndDwellMinutesSubtitle: String = s("autoEndDwellMinutesSubtitle", "Duration of dwelling indoors before automatically ending the ride (%1\$d minutes).")
+    val autoEndCropDwellTitle: String = s("autoEndCropDwellTitle", "Trim Indoor Dwell Points")
+    val autoEndCropDwellSubtitle: String = s("autoEndCropDwellSubtitle", "Prunes trailing GPS points recorded while stationary indoors so distance and pace stay accurate.")
+    val notifAutoTripSavedTitle: String = s("notifAutoTripSavedTitle", "Ride Automatically Completed")
+    val notifAutoTripSavedBody: String = s("notifAutoTripSavedBody", "Your %1\$s ride of %2\$s has been saved to History.")
+    val notifAutoTripStartedTitle: String = s("notifAutoTripStartedTitle", "New Ride Automatically Started")
+    val standbyBannerTitle: String = s("standbyBannerTitle", "Auto-trip standby active")
+    val standbyBannerSubtitle: String = s("standbyBannerSubtitle", "Waiting for your next ride to auto-start (stops automatically after 2 hours).")
+    val stopStandby: String = s("stopStandby", "Stop standby")
+    val notifStandbyTitle: String = s("notifStandbyTitle", "TrackMe Auto-Trip Standby")
+    val notifStandbyBody: String = s("notifStandbyBody", "Waiting for your next ride. Tap Stop standby to disable background GPS.")
     val debugModeEnabledMessage: String = s("debugModeEnabledMessage", "Debug mode is enabled")
     // Help & Feedback
     val helpFeedbackTitle: String = s("helpFeedbackTitle", "Help & Feedback")
@@ -979,9 +1076,27 @@ val LocalAppStrings = staticCompositionLocalOf { AppStrings() }
 val SUPPORTED_LANGUAGE_CODES: List<String> =
     `in`.shvms.trackme.data.local.AppLanguageCatalog.supportedCodes
 
+private val cachedEnStrings: AppStrings by lazy { AppStrings() }
+private val cachedEsStrings: AppStrings by lazy { createEsAppStrings() }
+private val cachedFrStrings: AppStrings by lazy { createFrAppStrings() }
+private val cachedDeStrings: AppStrings by lazy { createDeAppStrings() }
+private val cachedHiStrings: AppStrings by lazy { createHiAppStrings() }
+private val cachedJaStrings: AppStrings by lazy { createJaAppStrings() }
+private val cachedZhStrings: AppStrings by lazy { createZhAppStrings() }
+
 fun getAppStrings(languageCode: String): AppStrings {
     return when (languageCode) {
-        "es" -> AppStrings(mapOf(
+        "es" -> cachedEsStrings
+        "fr" -> cachedFrStrings
+        "de" -> cachedDeStrings
+        "hi" -> cachedHiStrings
+        "ja" -> cachedJaStrings
+        "zh" -> cachedZhStrings
+        else -> cachedEnStrings
+    }
+}
+
+private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardStartPersona" to "Iniciar %1\$s",
             "dashboardChangeActivity" to "Cambiar actividad",
             "dashboardThisWeek" to "Esta semana",
@@ -1204,6 +1319,84 @@ fun getAppStrings(languageCode: String): AppStrings {
             "homeStartSharing" to "Empezar a compartir",
             "homeStopSharing" to "Dejar de compartir",
             "homeSharingExplanation" to "Prepara un enlace válido durante 30 minutos. Tu ubicación aparece al grabar. Cualquiera con el enlace puede verla. Abrir esta página no comparte nada.",
+            "channelLiveShareName" to "Alertas de ubicación en vivo",
+            "channelLiveShareDescription" to "Alertas cuando ciclistas de confianza comparten su ubicación en vivo contigo.",
+            "watcherLivePushTitle" to "%1\$s está compartiendo su ubicación en vivo",
+            "watcherLivePushBody" to "Toca para seguir su ruta en vivo en TrackMe.",
+            "homeShareLiveLocation" to "Compartir ubicación en vivo",
+            "trustedWatchersButton" to "Observadores de confianza (%1\$d)",
+            "trustedWatchersTitle" to "Observadores de confianza",
+            "trustedWatchersSubtitle" to "Notifica automáticamente hasta a 5 amigos o familiares al compartir en vivo — sin permiso de contactos.",
+            "trustedWatchersAddCta" to "Invitar observador de confianza",
+            "trustedWatchersEmpty" to "Aún no tienes observadores de confianza. Envía un enlace de invitación para avisarles al compartir en vivo.",
+            "trustedWatchersMaxNote" to "Se puede notificar automáticamente hasta a 5 observadores de confianza.",
+            "trustedWatchersAutoNotify" to "Auto-avisar",
+            "trustedWatchersRemove" to "Eliminar observador",
+            "trustedWatchersRemoveConfirmTitle" to "¿Eliminar observador de confianza?",
+            "trustedWatchersRemoveConfirmMessage" to "¿Eliminar a %1\$s de los observadores de confianza? Ya no recibirá alertas de viaje en vivo automáticamente.",
+            "liveShareDurationLabel" to "Duración",
+            "liveShareViewersWatching" to "%1\$d viendo en vivo",
+            "liveShareNoViewersYet" to "Sin espectadores aún",
+            "liveShareEncapsulatedRideHint" to "Grabación activa · Toca para ver telemetría",
+            "liveShareKeepRecordingRide" to "Seguir grabando",
+            "liveShareStopAndSaveRide" to "Dejar de compartir",
+            "liveShareBackToBroadcastHud" to "Panel en vivo",
+            "liveShareSharedWithCount" to "Notificado a %1\$d observador(es)",
+            "liveShareReadyAutoNotified" to "Ubicación en vivo activa. Se avisó a %1\$d observador(es) y se copió el enlace.",
+            "watcherInboxBannerTitle" to "%1\$s comparte su ubicación en vivo",
+            "watcherInboxBannerAction" to "Ver",
+            "watcherInviteAcceptedToast" to "Ahora eres observador de confianza de %1\$s.",
+            "liveShareBadgeFull" to "En vivo",
+            "liveShareBadgePartial" to "En vivo parcial",
+            "groupRideBadge" to "Grupo",
+            "liveChartScrubLive" to "En vivo",
+            "liveViewerTitle" to "%1\$s — En vivo",
+            "liveViewerActiveBadge" to "Transmitiendo ahora",
+            "liveViewerEndedBadge" to "Sesión finalizada",
+            "liveViewerExpiredNotice" to "Esta sesión de ubicación en vivo terminó o expiró.",
+            "liveViewerRiderEndedNotice" to "El usuario ha finalizado este recorrido en vivo.",
+            "liveViewerLoading" to "Conectando con la transmisión en vivo…",
+            "liveViewerOpenInBrowser" to "Abrir en el navegador",
+            "liveViewerWaitingFirstFix" to "Sesión en vivo — esperando la primera señal GPS…",
+            "liveViewerDelayedBadge" to "Con retraso",
+            "liveViewerRecenter" to "Centrar",
+            "liveViewerFitRoute" to "Ver ruta completa",
+            "liveViewerReconnecting" to "Conexión lenta — reintentando…",
+            "liveViewerNetworkOfflineToast" to "Sin conexión · Reintentando automáticamente",
+            "liveViewerNetworkReconnectedToast" to "Conexión restablecida · Actualizando ubicación",
+            "liveViewerUpdatedAgo" to "Actualizado %1\$s",
+            "liveViewerDelayedBadgeA11y" to "Actualizaciones de ubicación retrasadas",
+            "liveViewerRecenterA11y" to "Re-centrar mapa en la ubicación actual del usuario",
+            "liveViewerFitRouteA11y" to "Ajustar ruta completa en pantalla",
+            "liveViewerDestinationA11y" to "Destino: %1\$s",
+            "liveViewerSpeedA11y" to "Velocidad del usuario: %1\$s",
+            "liveViewerSpeedUnavailableA11y" to "Velocidad del usuario no disponible",
+            "liveViewerBatteryA11y" to "Batería del usuario: %1\$d por ciento",
+            "liveViewerBatteryLowA11y" to "Batería del usuario baja: %1\$d por ciento",
+            "liveViewerLowBatteryBanner" to "Batería del ciclista baja (%1\$d%%) · La señal puede pausarse si el teléfono se apaga",
+            "liveViewerOpenInBrowserA11y" to "Abrir sesión de seguimiento en el navegador web",
+            "liveViewerSignalPausedBadge" to "Señal en pausa",
+            "liveViewerSignalPausedA11y" to "Señal GPS en pausa, esperando ubicación del usuario",
+            "liveViewerSignalPausedBanner" to "Señal en pausa · Esperando GPS del usuario",
+            "liveViewerDurationLabel" to "Duración: %1\$s",
+            "liveViewerDistanceLabel" to "Distancia: %1\$s",
+            "liveViewerExpectedBy" to "Llegada prevista: %1\$s",
+            "liveViewerOverdueBy" to "Atrasado · Llegada prevista: %1\$s",
+            "liveViewerShareRide" to "Compartir",
+            "liveViewerShareRideA11y" to "Compartir esta sesión de seguimiento en vivo",
+            "liveViewerShareRideSubject" to "Ruta en vivo en TrackMe",
+            "liveViewerShareMessageWithName" to "Sigue la ruta en vivo de %1\$s en TrackMe: %2\$s",
+            "liveViewerShareMessageFallback" to "Sigue esta ruta en vivo en TrackMe: %1\$s",
+            "liveViewerDirectionsA11y" to "Abrir ruta hacia el ciclista en mapas",
+            "liveViewerStopped" to "Detenido · %1\$s",
+            "liveViewerStoppedA11y" to "Ciclista detenido por %1\$s",
+            "liveViewerToggleUnitsA11y" to "Alternar unidades de velocidad y distancia. Actual: %1\$s",
+            "liveViewerIdleThrottledNotice" to "Espectador inactivo · Actualizaciones ralentizadas para ahorrar batería",
+            "liveViewerPowerSaveThrottledNotice" to "Ahorro de energía activo · Ubicación actualizada cada ~15s",
+            "liveViewerLowDataModeTitle" to "Modo ahorro de datos",
+            "liveViewerLowDataModeA11y" to "Alternar modo de ahorro de datos. Actualizaciones cada 30 segundos.",
+            "liveViewerLowDataNotice" to "Ahorro de datos activo · Actualizaciones cada 30 s",
+            "watcherInviteSignInRequired" to "Inicia sesión para aceptar esta invitación de observador.",
             "reminderOff" to "Desactivado",
             "reminderSectionSubtitle" to "Recordatorios los días y a la hora que elijas. Desactivados hasta que los actives.",
             "reminderEnable" to "Recordármelo cada semana",
@@ -1255,6 +1448,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupJoinConsent" to "Verán tu ubicación mientras el grupo esté activo.",
             "groupShare" to "Compartir invitación",
             "groupShareMessage" to "Únete a mi ruta en TrackMe: nos veremos en el mapa mientras vamos. Código: %1\$s  %2\$s",
+            "liveShareShareMessage" to "Sigue mi ruta en vivo en TrackMe: %1\$s",
+            "trustedWatcherInviteShareMessage" to "Añádeme como contacto de confianza en TrackMe para ver mis rutas en vivo: %1\$s",
             "groupStart" to "Iniciar grupo",
             "groupEnd" to "Finalizar grupo",
             "groupLeave" to "Salir del grupo",
@@ -1344,6 +1539,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusPaused" to "PAUSADO",
             "hudAutoPausedPill" to "Pausa automática",
             "hudLiveSharingPill" to "Compartiendo en vivo",
+            "hudPowerSavingPill" to "Ahorro de batería",
+            "hudPowerSavingA11y" to "Modo de ahorro de batería activo: intervalo de transmisión espaciado",
+            "hudHibernatingPill" to "Eco · 30 s",
             "hudOfflineShieldPill" to "Escudo sin conexión activo",
             "hudTouchLockPill" to "Bloquear",
             "hudTouchLockedPill" to "Bloqueado",
@@ -1692,6 +1890,20 @@ fun getAppStrings(languageCode: String): AppStrings {
             "debugTrackingControlsTitle" to "Controles de seguimiento",
             "intelligentAutoPauseTitle" to "Pausa automática inteligente",
             "intelligentAutoPauseDescription" to "Pausa dinámicamente el tiempo en movimiento según el perfil de velocidad de la actividad.",
+            "autoTripChainingTitle" to "Seguimiento Continuo de Viajes",
+            "autoTripChainingSubtitle" to "Completa automáticamente la ruta al detenerte en interiores e inicia la siguiente cuando te mueves.",
+            "autoEndDwellMinutesTitle" to "Tiempo de Espera para Finalización Automática",
+            "autoEndDwellMinutesSubtitle" to "Duración de estancia en interiores antes de finalizar la ruta automáticamente (%1\$d minutos).",
+            "autoEndCropDwellTitle" to "Recortar Puntos de Estancia en Interiores",
+            "autoEndCropDwellSubtitle" to "Elimina los puntos de GPS registrados durante la parada en interiores para mantener la precisión de la distancia y el ritmo.",
+            "notifAutoTripSavedTitle" to "Ruta Completada Automáticamente",
+            "notifAutoTripSavedBody" to "Tu ruta en %1\$s de %2\$s se ha guardado en el Historial.",
+            "notifAutoTripStartedTitle" to "Nueva Ruta Iniciada Automáticamente",
+            "standbyBannerTitle" to "Modo de espera automático activo",
+            "standbyBannerSubtitle" to "Esperando tu próxima ruta para iniciar automáticamente (se detiene tras 2 horas).",
+            "stopStandby" to "Detener espera",
+            "notifStandbyTitle" to "TrackMe en espera automática",
+            "notifStandbyBody" to "Esperando tu próxima ruta. Toca Detener espera para desactivar el GPS en segundo plano.",
             "debugModeEnabledMessage" to "El modo de depuración está activado",
             "contactSupport" to "Contactar con soporte",
             "contactSupportSubject" to "Soporte de TrackMe",
@@ -1733,7 +1945,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticBatteryOptimization" to "Optimización de batería",
             "helpDiagnosticSignedIn" to "Sesión iniciada",
         ))
-        "fr" -> AppStrings(mapOf(
+
+private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardStartPersona" to "Démarrer %1\$s",
             "dashboardChangeActivity" to "Changer d’activité",
             "dashboardThisWeek" to "Cette semaine",
@@ -1956,6 +2169,84 @@ fun getAppStrings(languageCode: String): AppStrings {
             "homeStartSharing" to "Démarrer le partage",
             "homeStopSharing" to "Arrêter le partage",
             "homeSharingExplanation" to "Préparez un lien valable 30 minutes. Votre position apparaît pendant l’enregistrement. Toute personne ayant le lien peut la voir. Ouvrir cette page ne partage rien.",
+            "channelLiveShareName" to "Alertes de position en direct",
+            "channelLiveShareDescription" to "Alertes lorsque des proches commencent à partager leur position en direct avec vous.",
+            "watcherLivePushTitle" to "%1\$s partage sa position en direct",
+            "watcherLivePushBody" to "Touchez pour suivre son trajet en direct sur TrackMe.",
+            "homeShareLiveLocation" to "Partager sa position en direct",
+            "trustedWatchersButton" to "Contacts de confiance (%1\$d)",
+            "trustedWatchersTitle" to "Contacts de confiance",
+            "trustedWatchersSubtitle" to "Alertez automatiquement jusqu’à 5 proches lorsque vous lancez un partage en direct — sans accès au répertoire.",
+            "trustedWatchersAddCta" to "Inviter un proche",
+            "trustedWatchersEmpty" to "Aucun contact de confiance pour l’instant. Envoyez un lien d’invitation pour qu’ils soient alertés automatiquement.",
+            "trustedWatchersMaxNote" to "Jusqu’à 5 contacts de confiance peuvent être avertis automatiquement.",
+            "trustedWatchersAutoNotify" to "Alerte auto",
+            "trustedWatchersRemove" to "Retirer le contact",
+            "trustedWatchersRemoveConfirmTitle" to "Supprimer le contact de confiance ?",
+            "trustedWatchersRemoveConfirmMessage" to "Supprimer %1\$s des contacts de confiance ? Cette personne ne recevra plus automatiquement vos alertes de trajet en direct.",
+            "liveShareDurationLabel" to "Durée du partage",
+            "liveShareViewersWatching" to "%1\$d regardent en direct",
+            "liveShareNoViewersYet" to "Aucun spectateur pour l’instant",
+            "liveShareEncapsulatedRideHint" to "Trajet enregistré · Toucher pour la télémétrie",
+            "liveShareKeepRecordingRide" to "Continuer le trajet",
+            "liveShareStopAndSaveRide" to "Arrêter le partage",
+            "liveShareBackToBroadcastHud" to "Écran partage direct",
+            "liveShareSharedWithCount" to "%1\$d proche(s) alerté(s)",
+            "liveShareReadyAutoNotified" to "Partage en direct actif. %1\$d proche(s) alerté(s) et lien copié.",
+            "watcherInboxBannerTitle" to "%1\$s partage sa position en direct",
+            "watcherInboxBannerAction" to "Voir",
+            "watcherInviteAcceptedToast" to "Vous êtes désormais contact de confiance pour %1\$s.",
+            "liveShareBadgeFull" to "En direct",
+            "liveShareBadgePartial" to "Direct partiel",
+            "groupRideBadge" to "Groupe",
+            "liveChartScrubLive" to "En direct",
+            "liveViewerTitle" to "%1\$s — En direct",
+            "liveViewerActiveBadge" to "En cours",
+            "liveViewerEndedBadge" to "Session terminée",
+            "liveViewerExpiredNotice" to "Ce partage de position en direct est terminé ou expiré.",
+            "liveViewerRiderEndedNotice" to "Le cycliste a terminé ce trajet en direct.",
+            "liveViewerLoading" to "Connexion au suivi en direct…",
+            "liveViewerOpenInBrowser" to "Ouvrir dans le navigateur",
+            "liveViewerWaitingFirstFix" to "Session en direct — en attente du premier signal GPS…",
+            "liveViewerDelayedBadge" to "Retardé",
+            "liveViewerRecenter" to "Recentrer",
+            "liveViewerFitRoute" to "Voir le trajet",
+            "liveViewerReconnecting" to "Connexion lente — nouvelle tentative…",
+            "liveViewerNetworkOfflineToast" to "Réseau hors ligne · Nouvelle tentative automatique",
+            "liveViewerNetworkReconnectedToast" to "Réseau reconnecté · Mise à jour de la position",
+            "liveViewerUpdatedAgo" to "Mis à jour %1\$s",
+            "liveViewerDelayedBadgeA11y" to "Mises à jour de position retardées",
+            "liveViewerRecenterA11y" to "Recentrer la carte sur la position actuelle du cycliste",
+            "liveViewerFitRouteA11y" to "Ajuster l'ensemble du parcours à l'écran",
+            "liveViewerDestinationA11y" to "Destination : %1\$s",
+            "liveViewerSpeedA11y" to "Vitesse du cycliste : %1\$s",
+            "liveViewerSpeedUnavailableA11y" to "Vitesse du cycliste non disponible",
+            "liveViewerBatteryA11y" to "Batterie du cycliste : %1\$d pour cent",
+            "liveViewerBatteryLowA11y" to "Batterie faible du cycliste : %1\$d pour cent",
+            "liveViewerLowBatteryBanner" to "Batterie du cycliste faible (%1\$d%%) · Le signal peut s'interrompre si le téléphone s'éteint",
+            "liveViewerOpenInBrowserA11y" to "Ouvrir la session de suivi en direct dans le navigateur web",
+            "liveViewerSignalPausedBadge" to "Signal en pause",
+            "liveViewerSignalPausedA11y" to "Signal GPS en pause, en attente de la position du cycliste",
+            "liveViewerSignalPausedBanner" to "Signal en pause · En attente du GPS du cycliste",
+            "liveViewerDurationLabel" to "Durée : %1\$s",
+            "liveViewerDistanceLabel" to "Distance : %1\$s",
+            "liveViewerExpectedBy" to "Arrivée prévue à %1\$s",
+            "liveViewerOverdueBy" to "En retard · Arrivée prévue à %1\$s",
+            "liveViewerShareRide" to "Partager",
+            "liveViewerShareRideA11y" to "Partager cette session de suivi en direct",
+            "liveViewerShareRideSubject" to "Sortie en direct sur TrackMe",
+            "liveViewerShareMessageWithName" to "Suivez la sortie en direct de %1\$s sur TrackMe : %2\$s",
+            "liveViewerShareMessageFallback" to "Suivez cette sortie en direct sur TrackMe : %1\$s",
+            "liveViewerDirectionsA11y" to "Ouvrir l'itinéraire vers le cycliste dans les cartes",
+            "liveViewerStopped" to "À l'arrêt · %1\$s",
+            "liveViewerStoppedA11y" to "À l'arrêt depuis %1\$s",
+            "liveViewerToggleUnitsA11y" to "Changer les unités de vitesse et de distance. Actuel : %1\$s",
+            "liveViewerIdleThrottledNotice" to "Spectateur inactif · Mises à jour ralenties pour économiser la batterie",
+            "liveViewerPowerSaveThrottledNotice" to "Économie d'énergie active · Mises à jour de position toutes les ~15 s",
+            "liveViewerLowDataModeTitle" to "Mode économie de données",
+            "liveViewerLowDataModeA11y" to "Activer/désactiver le mode économie de données. Mises à jour toutes les 30 secondes.",
+            "liveViewerLowDataNotice" to "Mode économie de données actif · Actualisation toutes les 30 s",
+            "watcherInviteSignInRequired" to "Connectez-vous pour accepter cette invitation de contact de confiance.",
             "reminderOff" to "Désactivé",
             "reminderSectionSubtitle" to "Des rappels aux jours et à l’heure de votre choix. Désactivés tant que vous ne les activez pas.",
             "reminderEnable" to "Me rappeler chaque semaine",
@@ -2007,6 +2298,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupJoinConsent" to "Ils verront votre position tant que le groupe est actif.",
             "groupShare" to "Partager l'invitation",
             "groupShareMessage" to "Rejoins ma sortie sur TrackMe — on se verra sur la carte en chemin. Code : %1\$s  %2\$s",
+            "liveShareShareMessage" to "Suivez ma sortie en direct sur TrackMe : %1\$s",
+            "trustedWatcherInviteShareMessage" to "Ajoutez-moi comme contact de confiance sur TrackMe pour voir mes sorties en direct : %1\$s",
             "groupStart" to "Démarrer le groupe",
             "groupEnd" to "Terminer le groupe",
             "groupLeave" to "Quitter le groupe",
@@ -2096,6 +2389,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusPaused" to "EN PAUSE",
             "hudAutoPausedPill" to "Pause automatique",
             "hudLiveSharingPill" to "Partage en direct",
+            "hudPowerSavingPill" to "Économie d'énergie",
+            "hudPowerSavingA11y" to "Mode économie d'énergie actif : intervalle de diffusion espacé",
+            "hudHibernatingPill" to "Éco · 30 s",
             "hudOfflineShieldPill" to "Bouclier hors ligne actif",
             "hudTouchLockPill" to "Verrouiller",
             "hudTouchLockedPill" to "Verrouillé",
@@ -2444,6 +2740,20 @@ fun getAppStrings(languageCode: String): AppStrings {
             "debugTrackingControlsTitle" to "Commandes de suivi",
             "intelligentAutoPauseTitle" to "Pause automatique intelligente",
             "intelligentAutoPauseDescription" to "Met dynamiquement en pause le temps de déplacement selon le profil de vitesse de l’activité.",
+            "autoTripChainingTitle" to "Suivi Continu des Trajets",
+            "autoTripChainingSubtitle" to "Termine automatiquement le trajet à l'arrêt en intérieur et démarre le suivant dès que vous repartez.",
+            "autoEndDwellMinutesTitle" to "Délai de Fin Automatique",
+            "autoEndDwellMinutesSubtitle" to "Durée d'inactivité en intérieur avant la fin automatique du trajet (%1\$d minutes).",
+            "autoEndCropDwellTitle" to "Tronquer les Points d'Arrêt en Intérieur",
+            "autoEndCropDwellSubtitle" to "Supprime les points GPS enregistrés à l'arrêt en intérieur pour préserver la précision de la distance et de l'allure.",
+            "notifAutoTripSavedTitle" to "Trajet Terminé Automatiquement",
+            "notifAutoTripSavedBody" to "Votre trajet en %1\$s de %2\$s a été enregistré dans l'Historique.",
+            "notifAutoTripStartedTitle" to "Nouveau Trajet Démarré Automatiquement",
+            "standbyBannerTitle" to "Veille de trajet automatique active",
+            "standbyBannerSubtitle" to "En attente du prochain trajet à démarrer automatiquement (arrêt automatique après 2 heures).",
+            "stopStandby" to "Arrêter la veille",
+            "notifStandbyTitle" to "TrackMe en veille automatique",
+            "notifStandbyBody" to "En attente du prochain trajet. Appuyez sur Arrêter la veille pour couper le GPS en arrière-plan.",
             "debugModeEnabledMessage" to "Le mode débogage est activé",
             "contactSupport" to "Contacter l’assistance",
             "contactSupportSubject" to "Assistance TrackMe",
@@ -2485,7 +2795,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticBatteryOptimization" to "Optimisation de la batterie",
             "helpDiagnosticSignedIn" to "Session ouverte",
         ))
-        "de" -> AppStrings(mapOf(
+
+private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardStartPersona" to "%1\$s starten",
             "dashboardChangeActivity" to "Aktivität ändern",
             "dashboardThisWeek" to "Diese Woche",
@@ -2708,6 +3019,84 @@ fun getAppStrings(languageCode: String): AppStrings {
             "homeStartSharing" to "Freigabe starten",
             "homeStopSharing" to "Freigabe beenden",
             "homeSharingExplanation" to "Erstelle einen Link für 30 Minuten. Dein Standort erscheint während der Aufzeichnung. Jeder mit dem Link kann ihn sehen. Das Öffnen dieser Seite teilt nichts.",
+            "channelLiveShareName" to "Live-Standort-Hinweise",
+            "channelLiveShareDescription" to "Benachrichtigungen, wenn vertrauenswürdige Fahrer ihren Live-Standort mit dir teilen.",
+            "watcherLivePushTitle" to "%1\$s teilt den Live-Standort",
+            "watcherLivePushBody" to "Tippen, um die Live-Route in TrackMe zu verfolgen.",
+            "homeShareLiveLocation" to "Live-Standort teilen",
+            "trustedWatchersButton" to "Vertraute Beobachter (%1\$d)",
+            "trustedWatchersTitle" to "Vertraute Beobachter",
+            "trustedWatchersSubtitle" to "Bis zu 5 vertraute Freunde oder Familienmitglieder beim Live-Teilen automatisch benachrichtigen — ohne Kontakte-Zugriff.",
+            "trustedWatchersAddCta" to "Beobachter einladen",
+            "trustedWatchersEmpty" to "Noch keine vertrauten Beobachter. Sende einen Einladungslink, damit sie beim Live-Teilen benachrichtigt werden.",
+            "trustedWatchersMaxNote" to "Bis zu 5 vertraute Beobachter können automatisch benachrichtigt werden.",
+            "trustedWatchersAutoNotify" to "Auto-Hinweis",
+            "trustedWatchersRemove" to "Beobachter entfernen",
+            "trustedWatchersRemoveConfirmTitle" to "Vertrauten Beobachter entfernen?",
+            "trustedWatchersRemoveConfirmMessage" to "Möchtest du %1\$s aus den vertrauten Beobachtern entfernen? Die Person erhält künftig keine automatischen Live-Fahrtbenachrichtigungen mehr.",
+            "liveShareDurationLabel" to "Freigabedauer",
+            "liveShareViewersWatching" to "%1\$d sehen live zu",
+            "liveShareNoViewersYet" to "Noch keine Zuschauer",
+            "liveShareEncapsulatedRideHint" to "Fahrtaufzeichnung aktiv · Für Telemetrie tippen",
+            "liveShareKeepRecordingRide" to "Fahrt fortsetzen",
+            "liveShareStopAndSaveRide" to "Freigabe beenden",
+            "liveShareBackToBroadcastHud" to "Live-Teilen-HUD",
+            "liveShareSharedWithCount" to "%1\$d vertraute Beobachter benachrichtigt",
+            "liveShareReadyAutoNotified" to "Live-Teilen aktiv. %1\$d Beobachter benachrichtigt und Link kopiert.",
+            "watcherInboxBannerTitle" to "%1\$s teilt den Live-Standort",
+            "watcherInboxBannerAction" to "Ansehen",
+            "watcherInviteAcceptedToast" to "Du bist jetzt ein vertrauter Beobachter für %1\$s.",
+            "liveShareBadgeFull" to "Live geteilt",
+            "liveShareBadgePartial" to "Teilweise Live",
+            "groupRideBadge" to "Gruppe",
+            "liveChartScrubLive" to "Live-Freigabe",
+            "liveViewerTitle" to "%1\$s — Live-Ansicht",
+            "liveViewerActiveBadge" to "Jetzt live",
+            "liveViewerEndedBadge" to "Beendet",
+            "liveViewerExpiredNotice" to "Diese Live-Standortfreigabe ist beendet oder abgelaufen.",
+            "liveViewerRiderEndedNotice" to "Der Fahrer hat diese Live-Fahrt beendet.",
+            "liveViewerLoading" to "Verbinde mit Live-Freigabe…",
+            "liveViewerOpenInBrowser" to "Im Browser öffnen",
+            "liveViewerWaitingFirstFix" to "Live — warte auf erstes GPS-Signal…",
+            "liveViewerDelayedBadge" to "Verzögert",
+            "liveViewerRecenter" to "Zentrieren",
+            "liveViewerFitRoute" to "Gesamte Route",
+            "liveViewerReconnecting" to "Verbindung langsam — neuer Versuch…",
+            "liveViewerNetworkOfflineToast" to "Netzwerk offline · Automatischer Neuversuch",
+            "liveViewerNetworkReconnectedToast" to "Netzwerk wiederhergestellt · Standort wird aktualisiert",
+            "liveViewerUpdatedAgo" to "Aktualisiert %1\$s",
+            "liveViewerDelayedBadgeA11y" to "Standortaktualisierungen verzögert",
+            "liveViewerRecenterA11y" to "Karte auf aktuellen Standort des Fahrers zentrieren",
+            "liveViewerFitRouteA11y" to "Gesamte Route in Ansicht einpassen",
+            "liveViewerDestinationA11y" to "Ziel: %1\$s",
+            "liveViewerSpeedA11y" to "Geschwindigkeit des Fahrers: %1\$s",
+            "liveViewerSpeedUnavailableA11y" to "Geschwindigkeit des Fahrers nicht verfügbar",
+            "liveViewerBatteryA11y" to "Akkustand des Fahrers: %1\$d Prozent",
+            "liveViewerBatteryLowA11y" to "Niedriger Akkustand des Fahrers: %1\$d Prozent",
+            "liveViewerLowBatteryBanner" to "Fahrer-Akku schwach (%1\$d%%) · Signal kann pausieren, wenn sich das Telefon ausschaltet",
+            "liveViewerOpenInBrowserA11y" to "Live-Tracking-Sitzung im Webbrowser öffnen",
+            "liveViewerSignalPausedBadge" to "Signal pausiert",
+            "liveViewerSignalPausedA11y" to "GPS-Signal pausiert, warte auf Standort des Fahrers",
+            "liveViewerSignalPausedBanner" to "Signal pausiert · Warte auf GPS des Fahrers",
+            "liveViewerDurationLabel" to "Dauer: %1\$s",
+            "liveViewerDistanceLabel" to "Distanz: %1\$s",
+            "liveViewerExpectedBy" to "Erwartet um %1\$s",
+            "liveViewerOverdueBy" to "Überfällig · Erwartet um %1\$s",
+            "liveViewerShareRide" to "Teilen",
+            "liveViewerShareRideA11y" to "Diese Live-Tracking-Sitzung teilen",
+            "liveViewerShareRideSubject" to "TrackMe Live-Fahrt",
+            "liveViewerShareMessageWithName" to "Verfolge die Live-Fahrt von %1\$s auf TrackMe: %2\$s",
+            "liveViewerShareMessageFallback" to "Verfolge diese Live-Fahrt auf TrackMe: %1\$s",
+            "liveViewerDirectionsA11y" to "Route zum Fahrer in Karten öffnen",
+            "liveViewerStopped" to "Angehalten · %1\$s",
+            "liveViewerStoppedA11y" to "Angehalten seit %1\$s",
+            "liveViewerToggleUnitsA11y" to "Einheiten für Geschwindigkeit und Entfernung umschalten. Aktuell: %1\$s",
+            "liveViewerIdleThrottledNotice" to "Zuschauer inaktiv · Aktualisierungen verlangsamt, um Akku zu sparen",
+            "liveViewerPowerSaveThrottledNotice" to "Energiesparmodus aktiv · Standortaktualisierungen alle ~15 s",
+            "liveViewerLowDataModeTitle" to "Datensparmodus",
+            "liveViewerLowDataModeA11y" to "Datensparmodus umschalten. Aktualisierungen auf 30 Sekunden verlangsamt.",
+            "liveViewerLowDataNotice" to "Datensparmodus aktiv · Aktualisierung alle 30s",
+            "watcherInviteSignInRequired" to "Melde dich an, um diese Einladung anzunehmen.",
             "reminderOff" to "Aus",
             "reminderSectionSubtitle" to "Erinnerungen an den gewählten Tagen und zur gewählten Uhrzeit. Aus, bis du sie einschaltest.",
             "reminderEnable" to "Wöchentlich erinnern",
@@ -2759,6 +3148,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupJoinConsent" to "Sie sehen deinen Standort, solange die Gruppe aktiv ist.",
             "groupShare" to "Einladung teilen",
             "groupShareMessage" to "Komm zu meiner Fahrt auf TrackMe — wir sehen uns unterwegs auf der Karte. Code: %1\$s  %2\$s",
+            "liveShareShareMessage" to "Verfolge meine Fahrt live auf TrackMe: %1\$s",
+            "trustedWatcherInviteShareMessage" to "Füge mich als vertrauenswürdigen Kontakt auf TrackMe hinzu, um meine Live-Fahrten zu sehen: %1\$s",
             "groupStart" to "Gruppe starten",
             "groupEnd" to "Gruppe beenden",
             "groupLeave" to "Gruppe verlassen",
@@ -2848,6 +3239,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusPaused" to "PAUSIERT",
             "hudAutoPausedPill" to "Automatisch pausiert",
             "hudLiveSharingPill" to "Live-Freigabe",
+            "hudPowerSavingPill" to "Energiesparen",
+            "hudPowerSavingA11y" to "Energiesparmodus aktiv: Übertragungsintervall verlängert",
+            "hudHibernatingPill" to "Sparmodus · 30 s",
             "hudOfflineShieldPill" to "Offline-Schutz aktiv",
             "hudTouchLockPill" to "Sperren",
             "hudTouchLockedPill" to "Gesperrt",
@@ -3196,6 +3590,20 @@ fun getAppStrings(languageCode: String): AppStrings {
             "debugTrackingControlsTitle" to "Tracking-Steuerung",
             "intelligentAutoPauseTitle" to "Intelligente automatische Pause",
             "intelligentAutoPauseDescription" to "Pausiert die Bewegungszeit dynamisch anhand des Geschwindigkeitsprofils der Aktivität.",
+            "autoTripChainingTitle" to "Kontinuierliche Fahrtenaufzeichnung",
+            "autoTripChainingSubtitle" to "Beendet Fahrten bei längeren Stopps in Innenräumen automatisch und startet die nächste Fahrt bei Bewegung.",
+            "autoEndDwellMinutesTitle" to "Zeitfenster für automatisches Beenden",
+            "autoEndDwellMinutesSubtitle" to "Verweildauer im Innenbereich bis zum automatischen Beenden (%1\$d Minuten).",
+            "autoEndCropDwellTitle" to "Verweilpunkte in Innenräumen abschneiden",
+            "autoEndCropDwellSubtitle" to "Entfernt nachgelagerte GPS-Punkte im Stillstand in Innenräumen für präzise Distanz- und Tempowerte.",
+            "notifAutoTripSavedTitle" to "Fahrt automatisch abgeschlossen",
+            "notifAutoTripSavedBody" to "Deine %1\$s-Fahrt über %2\$s wurde im Verlauf gespeichert.",
+            "notifAutoTripStartedTitle" to "Neue Fahrt automatisch gestartet",
+            "standbyBannerTitle" to "Auto-Trip-Standby aktiv",
+            "standbyBannerSubtitle" to "Wartet auf deine nächste Fahrt zum automatischen Starten (stoppt automatisch nach 2 Stunden).",
+            "stopStandby" to "Standby stoppen",
+            "notifStandbyTitle" to "TrackMe Auto-Trip-Standby",
+            "notifStandbyBody" to "Wartet auf deine nächste Fahrt. Tippe auf Standby stoppen, um Hintergrund-GPS zu deaktivieren.",
             "debugModeEnabledMessage" to "Der Debug-Modus ist aktiviert",
             "contactSupport" to "Support kontaktieren",
             "contactSupportSubject" to "TrackMe-Support",
@@ -3237,7 +3645,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticBatteryOptimization" to "Akkuoptimierung",
             "helpDiagnosticSignedIn" to "Angemeldet",
         ))
-        "hi" -> AppStrings(mapOf(
+
+private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardStartPersona" to "%1\$s शुरू करें",
             "dashboardChangeActivity" to "गतिविधि बदलें",
             "dashboardThisWeek" to "इस सप्ताह",
@@ -3460,6 +3869,84 @@ fun getAppStrings(languageCode: String): AppStrings {
             "homeStartSharing" to "साझा करना शुरू करें",
             "homeStopSharing" to "साझा करना बंद करें",
             "homeSharingExplanation" to "30 मिनट के लिए मान्य लिंक बनाएँ। रिकॉर्डिंग के दौरान आपका स्थान दिखेगा। लिंक वाला कोई भी व्यक्ति देख सकता है। यह पेज खोलने से कुछ साझा नहीं होता।",
+            "channelLiveShareName" to "लाइव लोकेशन अलर्ट",
+            "channelLiveShareDescription" to "जब भरोसेमंद राइडर आपके साथ अपनी लाइव लोकेशन साझा करना शुरू करें तो अलर्ट।",
+            "watcherLivePushTitle" to "%1\$s लाइव लोकेशन साझा कर रहे हैं",
+            "watcherLivePushBody" to "TrackMe पर उनका लाइव रूट देखने के लिए टैप करें।",
+            "homeShareLiveLocation" to "लाइव लोकेशन साझा करें",
+            "trustedWatchersButton" to "भरोसेमंद वॉचर (%1\$d)",
+            "trustedWatchersTitle" to "भरोसेमंद वॉचर",
+            "trustedWatchersSubtitle" to "लाइव शेयरिंग शुरू करते ही अधिकतम 5 भरोसेमंद मित्रों या परिवार को स्वतः सूचित करें — कॉन्टैक्ट अनुमति की आवश्यकता नहीं।",
+            "trustedWatchersAddCta" to "भरोसेमंद वॉचर आमंत्रित करें",
+            "trustedWatchersEmpty" to "अभी कोई भरोसेमंद वॉचर नहीं है। आमंत्रण लिंक भेजें ताकि लाइव शेयरिंग पर उन्हें सूचना मिले।",
+            "trustedWatchersMaxNote" to "अधिकतम 5 भरोसेमंद वॉचर्स को स्वतः सूचित किया जा सकता है।",
+            "trustedWatchersAutoNotify" to "स्वतः सूचना",
+            "trustedWatchersRemove" to "वॉचर हटाएँ",
+            "trustedWatchersRemoveConfirmTitle" to "भरोसेमंद वॉचर हटाएँ?",
+            "trustedWatchersRemoveConfirmMessage" to "क्या %1\$s को भरोसेमंद वॉचर्स से हटाना चाहते हैं? उन्हें अब लाइव राइड की सूचनाएँ स्वतः नहीं मिलेंगी।",
+            "liveShareDurationLabel" to "साझा करने की अवधि",
+            "liveShareViewersWatching" to "%1\$d लाइव देख रहे हैं",
+            "liveShareNoViewersYet" to "अभी कोई दर्शक नहीं",
+            "liveShareEncapsulatedRideHint" to "राइड रिकॉर्डिंग सक्रिय · पूरी टेलीमेट्री के लिए टैप करें",
+            "liveShareKeepRecordingRide" to "राइड जारी रखें",
+            "liveShareStopAndSaveRide" to "साझा करना बंद करें",
+            "liveShareBackToBroadcastHud" to "लाइव शेयर HUD",
+            "liveShareSharedWithCount" to "%1\$d भरोसेमंद वॉचर्स को सूचित किया गया",
+            "liveShareReadyAutoNotified" to "लाइव शेयरिंग सक्रिय। %1\$d भरोसेमंद वॉचर्स को सूचित किया गया और लिंक कॉपी हो गया।",
+            "watcherInboxBannerTitle" to "%1\$s लाइव लोकेशन साझा कर रहे हैं",
+            "watcherInboxBannerAction" to "देखें",
+            "watcherInviteAcceptedToast" to "अब आप %1\$s के भरोसेमंद वॉचर हैं।",
+            "liveShareBadgeFull" to "लाइव साझा",
+            "liveShareBadgePartial" to "आंशिक लाइव",
+            "groupRideBadge" to "समूह",
+            "liveChartScrubLive" to "लाइव साझा",
+            "liveViewerTitle" to "%1\$s — लाइव",
+            "liveViewerActiveBadge" to "अभी लाइव",
+            "liveViewerEndedBadge" to "सत्र समाप्त",
+            "liveViewerExpiredNotice" to "यह लाइव लोकेशन शेयर सत्र समाप्त या समय-सीमा पार हो चुका है।",
+            "liveViewerRiderEndedNotice" to "राइडर ने यह लाइव ट्रिप समाप्त कर दी है।",
+            "liveViewerLoading" to "लाइव शेयर से जुड़ रहा है…",
+            "liveViewerOpenInBrowser" to "ब्राउज़र में खोलें",
+            "liveViewerWaitingFirstFix" to "सत्र लाइव है — पहले GPS सिग्नल की प्रतीक्षा…",
+            "liveViewerDelayedBadge" to "विलंबित",
+            "liveViewerRecenter" to "केंद्रित करें",
+            "liveViewerFitRoute" to "पूरा मार्ग देखें",
+            "liveViewerReconnecting" to "कनेक्शन धीमा — पुनः प्रयास जारी…",
+            "liveViewerNetworkOfflineToast" to "नेटवर्क ऑफ़लाइन · स्वचालित पुनः प्रयास जारी",
+            "liveViewerNetworkReconnectedToast" to "नेटवर्क पुनः कनेक्ट हुआ · स्थान अपडेट हो रहा है",
+            "liveViewerUpdatedAgo" to "अपडेट %1\$s",
+            "liveViewerDelayedBadgeA11y" to "स्थान अपडेट विलंबित हैं",
+            "liveViewerRecenterA11y" to "राइडर के वर्तमान स्थान पर मानचित्र को पुनः केंद्रित करें",
+            "liveViewerFitRouteA11y" to "पूरे मार्ग को स्क्रीन पर फ़िट करें",
+            "liveViewerDestinationA11y" to "गंतव्य: %1\$s",
+            "liveViewerSpeedA11y" to "राइडर की गति: %1\$s",
+            "liveViewerSpeedUnavailableA11y" to "राइडर की गति उपलब्ध नहीं है",
+            "liveViewerBatteryA11y" to "राइडर की बैटरी: %1\$d प्रतिशत",
+            "liveViewerBatteryLowA11y" to "राइडर की बैटरी कम है: %1\$d प्रतिशत",
+            "liveViewerLowBatteryBanner" to "राइडर की बैटरी कम है (%1\$d%%) · फ़ोन बंद होने पर सिग्नल रुक सकता है",
+            "liveViewerOpenInBrowserA11y" to "वेब ब्राउज़र में लाइव ट्रैकिंग सत्र खोलें",
+            "liveViewerSignalPausedBadge" to "सिग्नल रुका हुआ",
+            "liveViewerSignalPausedA11y" to "जीपीएस सिग्नल रुका हुआ, राइडर के स्थान की प्रतीक्षा है",
+            "liveViewerSignalPausedBanner" to "सिग्नल रुका हुआ · राइडर के जीपीएस की प्रतीक्षा है",
+            "liveViewerDurationLabel" to "अवधि: %1\$s",
+            "liveViewerDistanceLabel" to "दूरी: %1\$s",
+            "liveViewerExpectedBy" to "अपेक्षित समय %1\$s",
+            "liveViewerOverdueBy" to "विलंबित · अपेक्षित समय %1\$s",
+            "liveViewerShareRide" to "शेयर करें",
+            "liveViewerShareRideA11y" to "इस लाइव ट्रैकिंग सत्र को साझा करें",
+            "liveViewerShareRideSubject" to "TrackMe लाइव सवारी",
+            "liveViewerShareMessageWithName" to "TrackMe पर %1\$s की लाइव सवारी को ट्रैक करें: %2\$s",
+            "liveViewerShareMessageFallback" to "TrackMe पर इस लाइव सवारी को ट्रैक करें: %1\$s",
+            "liveViewerDirectionsA11y" to "मैप्स में सवार के लिए दिशा-निर्देश खोलें",
+            "liveViewerStopped" to "रुके हुए · %1\$s",
+            "liveViewerStoppedA11y" to "%1\$s से रुके हुए हैं",
+            "liveViewerToggleUnitsA11y" to "गति और दूरी इकाइयाँ बदलें। वर्तमान: %1\$s",
+            "liveViewerIdleThrottledNotice" to "दर्शक निष्क्रिय · बैटरी बचाने के लिए अपडेट धीमे किए गए",
+            "liveViewerPowerSaveThrottledNotice" to "पावर सेव सक्रिय · स्थान अपडेट लगभग हर 15 सेकंड में",
+            "liveViewerLowDataModeTitle" to "डेटा बचत मोड",
+            "liveViewerLowDataModeA11y" to "डेटा बचत मोड बदलें। अपडेट हर 30 सेकंड में धीमे किए गए।",
+            "liveViewerLowDataNotice" to "डेटा बचत मोड सक्रिय · हर 30 सेकंड में अपडेट",
+            "watcherInviteSignInRequired" to "भरोसेमंद वॉचर आमंत्रण स्वीकार करने के लिए साइन इन करें।",
             "reminderOff" to "बंद",
             "reminderSectionSubtitle" to "आपके चुने दिनों और समय पर अनुस्मारक। चालू करने तक बंद रहेंगे।",
             "reminderEnable" to "साप्ताहिक याद दिलाएँ",
@@ -3511,6 +3998,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupJoinConsent" to "जब तक ग्रुप लाइव है, वे आपका स्थान देखेंगे।",
             "groupShare" to "आमंत्रण साझा करें",
             "groupShareMessage" to "TrackMe पर मेरी सवारी में शामिल हों — रास्ते में हम एक-दूसरे को मैप पर देखेंगे। कोड: %1\$s  %2\$s",
+            "liveShareShareMessage" to "TrackMe पर मेरी लाइव सवारी को ट्रैक करें: %1\$s",
+            "trustedWatcherInviteShareMessage" to "मेरी लाइव सवारी देखने के लिए मुझे TrackMe पर एक विश्वसनीय संपर्क के रूप में जोड़ें: %1\$s",
             "groupStart" to "ग्रुप शुरू करें",
             "groupEnd" to "ग्रुप समाप्त करें",
             "groupLeave" to "ग्रुप छोड़ें",
@@ -3600,6 +4089,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusPaused" to "रुका हुआ",
             "hudAutoPausedPill" to "स्वतः रुका",
             "hudLiveSharingPill" to "लाइव साझा",
+            "hudPowerSavingPill" to "बैटरी बचत",
+            "hudPowerSavingA11y" to "बैटरी बचत मोड सक्रिय: प्रसारण अंतराल बढ़ाया गया",
+            "hudHibernatingPill" to "इको · 30 सेकंड",
             "hudOfflineShieldPill" to "ऑफ़लाइन शील्ड सक्रिय",
             "hudTouchLockPill" to "लॉक करें",
             "hudTouchLockedPill" to "लॉक है",
@@ -3948,6 +4440,20 @@ fun getAppStrings(languageCode: String): AppStrings {
             "debugTrackingControlsTitle" to "ट्रैकिंग कंट्रोल",
             "intelligentAutoPauseTitle" to "स्मार्ट ऑटो-पॉज़",
             "intelligentAutoPauseDescription" to "गतिविधि की गति प्रोफ़ाइल के अनुसार चलते समय को अपने-आप रोकता है।",
+            "autoTripChainingTitle" to "निरंतर यात्रा ट्रैकिंग",
+            "autoTripChainingSubtitle" to "घर या दफ्तर में रुकने पर यात्रा अपने आप पूरी हो जाती है, और फिर से चलने पर अगली यात्रा शुरू हो जाती है।",
+            "autoEndDwellMinutesTitle" to "स्वतः समाप्ति निष्क्रियता समय",
+            "autoEndDwellMinutesSubtitle" to "यात्रा स्वतः समाप्त होने से पहले घर के अंदर रुकने की अवधि (%1\$d मिनट)।",
+            "autoEndCropDwellTitle" to "घर के अंदर के ठहराव बिंदु हटाएं",
+            "autoEndCropDwellSubtitle" to "घर के अंदर स्थिर रहने के दौरान रिकॉर्ड किए गए जीपीएस बिंदुओं को हटाता है ताकि दूरी और गति सटीक रहे।",
+            "notifAutoTripSavedTitle" to "यात्रा स्वतः पूरी हो गई",
+            "notifAutoTripSavedBody" to "आपकी %1\$s की %2\$s यात्रा इतिहास में सुरक्षित कर ली गई है।",
+            "notifAutoTripStartedTitle" to "नई यात्रा स्वतः शुरू हो गई",
+            "standbyBannerTitle" to "ऑटो-ट्रिप स्टैंडबाय सक्रिय है",
+            "standbyBannerSubtitle" to "अगली यात्रा स्वतः शुरू होने की प्रतीक्षा में (2 घंटे बाद अपने-आप बंद हो जाता है)।",
+            "stopStandby" to "स्टैंडबाय बंद करें",
+            "notifStandbyTitle" to "TrackMe ऑटो-ट्रिप स्टैंडबाय",
+            "notifStandbyBody" to "अगली यात्रा की प्रतीक्षा में। बैकग्राउंड GPS बंद करने के लिए स्टैंडबाय बंद करें पर टैप करें।",
             "debugModeEnabledMessage" to "डीबग मोड चालू है",
             "contactSupport" to "सहायता से संपर्क करें",
             "contactSupportSubject" to "TrackMe सहायता",
@@ -3989,7 +4495,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticBatteryOptimization" to "बैटरी अनुकूलन",
             "helpDiagnosticSignedIn" to "साइन इन",
         ))
-        "ja" -> AppStrings(mapOf(
+
+private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardStartPersona" to "%1\$sを開始",
             "dashboardChangeActivity" to "アクティビティを変更",
             "dashboardThisWeek" to "今週",
@@ -4212,6 +4719,84 @@ fun getAppStrings(languageCode: String): AppStrings {
             "homeStartSharing" to "共有を開始",
             "homeStopSharing" to "共有を停止",
             "homeSharingExplanation" to "30分間有効なリンクを準備します。記録中に位置が表示され、リンクを持つ人が閲覧できます。このページを開くだけでは共有されません。",
+            "channelLiveShareName" to "ライブ位置情報アラート",
+            "channelLiveShareDescription" to "信頼できるライダーがライブ位置情報の共有を開始したときに通知します。",
+            "watcherLivePushTitle" to "%1\$s さんがライブ位置情報を共有しています",
+            "watcherLivePushBody" to "タップして TrackMe でライブ経路を確認します。",
+            "homeShareLiveLocation" to "ライブ位置を共有",
+            "trustedWatchersButton" to "信頼できるウォッチャー (%1\$d)",
+            "trustedWatchersTitle" to "信頼できるウォッチャー",
+            "trustedWatchersSubtitle" to "ライブ共有開始時に信頼できる家族・友人へ最大5人まで自動通知します（連絡先権限は不要です）。",
+            "trustedWatchersAddCta" to "ウォッチャーを招待",
+            "trustedWatchersEmpty" to "信頼できるウォッチャーはまだいません。招待リンクを送ると、ライブ共有時に自動で通知されます。",
+            "trustedWatchersMaxNote" to "最大5人まで自動的に通知できます。",
+            "trustedWatchersAutoNotify" to "自動通知",
+            "trustedWatchersRemove" to "ウォッチャーを削除",
+            "trustedWatchersRemoveConfirmTitle" to "信頼できるウォッチャーを削除しますか？",
+            "trustedWatchersRemoveConfirmMessage" to "%1\$s を信頼できるウォッチャーから削除しますか？今後のライブライド通知が自動で届かなくなります。",
+            "liveShareDurationLabel" to "共有時間",
+            "liveShareViewersWatching" to "%1\$d 人がライブ視聴中",
+            "liveShareNoViewersYet" to "まだ視聴者はいません",
+            "liveShareEncapsulatedRideHint" to "ライド記録中 · タップして詳細データを表示",
+            "liveShareKeepRecordingRide" to "記録を続ける",
+            "liveShareStopAndSaveRide" to "共有を停止",
+            "liveShareBackToBroadcastHud" to "ライブ共有HUD",
+            "liveShareSharedWithCount" to "信頼できるウォッチャー %1\$d 人に通知しました",
+            "liveShareReadyAutoNotified" to "ライブ共有を開始しました。%1\$d 人のウォッチャーに通知し、リンクをコピーしました。",
+            "watcherInboxBannerTitle" to "%1\$s さんがライブ位置情報を共有中",
+            "watcherInboxBannerAction" to "見る",
+            "watcherInviteAcceptedToast" to "%1\$s さんの信頼できるウォッチャーになりました。",
+            "liveShareBadgeFull" to "ライブ共有",
+            "liveShareBadgePartial" to "一部ライブ",
+            "groupRideBadge" to "グループ",
+            "liveChartScrubLive" to "ライブ共有",
+            "liveViewerTitle" to "%1\$s — ライブ",
+            "liveViewerActiveBadge" to "ライブ中",
+            "liveViewerEndedBadge" to "終了",
+            "liveViewerExpiredNotice" to "このライブ位置情報共有は終了したか期限切れです。",
+            "liveViewerRiderEndedNotice" to "ライダーがこのライブトリップを終了しました。",
+            "liveViewerLoading" to "ライブ共有に接続中…",
+            "liveViewerOpenInBrowser" to "ブラウザで開く",
+            "liveViewerWaitingFirstFix" to "ライブ開始 — 初回のGPS信号を待っています…",
+            "liveViewerDelayedBadge" to "遅延",
+            "liveViewerRecenter" to "現在地へ",
+            "liveViewerFitRoute" to "ルート全体",
+            "liveViewerReconnecting" to "接続不安定 — 再試行中…",
+            "liveViewerNetworkOfflineToast" to "ネットワークオフライン · 自動再試行中",
+            "liveViewerNetworkReconnectedToast" to "再接続しました · 位置情報を更新中",
+            "liveViewerUpdatedAgo" to "更新 %1\$s",
+            "liveViewerDelayedBadgeA11y" to "位置情報の更新が遅延しています",
+            "liveViewerRecenterA11y" to "ライダーの現在地に地図を再センタリング",
+            "liveViewerFitRouteA11y" to "ルート全体を画面に合わせる",
+            "liveViewerDestinationA11y" to "目的地: %1\$s",
+            "liveViewerSpeedA11y" to "ライダーの速度: %1\$s",
+            "liveViewerSpeedUnavailableA11y" to "ライダーの速度データなし",
+            "liveViewerBatteryA11y" to "ライダーのバッテリー残量: %1\$dパーセント",
+            "liveViewerBatteryLowA11y" to "ライダーのバッテリー残量低下: %1\$dパーセント",
+            "liveViewerLowBatteryBanner" to "ライダーのバッテリー低下 (%1\$d%%) · 電源が切れると信号が停止する可能性があります",
+            "liveViewerOpenInBrowserA11y" to "ウェブブラウザでライブ追跡セッションを開く",
+            "liveViewerSignalPausedBadge" to "一時停止中",
+            "liveViewerSignalPausedA11y" to "GPS信号が一時停止中、ライダーの位置情報を待機しています",
+            "liveViewerSignalPausedBanner" to "信号一時停止中 · ライダーのGPSを待機しています",
+            "liveViewerDurationLabel" to "経過時間: %1\$s",
+            "liveViewerDistanceLabel" to "距離: %1\$s",
+            "liveViewerExpectedBy" to "到着予定: %1\$s",
+            "liveViewerOverdueBy" to "遅延中 · 到着予定: %1\$s",
+            "liveViewerShareRide" to "共有",
+            "liveViewerShareRideA11y" to "このライブ追跡セッションを共有",
+            "liveViewerShareRideSubject" to "TrackMe ライブライド",
+            "liveViewerShareMessageWithName" to "TrackMeで%1\$sのライブライドを追跡: %2\$s",
+            "liveViewerShareMessageFallback" to "TrackMeでこのライブライドを追跡: %1\$s",
+            "liveViewerDirectionsA11y" to "マップでライダーへの道順を開く",
+            "liveViewerStopped" to "停止中 · %1\$s",
+            "liveViewerStoppedA11y" to "%1\$s間停止中",
+            "liveViewerToggleUnitsA11y" to "速度と距離の単位を切り替えます。現在: %1\$s",
+            "liveViewerIdleThrottledNotice" to "閲覧者アイドル · バッテリー節約のため更新頻度を低下",
+            "liveViewerPowerSaveThrottledNotice" to "省電力モード有効 · 約15秒ごとに位置情報を更新",
+            "liveViewerLowDataModeTitle" to "データ節約モード",
+            "liveViewerLowDataModeA11y" to "データ節約モードを切り替えます。更新間隔が30秒になります。",
+            "liveViewerLowDataNotice" to "データ節約モード有効 · 30秒ごとに更新",
+            "watcherInviteSignInRequired" to "信頼できるウォッチャーの招待を承諾するにはサインインしてください。",
             "reminderOff" to "オフ",
             "reminderSectionSubtitle" to "選んだ曜日と時間にリマインドします。オンにするまでは無効です。",
             "reminderEnable" to "毎週リマインドする",
@@ -4263,6 +4848,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupJoinConsent" to "グループが有効な間、あなたの位置が共有されます。",
             "groupShare" to "招待を共有",
             "groupShareMessage" to "TrackMeで一緒にライドしましょう。道中お互いを地図で確認できます。コード: %1\$s  %2\$s",
+            "liveShareShareMessage" to "TrackMeで私のライブライドを追跡: %1\$s",
+            "trustedWatcherInviteShareMessage" to "私のライブライドを確認するには、TrackMeで信頼できる連絡先として追加してください: %1\$s",
             "groupStart" to "グループを開始",
             "groupEnd" to "グループを終了",
             "groupLeave" to "グループを退出",
@@ -4352,6 +4939,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusPaused" to "一時停止中",
             "hudAutoPausedPill" to "自動停止中",
             "hudLiveSharingPill" to "ライブ共有中",
+            "hudPowerSavingPill" to "省電力モード",
+            "hudPowerSavingA11y" to "省電力モード有効: 配信間隔が延長されています",
+            "hudHibernatingPill" to "省エネ · 30秒",
             "hudOfflineShieldPill" to "オフライン保護中",
             "hudTouchLockPill" to "ロック",
             "hudTouchLockedPill" to "ロック中",
@@ -4700,6 +5290,20 @@ fun getAppStrings(languageCode: String): AppStrings {
             "debugTrackingControlsTitle" to "追跡コントロール",
             "intelligentAutoPauseTitle" to "インテリジェント自動一時停止",
             "intelligentAutoPauseDescription" to "アクティビティの速度特性に応じて移動時間を自動的に一時停止します。",
+            "autoTripChainingTitle" to "継続的なトリップトラッキング",
+            "autoTripChainingSubtitle" to "屋内での停止時に乗車を自動完了し、再び移動を始めると次の乗車を自動開始します。",
+            "autoEndDwellMinutesTitle" to "自動終了までの待機時間",
+            "autoEndDwellMinutesSubtitle" to "乗車が自動終了するまでの屋内滞在時間（%1\$d分）。",
+            "autoEndCropDwellTitle" to "屋内の滞在ポイントをトリミング",
+            "autoEndCropDwellSubtitle" to "距離とペースの正確性を保つため、屋内で静止中に記録されたGPSポイントを削除します。",
+            "notifAutoTripSavedTitle" to "乗車が自動完了しました",
+            "notifAutoTripSavedBody" to "あなたの%1\$s（%2\$s）の乗車が履歴に保存されました。",
+            "notifAutoTripStartedTitle" to "新しい乗車が自動開始されました",
+            "standbyBannerTitle" to "自動トリップ待機中",
+            "standbyBannerSubtitle" to "次の乗車の自動開始を待機しています（2時間後に自動停止します）。",
+            "stopStandby" to "待機を停止",
+            "notifStandbyTitle" to "TrackMe 自動トリップ待機中",
+            "notifStandbyBody" to "次の乗車を待機中です。「待機を停止」をタップするとバックグラウンドGPSを無効にします。",
             "debugModeEnabledMessage" to "デバッグモードが有効になりました",
             "contactSupport" to "サポートに連絡",
             "contactSupportSubject" to "TrackMeサポート",
@@ -4741,7 +5345,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticBatteryOptimization" to "バッテリー最適化",
             "helpDiagnosticSignedIn" to "サインイン済み",
         ))
-        "zh" -> AppStrings(mapOf(
+
+private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardStartPersona" to "开始%1\$s",
             "dashboardChangeActivity" to "更改活动",
             "dashboardThisWeek" to "本周",
@@ -4964,6 +5569,84 @@ fun getAppStrings(languageCode: String): AppStrings {
             "homeStartSharing" to "开始共享",
             "homeStopSharing" to "停止共享",
             "homeSharingExplanation" to "准备一个有效期为30分钟的链接。记录时显示你的位置，持有链接的人均可查看。打开此页面不会共享任何内容。",
+            "channelLiveShareName" to "实时位置提醒",
+            "channelLiveShareDescription" to "当受信任的骑行者向你开启实时位置共享时发送提醒。",
+            "watcherLivePushTitle" to "%1\$s 正在共享实时位置",
+            "watcherLivePushBody" to "轻触即可在 TrackMe 上跟随他们的实时路线。",
+            "homeShareLiveLocation" to "共享实时位置",
+            "trustedWatchersButton" to "受信任的查看者 (%1\$d)",
+            "trustedWatchersTitle" to "受信任的查看者",
+            "trustedWatchersSubtitle" to "开始实时共享时自动通知最多 5 位信任的好友或家人 — 无需通讯录权限。",
+            "trustedWatchersAddCta" to "邀请受信任的查看者",
+            "trustedWatchersEmpty" to "暂无受信任的查看者。发送邀请链接后，当你共享实时位置时他们会收到提醒。",
+            "trustedWatchersMaxNote" to "最多可自动通知 5 位受信任的查看者。",
+            "trustedWatchersAutoNotify" to "自动通知",
+            "trustedWatchersRemove" to "移除查看者",
+            "trustedWatchersRemoveConfirmTitle" to "移除受信任的查看者？",
+            "trustedWatchersRemoveConfirmMessage" to "要将 %1\$s 从受信任的查看者中移除吗？对方将不再自动接收实时骑行提醒。",
+            "liveShareDurationLabel" to "共享时长",
+            "liveShareViewersWatching" to "%1\$d 人正在实时观看",
+            "liveShareNoViewersYet" to "暂无观看者",
+            "liveShareEncapsulatedRideHint" to "行程记录进行中 · 点击查看完整数据",
+            "liveShareKeepRecordingRide" to "继续记录行程",
+            "liveShareStopAndSaveRide" to "停止共享",
+            "liveShareBackToBroadcastHud" to "实时共享面板",
+            "liveShareSharedWithCount" to "已通知 %1\$d 位受信任的查看者",
+            "liveShareReadyAutoNotified" to "实时共享已开启。已通知 %1\$d 位受信任的查看者并复制链接。",
+            "watcherInboxBannerTitle" to "%1\$s 正在共享实时位置",
+            "watcherInboxBannerAction" to "查看",
+            "watcherInviteAcceptedToast" to "你已成为 %1\$s 的受信任查看者。",
+            "liveShareBadgeFull" to "实时共享",
+            "liveShareBadgePartial" to "部分实时",
+            "groupRideBadge" to "组队",
+            "liveChartScrubLive" to "实时共享",
+            "liveViewerTitle" to "%1\$s — 实时",
+            "liveViewerActiveBadge" to "直播中",
+            "liveViewerEndedBadge" to "已结束",
+            "liveViewerExpiredNotice" to "此实时位置共享会话已结束或已过期。",
+            "liveViewerRiderEndedNotice" to "骑手已结束此实时行程。",
+            "liveViewerLoading" to "正在连接实时共享…",
+            "liveViewerOpenInBrowser" to "在浏览器中打开",
+            "liveViewerWaitingFirstFix" to "实时共享已开启 — 正在等待首个 GPS 信号…",
+            "liveViewerDelayedBadge" to "更新延迟",
+            "liveViewerRecenter" to "居中",
+            "liveViewerFitRoute" to "查看全程",
+            "liveViewerReconnecting" to "连接较慢 — 正在重试…",
+            "liveViewerNetworkOfflineToast" to "网络离线 · 正在自动重试",
+            "liveViewerNetworkReconnectedToast" to "网络已重新连接 · 正在更新位置",
+            "liveViewerUpdatedAgo" to "更新于 %1\$s",
+            "liveViewerDelayedBadgeA11y" to "位置更新延迟",
+            "liveViewerRecenterA11y" to "重新将地图居中到骑手当前位置",
+            "liveViewerFitRouteA11y" to "缩放地图以适应完整路线",
+            "liveViewerDestinationA11y" to "目的地：%1\$s",
+            "liveViewerSpeedA11y" to "骑手速度：%1\$s",
+            "liveViewerSpeedUnavailableA11y" to "骑手速度不可用",
+            "liveViewerBatteryA11y" to "骑手电量：%1\$d%%",
+            "liveViewerBatteryLowA11y" to "骑手电量偏低：%1\$d%%",
+            "liveViewerLowBatteryBanner" to "骑手电量偏低 (%1\$d%%) · 如果手机关机，信号可能会暂停",
+            "liveViewerOpenInBrowserA11y" to "在网络浏览器中打开实时跟踪会话",
+            "liveViewerSignalPausedBadge" to "信号暂停",
+            "liveViewerSignalPausedA11y" to "GPS信号已暂停，正在等待骑手位置",
+            "liveViewerSignalPausedBanner" to "信号暂停 · 正在等待骑手GPS",
+            "liveViewerDurationLabel" to "时长：%1\$s",
+            "liveViewerDistanceLabel" to "距离：%1\$s",
+            "liveViewerExpectedBy" to "预计到达时间：%1\$s",
+            "liveViewerOverdueBy" to "已逾期 · 预计到达时间：%1\$s",
+            "liveViewerShareRide" to "分享",
+            "liveViewerShareRideA11y" to "分享此实时跟踪会话",
+            "liveViewerShareRideSubject" to "TrackMe 实时骑行",
+            "liveViewerShareMessageWithName" to "在 TrackMe 上关注 %1\$s 的实时骑行：%2\$s",
+            "liveViewerShareMessageFallback" to "在 TrackMe 上关注此实时骑行：%1\$s",
+            "liveViewerDirectionsA11y" to "在地图中打开前往骑行者位置的路线",
+            "liveViewerStopped" to "已停止 · %1\$s",
+            "liveViewerStoppedA11y" to "骑手已停止 %1\$s",
+            "liveViewerToggleUnitsA11y" to "切换速度和距离单位。当前：%1\$s",
+            "liveViewerIdleThrottledNotice" to "观众空闲 · 降低更新频率以节省电量",
+            "liveViewerPowerSaveThrottledNotice" to "省电模式开启 · 约每15秒更新一次位置",
+            "liveViewerLowDataModeTitle" to "低流量模式",
+            "liveViewerLowDataModeA11y" to "切换低流量模式。更新间隔放慢至30秒。",
+            "liveViewerLowDataNotice" to "低流量模式开启 · 每30秒更新一次",
+            "watcherInviteSignInRequired" to "请先登录以接受受信任查看者邀请。",
             "reminderOff" to "关闭",
             "reminderSectionSubtitle" to "在你选择的日期和时间提醒。开启后才会发送。",
             "reminderEnable" to "每周提醒我",
@@ -5015,6 +5698,8 @@ fun getAppStrings(languageCode: String): AppStrings {
             "groupJoinConsent" to "在群组活动期间，他们将看到你的位置。",
             "groupShare" to "分享邀请",
             "groupShareMessage" to "加入我在 TrackMe 的骑行——路上我们能在地图上看到彼此。代码：%1\$s  %2\$s",
+            "liveShareShareMessage" to "在 TrackMe 上关注我的实时骑行：%1\$s",
+            "trustedWatcherInviteShareMessage" to "在 TrackMe 上将我添加为常用联系人以查看我的实时骑行：%1\$s",
             "groupStart" to "开始群组",
             "groupEnd" to "结束群组",
             "groupLeave" to "离开群组",
@@ -5104,6 +5789,9 @@ fun getAppStrings(languageCode: String): AppStrings {
             "statusPaused" to "已暂停",
             "hudAutoPausedPill" to "已自动暂停",
             "hudLiveSharingPill" to "实时共享中",
+            "hudPowerSavingPill" to "省电模式",
+            "hudPowerSavingA11y" to "省电模式已开启：播报间隔已延长",
+            "hudHibernatingPill" to "节能 · 30秒",
             "hudOfflineShieldPill" to "离线保护已启用",
             "hudTouchLockPill" to "锁定",
             "hudTouchLockedPill" to "已锁定",
@@ -5452,6 +6140,20 @@ fun getAppStrings(languageCode: String): AppStrings {
             "debugTrackingControlsTitle" to "跟踪控制",
             "intelligentAutoPauseTitle" to "智能自动暂停",
             "intelligentAutoPauseDescription" to "根据活动速度特征动态暂停移动计时。",
+            "autoTripChainingTitle" to "持续行程追踪",
+            "autoTripChainingSubtitle" to "室内停留时自动结束行程，再次出发时自动开始下一次行程。",
+            "autoEndDwellMinutesTitle" to "自动结束等待时间",
+            "autoEndDwellMinutesSubtitle" to "自动结束行程前的室内停留时长（%1\$d分钟）。",
+            "autoEndCropDwellTitle" to "修剪室内停留轨迹点",
+            "autoEndCropDwellSubtitle" to "剔除室内静止时漂移记录的GPS点，确保距离与配速准确无误。",
+            "notifAutoTripSavedTitle" to "行程已自动完成",
+            "notifAutoTripSavedBody" to "您的%1\$s行程（%2\$s）已保存至历史记录。",
+            "notifAutoTripStartedTitle" to "新行程已自动开始",
+            "standbyBannerTitle" to "自动行程待机中",
+            "standbyBannerSubtitle" to "正在等待下一段行程自动开始（2小时后自动停止）。",
+            "stopStandby" to "停止待机",
+            "notifStandbyTitle" to "TrackMe 自动行程待机",
+            "notifStandbyBody" to "正在等待下一段行程。点按“停止待机”以关闭后台 GPS。",
             "debugModeEnabledMessage" to "调试模式已启用",
             "contactSupport" to "联系支持",
             "contactSupportSubject" to "TrackMe 支持",
@@ -5493,6 +6195,3 @@ fun getAppStrings(languageCode: String): AppStrings {
             "helpDiagnosticBatteryOptimization" to "电池优化",
             "helpDiagnosticSignedIn" to "已登录",
         ))
-        else -> AppStrings() // English default
-    }
-}

@@ -52,6 +52,16 @@ class AppPreferencesManager(private val context: Context) {
     )
     val lastStartedPersona: StateFlow<RidePersona> = _lastStartedPersona.asStateFlow()
 
+    // TASK-369: Continuous trip chaining & auto-start/end rides
+    private val _autoTripChainingEnabled = MutableStateFlow(prefs.getBoolean("auto_trip_chaining_enabled", false))
+    val autoTripChainingEnabled: StateFlow<Boolean> = _autoTripChainingEnabled.asStateFlow()
+
+    private val _autoEndDwellMinutes = MutableStateFlow(prefs.getInt("auto_end_dwell_minutes", 10))
+    val autoEndDwellMinutes: StateFlow<Int> = _autoEndDwellMinutes.asStateFlow()
+
+    private val _autoEndCropDwellEnabled = MutableStateFlow(prefs.getBoolean("auto_end_crop_dwell_enabled", true))
+    val autoEndCropDwellEnabled: StateFlow<Boolean> = _autoEndCropDwellEnabled.asStateFlow()
+
     private val _cloudLifetimeTotals = MutableStateFlow(
         CloudLifetimeTotals(
             activeDurationMillis = prefs.getLong(CLOUD_LIFETIME_DURATION_KEY, 0L),
@@ -62,6 +72,22 @@ class AppPreferencesManager(private val context: Context) {
     val cloudLifetimeTotals: StateFlow<CloudLifetimeTotals> = _cloudLifetimeTotals.asStateFlow()
 
     init { updateProcessLocale(_appLanguage.value) }
+
+    fun setAutoTripChainingEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("auto_trip_chaining_enabled", enabled).apply()
+        _autoTripChainingEnabled.value = enabled
+    }
+
+    fun setAutoEndDwellMinutes(minutes: Int) {
+        val clamped = minutes.coerceIn(1, 60)
+        prefs.edit().putInt("auto_end_dwell_minutes", clamped).apply()
+        _autoEndDwellMinutes.value = clamped
+    }
+
+    fun setAutoEndCropDwellEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("auto_end_crop_dwell_enabled", enabled).apply()
+        _autoEndCropDwellEnabled.value = enabled
+    }
 
     fun setThemeMode(mode: Int) {
         prefs.edit().putInt("theme_mode", mode).apply()

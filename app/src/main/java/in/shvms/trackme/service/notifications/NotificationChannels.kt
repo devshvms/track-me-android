@@ -50,6 +50,9 @@ object NotificationChannels {
     /** Class D. Operator broadcasts — §6.3. Only ever used when something is wrong. */
     const val OPERATOR = "app_notices"
 
+    /** Trusted watcher live-location share alerts (opt-in trusted circle). */
+    const val LIVE_SHARE = "live_share_alerts"
+
     /**
      * Creates the channels this release adds. Idempotent: `createNotificationChannel` on an
      * existing id updates only the name and description, never the user's importance choice or
@@ -88,6 +91,12 @@ object NotificationChannels {
                     OPERATOR,
                     strings.channelOperatorName,
                     strings.channelOperatorDescription,
+                    NotificationManager.IMPORTANCE_HIGH,
+                ),
+                channel(
+                    LIVE_SHARE,
+                    strings.channelLiveShareName,
+                    strings.channelLiveShareDescription,
                     NotificationManager.IMPORTANCE_HIGH,
                 ),
             )

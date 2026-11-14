@@ -726,6 +726,7 @@ object AnalyticsManager {
             "live_share_started",
             properties = mapOf(
                 "share_id" to shareId,
+                "session_id" to shareId,
                 "recipient_count" to recipientCount
             )
         )
@@ -737,6 +738,7 @@ object AnalyticsManager {
             "live_share_ended",
             properties = mapOf(
                 "share_id" to shareId,
+                "session_id" to shareId,
                 "duration_seconds" to durationSeconds
             )
         )
@@ -908,6 +910,218 @@ object AnalyticsManager {
                 "platform" to platform,
                 "category" to category,
                 "decision" to decision
+            )
+        )
+    }
+
+    // ------------------------------------------------------------------------------------
+    // v1.9.3 Live Share 1-tap & Trusted Watchers (zero PII, zero coordinates)
+    // ------------------------------------------------------------------------------------
+
+    fun trackLiveShareTappedHome(watcherAutoCount: Int = 0) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_tapped_home",
+            properties = mapOf(
+                "platform" to "android",
+                "auto_watcher_count" to watcherAutoCount,
+            )
+        )
+    }
+
+    fun trackLiveShare1TapMidRide(watcherAutoCount: Int = 0) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_1tap_mid_ride",
+            properties = mapOf(
+                "platform" to "android",
+                "auto_watcher_count" to watcherAutoCount,
+            )
+        )
+    }
+
+    fun trackLiveShareStoppedKeepRide() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_stopped_keep_ride",
+            properties = mapOf("platform" to "android")
+        )
+    }
+
+    fun trackLiveShareStoppedRide() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_stopped_ride",
+            properties = mapOf("platform" to "android")
+        )
+    }
+
+    fun trackLiveShareViewed(sessionId: String, surface: String = "in_app_viewer") {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_viewed",
+            properties = mapOf(
+                "session_id" to sessionId,
+                "sessionId" to sessionId,
+                "surface" to surface,
+                "platform" to "android"
+            )
+        )
+    }
+
+    fun trackLiveShareLocationRendered(
+        sessionId: String,
+        pathPoints: Int,
+        hasHeading: Boolean,
+        isStopped: Boolean
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_location_rendered",
+            properties = mapOf(
+                "session_id" to sessionId,
+                "sessionId" to sessionId,
+                "path_points" to pathPoints,
+                "pathPoints" to pathPoints,
+                "has_heading" to hasHeading,
+                "hasHeading" to hasHeading,
+                "is_stopped" to isStopped,
+                "isStopped" to isStopped,
+                "platform" to "android"
+            )
+        )
+    }
+
+    fun trackLiveShareViewerLowBattery(sessionId: String, batteryLevel: Int) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_viewer_low_battery_shown",
+            properties = mapOf(
+                "session_id" to sessionId,
+                "sessionId" to sessionId,
+                "battery_level" to batteryLevel,
+                "batteryLevel" to batteryLevel,
+                "platform" to "android"
+            )
+        )
+    }
+
+    fun trackLiveShareViewerShareClicked(sessionId: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_viewer_share_clicked",
+            properties = mapOf(
+                "session_id" to sessionId,
+                "sessionId" to sessionId,
+                "platform" to "android"
+            )
+        )
+    }
+
+    fun trackLiveShareDirectionsClicked(sessionId: String, provider: String = "google_maps") {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_directions_clicked",
+            properties = mapOf(
+                "session_id" to sessionId,
+                "sessionId" to sessionId,
+                "provider" to provider,
+                "platform" to "android"
+            )
+        )
+    }
+
+    fun trackLiveShareViewerHealthSampled(
+        sessionId: String,
+        pollLatencyMs: Long,
+        statusCode: Int,
+        isActive: Boolean,
+        hasLocation: Boolean,
+        batteryLevel: Int?,
+        pointCount: Int
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        val props = mutableMapOf<String, Any>(
+            "session_id" to sessionId,
+            "sessionId" to sessionId,
+            "poll_latency_ms" to pollLatencyMs,
+            "pollLatencyMs" to pollLatencyMs,
+            "status_code" to statusCode,
+            "statusCode" to statusCode,
+            "is_active" to isActive,
+            "isActive" to isActive,
+            "has_location" to hasLocation,
+            "hasLocation" to hasLocation,
+            "point_count" to pointCount,
+            "pointCount" to pointCount,
+            "platform" to "android"
+        )
+        if (batteryLevel != null) {
+            props["battery_level"] = batteryLevel
+            props["batteryLevel"] = batteryLevel
+        }
+        PostHog.capture("live_share_viewer_health_sampled", properties = props)
+    }
+
+    fun trackLiveShareViewerErrorLogged(
+        sessionId: String,
+        errorCode: String,
+        statusCode: Int
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_viewer_error_logged",
+            properties = mapOf(
+                "session_id" to sessionId,
+                "sessionId" to sessionId,
+                "error_code" to errorCode,
+                "errorCode" to errorCode,
+                "status_code" to statusCode,
+                "statusCode" to statusCode,
+                "platform" to "android"
+            )
+        )
+    }
+
+    fun trackTrustedWatcherAdded() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "trusted_watcher_added",
+            properties = mapOf("platform" to "android")
+        )
+    }
+
+    fun trackTrustedWatcherRemoved() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "trusted_watcher_removed",
+            properties = mapOf("platform" to "android")
+        )
+    }
+
+    fun trackWatcherPushOpened() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "watcher_push_opened",
+            properties = mapOf("platform" to "android")
+        )
+    }
+
+    fun trackLiveShareZeroViewerHibernation(
+        sessionId: String,
+        isHibernating: Boolean,
+        idleSeconds: Long,
+        intervalSeconds: Long,
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_zero_viewer_hibernation",
+            properties = `in`.shvms.trackme.data.remote.LiveShareManager.buildZeroViewerHibernationTelemetryPayload(
+                sessionId = sessionId,
+                isHibernating = isHibernating,
+                idleDurationMs = idleSeconds * 1000L,
+                intervalMs = intervalSeconds * 1000L,
+                platform = "android",
             )
         )
     }
