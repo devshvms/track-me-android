@@ -40,14 +40,15 @@ class LiveShareLinkTest {
     @Test
     fun `parses watcher invite uri without mistaking watcher segment for sessionId`() {
         val parsed = LiveShareLink.parse(
-            "https://trackme.shvms.in/live/watcher?inviterUid=uid_123&inviterName=Shivam+Sharma"
+            "https://trackme.shvms.in/live/watcher?code=code_1234567890ab&inviterName=Shivam+Sharma"
         )
         assertTrue(parsed is LiveShareDeepLink.WatcherInvite)
         val invite = parsed as LiveShareDeepLink.WatcherInvite
-        assertEquals("uid_123", invite.inviterUid)
+        assertEquals("code_1234567890ab", invite.code)
         assertEquals("Shivam Sharma", invite.inviterName)
 
         assertNull(LiveShareLink.parse("https://trackme.shvms.in/live/watcher"))
+        assertNull(LiveShareLink.parse("https://trackme.shvms.in/live/watcher?inviterUid=uid_123"))
     }
 
     @Test

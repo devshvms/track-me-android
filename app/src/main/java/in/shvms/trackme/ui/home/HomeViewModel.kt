@@ -83,6 +83,7 @@ data class HomeUiState(
     val userName: String? = null,
     val trustedWatchers: List<TrustedWatcher> = emptyList(),
     val watcherInboxInvite: WatcherInboxInvite? = null,
+    val isStandbyActive: Boolean = false,
 )
 
 class HomeViewModel(
@@ -158,6 +159,7 @@ class HomeViewModel(
         val points: List<LatLng>,
         val distanceMeters: Float,
         val debugV2: TrackingV2Snapshot?,
+        val isStandbyActive: Boolean,
     )
 
     private val trackingStatsGroup1 = combine(
@@ -165,8 +167,9 @@ class HomeViewModel(
         trackingManager.pathPoints,
         trackingManager.totalDistance,
         trackingManager.trackingV2Snapshot,
-    ) { state, points, distance, debugV2 ->
-        TrackingPositionTuple(state, points, distance, debugV2)
+        trackingManager.isStandbyActive,
+    ) { state, points, distance, debugV2, isStandby ->
+        TrackingPositionTuple(state, points, distance, debugV2, isStandby)
     }
 
     /** [Triple] can't hold 4 values, so duration/speed/GPS-age/elapsed share one small tuple. */
@@ -218,6 +221,7 @@ class HomeViewModel(
             inferredActivityType = g3.second,
             selectedPersona = g3.third,
             debugTrackingV2 = g1.debugV2,
+            isStandbyActive = g1.isStandbyActive,
         )
     }
 
@@ -316,6 +320,10 @@ class HomeViewModel(
         )
     }
 
+    fun stopStandby() {
+        sendCommandToService(TrackingService.ACTION_STOP_STANDBY)
+    }
+
     private fun sendCommandToService(action: String) {
         viewModelScope.launch { _uiEvent.emit(UiEvent.SendServiceCommand(action)) }
     }
@@ -391,7 +399,8 @@ class HomeViewModel(
         }
     }
 
-    fun buildWatcherInviteLink(): String? = trustedWatchersRepository.buildCurrentUserInviteLink()
+    suspend fun createWatcherInviteLink(): Result<String> =
+        trustedWatchersRepository.createWatcherInviteLink()
 
     private suspend fun emitLiveShareError(error: Throwable?) {
         if (LiveShareManager.isAuthenticationError(error)) {

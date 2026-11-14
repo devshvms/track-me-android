@@ -12,7 +12,7 @@ import java.nio.charset.StandardCharsets
  */
 sealed class LiveShareDeepLink {
     data class Session(val sessionId: String) : LiveShareDeepLink()
-    data class WatcherInvite(val inviterUid: String, val inviterName: String?) : LiveShareDeepLink()
+    data class WatcherInvite(val code: String, val inviterName: String?) : LiveShareDeepLink()
 }
 
 object LiveShareLink {
@@ -28,7 +28,7 @@ object LiveShareLink {
         if (!uriString.isNullOrBlank()) {
             TrustedWatchersRepository.parseWatcherInviteUri(uriString)?.let { invite ->
                 return LiveShareDeepLink.WatcherInvite(
-                    inviterUid = invite.inviterUid,
+                    code = invite.code,
                     inviterName = invite.inviterName,
                 )
             }

@@ -163,7 +163,7 @@ fun MainNavigation() {
     val currentUser by app.authManager.currentUser.collectAsStateWithLifecycle()
     val unitSystem by app.preferencesManager.unitSystem.collectAsStateWithLifecycle()
     val imperial = unitSystem == "imperial"
-    var promptedWatcherSignInUid by remember { mutableStateOf<String?>(null) }
+    var promptedWatcherSignInCode by remember { mutableStateOf<String?>(null) }
 
     // App-scoped so a message survives the screen that sent it being popped — "Ride deleted"
     // is shown immediately before popBackStack(). See Messenger.kt.
@@ -172,17 +172,17 @@ fun MainNavigation() {
     LaunchedEffect(pendingWatcherInvite, currentUser) {
         val invite = pendingWatcherInvite ?: return@LaunchedEffect
         if (currentUser == null) {
-            if (promptedWatcherSignInUid != invite.inviterUid) {
-                promptedWatcherSignInUid = invite.inviterUid
+            if (promptedWatcherSignInCode != invite.code) {
+                promptedWatcherSignInCode = invite.code
                 messenger.show(strings.watcherInviteSignInRequired, duration = SnackbarDuration.Long)
                 navigateToTab("settings")
             }
             return@LaunchedEffect
         }
-        promptedWatcherSignInUid = null
+        promptedWatcherSignInCode = null
         app.consumePendingWatcherInvite()
         val result = app.trustedWatchersRepository.acceptWatcherInvite(
-            inviterUid = invite.inviterUid,
+            code = invite.code,
             inviterName = invite.inviterName,
         )
         if (result.isSuccess) {

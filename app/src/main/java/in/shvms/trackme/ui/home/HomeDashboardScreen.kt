@@ -125,6 +125,8 @@ internal fun HomeDashboardScreen(
     onWatchLiveInvite: (`in`.shvms.trackme.data.remote.WatcherInboxInvite) -> Unit = {},
     trustedWatcherCount: Int = 0,
     onManageWatchers: () -> Unit = {},
+    isStandbyActive: Boolean = false,
+    onStopStandby: () -> Unit = {},
 ) {
     val strings = LocalAppStrings.current
     // A first Room emission can still be an empty projection while legacy metadata is being
@@ -151,6 +153,15 @@ internal fun HomeDashboardScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         if (deckResolved) {
+            if (isStandbyActive) {
+                item {
+                    StandbyModeBannerCard(
+                        strings = strings,
+                        onStop = onStopStandby,
+                    )
+                }
+            }
+
             if (watcherInboxInvite != null) {
                 item {
                     WatcherInboxBannerCard(
@@ -847,3 +858,47 @@ private fun WatcherInboxBannerCard(
     }
 }
 
+@Composable
+private fun StandbyModeBannerCard(
+    strings: AppStrings,
+    onStop: () -> Unit,
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.MyLocation,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary,
+            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = strings.standbyBannerTitle,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = strings.standbyBannerSubtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            FilledTonalButton(onClick = onStop) {
+                Text(strings.stopStandby, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
