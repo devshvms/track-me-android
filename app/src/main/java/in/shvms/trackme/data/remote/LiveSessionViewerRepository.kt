@@ -241,6 +241,41 @@ class LiveSessionViewerRepository {
         timeoutMs = timeoutMs,
     )
 
+    fun computePollLatencyMs(
+        startTimeMs: Long,
+        endTimeMs: Long = System.currentTimeMillis()
+    ): Long = Companion.computePollLatencyMs(startTimeMs, endTimeMs)
+
+    fun shouldSampleViewerHealth(
+        sampleRate: Double = 0.01,
+        randomProvider: () -> Double = { Math.random() }
+    ): Boolean = Companion.shouldSampleViewerHealth(sampleRate, randomProvider)
+
+    fun classifyViewerError(
+        statusCode: Int?,
+        errorMessage: String?
+    ): String = Companion.classifyViewerError(statusCode, errorMessage)
+
+    fun buildViewerHealthTelemetryPayload(
+        sessionId: String,
+        pollLatencyMs: Long,
+        statusCode: Int,
+        isActive: Boolean,
+        hasLocation: Boolean,
+        batteryLevel: Int?,
+        pointCount: Int,
+        isStale: Boolean = false
+    ): Map<String, Any> = Companion.buildViewerHealthTelemetryPayload(
+        sessionId = sessionId,
+        pollLatencyMs = pollLatencyMs,
+        statusCode = statusCode,
+        isActive = isActive,
+        hasLocation = hasLocation,
+        batteryLevel = batteryLevel,
+        pointCount = pointCount,
+        isStale = isStale,
+    )
+
     suspend fun fetchSnapshot(sessionId: String): LiveSessionFetchResult = withContext(Dispatchers.IO) {
         val cleanId = sessionId.trim()
         if (cleanId.isEmpty()) return@withContext LiveSessionFetchResult.NotFoundOrExpired
@@ -1184,5 +1219,111 @@ class LiveSessionViewerRepository {
             val elapsed = nowEpochMillis - lastInteractionEpochMs
             return elapsed >= timeoutMs
         }
+
+        // MARK: - CIE-041: Health Telemetry & Latency Diagnostics
+
+        /**
+         * CIE-041: Computes poll latency in milliseconds.
+         * Clamps negative durations or non-finite values to 0.
+         */
+        fun computePollLatencyMs(
+            startTimeMs: Long,
+            endTimeMs: Long = System.currentTimeMillis()
+        ): Long {
+            val elapsed = endTimeMs - startTimeMs
+            return if (elapsed > 0) elapsed else 0L
+        }
+
+        /**
+         * CIE-041: Evaluates 1% sampling rate gate for viewer health telemetry.
+         * Strict $0/month free-tier protection for PostHog event quotas.
+         */
+        fun shouldSampleViewerHealth(
+            sampleRate: Double = 0.01,
+            randomProvider: () -> Double = { Math.random() }
+        ): Boolean {
+            val clampedRate = sampleRate.coerceIn(0.0, 1.0)
+            return randomProvider() < clampedRate
+        }
+
+        /**
+         * CIE-041: Classifies viewer error codes for telemetry and diagnostics.
+         */
+        fun classifyViewerError(
+            statusCode: Int?,
+            errorMessage: String?
+        ): String {
+            if (statusCode == 404 || statusCode == 410) {
+                return "not_found_or_expired"
+            }
+            if (statusCode == 429) {
+                return "rate_limited"
+            }
+            if (statusCode != null && statusCode in 500..599) {
+                return "server_error"
+            }
+            val msg = (errorMessage ?: "").lowercase()
+            if (msg.contains("404") || msg.contains("expired") || msg.contains("not found")) {
+                return "not_found_or_expired"
+            }
+            if (msg.contains("429") || msg.contains("rate limit")) {
+                return "rate_limited"
+            }
+            if (msg.contains("500") || msg.contains("502") || msg.contains("503") || msg.contains("server error")) {
+                return "server_error"
+            }
+            if (msg.contains("json") || msg.contains("syntax") || msg.contains("malformed") || msg.contains("invalid response") || msg.contains("decode") || msg.contains("corrupt")) {
+                return "malformed_response"
+            }
+            if (statusCode == 0 || msg.contains("network") || msg.contains("offline") || msg.contains("internet") || msg.contains("timed out") || msg.contains("connection") || msg.contains("failed to connect") || msg.contains("unknownhost")) {
+                return "offline_network"
+            }
+            return "unknown"
+        }
+
+        /**
+         * CIE-041: Builds sanitized, privacy-safe health telemetry payload without raw coordinates or PII.
+         */
+        fun buildViewerHealthTelemetryPayload(
+            sessionId: String,
+            pollLatencyMs: Long,
+            statusCode: Int,
+            isActive: Boolean,
+            hasLocation: Boolean,
+            batteryLevel: Int?,
+            pointCount: Int,
+            isStale: Boolean = false
+        ): Map<String, Any> {
+            val cleanId = sessionId.trim()
+                .filter { it.isLetterOrDigit() || it == '-' || it == '_' }
+                .take(64)
+            val clampedLatency = if (pollLatencyMs > 0) pollLatencyMs else 0L
+            val clampedBattery = clampBatteryLevel(batteryLevel)
+            val clampedPoints = if (pointCount > 0) pointCount else 0
+
+            val payload = mutableMapOf<String, Any>(
+                "session_id" to cleanId,
+                "sessionId" to cleanId,
+                "poll_latency_ms" to clampedLatency,
+                "pollLatencyMs" to clampedLatency,
+                "status_code" to statusCode,
+                "statusCode" to statusCode,
+                "is_active" to isActive,
+                "isActive" to isActive,
+                "has_location" to hasLocation,
+                "hasLocation" to hasLocation,
+                "point_count" to clampedPoints,
+                "pointCount" to clampedPoints,
+                "is_stale" to isStale,
+                "isStale" to isStale,
+                "platform" to "android"
+            )
+            if (clampedBattery != null) {
+                payload["battery_level"] = clampedBattery
+                payload["batteryLevel"] = clampedBattery
+            }
+            return payload
+        }
     }
 }
+

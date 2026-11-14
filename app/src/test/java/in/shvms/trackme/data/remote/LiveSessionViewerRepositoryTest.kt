@@ -1221,5 +1221,82 @@ class LiveSessionViewerRepositoryTest {
             )
         )
     }
+
+    // MARK: - CIE-041: Health Telemetry & Latency Diagnostics Tests
+
+    @Test
+    fun `computePollLatencyMs computes positive round latency and clamps negative to 0`() {
+        assertEquals(245L, LiveSessionViewerRepository.computePollLatencyMs(1000L, 1245L))
+        assertEquals(0L, LiveSessionViewerRepository.computePollLatencyMs(2000L, 1000L))
+    }
+
+    @Test
+    fun `shouldSampleViewerHealth gates at 1 percent sample rate and clamps bounds`() {
+        assertTrue(LiveSessionViewerRepository.shouldSampleViewerHealth(0.01) { 0.005 })
+        assertFalse(LiveSessionViewerRepository.shouldSampleViewerHealth(0.01) { 0.015 })
+
+        assertFalse(LiveSessionViewerRepository.shouldSampleViewerHealth(-0.5) { 0.0001 })
+        assertTrue(LiveSessionViewerRepository.shouldSampleViewerHealth(1.5) { 0.999 })
+    }
+
+    @Test
+    fun `classifyViewerError categorizes status codes and error messages correctly`() {
+        assertEquals("not_found_or_expired", LiveSessionViewerRepository.classifyViewerError(404, null))
+        assertEquals("not_found_or_expired", LiveSessionViewerRepository.classifyViewerError(410, null))
+        assertEquals("rate_limited", LiveSessionViewerRepository.classifyViewerError(429, null))
+        assertEquals("server_error", LiveSessionViewerRepository.classifyViewerError(500, null))
+        assertEquals("server_error", LiveSessionViewerRepository.classifyViewerError(503, null))
+
+        assertEquals("malformed_response", LiveSessionViewerRepository.classifyViewerError(null, "Invalid response from server"))
+        assertEquals("malformed_response", LiveSessionViewerRepository.classifyViewerError(null, "org.json.JSONException: Value at 0"))
+        assertEquals("offline_network", LiveSessionViewerRepository.classifyViewerError(0, null))
+        assertEquals("offline_network", LiveSessionViewerRepository.classifyViewerError(null, "java.net.UnknownHostException: Unable to resolve host"))
+        assertEquals("offline_network", LiveSessionViewerRepository.classifyViewerError(null, "Failed to connect to /127.0.0.1:443"))
+        assertEquals("not_found_or_expired", LiveSessionViewerRepository.classifyViewerError(null, "Session expired"))
+        assertEquals("unknown", LiveSessionViewerRepository.classifyViewerError(400, "Bad Request"))
+    }
+
+    @Test
+    fun `buildViewerHealthTelemetryPayload builds sanitized, privacy-safe payload without coordinates`() {
+        val payload = LiveSessionViewerRepository.buildViewerHealthTelemetryPayload(
+            sessionId = "live-sess_123!@#",
+            pollLatencyMs = 185L,
+            statusCode = 200,
+            isActive = true,
+            hasLocation = true,
+            batteryLevel = 82,
+            pointCount = 14,
+            isStale = false,
+        )
+
+        assertEquals("live-sess_123", payload["session_id"])
+        assertEquals(185L, payload["poll_latency_ms"])
+        assertEquals(200, payload["status_code"])
+        assertEquals(true, payload["is_active"])
+        assertEquals(true, payload["has_location"])
+        assertEquals(82, payload["battery_level"])
+        assertEquals(14, payload["point_count"])
+        assertEquals(false, payload["is_stale"])
+        assertEquals("android", payload["platform"])
+
+        assertNull(payload["lat"])
+        assertNull(payload["lng"])
+        assertNull(payload["token"])
+
+        // Out of bounds battery clamped to null
+        val invalidBatPayload = LiveSessionViewerRepository.buildViewerHealthTelemetryPayload(
+            sessionId = "sess_2",
+            pollLatencyMs = -10L,
+            statusCode = 500,
+            isActive = false,
+            hasLocation = false,
+            batteryLevel = 150,
+            pointCount = -1,
+        )
+        assertEquals(0L, invalidBatPayload["poll_latency_ms"])
+        assertNull(invalidBatPayload["battery_level"])
+        assertEquals(0, invalidBatPayload["point_count"])
+    }
 }
+
 
