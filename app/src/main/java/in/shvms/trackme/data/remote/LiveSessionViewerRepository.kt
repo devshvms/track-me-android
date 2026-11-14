@@ -276,6 +276,25 @@ class LiveSessionViewerRepository {
         isStale = isStale,
     )
 
+    fun shouldPreserveViewerState(
+        hasRenderedLocation: Boolean,
+        isOffline: Boolean
+    ): Boolean = Companion.shouldPreserveViewerState(hasRenderedLocation, isOffline)
+
+    fun evaluateReconnectionResync(
+        isOnline: Boolean,
+        wasOffline: Boolean,
+        hasCachedSnapshot: Boolean,
+        isTripEnded: Boolean,
+        isFetchInProgress: Boolean = false
+    ): ReconnectionResyncEvaluation = Companion.evaluateReconnectionResync(
+        isOnline = isOnline,
+        wasOffline = wasOffline,
+        hasCachedSnapshot = hasCachedSnapshot,
+        isTripEnded = isTripEnded,
+        isFetchInProgress = isFetchInProgress
+    )
+
     suspend fun fetchSnapshot(sessionId: String): LiveSessionFetchResult = withContext(Dispatchers.IO) {
         val cleanId = sessionId.trim()
         if (cleanId.isEmpty()) return@withContext LiveSessionFetchResult.NotFoundOrExpired
@@ -1323,6 +1342,71 @@ class LiveSessionViewerRepository {
                 payload["batteryLevel"] = clampedBattery
             }
             return payload
+        }
+
+        // MARK: - CIE-042: Reconnection State Memory & Cache Resync
+
+        data class ReconnectionResyncEvaluation(
+            val shouldFetchImmediately: Boolean,
+            val shouldUseCachedState: Boolean,
+            val resetConsecutiveErrors: Boolean,
+            val statusMessage: String?
+        )
+
+        /**
+         * CIE-042: Evaluates whether map viewport, breadcrumb polyline, and rider marker should be preserved
+         * during temporary cellular dropouts. Prevents jarring map resets.
+         */
+        fun shouldPreserveViewerState(
+            hasRenderedLocation: Boolean,
+            isOffline: Boolean
+        ): Boolean {
+            return hasRenderedLocation
+        }
+
+        /**
+         * CIE-042: Evaluates offline-to-online reconnection resynchronization logic.
+         */
+        fun evaluateReconnectionResync(
+            isOnline: Boolean,
+            wasOffline: Boolean,
+            hasCachedSnapshot: Boolean,
+            isTripEnded: Boolean,
+            isFetchInProgress: Boolean = false
+        ): ReconnectionResyncEvaluation {
+            if (isTripEnded) {
+                return ReconnectionResyncEvaluation(
+                    shouldFetchImmediately = false,
+                    shouldUseCachedState = hasCachedSnapshot,
+                    resetConsecutiveErrors = false,
+                    statusMessage = null
+                )
+            }
+
+            if (!isOnline) {
+                return ReconnectionResyncEvaluation(
+                    shouldFetchImmediately = false,
+                    shouldUseCachedState = hasCachedSnapshot,
+                    resetConsecutiveErrors = false,
+                    statusMessage = "Viewer Offline"
+                )
+            }
+
+            if (isOnline && wasOffline) {
+                return ReconnectionResyncEvaluation(
+                    shouldFetchImmediately = !isFetchInProgress,
+                    shouldUseCachedState = hasCachedSnapshot,
+                    resetConsecutiveErrors = true,
+                    statusMessage = "Reconnecting..."
+                )
+            }
+
+            return ReconnectionResyncEvaluation(
+                shouldFetchImmediately = false,
+                shouldUseCachedState = hasCachedSnapshot,
+                resetConsecutiveErrors = false,
+                statusMessage = null
+            )
         }
     }
 }

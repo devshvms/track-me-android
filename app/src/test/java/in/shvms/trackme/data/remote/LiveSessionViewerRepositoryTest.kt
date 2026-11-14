@@ -1297,6 +1297,82 @@ class LiveSessionViewerRepositoryTest {
         assertNull(invalidBatPayload["battery_level"])
         assertEquals(0, invalidBatPayload["point_count"])
     }
+
+    // MARK: - CIE-042: Reconnection State Memory & Cache Resync Tests
+
+    @Test
+    fun `shouldPreserveViewerState preserves viewer state when location was previously rendered even during offline dead zones`() {
+        assertTrue(LiveSessionViewerRepository.shouldPreserveViewerState(hasRenderedLocation = true, isOffline = true))
+        assertTrue(LiveSessionViewerRepository.shouldPreserveViewerState(hasRenderedLocation = true, isOffline = false))
+
+        assertFalse(LiveSessionViewerRepository.shouldPreserveViewerState(hasRenderedLocation = false, isOffline = true))
+        assertFalse(LiveSessionViewerRepository.shouldPreserveViewerState(hasRenderedLocation = false, isOffline = false))
+    }
+
+    @Test
+    fun `evaluateReconnectionResync handles trip ended, offline, and reconnected states properly`() {
+        // Trip ended
+        val ended = LiveSessionViewerRepository.evaluateReconnectionResync(
+            isOnline = true,
+            wasOffline = true,
+            hasCachedSnapshot = true,
+            isTripEnded = true
+        )
+        assertFalse(ended.shouldFetchImmediately)
+        assertTrue(ended.shouldUseCachedState)
+        assertFalse(ended.resetConsecutiveErrors)
+        assertNull(ended.statusMessage)
+
+        // Offline
+        val offline = LiveSessionViewerRepository.evaluateReconnectionResync(
+            isOnline = false,
+            wasOffline = false,
+            hasCachedSnapshot = true,
+            isTripEnded = false
+        )
+        assertFalse(offline.shouldFetchImmediately)
+        assertTrue(offline.shouldUseCachedState)
+        assertFalse(offline.resetConsecutiveErrors)
+        assertEquals("Viewer Offline", offline.statusMessage)
+
+        // Reconnected after offline
+        val reconnected = LiveSessionViewerRepository.evaluateReconnectionResync(
+            isOnline = true,
+            wasOffline = true,
+            hasCachedSnapshot = true,
+            isTripEnded = false,
+            isFetchInProgress = false
+        )
+        assertTrue(reconnected.shouldFetchImmediately)
+        assertTrue(reconnected.shouldUseCachedState)
+        assertTrue(reconnected.resetConsecutiveErrors)
+        assertEquals("Reconnecting...", reconnected.statusMessage)
+
+        // Reconnected but fetch already in flight
+        val inFlight = LiveSessionViewerRepository.evaluateReconnectionResync(
+            isOnline = true,
+            wasOffline = true,
+            hasCachedSnapshot = true,
+            isTripEnded = false,
+            isFetchInProgress = true
+        )
+        assertFalse(inFlight.shouldFetchImmediately)
+        assertTrue(inFlight.shouldUseCachedState)
+        assertTrue(inFlight.resetConsecutiveErrors)
+        assertEquals("Reconnecting...", inFlight.statusMessage)
+
+        // Steady state online
+        val steady = LiveSessionViewerRepository.evaluateReconnectionResync(
+            isOnline = true,
+            wasOffline = false,
+            hasCachedSnapshot = true,
+            isTripEnded = false
+        )
+        assertFalse(steady.shouldFetchImmediately)
+        assertTrue(steady.shouldUseCachedState)
+        assertFalse(steady.resetConsecutiveErrors)
+        assertNull(steady.statusMessage)
+    }
 }
 
 
