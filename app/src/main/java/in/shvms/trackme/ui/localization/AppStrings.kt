@@ -498,6 +498,7 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val liveViewerShareRideSubject: String = s("liveViewerShareRideSubject", "TrackMe Live Ride")
     val liveViewerShareMessageWithName: String = s("liveViewerShareMessageWithName", "Track %1\$s's live ride on TrackMe: %2\$s")
     val liveViewerShareMessageFallback: String = s("liveViewerShareMessageFallback", "Track this live ride on TrackMe: %1\$s")
+    val liveViewerDirectionsA11y: String = s("liveViewerDirectionsA11y", "Open directions to rider in maps")
     val liveViewerStopped: String = s("liveViewerStopped", "Stopped · %1\$s")
     val liveViewerStoppedA11y: String = s("liveViewerStoppedA11y", "Rider stopped for %1\$s")
     val liveViewerToggleUnitsA11y: String = s("liveViewerToggleUnitsA11y", "Toggle speed and distance units. Current: %1\$s")
@@ -1366,6 +1367,7 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerShareRideSubject" to "Ruta en vivo en TrackMe",
             "liveViewerShareMessageWithName" to "Sigue la ruta en vivo de %1\$s en TrackMe: %2\$s",
             "liveViewerShareMessageFallback" to "Sigue esta ruta en vivo en TrackMe: %1\$s",
+            "liveViewerDirectionsA11y" to "Abrir ruta hacia el ciclista en mapas",
             "liveViewerStopped" to "Detenido · %1\$s",
             "liveViewerStoppedA11y" to "Ciclista detenido por %1\$s",
             "liveViewerToggleUnitsA11y" to "Alternar unidades de velocidad y distancia. Actual: %1\$s",
@@ -2195,6 +2197,7 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerShareRideSubject" to "Sortie en direct sur TrackMe",
             "liveViewerShareMessageWithName" to "Suivez la sortie en direct de %1\$s sur TrackMe : %2\$s",
             "liveViewerShareMessageFallback" to "Suivez cette sortie en direct sur TrackMe : %1\$s",
+            "liveViewerDirectionsA11y" to "Ouvrir l'itinéraire vers le cycliste dans les cartes",
             "liveViewerStopped" to "À l'arrêt · %1\$s",
             "liveViewerStoppedA11y" to "À l'arrêt depuis %1\$s",
             "liveViewerToggleUnitsA11y" to "Changer les unités de vitesse et de distance. Actuel : %1\$s",
@@ -3024,6 +3027,7 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerShareRideSubject" to "TrackMe Live-Fahrt",
             "liveViewerShareMessageWithName" to "Verfolge die Live-Fahrt von %1\$s auf TrackMe: %2\$s",
             "liveViewerShareMessageFallback" to "Verfolge diese Live-Fahrt auf TrackMe: %1\$s",
+            "liveViewerDirectionsA11y" to "Route zum Fahrer in Karten öffnen",
             "liveViewerStopped" to "Angehalten · %1\$s",
             "liveViewerStoppedA11y" to "Angehalten seit %1\$s",
             "liveViewerToggleUnitsA11y" to "Einheiten für Geschwindigkeit und Entfernung umschalten. Aktuell: %1\$s",
@@ -3853,6 +3857,7 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerShareRideSubject" to "TrackMe लाइव सवारी",
             "liveViewerShareMessageWithName" to "TrackMe पर %1\$s की लाइव सवारी को ट्रैक करें: %2\$s",
             "liveViewerShareMessageFallback" to "TrackMe पर इस लाइव सवारी को ट्रैक करें: %1\$s",
+            "liveViewerDirectionsA11y" to "मैप्स में सवार के लिए दिशा-निर्देश खोलें",
             "liveViewerStopped" to "रुके हुए · %1\$s",
             "liveViewerStoppedA11y" to "%1\$s से रुके हुए हैं",
             "liveViewerToggleUnitsA11y" to "गति और दूरी इकाइयाँ बदलें। वर्तमान: %1\$s",
@@ -4682,6 +4687,7 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerShareRideSubject" to "TrackMe ライブライド",
             "liveViewerShareMessageWithName" to "TrackMeで%1\$sのライブライドを追跡: %2\$s",
             "liveViewerShareMessageFallback" to "TrackMeでこのライブライドを追跡: %1\$s",
+            "liveViewerDirectionsA11y" to "マップでライダーへの道順を開く",
             "liveViewerStopped" to "停止中 · %1\$s",
             "liveViewerStoppedA11y" to "%1\$s間停止中",
             "liveViewerToggleUnitsA11y" to "速度と距離の単位を切り替えます。現在: %1\$s",
@@ -5511,6 +5517,7 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerShareRideSubject" to "TrackMe 实时骑行",
             "liveViewerShareMessageWithName" to "在 TrackMe 上关注 %1\$s 的实时骑行：%2\$s",
             "liveViewerShareMessageFallback" to "在 TrackMe 上关注此实时骑行：%1\$s",
+            "liveViewerDirectionsA11y" to "在地图中打开前往骑行者位置的路线",
             "liveViewerStopped" to "已停止 · %1\$s",
             "liveViewerStoppedA11y" to "骑手已停止 %1\$s",
             "liveViewerToggleUnitsA11y" to "切换速度和距离单位。当前：%1\$s",
