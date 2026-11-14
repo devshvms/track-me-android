@@ -627,6 +627,15 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val debugTrackingControlsTitle: String = s("debugTrackingControlsTitle", "Tracking controls")
     val intelligentAutoPauseTitle: String = s("intelligentAutoPauseTitle", "Intelligent Auto-Pause")
     val intelligentAutoPauseDescription: String = s("intelligentAutoPauseDescription", "Dynamically pauses moving time based on the activity speed profile.")
+    val autoTripChainingTitle: String = s("autoTripChainingTitle", "Continuous Trip Tracking")
+    val autoTripChainingSubtitle: String = s("autoTripChainingSubtitle", "Automatically completes your ride when stopped indoors, and auto-starts the next ride when moving again.")
+    val autoEndDwellMinutesTitle: String = s("autoEndDwellMinutesTitle", "Auto-End Inactivity Window")
+    val autoEndDwellMinutesSubtitle: String = s("autoEndDwellMinutesSubtitle", "Duration of dwelling indoors before automatically ending the ride (%1\$d minutes).")
+    val autoEndCropDwellTitle: String = s("autoEndCropDwellTitle", "Trim Indoor Dwell Points")
+    val autoEndCropDwellSubtitle: String = s("autoEndCropDwellSubtitle", "Prunes trailing GPS points recorded while stationary indoors so distance and pace stay accurate.")
+    val notifAutoTripSavedTitle: String = s("notifAutoTripSavedTitle", "Ride Automatically Completed")
+    val notifAutoTripSavedBody: String = s("notifAutoTripSavedBody", "Your %1\$s ride of %2\$s has been saved to History.")
+    val notifAutoTripStartedTitle: String = s("notifAutoTripStartedTitle", "New Ride Automatically Started")
     val debugModeEnabledMessage: String = s("debugModeEnabledMessage", "Debug mode is enabled")
     // Help & Feedback
     val helpFeedbackTitle: String = s("helpFeedbackTitle", "Help & Feedback")
@@ -1868,6 +1877,15 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "debugTrackingControlsTitle" to "Controles de seguimiento",
             "intelligentAutoPauseTitle" to "Pausa automática inteligente",
             "intelligentAutoPauseDescription" to "Pausa dinámicamente el tiempo en movimiento según el perfil de velocidad de la actividad.",
+            "autoTripChainingTitle" to "Seguimiento Continuo de Viajes",
+            "autoTripChainingSubtitle" to "Completa automáticamente la ruta al detenerte en interiores e inicia la siguiente cuando te mueves.",
+            "autoEndDwellMinutesTitle" to "Tiempo de Espera para Finalización Automática",
+            "autoEndDwellMinutesSubtitle" to "Duración de estancia en interiores antes de finalizar la ruta automáticamente (%1\$d minutos).",
+            "autoEndCropDwellTitle" to "Recortar Puntos de Estancia en Interiores",
+            "autoEndCropDwellSubtitle" to "Elimina los puntos de GPS registrados durante la parada en interiores para mantener la precisión de la distancia y el ritmo.",
+            "notifAutoTripSavedTitle" to "Ruta Completada Automáticamente",
+            "notifAutoTripSavedBody" to "Tu ruta en %1\$s de %2\$s se ha guardado en el Historial.",
+            "notifAutoTripStartedTitle" to "Nueva Ruta Iniciada Automáticamente",
             "debugModeEnabledMessage" to "El modo de depuración está activado",
             "contactSupport" to "Contactar con soporte",
             "contactSupportSubject" to "Soporte de TrackMe",
@@ -2700,6 +2718,15 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "debugTrackingControlsTitle" to "Commandes de suivi",
             "intelligentAutoPauseTitle" to "Pause automatique intelligente",
             "intelligentAutoPauseDescription" to "Met dynamiquement en pause le temps de déplacement selon le profil de vitesse de l’activité.",
+            "autoTripChainingTitle" to "Suivi Continu des Trajets",
+            "autoTripChainingSubtitle" to "Termine automatiquement le trajet à l'arrêt en intérieur et démarre le suivant dès que vous repartez.",
+            "autoEndDwellMinutesTitle" to "Délai de Fin Automatique",
+            "autoEndDwellMinutesSubtitle" to "Durée d'inactivité en intérieur avant la fin automatique du trajet (%1\$d minutes).",
+            "autoEndCropDwellTitle" to "Tronquer les Points d'Arrêt en Intérieur",
+            "autoEndCropDwellSubtitle" to "Supprime les points GPS enregistrés à l'arrêt en intérieur pour préserver la précision de la distance et de l'allure.",
+            "notifAutoTripSavedTitle" to "Trajet Terminé Automatiquement",
+            "notifAutoTripSavedBody" to "Votre trajet en %1\$s de %2\$s a été enregistré dans l'Historique.",
+            "notifAutoTripStartedTitle" to "Nouveau Trajet Démarré Automatiquement",
             "debugModeEnabledMessage" to "Le mode débogage est activé",
             "contactSupport" to "Contacter l’assistance",
             "contactSupportSubject" to "Assistance TrackMe",
@@ -3532,6 +3559,15 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "debugTrackingControlsTitle" to "Tracking-Steuerung",
             "intelligentAutoPauseTitle" to "Intelligente automatische Pause",
             "intelligentAutoPauseDescription" to "Pausiert die Bewegungszeit dynamisch anhand des Geschwindigkeitsprofils der Aktivität.",
+            "autoTripChainingTitle" to "Kontinuierliche Fahrtenaufzeichnung",
+            "autoTripChainingSubtitle" to "Beendet Fahrten bei längeren Stopps in Innenräumen automatisch und startet die nächste Fahrt bei Bewegung.",
+            "autoEndDwellMinutesTitle" to "Zeitfenster für automatisches Beenden",
+            "autoEndDwellMinutesSubtitle" to "Verweildauer im Innenbereich bis zum automatischen Beenden (%1\$d Minuten).",
+            "autoEndCropDwellTitle" to "Verweilpunkte in Innenräumen abschneiden",
+            "autoEndCropDwellSubtitle" to "Entfernt nachgelagerte GPS-Punkte im Stillstand in Innenräumen für präzise Distanz- und Tempowerte.",
+            "notifAutoTripSavedTitle" to "Fahrt automatisch abgeschlossen",
+            "notifAutoTripSavedBody" to "Deine %1\$s-Fahrt über %2\$s wurde im Verlauf gespeichert.",
+            "notifAutoTripStartedTitle" to "Neue Fahrt automatisch gestartet",
             "debugModeEnabledMessage" to "Der Debug-Modus ist aktiviert",
             "contactSupport" to "Support kontaktieren",
             "contactSupportSubject" to "TrackMe-Support",
@@ -4364,6 +4400,15 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "debugTrackingControlsTitle" to "ट्रैकिंग कंट्रोल",
             "intelligentAutoPauseTitle" to "स्मार्ट ऑटो-पॉज़",
             "intelligentAutoPauseDescription" to "गतिविधि की गति प्रोफ़ाइल के अनुसार चलते समय को अपने-आप रोकता है।",
+            "autoTripChainingTitle" to "निरंतर यात्रा ट्रैकिंग",
+            "autoTripChainingSubtitle" to "घर या दफ्तर में रुकने पर यात्रा अपने आप पूरी हो जाती है, और फिर से चलने पर अगली यात्रा शुरू हो जाती है।",
+            "autoEndDwellMinutesTitle" to "स्वतः समाप्ति निष्क्रियता समय",
+            "autoEndDwellMinutesSubtitle" to "यात्रा स्वतः समाप्त होने से पहले घर के अंदर रुकने की अवधि (%1\$d मिनट)।",
+            "autoEndCropDwellTitle" to "घर के अंदर के ठहराव बिंदु हटाएं",
+            "autoEndCropDwellSubtitle" to "घर के अंदर स्थिर रहने के दौरान रिकॉर्ड किए गए जीपीएस बिंदुओं को हटाता है ताकि दूरी और गति सटीक रहे।",
+            "notifAutoTripSavedTitle" to "यात्रा स्वतः पूरी हो गई",
+            "notifAutoTripSavedBody" to "आपकी %1\$s की %2\$s यात्रा इतिहास में सुरक्षित कर ली गई है।",
+            "notifAutoTripStartedTitle" to "नई यात्रा स्वतः शुरू हो गई",
             "debugModeEnabledMessage" to "डीबग मोड चालू है",
             "contactSupport" to "सहायता से संपर्क करें",
             "contactSupportSubject" to "TrackMe सहायता",
@@ -5196,6 +5241,15 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "debugTrackingControlsTitle" to "追跡コントロール",
             "intelligentAutoPauseTitle" to "インテリジェント自動一時停止",
             "intelligentAutoPauseDescription" to "アクティビティの速度特性に応じて移動時間を自動的に一時停止します。",
+            "autoTripChainingTitle" to "継続的なトリップトラッキング",
+            "autoTripChainingSubtitle" to "屋内での停止時に乗車を自動完了し、再び移動を始めると次の乗車を自動開始します。",
+            "autoEndDwellMinutesTitle" to "自動終了までの待機時間",
+            "autoEndDwellMinutesSubtitle" to "乗車が自動終了するまでの屋内滞在時間（%1\$d分）。",
+            "autoEndCropDwellTitle" to "屋内の滞在ポイントをトリミング",
+            "autoEndCropDwellSubtitle" to "距離とペースの正確性を保つため、屋内で静止中に記録されたGPSポイントを削除します。",
+            "notifAutoTripSavedTitle" to "乗車が自動完了しました",
+            "notifAutoTripSavedBody" to "あなたの%1\$s（%2\$s）の乗車が履歴に保存されました。",
+            "notifAutoTripStartedTitle" to "新しい乗車が自動開始されました",
             "debugModeEnabledMessage" to "デバッグモードが有効になりました",
             "contactSupport" to "サポートに連絡",
             "contactSupportSubject" to "TrackMeサポート",
@@ -6028,6 +6082,15 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "debugTrackingControlsTitle" to "跟踪控制",
             "intelligentAutoPauseTitle" to "智能自动暂停",
             "intelligentAutoPauseDescription" to "根据活动速度特征动态暂停移动计时。",
+            "autoTripChainingTitle" to "持续行程追踪",
+            "autoTripChainingSubtitle" to "室内停留时自动结束行程，再次出发时自动开始下一次行程。",
+            "autoEndDwellMinutesTitle" to "自动结束等待时间",
+            "autoEndDwellMinutesSubtitle" to "自动结束行程前的室内停留时长（%1\$d分钟）。",
+            "autoEndCropDwellTitle" to "修剪室内停留轨迹点",
+            "autoEndCropDwellSubtitle" to "剔除室内静止时漂移记录的GPS点，确保距离与配速准确无误。",
+            "notifAutoTripSavedTitle" to "行程已自动完成",
+            "notifAutoTripSavedBody" to "您的%1\$s行程（%2\$s）已保存至历史记录。",
+            "notifAutoTripStartedTitle" to "新行程已自动开始",
             "debugModeEnabledMessage" to "调试模式已启用",
             "contactSupport" to "联系支持",
             "contactSupportSubject" to "TrackMe 支持",

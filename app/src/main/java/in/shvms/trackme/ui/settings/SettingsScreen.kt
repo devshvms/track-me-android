@@ -315,6 +315,9 @@ fun SettingsScreen(
         val telemetryEnabled by preferencesManager.telemetryEnabled.collectAsState()
         val unitSystem by preferencesManager.unitSystem.collectAsState()
         val pipDashboardEnabled by preferencesManager.pipDashboardEnabled.collectAsState()
+        val autoTripChainingEnabled by preferencesManager.autoTripChainingEnabled.collectAsState()
+        val autoEndDwellMinutes by preferencesManager.autoEndDwellMinutes.collectAsState()
+        val autoEndCropDwellEnabled by preferencesManager.autoEndCropDwellEnabled.collectAsState()
         val appLanguage by preferencesManager.appLanguage.collectAsState()
         var showLangDropdown by remember { mutableStateOf(false) }
 
@@ -420,6 +423,52 @@ fun SettingsScreen(
                 checked = pipDashboardEnabled,
                 onCheckedChange = preferencesManager::setPiPDashboardEnabled,
             )
+            SettingsSwitchRow(
+                title = strings.autoTripChainingTitle,
+                supportingText = strings.autoTripChainingSubtitle,
+                checked = autoTripChainingEnabled,
+                onCheckedChange = preferencesManager::setAutoTripChainingEnabled,
+            )
+            if (autoTripChainingEnabled) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text(
+                        text = strings.autoEndDwellMinutesTitle,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        text = strings.autoEndDwellMinutesSubtitle.format(autoEndDwellMinutes),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(5, 10, 15).forEach { mins ->
+                            FilterChip(
+                                selected = autoEndDwellMinutes == mins,
+                                onClick = { preferencesManager.setAutoEndDwellMinutes(mins) },
+                                label = {
+                                    Text(
+                                        "$mins min",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    )
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+                SettingsSwitchRow(
+                    title = strings.autoEndCropDwellTitle,
+                    supportingText = strings.autoEndCropDwellSubtitle,
+                    checked = autoEndCropDwellEnabled,
+                    onCheckedChange = preferencesManager::setAutoEndCropDwellEnabled,
+                )
+            }
         }
 
         if (debugModeEnabled) {

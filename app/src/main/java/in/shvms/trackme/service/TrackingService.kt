@@ -53,6 +53,10 @@ import `in`.shvms.trackme.domain.processor.TrackingV2PowerMode
 import `in`.shvms.trackme.domain.processor.TrackingV2Point
 import `in`.shvms.trackme.domain.processor.TrackingV2Sample
 import `in`.shvms.trackme.domain.processor.TrackingV2Snapshot
+import `in`.shvms.trackme.domain.tracking.DwellDetector
+import `in`.shvms.trackme.domain.tracking.DwellState
+import `in`.shvms.trackme.domain.tracking.DwellEvaluationResult
+import `in`.shvms.trackme.service.notifications.AutoTripNotifier
 
 enum class TrackingState {
     IDLE, TRACKING, PAUSED, GPS_LOST, GPS_DISABLED, STORAGE_LOW
@@ -148,6 +152,7 @@ class TrackingService : Service() {
     private var lastV2DisplayPoint: TrackingV2Point? = null
     private lateinit var trackingV2StepSensor: TrackingV2StepSensor
     private var trackingV1DebugDiagnostics = TrackingV1DebugDiagnostics()
+    private val dwellDetector = DwellDetector()
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -173,6 +178,21 @@ class TrackingService : Service() {
             // so it runs before the recorder's states are consulted at all — paused at a café,
             // searching for GPS, out of storage, or not riding yet.
             pushGroupPresence(location)
+
+            if (dwellDetector.state == DwellState.STANDBY_WAITING_FOR_NEXT_TRIP) {
+                val speedKmh = if (location.hasSpeed()) (location.speed * 3.6f).toDouble() else 0.0
+                val dwellResult = dwellDetector.evaluate(
+                    lat = location.latitude,
+                    lng = location.longitude,
+                    speedKmh = speedKmh,
+                    nowEpochMs = location.time,
+                )
+                if (dwellResult.shouldAutoStartNextRide) {
+                    startNewAutoChainedRide(location)
+                }
+                return
+            }
+
             if (trackingAlgorithmVersion == 2 && currentRideId != null &&
                 (currentState == TrackingState.TRACKING || shouldEmitGpsResumeTelemetry(currentState))) {
                 orderedLocations.forEachIndexed { index, fix ->
@@ -261,8 +281,18 @@ class TrackingService : Service() {
                 // §6.1.1 #4. Deliberately derived from the raw stillness signal rather than from
                 // `isPointPaused`: auto-pause can be switched off, and a rider who turned it off is
                 // if anything *more* likely to end up with a ride running in a pocket, because
-                // nothing else is watching for stillness on their behalf.
                 updateStillness(isHardwareStill || isStationaryDrift, location.time)
+
+                val dwellResult = dwellDetector.evaluate(
+                    lat = location.latitude,
+                    lng = location.longitude,
+                    speedKmh = (effectiveSpeed * 3.6f).toDouble(),
+                    nowEpochMs = location.time,
+                )
+                if (dwellResult.shouldAutoEndRide) {
+                    handleAutoEndRide(dwellResult, location)
+                    return
+                }
 
                 trackingManager.updateSpeed(effectiveSpeed)
                 trackingManager.setAutoPaused(isPointPaused)
@@ -459,6 +489,19 @@ class TrackingService : Service() {
             trackingManager.addPathPoint(displayLatLng)
         }
         updateStillness(stationary, location.time)
+
+        val v2SpeedKmh = if (location.hasSpeed()) (location.speed * 3.6f).toDouble() else (snapshot.currentSpeedMetersPerSecond * 3.6)
+        val dwellResult = dwellDetector.evaluate(
+            lat = location.latitude,
+            lng = location.longitude,
+            speedKmh = v2SpeedKmh,
+            nowEpochMs = location.time,
+        )
+        if (dwellResult.shouldAutoEndRide) {
+            handleAutoEndRide(dwellResult, location)
+            return
+        }
+
         lastLocation = location
         val total = v2Session.distanceMeters
         val duration = v2Session.movingDurationMillis
@@ -575,6 +618,26 @@ class TrackingService : Service() {
         liveShareManager = app.liveShareManager
         groupSessionManager = app.groupSessionManager
         observeLiveShareIntervals()
+
+        dwellDetector.isAutoTripChainingEnabled = app.preferencesManager.autoTripChainingEnabled.value
+        dwellDetector.autoEndDwellMinutes = app.preferencesManager.autoEndDwellMinutes.value
+        dwellDetector.isAutoEndCropDwellEnabled = app.preferencesManager.autoEndCropDwellEnabled.value
+
+        serviceScope.launch {
+            app.preferencesManager.autoTripChainingEnabled.collect {
+                dwellDetector.isAutoTripChainingEnabled = it
+            }
+        }
+        serviceScope.launch {
+            app.preferencesManager.autoEndDwellMinutes.collect {
+                dwellDetector.autoEndDwellMinutes = it
+            }
+        }
+        serviceScope.launch {
+            app.preferencesManager.autoEndCropDwellEnabled.collect {
+                dwellDetector.isAutoEndCropDwellEnabled = it
+            }
+        }
     }
 
     private fun observeLiveShareIntervals() {
@@ -659,6 +722,7 @@ class TrackingService : Service() {
 
     override fun onDestroy() {
         isRunning = false
+        dwellDetector.reset()
         trackingV2StepSensor.stop()
         serviceScope.cancel()
         super.onDestroy()
@@ -676,12 +740,19 @@ class TrackingService : Service() {
             ACTION_START_GROUP_PRESENCE -> startGroupPresence()
             ACTION_STOP_GROUP_PRESENCE -> stopGroupPresence()
             ACTION_PAUSE_SERVICE -> pauseTracking()
-            ACTION_STOP_SERVICE -> stopTracking()
-            ACTION_DISCARD_NEAR_EMPTY_RIDE -> stopTracking(discardNearEmptyRide = true)
+            ACTION_STOP_SERVICE -> {
+                dwellDetector.reset()
+                stopTracking()
+            }
+            ACTION_DISCARD_NEAR_EMPTY_RIDE -> {
+                dwellDetector.reset()
+                stopTracking(discardNearEmptyRide = true)
+            }
             // §6.1.1 #4. "Finish ride" is routed through the ordinary stop path rather than a
             // private one: a shortcut that skipped the save would turn a helpful question into the
             // worst bug in the release.
             ForgottenRideNotifier.ACTION_FINISH_RIDE -> {
+                dwellDetector.reset()
                 ForgottenRideNotifier.cancel(this)
                 stopTracking()
             }
@@ -728,6 +799,7 @@ class TrackingService : Service() {
         }
 
         updateState(TrackingState.TRACKING)
+        dwellDetector.reset()
         lastGpsTimeMs = System.currentTimeMillis()
         motionSensorManager.startListening()
         // The ride is about to open its own high-accuracy stream; drop the presence one so the two
@@ -1255,6 +1327,129 @@ class TrackingService : Service() {
         }
     }
 
+    private fun handleAutoEndRide(result: DwellEvaluationResult, lastLoc: Location) {
+        val rideId = currentRideId ?: return
+        val app = application as TrackMeApp
+        val strings = getAppStrings(app.preferencesManager.appLanguage.value)
+        val persona = trackingManager.selectedPersona.value
+        val personaLabel = strings.personaLabel(persona)
+        val distanceKm = trackingManager.totalDistance.value / 1000f
+        val distanceFormatted = String.format(Locale.getDefault(), "%.1f km", distanceKm)
+
+        serviceScope.launch {
+            if (result.shouldPruneTrailingPoints && result.autoEndTimestampEpochMs != null) {
+                rideDao.deletePointsAfterTimestamp(rideId, result.autoEndTimestampEpochMs)
+            }
+
+            withContext(Dispatchers.Main.immediate) {
+                AutoTripNotifier.notifyAutoTripCompleted(
+                    context = this@TrackingService,
+                    personaLabel = personaLabel,
+                    distanceFormatted = distanceFormatted,
+                )
+            }
+
+            if (dwellDetector.isAutoTripChainingEnabled) {
+                stopTrackingForAutoChaining(lastLoc, result)
+            } else {
+                withContext(Dispatchers.Main.immediate) {
+                    stopTracking()
+                }
+            }
+        }
+    }
+
+    private fun stopTrackingForAutoChaining(lastLoc: Location, result: DwellEvaluationResult) {
+        val rideId = currentRideId ?: return
+        val finalDistance = trackingManager.totalDistance.value.toDouble()
+        val finalDuration = rideDuration
+        val trackingV2Live = if (BuildConfig.DEBUG) trackingV2Estimator.snapshot() else null
+        val trackingV2Final = if (BuildConfig.DEBUG) trackingV2Estimator.finish() else null
+        val trackingV1Diagnostics = trackingV1DebugDiagnostics
+        val capturedLiveShareIntervals = snapshotAndClearLiveShareIntervals(System.currentTimeMillis())
+
+        currentRideId = null
+        activeRideId = null
+        updateState(TrackingState.IDLE)
+        trackingManager.reset()
+        rideDuration = 0L
+        lastLocation = null
+        setPersistedActiveSession(false)
+        setPersistedPausedSession(false)
+
+        serviceScope.launch {
+            pointWriteChain.awaitPending()
+            finalizeRide(
+                rideId = rideId,
+                finalDistance = finalDistance,
+                finalDuration = finalDuration,
+                discardNearEmptyRide = false,
+                liveShareIntervals = capturedLiveShareIntervals,
+                trackingV2Live = trackingV2Live,
+                trackingV2Final = trackingV2Final,
+                trackingV1Diagnostics = trackingV1Diagnostics,
+            )
+
+            dwellDetector.transitionToStandby(
+                lastAnchorLat = result.dwellAnchorLat ?: lastLoc.latitude,
+                lastAnchorLng = result.dwellAnchorLng ?: lastLoc.longitude,
+                nowEpochMs = System.currentTimeMillis()
+            )
+
+            withContext(Dispatchers.Main.immediate) {
+                locationHelper.startStandbyTracking(locationCallback)
+                postTrackingNotification(force = true)
+            }
+        }
+    }
+
+    private fun startNewAutoChainedRide(location: Location) {
+        serviceScope.launch {
+            try {
+                trackingAlgorithmVersion = 2
+                restoredV2Peak = 0.0
+                lastV2DisplayPoint = null
+                val startTime = System.currentTimeMillis()
+                val groupAtStart = groupSessionManager.state.value
+                val persona = trackingManager.selectedPersona.value
+                val rideId = rideDao.insertRide(
+                    RideEntity(
+                        startTime = startTime,
+                        title = RideUtils.getDefaultTitle(startTime, persona),
+                        persona = persona.name,
+                        startZoneId = java.time.ZoneId.systemDefault().id,
+                        trackingAlgorithmVersion = 2,
+                        wasGroupRide = groupAtStart.isActive,
+                        groupRiderCount = groupAtStart.roster.size.takeIf {
+                            groupAtStart.isActive && it > 0
+                        },
+                    )
+                )
+                currentRideId = rideId
+                activeRideId = rideId
+                setPersistedActiveSession(true)
+                setPersistedPausedSession(false)
+
+                withContext(Dispatchers.Main.immediate) {
+                    startTrackingV2Shadow()
+                    updateState(TrackingState.TRACKING)
+                    locationHelper.startLocationTracking(locationCallback)
+                    startMotionThrottleWatcher()
+                    AutoTripNotifier.notifyAutoTripStarted(this@TrackingService)
+                }
+
+                AnalyticsManager.trackRideStarted(
+                    rideId = rideId.toString()
+                )
+                resetLiveShareIntervalsForNewRide(startTime)
+            } catch (_: SQLiteException) {
+                withContext(Dispatchers.Main.immediate) {
+                    enterStorageLowState()
+                }
+            }
+        }
+    }
+
     /**
      * Publishes the recorder's state to the UI, honouring SCOPE_1.7.3 §0 contract 2 —
      * *"a ride recording is always visible"*.
@@ -1446,7 +1641,9 @@ class TrackingService : Service() {
             this, 0, intent, android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
         )
 
-        val contentText = when (state) {
+        val contentText = if (dwellDetector.state == DwellState.STANDBY_WAITING_FOR_NEXT_TRIP) {
+            strings.hudStationaryHint
+        } else when (state) {
             TrackingState.PAUSED -> String.format(
                 java.util.Locale.getDefault(),
                 strings.notifTrackingPaused,

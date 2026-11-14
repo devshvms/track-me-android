@@ -203,6 +203,7 @@ class GPSProcessorTest {
     ) : RideDao {
         /** TASK-275: unused here — neither the reconciler nor the processor imports. */
         override suspend fun countByContentHash(hash: String): Int = 0
+        override suspend fun deletePointsAfterTimestamp(rideId: Long, afterTimestamp: Long): Int = 0
 
         var getPointsCalls = 0
         var insertedPoints: List<GPSPointEntity> = emptyList()
