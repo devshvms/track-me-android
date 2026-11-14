@@ -1493,6 +1493,51 @@ class LiveSessionViewerRepositoryTest {
         assertTrue(normal.shouldAnimateMap)
         assertNull(normal.noticeText)
     }
+
+    @Test
+    fun `evaluates low data mode poll delay, decimation metrics and telemetry payload (CIE-045)`() {
+        // 1. Poll delay under low-data mode
+        assertEquals(30_000L, LiveSessionViewerRepository.computeLowDataPollDelay(true, 5_000L))
+        assertEquals(30_000L, LiveSessionViewerRepository.computeLowDataPollDelay(true, 15_000L))
+        assertEquals(5_000L, LiveSessionViewerRepository.computeLowDataPollDelay(false, 5_000L))
+        assertEquals(10_000L, LiveSessionViewerRepository.computeLowDataPollDelay(false, 10_000L))
+        assertEquals(1_000L, LiveSessionViewerRepository.computeLowDataPollDelay(false, 500L))
+
+        // 2. Decimation metrics calculation
+        val metrics = LiveSessionViewerRepository.computeDecimationMetrics(preCount = 400, postCount = 100)
+        assertEquals(400, metrics.pointsPreDecimation)
+        assertEquals(100, metrics.pointsPostDecimation)
+        assertEquals(300, metrics.pointsSaved)
+        assertEquals(0.75, metrics.decimationRatio, 0.001)
+        assertEquals(300 * 28, metrics.estimatedBytesSaved)
+
+        val zeroMetrics = LiveSessionViewerRepository.computeDecimationMetrics(0, 0)
+        assertEquals(0, zeroMetrics.pointsSaved)
+        assertEquals(0.0, zeroMetrics.decimationRatio, 0.001)
+        assertEquals(0, zeroMetrics.estimatedBytesSaved)
+
+        // 3. Telemetry payload generation (Privacy invariant check: zero coordinates or personal data)
+        val payload = LiveSessionViewerRepository.buildLowDataTelemetryPayload(
+            isLowDataMode = true,
+            preCount = 250,
+            postCount = 50
+        )
+        assertEquals(true, payload["low_data_mode"])
+        assertEquals(250, payload["points_pre_decimation"])
+        assertEquals(50, payload["points_post_decimation"])
+        assertEquals(200, payload["points_saved"])
+        assertEquals(0.8, payload["decimation_ratio"])
+        assertEquals(200 * 28, payload["estimated_bytes_saved"])
+
+        assertFalse(payload.containsKey("lat"))
+        assertFalse(payload.containsKey("lng"))
+        assertFalse(payload.containsKey("token"))
+        assertFalse(payload.containsKey("email"))
+
+        // 4. Status notice text formatting
+        assertEquals("Low-data mode active · Polling every 30s", LiveSessionViewerRepository.formatLowDataNoticeText(true))
+        assertNull(LiveSessionViewerRepository.formatLowDataNoticeText(false))
+    }
 }
 
 

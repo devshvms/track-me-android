@@ -1563,6 +1563,74 @@ class LiveSessionViewerRepository {
                 else -> "https://maps.google.com/?daddr=$lat,$lng"
             }
         }
+
+        /**
+         * CIE-045: Metrics describing breadcrumb decimation efficiency.
+         */
+        data class DecimationMetrics(
+            val pointsPreDecimation: Int,
+            val pointsPostDecimation: Int,
+            val pointsSaved: Int,
+            val decimationRatio: Double,
+            val estimatedBytesSaved: Int
+        )
+
+        /**
+         * CIE-045: Computes polling delay under Low-Data Mode.
+         * When Low-Data Mode is enabled, polling slows to 30,000ms (30s) to conserve cellular data.
+         */
+        fun computeLowDataPollDelay(isLowDataMode: Boolean, defaultDelayMs: Long = 5_000L): Long {
+            return if (isLowDataMode) 30_000L else maxOf(1_000L, defaultDelayMs)
+        }
+
+        /**
+         * CIE-045: Computes decimation metrics comparing raw points to decimated stored points.
+         * Standard JSON format for coordinate pair `[lat, lng]` consumes ~28 bytes.
+         */
+        fun computeDecimationMetrics(preCount: Int, postCount: Int): DecimationMetrics {
+            val safePre = maxOf(0, preCount)
+            val safePost = maxOf(0, postCount)
+            val pointsSaved = maxOf(0, safePre - safePost)
+            val decimationRatio = if (safePre > 0) pointsSaved.toDouble() / safePre.toDouble() else 0.0
+            val estimatedBytesSaved = pointsSaved * 28
+
+            return DecimationMetrics(
+                pointsPreDecimation = safePre,
+                pointsPostDecimation = safePost,
+                pointsSaved = pointsSaved,
+                decimationRatio = decimationRatio,
+                estimatedBytesSaved = estimatedBytesSaved
+            )
+        }
+
+        /**
+         * CIE-045: Builds a sanitized, non-PII telemetry payload for low-data mode and decimation.
+         * Strictly adheres to privacy invariants: zero raw coordinates, session tokens, or personal info.
+         */
+        fun buildLowDataTelemetryPayload(
+            isLowDataMode: Boolean,
+            preCount: Int = 0,
+            postCount: Int = 0
+        ): Map<String, Any> {
+            val metrics = computeDecimationMetrics(preCount, postCount)
+            val roundedRatio = Math.round(metrics.decimationRatio * 1000.0) / 1000.0
+            return mapOf(
+                "low_data_mode" to isLowDataMode,
+                "points_pre_decimation" to metrics.pointsPreDecimation,
+                "points_post_decimation" to metrics.pointsPostDecimation,
+                "points_saved" to metrics.pointsSaved,
+                "decimation_ratio" to roundedRatio,
+                "estimated_bytes_saved" to metrics.estimatedBytesSaved
+            )
+        }
+
+        /**
+         * CIE-045: Formats user-facing status notice when low-data mode is active.
+         */
+        fun formatLowDataNoticeText(isLowDataMode: Boolean): String? {
+            if (!isLowDataMode) return null
+            return "Low-data mode active · Polling every 30s"
+        }
     }
 }
 
