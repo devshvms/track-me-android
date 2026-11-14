@@ -1018,6 +1018,58 @@ object AnalyticsManager {
         )
     }
 
+    fun trackLiveShareViewerHealthSampled(
+        sessionId: String,
+        pollLatencyMs: Long,
+        statusCode: Int,
+        isActive: Boolean,
+        hasLocation: Boolean,
+        batteryLevel: Int?,
+        pointCount: Int
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        val props = mutableMapOf<String, Any>(
+            "session_id" to sessionId,
+            "sessionId" to sessionId,
+            "poll_latency_ms" to pollLatencyMs,
+            "pollLatencyMs" to pollLatencyMs,
+            "status_code" to statusCode,
+            "statusCode" to statusCode,
+            "is_active" to isActive,
+            "isActive" to isActive,
+            "has_location" to hasLocation,
+            "hasLocation" to hasLocation,
+            "point_count" to pointCount,
+            "pointCount" to pointCount,
+            "platform" to "android"
+        )
+        if (batteryLevel != null) {
+            props["battery_level"] = batteryLevel
+            props["batteryLevel"] = batteryLevel
+        }
+        PostHog.capture("live_share_viewer_health_sampled", properties = props)
+    }
+
+    fun trackLiveShareViewerErrorLogged(
+        sessionId: String,
+        errorCode: String,
+        statusCode: Int
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_viewer_error_logged",
+            properties = mapOf(
+                "session_id" to sessionId,
+                "sessionId" to sessionId,
+                "error_code" to errorCode,
+                "errorCode" to errorCode,
+                "status_code" to statusCode,
+                "statusCode" to statusCode,
+                "platform" to "android"
+            )
+        )
+    }
+
     fun trackTrustedWatcherAdded() {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture(

@@ -200,8 +200,22 @@ fun LiveSessionViewerSheet(
             errorMessage = null
             while (isActive && !stopPolling) {
                 nowEpochMillis = System.currentTimeMillis()
-                val nextDelay = when (val res = repository.fetchSnapshot(sessionId)) {
+                val pollStartMs = System.currentTimeMillis()
+                val res = repository.fetchSnapshot(sessionId)
+                val pollLatencyMs = LiveSessionViewerRepository.computePollLatencyMs(pollStartMs, System.currentTimeMillis())
+                val nextDelay = when (res) {
                     is LiveSessionFetchResult.Success -> {
+                        if (LiveSessionViewerRepository.shouldSampleViewerHealth()) {
+                            AnalyticsManager.trackLiveShareViewerHealthSampled(
+                                sessionId = sessionId,
+                                pollLatencyMs = pollLatencyMs,
+                                statusCode = 200,
+                                isActive = res.snapshot.isActive,
+                                hasLocation = res.snapshot.lastLocation != null,
+                                batteryLevel = LiveSessionViewerRepository.clampBatteryLevel(res.snapshot.lastLocation?.batteryLevel),
+                                pointCount = res.snapshot.path.size,
+                            )
+                        }
                         consecutiveErrors = 0
                         snapshot = res.snapshot
                         isExpiredOrMissing = false
@@ -247,12 +261,27 @@ fun LiveSessionViewerSheet(
                         )
                     }
                     LiveSessionFetchResult.NotFoundOrExpired -> {
+                        if (consecutiveErrors == 0) {
+                            AnalyticsManager.trackLiveShareViewerErrorLogged(
+                                sessionId = sessionId,
+                                errorCode = "not_found_or_expired",
+                                statusCode = 404
+                            )
+                        }
                         isExpiredOrMissing = true
                         isLoading = false
                         stopPolling = true
                         break
                     }
                     is LiveSessionFetchResult.Error -> {
+                        if (consecutiveErrors == 0) {
+                            val errCode = LiveSessionViewerRepository.classifyViewerError(null, res.message)
+                            AnalyticsManager.trackLiveShareViewerErrorLogged(
+                                sessionId = sessionId,
+                                errorCode = errCode,
+                                statusCode = 0
+                            )
+                        }
                         consecutiveErrors++
                         errorMessage = res.message
                         isLoading = false
