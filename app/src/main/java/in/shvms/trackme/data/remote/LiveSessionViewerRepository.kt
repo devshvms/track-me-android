@@ -9,6 +9,7 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.Locale
 import kotlin.math.abs
 import com.google.android.gms.maps.model.LatLng
 
@@ -294,6 +295,22 @@ class LiveSessionViewerRepository {
         isTripEnded = isTripEnded,
         isFetchInProgress = isFetchInProgress
     )
+
+    /**
+     * CIE-043: Formats localized share text for forwarding a live session.
+     */
+    fun formatLiveShareMessage(
+        username: String?,
+        shareUrl: String,
+        nameTemplate: String = "Track %1\$s's live ride on TrackMe: %2\$s",
+        fallbackTemplate: String = "Track this live ride on TrackMe: %1\$s"
+    ): String = Companion.formatLiveShareMessage(username, shareUrl, nameTemplate, fallbackTemplate)
+
+    /**
+     * CIE-043: Constructs direct external navigation URL to rider coordinate.
+     */
+    fun buildDirectionsUrl(lat: Double, lng: Double, provider: String = "google_maps"): String? =
+        Companion.buildDirectionsUrl(lat, lng, provider)
 
     suspend fun fetchSnapshot(sessionId: String): LiveSessionFetchResult = withContext(Dispatchers.IO) {
         val cleanId = sessionId.trim()
@@ -1407,6 +1424,41 @@ class LiveSessionViewerRepository {
                 resetConsecutiveErrors = false,
                 statusMessage = null
             )
+        }
+
+        /**
+         * CIE-043: Formats localized share text for forwarding a live session.
+         */
+        fun formatLiveShareMessage(
+            username: String?,
+            shareUrl: String,
+            nameTemplate: String = "Track %1\$s's live ride on TrackMe: %2\$s",
+            fallbackTemplate: String = "Track this live ride on TrackMe: %1\$s"
+        ): String {
+            val cleanName = username?.trim()?.takeIf { it.isNotBlank() }
+            return if (cleanName != null) {
+                String.format(Locale.getDefault(), nameTemplate, cleanName, shareUrl)
+            } else {
+                String.format(Locale.getDefault(), fallbackTemplate, shareUrl)
+            }
+        }
+
+        /**
+         * CIE-043: Constructs direct external navigation URL to rider coordinate.
+         * Validates latitude (-90..90) and longitude (-180..180).
+         */
+        fun buildDirectionsUrl(
+            lat: Double,
+            lng: Double,
+            provider: String = "google_maps"
+        ): String? {
+            if (!lat.isFinite() || !lng.isFinite()) return null
+            if (lat < -90.0 || lat > 90.0 || lng < -180.0 || lng > 180.0) return null
+
+            return when (provider) {
+                "apple_maps" -> "https://maps.apple.com/?daddr=$lat,$lng"
+                else -> "https://maps.google.com/?daddr=$lat,$lng"
+            }
         }
     }
 }

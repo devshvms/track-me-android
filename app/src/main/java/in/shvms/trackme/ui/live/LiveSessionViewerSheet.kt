@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Schedule
@@ -491,6 +492,70 @@ fun LiveSessionViewerSheet(
                         }
                     },
                     actions = {
+                        val currentSnapshot = snapshot
+                        val currentLocation = currentSnapshot?.lastLocation
+                        if (currentLocation != null) {
+                            IconButton(
+                                onClick = {
+                                    AnalyticsManager.trackLiveShareDirectionsClicked(sessionId, "google_maps")
+                                    val directionsUrl = LiveSessionViewerRepository.buildDirectionsUrl(currentLocation.lat, currentLocation.lng, "google_maps")
+                                    if (directionsUrl != null) {
+                                        val gmmIntentUri = Uri.parse("google.navigation:q=${currentLocation.lat},${currentLocation.lng}")
+                                        val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri).apply {
+                                            setPackage("com.google.android.apps.maps")
+                                        }
+                                        runCatching {
+                                            context.startActivity(mapIntent)
+                                        }.onFailure {
+                                            runCatching {
+                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(directionsUrl)))
+                                            }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.semantics {
+                                    contentDescription = strings.liveViewerDirectionsA11y
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Navigation,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = {
+                                val riderName = currentSnapshot?.username?.trim()?.takeIf { it.isNotBlank() }
+                                val browserUrl = LiveSessionViewerRepository.buildShareUrl(AppConfig.LIVE_SHARE_BASE_URL, sessionId, riderName)
+                                val shareMessage = LiveSessionViewerRepository.formatLiveShareMessage(
+                                    username = riderName,
+                                    shareUrl = browserUrl,
+                                    nameTemplate = strings.liveViewerShareMessageWithName,
+                                    fallbackTemplate = strings.liveViewerShareMessageFallback
+                                )
+                                AnalyticsManager.trackLiveShareViewerShareClicked(sessionId)
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_SUBJECT, strings.liveViewerShareRideSubject)
+                                    putExtra(Intent.EXTRA_TEXT, shareMessage)
+                                }
+                                runCatching {
+                                    context.startActivity(Intent.createChooser(sendIntent, strings.liveViewerShareRide))
+                                }
+                            },
+                            modifier = Modifier.semantics {
+                                contentDescription = strings.liveViewerShareRideA11y
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+
                         val currentUnitText = if (isImperial) "mph" else "km/h"
                         TextButton(
                             onClick = { isImperial = !isImperial },
@@ -1249,11 +1314,12 @@ fun LiveSessionViewerSheet(
                                     onClick = {
                                         val riderName = currentSnapshot?.username?.trim()?.takeIf { it.isNotBlank() }
                                         val browserUrl = LiveSessionViewerRepository.buildShareUrl(AppConfig.LIVE_SHARE_BASE_URL, sessionId, riderName)
-                                        val shareMessage = if (riderName != null) {
-                                            String.format(Locale.getDefault(), strings.liveViewerShareMessageWithName, riderName, browserUrl)
-                                        } else {
-                                            String.format(Locale.getDefault(), strings.liveViewerShareMessageFallback, browserUrl)
-                                        }
+                                        val shareMessage = LiveSessionViewerRepository.formatLiveShareMessage(
+                                            username = riderName,
+                                            shareUrl = browserUrl,
+                                            nameTemplate = strings.liveViewerShareMessageWithName,
+                                            fallbackTemplate = strings.liveViewerShareMessageFallback
+                                        )
                                         AnalyticsManager.trackLiveShareViewerShareClicked(sessionId)
                                         val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                             type = "text/plain"

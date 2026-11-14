@@ -1373,6 +1373,39 @@ class LiveSessionViewerRepositoryTest {
         assertFalse(steady.resetConsecutiveErrors)
         assertNull(steady.statusMessage)
     }
+
+    @Test
+    fun `formatLiveShareMessage formats with rider name and fallback`() {
+        val shareUrl = "https://trackme.shvms.in/live/sess_123"
+        val withName = LiveSessionViewerRepository.formatLiveShareMessage("Shivam", shareUrl)
+        assertTrue(withName.contains("Shivam"))
+        assertTrue(withName.contains("https://trackme.shvms.in/live/sess_123"))
+
+        val withoutName = LiveSessionViewerRepository.formatLiveShareMessage(null, shareUrl)
+        assertFalse(withoutName.contains("Shivam"))
+        assertTrue(withoutName.contains("https://trackme.shvms.in/live/sess_123"))
+
+        val emptyName = LiveSessionViewerRepository.formatLiveShareMessage("   ", shareUrl)
+        assertFalse(emptyName.contains("   's"))
+        assertTrue(emptyName.contains("https://trackme.shvms.in/live/sess_123"))
+    }
+
+    @Test
+    fun `buildDirectionsUrl constructs valid URLs and rejects invalid coordinates`() {
+        val repo = LiveSessionViewerRepository()
+        val google = repo.buildDirectionsUrl(12.9716, 77.5946, "google_maps")
+        assertEquals("https://maps.google.com/?daddr=12.9716,77.5946", google)
+
+        val apple = LiveSessionViewerRepository.buildDirectionsUrl(12.9716, 77.5946, "apple_maps")
+        assertEquals("https://maps.apple.com/?daddr=12.9716,77.5946", apple)
+
+        assertNull(LiveSessionViewerRepository.buildDirectionsUrl(95.0, 77.5946))
+        assertNull(LiveSessionViewerRepository.buildDirectionsUrl(-95.0, 77.5946))
+        assertNull(LiveSessionViewerRepository.buildDirectionsUrl(12.9716, 185.0))
+        assertNull(LiveSessionViewerRepository.buildDirectionsUrl(12.9716, -185.0))
+        assertNull(LiveSessionViewerRepository.buildDirectionsUrl(Double.NaN, 77.5946))
+        assertNull(LiveSessionViewerRepository.buildDirectionsUrl(12.9716, Double.POSITIVE_INFINITY))
+    }
 }
 
 

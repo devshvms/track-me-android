@@ -1018,6 +1018,19 @@ object AnalyticsManager {
         )
     }
 
+    fun trackLiveShareDirectionsClicked(sessionId: String, provider: String = "google_maps") {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_directions_clicked",
+            properties = mapOf(
+                "session_id" to sessionId,
+                "sessionId" to sessionId,
+                "provider" to provider,
+                "platform" to "android"
+            )
+        )
+    }
+
     fun trackLiveShareViewerHealthSampled(
         sessionId: String,
         pollLatencyMs: Long,
