@@ -1538,6 +1538,54 @@ class LiveSessionViewerRepositoryTest {
         assertEquals("Low-data mode active · Polling every 30s", LiveSessionViewerRepository.formatLowDataNoticeText(true))
         assertNull(LiveSessionViewerRepository.formatLowDataNoticeText(false))
     }
+
+    @Test
+    fun `evaluates viewer presence ping throttling, backoff, and offline gating (CIE-046)`() {
+        val noJitter = { 0.0 }
+        val fullJitter = { 0.9999 }
+
+        // Suppression when offline or >= 2 fetch failures
+        assertFalse(LiveSessionViewerRepository.shouldSkipPresencePing(0, isOnline = true))
+        assertFalse(LiveSessionViewerRepository.shouldSkipPresencePing(1, isOnline = true))
+        assertTrue(LiveSessionViewerRepository.shouldSkipPresencePing(2, isOnline = true))
+        assertTrue(LiveSessionViewerRepository.shouldSkipPresencePing(0, isOnline = false))
+
+        // Healthy normal active -> 15s
+        assertEquals(
+            15_000L,
+            LiveSessionViewerRepository.computeViewerPingDelay(0, randomProvider = noJitter),
+        )
+
+        // Healthy throttled (low-data, background, or idle) -> 30s (< 40s server TTL)
+        assertEquals(
+            30_000L,
+            LiveSessionViewerRepository.computeViewerPingDelay(0, isLowDataMode = true, randomProvider = noJitter),
+        )
+        assertEquals(
+            30_000L,
+            LiveSessionViewerRepository.computeViewerPingDelay(0, isBackground = true, randomProvider = noJitter),
+        )
+        assertEquals(
+            30_000L,
+            LiveSessionViewerRepository.computeViewerPingDelay(0, isViewerIdle = true, randomProvider = noJitter),
+        )
+
+        // Exponential failure backoff on normal cadence: 20s -> 30s -> 45s -> 60s
+        assertEquals(20_000L, LiveSessionViewerRepository.computeViewerPingDelay(1, randomProvider = noJitter))
+        assertEquals(30_000L, LiveSessionViewerRepository.computeViewerPingDelay(2, randomProvider = noJitter))
+        assertEquals(45_000L, LiveSessionViewerRepository.computeViewerPingDelay(3, randomProvider = noJitter))
+        assertEquals(60_000L, LiveSessionViewerRepository.computeViewerPingDelay(4, randomProvider = noJitter))
+        assertEquals(60_000L, LiveSessionViewerRepository.computeViewerPingDelay(8, randomProvider = noJitter))
+
+        // Failure backoff while throttled: 35s -> 45s -> 60s
+        assertEquals(35_000L, LiveSessionViewerRepository.computeViewerPingDelay(1, isLowDataMode = true, randomProvider = noJitter))
+        assertEquals(45_000L, LiveSessionViewerRepository.computeViewerPingDelay(2, isViewerIdle = true, randomProvider = noJitter))
+        assertEquals(60_000L, LiveSessionViewerRepository.computeViewerPingDelay(3, isBackground = true, randomProvider = noJitter))
+
+        // Bounded jitter and max clamp
+        assertEquals(20_999L, LiveSessionViewerRepository.computeViewerPingDelay(1, randomProvider = fullJitter))
+        assertEquals(60_000L, LiveSessionViewerRepository.computeViewerPingDelay(4, randomProvider = fullJitter))
+    }
 }
 
 

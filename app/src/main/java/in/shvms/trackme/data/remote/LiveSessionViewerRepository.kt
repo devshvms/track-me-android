@@ -1631,6 +1631,51 @@ class LiveSessionViewerRepository {
             if (!isLowDataMode) return null
             return "Low-data mode active · Polling every 30s"
         }
+
+        // CIE-046: Active viewer presence ping throttling & backoff constants (matching TrackCore parity)
+        const val VIEWER_PING_BASE_MS = 15_000L
+        const val VIEWER_PING_THROTTLED_MS = 30_000L
+        const val VIEWER_PING_MAX_BACKOFF_MS = 60_000L
+
+        /**
+         * CIE-046: Suppresses presence pings when viewer is offline or snapshot fetches are repeatedly failing.
+         */
+        fun shouldSkipPresencePing(consecutiveFetchFailures: Int, isOnline: Boolean = true): Boolean {
+            if (!isOnline) return true
+            return consecutiveFetchFailures >= 2
+        }
+
+        /**
+         * CIE-046: Computes viewer presence ping interval in milliseconds.
+         * Steps up to 30,000ms (30s — strictly below backend STALE_VIEWER_WINDOW_MS 40s) when
+         * throttled by low-data/background/idle state, and applies jittered backoff on ping errors.
+         */
+        fun computeViewerPingDelay(
+            consecutivePingFailures: Int,
+            isLowDataMode: Boolean = false,
+            isBackground: Boolean = false,
+            isViewerIdle: Boolean = false,
+            baseMs: Long = VIEWER_PING_BASE_MS,
+            throttledMs: Long = VIEWER_PING_THROTTLED_MS,
+            maxMs: Long = VIEWER_PING_MAX_BACKOFF_MS,
+            jitterMaxMs: Long = 1_000L,
+            randomProvider: () -> Double = { Math.random() },
+        ): Long {
+            val safeBaseMs = maxOf(1_000L, baseMs)
+            val safeThrottledMs = maxOf(safeBaseMs, throttledMs)
+            val effectiveBaseMs = if (isLowDataMode || isBackground || isViewerIdle) {
+                safeThrottledMs
+            } else {
+                safeBaseMs
+            }
+            if (consecutivePingFailures <= 0) return effectiveBaseMs
+            val safeMaxMs = maxOf(effectiveBaseMs, maxMs)
+            val stepIncrements = longArrayOf(5_000L, 15_000L, 30_000L, 45_000L)
+            val stepIndex = (consecutivePingFailures - 1).coerceIn(0, stepIncrements.lastIndex)
+            val step = stepIncrements[stepIndex]
+            val jitter = if (jitterMaxMs > 0L) (randomProvider().coerceIn(0.0, 0.9999) * jitterMaxMs).toLong() else 0L
+            return (effectiveBaseMs + step + jitter).coerceAtMost(safeMaxMs)
+        }
     }
 }
 
