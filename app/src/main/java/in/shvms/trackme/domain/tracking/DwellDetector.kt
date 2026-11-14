@@ -35,6 +35,7 @@ data class DwellEvaluationResult(
     val shouldPruneTrailingPoints: Boolean = false,
     val shouldAutoStartNextRide: Boolean = false,
     val autoStartTimestampEpochMs: Long? = null,
+    val shouldStopStandby: Boolean = false,
     val dwellAnchorLat: Double? = null,
     val dwellAnchorLng: Double? = null,
     val currentDwellDurationMs: Long = 0L,
@@ -51,6 +52,8 @@ class DwellDetector(
     var breakoutSpeedThresholdKmh: Double = 8.0,
     var stationaryConfirmationDurationMs: Long = 45_000L,
     var breakoutConfirmationDurationMs: Long = 20_000L,
+    var maxStandbyWindowMs: Long = 2 * 60 * 60 * 1000L,
+    var maxAnchorAccuracyMeters: Float = 60f,
 ) {
     var state: DwellState = DwellState.ACTIVE_TRACKING
         private set
@@ -89,16 +92,22 @@ class DwellDetector(
         lng: Double,
         speedKmh: Double,
         nowEpochMs: Long,
+        accuracyMeters: Float? = null,
     ): DwellEvaluationResult {
         // If feature is disabled, return normal active tracking
         if (!isAutoTripChainingEnabled) {
             return DwellEvaluationResult(state = DwellState.ACTIVE_TRACKING)
         }
 
+        val hasAcceptableAccuracy = accuracyMeters == null ||
+            (accuracyMeters.isFinite() && accuracyMeters > 0f && accuracyMeters <= maxAnchorAccuracyMeters)
         val dwellTimeoutMs = autoEndDwellMinutes.coerceIn(1, 60) * 60_000L
 
         when (state) {
             DwellState.ACTIVE_TRACKING -> {
+                if (!hasAcceptableAccuracy) {
+                    return DwellEvaluationResult(state = DwellState.ACTIVE_TRACKING)
+                }
                 val isLowSpeed = speedKmh <= stationarySpeedThresholdKmh
                 if (isLowSpeed) {
                     val lowStart = lowSpeedStartEpochMs ?: nowEpochMs.also { lowSpeedStartEpochMs = it }
@@ -130,8 +139,8 @@ class DwellDetector(
                 val aTime = anchorTimestampEpochMs ?: nowEpochMs
                 val distFromAnchor = computeDistanceMeters(aLat, aLng, lat, lng)
 
-                // If user moves beyond the 75m dwell geofence at transit speed, they broke out before auto-end
-                if (distFromAnchor > dwellAnchorRadiusMeters && speedKmh > stationarySpeedThresholdKmh) {
+                // If user moves beyond the 75m dwell geofence at transit speed with reliable GPS, abort dwell
+                if (hasAcceptableAccuracy && distFromAnchor > dwellAnchorRadiusMeters && speedKmh > stationarySpeedThresholdKmh) {
                     // Resume active tracking
                     state = DwellState.ACTIVE_TRACKING
                     lowSpeedStartEpochMs = null
@@ -145,7 +154,7 @@ class DwellDetector(
                 }
 
                 // Still within the 75m dwell radius (indoor pacing or multipath GPS drift)
-                val dwellDuration = nowEpochMs - aTime
+                val dwellDuration = (nowEpochMs - aTime).coerceAtLeast(0L)
                 if (dwellDuration >= dwellTimeoutMs) {
                     // Auto-end triggered!
                     state = DwellState.TRIP_AUTO_ENDED
@@ -178,8 +187,27 @@ class DwellDetector(
             }
 
             DwellState.STANDBY_WAITING_FOR_NEXT_TRIP -> {
+                val standbyStartedAt = anchorTimestampEpochMs
+                if (maxStandbyWindowMs > 0L && standbyStartedAt != null &&
+                    (nowEpochMs - standbyStartedAt) >= maxStandbyWindowMs
+                ) {
+                    reset()
+                    return DwellEvaluationResult(
+                        state = DwellState.ACTIVE_TRACKING,
+                        shouldStopStandby = true,
+                    )
+                }
+
                 val aLat = anchorLat
                 val aLng = anchorLng
+                if (!hasAcceptableAccuracy) {
+                    breakoutStartEpochMs = null
+                    return DwellEvaluationResult(
+                        state = DwellState.STANDBY_WAITING_FOR_NEXT_TRIP,
+                        dwellAnchorLat = aLat,
+                        dwellAnchorLng = aLng,
+                    )
+                }
 
                 val dist = if (aLat != null && aLng != null) {
                     computeDistanceMeters(aLat, aLng, lat, lng)

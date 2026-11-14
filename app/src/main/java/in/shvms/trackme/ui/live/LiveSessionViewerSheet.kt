@@ -237,7 +237,7 @@ fun LiveSessionViewerSheet(
                             AnalyticsManager.trackLiveShareViewerLowBattery(sessionId, battery)
                         }
                         if (res.snapshot.isActive && tick % 3 == 0) {
-                            repository.sendViewerPing(sessionId, viewerId)
+                            launch { repository.sendViewerPing(sessionId, viewerId) }
                         }
 
                         // CIE-040: Auto-resume follow mode after inactivity timeout (20s) if ride is active

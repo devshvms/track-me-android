@@ -122,9 +122,9 @@ class DwellDetectorTest {
         assertEquals(DwellState.STANDBY_WAITING_FOR_NEXT_TRIP, res.state)
         assertFalse(res.shouldAutoStartNextRide)
 
-        // Breaks out > 150m at transit speed (250m away at 20 km/h)
+        // Breaks out > 150m at transit speed (250m away at 20 km/h) within the 2h standby window
         val outLat = homeLat + 0.0025 // ~277 meters
-        val tBreak = t0 + 7200_000L
+        val tBreak = t0 + 5400_000L
         res = detector.evaluate(outLat, homeLng, speedKmh = 20.0, nowEpochMs = tBreak)
         assertEquals(DwellState.STANDBY_WAITING_FOR_NEXT_TRIP, res.state)
         assertFalse(res.shouldAutoStartNextRide)
@@ -152,5 +152,62 @@ class DwellDetectorTest {
         // Invalid coords return 0.0
         assertEquals(0.0, DwellDetector.computeDistanceMeters(Double.NaN, p1Lng, p2Lat, p2Lng), 0.001)
         assertEquals(0.0, DwellDetector.computeDistanceMeters(95.0, p1Lng, p2Lat, p2Lng), 0.001)
+    }
+
+    @Test
+    fun `poor GPS accuracy does not anchor dwell or falsely trigger standby breakout`() {
+        val detector = DwellDetector(
+            isAutoTripChainingEnabled = true,
+            stationaryConfirmationDurationMs = 45_000L,
+            breakoutConfirmationDurationMs = 20_000L,
+            maxAnchorAccuracyMeters = 60f,
+        )
+
+        val lat = 12.9716
+        val lng = 77.5946
+        val t0 = 500_000L
+
+        // Inaccurate stationary fixes (> 60m) must not start or promote a dwell anchor
+        var res = detector.evaluate(lat, lng, speedKmh = 0.0, nowEpochMs = t0, accuracyMeters = 120f)
+        assertEquals(DwellState.ACTIVE_TRACKING, res.state)
+        res = detector.evaluate(lat, lng, speedKmh = 0.0, nowEpochMs = t0 + 60_000L, accuracyMeters = 85f)
+        assertEquals(DwellState.ACTIVE_TRACKING, res.state)
+
+        // Accurate fixes (<= 60m) confirm dwell normally
+        detector.evaluate(lat, lng, speedKmh = 0.0, nowEpochMs = t0 + 70_000L, accuracyMeters = 12f)
+        res = detector.evaluate(lat, lng, speedKmh = 0.0, nowEpochMs = t0 + 120_000L, accuracyMeters = 12f)
+        assertEquals(DwellState.DWELLING, res.state)
+
+        // Degraded indoor accuracy fix (180m) 300m away must NOT falsely break out of DWELLING
+        res = detector.evaluate(lat + 0.003, lng, speedKmh = 15.0, nowEpochMs = t0 + 150_000L, accuracyMeters = 180f)
+        assertEquals(DwellState.DWELLING, res.state)
+
+        // Standby breakout must likewise ignore poor accuracy fixes
+        detector.transitionToStandby(lat, lng, t0 + 200_000L)
+        detector.evaluate(lat + 0.004, lng, speedKmh = 25.0, nowEpochMs = t0 + 210_000L, accuracyMeters = 150f)
+        res = detector.evaluate(lat + 0.005, lng, speedKmh = 25.0, nowEpochMs = t0 + 240_000L, accuracyMeters = 150f)
+        assertEquals(DwellState.STANDBY_WAITING_FOR_NEXT_TRIP, res.state)
+        assertFalse(res.shouldAutoStartNextRide)
+    }
+
+    @Test
+    fun `standby stops automatically after max 2h window`() {
+        val detector = DwellDetector(
+            isAutoTripChainingEnabled = true,
+            maxStandbyWindowMs = 2 * 60 * 60 * 1000L,
+        )
+        val t0 = 1_000_000L
+        detector.transitionToStandby(12.9716, 77.5946, t0)
+
+        // Just before 2h -> still in standby
+        var res = detector.evaluate(12.9716, 77.5946, speedKmh = 0.0, nowEpochMs = t0 + 2 * 60 * 60 * 1000L - 1_000L, accuracyMeters = 15f)
+        assertEquals(DwellState.STANDBY_WAITING_FOR_NEXT_TRIP, res.state)
+        assertFalse(res.shouldStopStandby)
+
+        // At >= 2h -> stops standby and resets
+        res = detector.evaluate(12.9716, 77.5946, speedKmh = 0.0, nowEpochMs = t0 + 2 * 60 * 60 * 1000L, accuracyMeters = 15f)
+        assertEquals(DwellState.ACTIVE_TRACKING, res.state)
+        assertTrue(res.shouldStopStandby)
+        assertFalse(res.shouldAutoStartNextRide)
     }
 }

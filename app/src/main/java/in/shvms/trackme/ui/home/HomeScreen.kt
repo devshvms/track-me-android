@@ -499,8 +499,8 @@ fun HomeScreen(
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         showFullRideHudForPrimaryShare = false
-        openSharesheetOnLiveShareReady = true
         val autoWatchers = uiState.trustedWatchers.filter { it.autoNotify }.take(5)
+        openSharesheetOnLiveShareReady = autoWatchers.isEmpty()
         if (uiState.trackingState == TrackingState.IDLE) {
             viewModel.startTracking(RidePersona.AUTO)
         }
@@ -1029,6 +1029,8 @@ fun HomeScreen(
         )
     }
 
+    var isCreatingWatcherInvite by remember { mutableStateOf(false) }
+
     if (showHomeSharing) {
         LiveShareSetupSheet(
             liveShareState = uiState.liveShareState,
@@ -1044,17 +1046,35 @@ fun HomeScreen(
             onShareLink = { shareLiveShareLink() },
             onCopyLink = { copyLiveShareLink() },
             onInviteWatcher = {
-                val inviteUrl = viewModel.buildWatcherInviteLink()
-                if (inviteUrl != null) {
-                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_SUBJECT, strings.trustedWatchersTitle)
-                        val message = String.format(Locale.getDefault(), strings.trustedWatcherInviteShareMessage, inviteUrl)
-                        putExtra(Intent.EXTRA_TEXT, message)
-                    }
-                    context.startActivity(Intent.createChooser(sendIntent, strings.trustedWatchersAddCta))
-                } else {
+                if (!uiState.isAuthenticated) {
                     messenger.show(strings.liveShareAuthRequired, duration = SnackbarDuration.Long)
+                } else if (!isCreatingWatcherInvite) {
+                    isCreatingWatcherInvite = true
+                    coroutineScope.launch {
+                        try {
+                            val result = viewModel.createWatcherInviteLink()
+                            val inviteUrl = result.getOrNull()
+                            if (inviteUrl != null) {
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_SUBJECT, strings.trustedWatchersTitle)
+                                    val message = String.format(Locale.getDefault(), strings.trustedWatcherInviteShareMessage, inviteUrl)
+                                    putExtra(Intent.EXTRA_TEXT, message)
+                                }
+                                context.startActivity(Intent.createChooser(sendIntent, strings.trustedWatchersAddCta))
+                            } else {
+                                val err = result.exceptionOrNull()
+                                val msg = if (`in`.shvms.trackme.data.remote.LiveShareManager.isAuthenticationError(err)) {
+                                    strings.liveShareAuthRequired
+                                } else {
+                                    err?.message?.takeIf { it.isNotBlank() } ?: strings.unknown
+                                }
+                                messenger.show(msg, duration = SnackbarDuration.Long)
+                            }
+                        } finally {
+                            isCreatingWatcherInvite = false
+                        }
+                    }
                 }
             },
             onToggleWatcherAutoNotify = viewModel::toggleWatcherAutoNotify,
@@ -1776,6 +1796,8 @@ fun HomeScreen(
                     },
                     trustedWatcherCount = uiState.trustedWatchers.size,
                     onManageWatchers = { showHomeSharing = true },
+                    isStandbyActive = uiState.isStandbyActive,
+                    onStopStandby = viewModel::stopStandby,
                 )
             }
 

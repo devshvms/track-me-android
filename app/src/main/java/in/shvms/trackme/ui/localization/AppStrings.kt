@@ -639,6 +639,11 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val notifAutoTripSavedTitle: String = s("notifAutoTripSavedTitle", "Ride Automatically Completed")
     val notifAutoTripSavedBody: String = s("notifAutoTripSavedBody", "Your %1\$s ride of %2\$s has been saved to History.")
     val notifAutoTripStartedTitle: String = s("notifAutoTripStartedTitle", "New Ride Automatically Started")
+    val standbyBannerTitle: String = s("standbyBannerTitle", "Auto-trip standby active")
+    val standbyBannerSubtitle: String = s("standbyBannerSubtitle", "Waiting for your next ride to auto-start (stops automatically after 2 hours).")
+    val stopStandby: String = s("stopStandby", "Stop standby")
+    val notifStandbyTitle: String = s("notifStandbyTitle", "TrackMe Auto-Trip Standby")
+    val notifStandbyBody: String = s("notifStandbyBody", "Waiting for your next ride. Tap Stop standby to disable background GPS.")
     val debugModeEnabledMessage: String = s("debugModeEnabledMessage", "Debug mode is enabled")
     // Help & Feedback
     val helpFeedbackTitle: String = s("helpFeedbackTitle", "Help & Feedback")
@@ -1892,6 +1897,11 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "notifAutoTripSavedTitle" to "Ruta Completada Automáticamente",
             "notifAutoTripSavedBody" to "Tu ruta en %1\$s de %2\$s se ha guardado en el Historial.",
             "notifAutoTripStartedTitle" to "Nueva Ruta Iniciada Automáticamente",
+            "standbyBannerTitle" to "Modo de espera automático activo",
+            "standbyBannerSubtitle" to "Esperando tu próxima ruta para iniciar automáticamente (se detiene tras 2 horas).",
+            "stopStandby" to "Detener espera",
+            "notifStandbyTitle" to "TrackMe en espera automática",
+            "notifStandbyBody" to "Esperando tu próxima ruta. Toca Detener espera para desactivar el GPS en segundo plano.",
             "debugModeEnabledMessage" to "El modo de depuración está activado",
             "contactSupport" to "Contactar con soporte",
             "contactSupportSubject" to "Soporte de TrackMe",
@@ -2736,6 +2746,11 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "notifAutoTripSavedTitle" to "Trajet Terminé Automatiquement",
             "notifAutoTripSavedBody" to "Votre trajet en %1\$s de %2\$s a été enregistré dans l'Historique.",
             "notifAutoTripStartedTitle" to "Nouveau Trajet Démarré Automatiquement",
+            "standbyBannerTitle" to "Veille de trajet automatique active",
+            "standbyBannerSubtitle" to "En attente du prochain trajet à démarrer automatiquement (arrêt automatique après 2 heures).",
+            "stopStandby" to "Arrêter la veille",
+            "notifStandbyTitle" to "TrackMe en veille automatique",
+            "notifStandbyBody" to "En attente du prochain trajet. Appuyez sur Arrêter la veille pour couper le GPS en arrière-plan.",
             "debugModeEnabledMessage" to "Le mode débogage est activé",
             "contactSupport" to "Contacter l’assistance",
             "contactSupportSubject" to "Assistance TrackMe",
@@ -3580,6 +3595,11 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "notifAutoTripSavedTitle" to "Fahrt automatisch abgeschlossen",
             "notifAutoTripSavedBody" to "Deine %1\$s-Fahrt über %2\$s wurde im Verlauf gespeichert.",
             "notifAutoTripStartedTitle" to "Neue Fahrt automatisch gestartet",
+            "standbyBannerTitle" to "Auto-Trip-Standby aktiv",
+            "standbyBannerSubtitle" to "Wartet auf deine nächste Fahrt zum automatischen Starten (stoppt automatisch nach 2 Stunden).",
+            "stopStandby" to "Standby stoppen",
+            "notifStandbyTitle" to "TrackMe Auto-Trip-Standby",
+            "notifStandbyBody" to "Wartet auf deine nächste Fahrt. Tippe auf Standby stoppen, um Hintergrund-GPS zu deaktivieren.",
             "debugModeEnabledMessage" to "Der Debug-Modus ist aktiviert",
             "contactSupport" to "Support kontaktieren",
             "contactSupportSubject" to "TrackMe-Support",
@@ -4424,6 +4444,11 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "notifAutoTripSavedTitle" to "यात्रा स्वतः पूरी हो गई",
             "notifAutoTripSavedBody" to "आपकी %1\$s की %2\$s यात्रा इतिहास में सुरक्षित कर ली गई है।",
             "notifAutoTripStartedTitle" to "नई यात्रा स्वतः शुरू हो गई",
+            "standbyBannerTitle" to "ऑटो-ट्रिप स्टैंडबाय सक्रिय है",
+            "standbyBannerSubtitle" to "अगली यात्रा स्वतः शुरू होने की प्रतीक्षा में (2 घंटे बाद अपने-आप बंद हो जाता है)।",
+            "stopStandby" to "स्टैंडबाय बंद करें",
+            "notifStandbyTitle" to "TrackMe ऑटो-ट्रिप स्टैंडबाय",
+            "notifStandbyBody" to "अगली यात्रा की प्रतीक्षा में। बैकग्राउंड GPS बंद करने के लिए स्टैंडबाय बंद करें पर टैप करें।",
             "debugModeEnabledMessage" to "डीबग मोड चालू है",
             "contactSupport" to "सहायता से संपर्क करें",
             "contactSupportSubject" to "TrackMe सहायता",
@@ -5268,6 +5293,11 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "notifAutoTripSavedTitle" to "乗車が自動完了しました",
             "notifAutoTripSavedBody" to "あなたの%1\$s（%2\$s）の乗車が履歴に保存されました。",
             "notifAutoTripStartedTitle" to "新しい乗車が自動開始されました",
+            "standbyBannerTitle" to "自動トリップ待機中",
+            "standbyBannerSubtitle" to "次の乗車の自動開始を待機しています（2時間後に自動停止します）。",
+            "stopStandby" to "待機を停止",
+            "notifStandbyTitle" to "TrackMe 自動トリップ待機中",
+            "notifStandbyBody" to "次の乗車を待機中です。「待機を停止」をタップするとバックグラウンドGPSを無効にします。",
             "debugModeEnabledMessage" to "デバッグモードが有効になりました",
             "contactSupport" to "サポートに連絡",
             "contactSupportSubject" to "TrackMeサポート",
@@ -6112,6 +6142,11 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "notifAutoTripSavedTitle" to "行程已自动完成",
             "notifAutoTripSavedBody" to "您的%1\$s行程（%2\$s）已保存至历史记录。",
             "notifAutoTripStartedTitle" to "新行程已自动开始",
+            "standbyBannerTitle" to "自动行程待机中",
+            "standbyBannerSubtitle" to "正在等待下一段行程自动开始（2小时后自动停止）。",
+            "stopStandby" to "停止待机",
+            "notifStandbyTitle" to "TrackMe 自动行程待机",
+            "notifStandbyBody" to "正在等待下一段行程。点按“停止待机”以关闭后台 GPS。",
             "debugModeEnabledMessage" to "调试模式已启用",
             "contactSupport" to "联系支持",
             "contactSupportSubject" to "TrackMe 支持",
