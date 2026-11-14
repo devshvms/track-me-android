@@ -158,6 +158,16 @@ fun LiveShareBroadcastHudPanel(
                 )
             }
 
+            if (liveShareState.isZeroViewerHibernating) {
+                BroadcastStatusPill(
+                    text = strings.hudHibernatingPill,
+                    icon = Icons.Default.Schedule,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    shadowElevation = elevation.mapOverlay,
+                )
+            }
+
             remainingLabel?.let { remaining ->
                 BroadcastStatusPill(
                     text = remaining,

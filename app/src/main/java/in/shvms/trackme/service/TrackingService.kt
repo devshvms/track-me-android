@@ -130,6 +130,7 @@ class TrackingService : Service() {
     private var lastLiveShareSessionId: String? = null
     private val isLiveSharePushInProgress = java.util.concurrent.atomic.AtomicBoolean(false)
     private var liveShareConsecutiveFailures = 0
+    private var lastReportedZeroViewerHibernating: Boolean? = null
     private val liveShareIntervals = mutableListOf<`in`.shvms.trackme.domain.live.LiveShareInterval>()
     private var openLiveShareIntervalStartMs: Long? = null
     private var liveShareIntervalObserverJob: Job? = null
@@ -571,6 +572,7 @@ class TrackingService : Service() {
             lastLiveShareSessionId = liveShareState.sessionId
             lastLiveShareTimeMs = 0L
             liveShareConsecutiveFailures = 0
+            lastReportedZeroViewerHibernating = null
             isLiveSharePushInProgress.set(false)
         }
 
@@ -582,9 +584,55 @@ class TrackingService : Service() {
         val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
         val freqSec = prefs.getInt("live_share_frequency_sec", 5)
         val configuredIntervalMs = freqSec * 1000L
-        val baseIntervalMs = LiveShareManager.computeAdaptiveBaseIntervalMs(configuredIntervalMs, effectivePowerSave)
-        val requiredDelayMs = LiveShareManager.computePushBackoffDelay(liveShareConsecutiveFailures, baseIntervalMs)
         val now = System.currentTimeMillis()
+        val hibernation = LiveShareManager.evaluateZeroViewerHibernation(
+            activeViewers = liveShareState.activeViewers,
+            zeroViewersSinceEpochMs = liveShareState.zeroViewersSinceEpochMs ?: liveShareState.startedAt?.toEpochMilli(),
+            nowEpochMs = now,
+            configuredIntervalMs = configuredIntervalMs,
+            isPowerSaveOrLowBattery = effectivePowerSave,
+        )
+        if (liveShareState.isZeroViewerHibernating != hibernation.isHibernating ||
+            liveShareState.zeroViewersSinceEpochMs != hibernation.zeroViewersSinceEpochMs
+        ) {
+            liveShareState.sessionId?.let { activeId ->
+                liveShareManager.syncZeroViewerHibernation(
+                    sessionId = activeId,
+                    isHibernating = hibernation.isHibernating,
+                    zeroViewersSinceEpochMs = hibernation.zeroViewersSinceEpochMs,
+                )
+            }
+        }
+        if (hibernation.isHibernating && lastReportedZeroViewerHibernating != true) {
+            lastReportedZeroViewerHibernating = true
+            liveShareState.sessionId?.let { activeId ->
+                AnalyticsManager.trackLiveShareZeroViewerHibernation(
+                    sessionId = activeId,
+                    isHibernating = true,
+                    idleSeconds = hibernation.idleDurationMs / 1000L,
+                    intervalSeconds = hibernation.effectiveIntervalMs / 1000L,
+                )
+            }
+        } else if (!hibernation.isHibernating && lastReportedZeroViewerHibernating == true) {
+            lastReportedZeroViewerHibernating = false
+            liveShareState.sessionId?.let { activeId ->
+                AnalyticsManager.trackLiveShareZeroViewerHibernation(
+                    sessionId = activeId,
+                    isHibernating = false,
+                    idleSeconds = 0L,
+                    intervalSeconds = hibernation.effectiveIntervalMs / 1000L,
+                )
+            }
+        }
+        val maxPushDelayMs = maxOf(
+            15_000L,
+            hibernation.effectiveIntervalMs + if (hibernation.isHibernating) 15_000L else 0L
+        )
+        val requiredDelayMs = LiveShareManager.computePushBackoffDelay(
+            consecutiveFailures = liveShareConsecutiveFailures,
+            baseIntervalMs = hibernation.effectiveIntervalMs,
+            maxIntervalMs = maxPushDelayMs,
+        )
 
         if (now - lastLiveShareTimeMs < requiredDelayMs) return
         if (!isLiveSharePushInProgress.compareAndSet(false, true)) return

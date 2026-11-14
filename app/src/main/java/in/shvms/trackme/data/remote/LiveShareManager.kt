@@ -35,6 +35,8 @@ data class LiveShareState(
     val isLiveSharePrimary: Boolean = false,
     val notifiedWatchersCount: Int = 0,
     val sharedWatcherNames: List<String> = emptyList(),
+    val zeroViewersSinceEpochMs: Long? = null,
+    val isZeroViewerHibernating: Boolean = false,
 )
 
 class LiveShareHttpException(val statusCode: Int) : Exception(
@@ -97,17 +99,20 @@ class LiveShareManager {
 
             if (statusCode == HttpURLConnection.HTTP_OK) {
                 val parsed = parseStartResponse(body)
+                val nowInstant = Instant.now()
                 val newState = LiveShareState(
                     status = LiveShareStatus.ACTIVE,
                     sessionId = parsed.sessionId,
                     shareLink = parsed.shareLink,
                     expiresAt = parsed.expiresAt,
-                    startedAt = Instant.now(),
+                    startedAt = nowInstant,
                     stopOnRideEnd = stopOnRideEnd,
                     activeViewers = 0,
                     isLiveSharePrimary = isLiveSharePrimary,
                     notifiedWatchersCount = parsed.notifiedWatchersCount,
                     sharedWatcherNames = sharedWatcherNames,
+                    zeroViewersSinceEpochMs = nowInstant.toEpochMilli(),
+                    isZeroViewerHibernating = false,
                 )
                 _state.value = newState
 
@@ -178,10 +183,29 @@ class LiveShareManager {
                     val viewers = parseActiveViewers(body, fallback = currentState.activeViewers)
                     val latest = _state.value
                     if (latest.status == LiveShareStatus.ACTIVE &&
-                        latest.sessionId == activeSessionId &&
-                        latest.activeViewers != viewers
+                        latest.sessionId == activeSessionId
                     ) {
-                        _state.value = latest.copy(activeViewers = viewers)
+                        val nowMs = System.currentTimeMillis()
+                        val nextZeroSince = if (viewers > 0) {
+                            null
+                        } else {
+                            latest.zeroViewersSinceEpochMs ?: latest.startedAt?.toEpochMilli() ?: nowMs
+                        }
+                        val hibernation = evaluateZeroViewerHibernation(
+                            activeViewers = viewers,
+                            zeroViewersSinceEpochMs = nextZeroSince,
+                            nowEpochMs = nowMs,
+                        )
+                        if (latest.activeViewers != viewers ||
+                            latest.zeroViewersSinceEpochMs != hibernation.zeroViewersSinceEpochMs ||
+                            latest.isZeroViewerHibernating != hibernation.isHibernating
+                        ) {
+                            _state.value = latest.copy(
+                                activeViewers = viewers,
+                                zeroViewersSinceEpochMs = hibernation.zeroViewersSinceEpochMs,
+                                isZeroViewerHibernating = hibernation.isHibernating,
+                            )
+                        }
                     }
                     Result.success(Unit)
                 }
@@ -197,6 +221,24 @@ class LiveShareManager {
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    internal fun syncZeroViewerHibernation(
+        sessionId: String,
+        isHibernating: Boolean,
+        zeroViewersSinceEpochMs: Long?,
+    ) {
+        val current = _state.value
+        if (current.status == LiveShareStatus.ACTIVE &&
+            current.sessionId == sessionId &&
+            (current.isZeroViewerHibernating != isHibernating ||
+                current.zeroViewersSinceEpochMs != zeroViewersSinceEpochMs)
+        ) {
+            _state.value = current.copy(
+                isZeroViewerHibernating = isHibernating,
+                zeroViewersSinceEpochMs = zeroViewersSinceEpochMs,
+            )
         }
     }
 
@@ -320,6 +362,19 @@ class LiveShareManager {
         /** Minimum broadcast interval (15s) enforced when device is in low battery or power save mode. */
         const val POWER_SAVE_MIN_INTERVAL_MS = 15_000L
 
+        /** Duration with zero active viewers (10 minutes) before broadcaster steps down to eco cadence (CIE-046). */
+        const val ZERO_VIEWER_HIBERNATION_THRESHOLD_MS = 600_000L
+
+        /** Minimum broadcast interval (30s) enforced during zero-viewer hibernation (CIE-046). */
+        const val ZERO_VIEWER_HIBERNATION_INTERVAL_MS = 30_000L
+
+        data class ZeroViewerHibernationEvaluation(
+            val isHibernating: Boolean,
+            val zeroViewersSinceEpochMs: Long?,
+            val idleDurationMs: Long,
+            val effectiveIntervalMs: Long,
+        )
+
         /**
          * Resolves whether power save mode should be active based on OS power save mode
          * and low battery threshold (<= 15%).
@@ -347,13 +402,75 @@ class LiveShareManager {
         }
 
         /**
+         * CIE-046: Evaluates whether broadcaster has remained at 0 active viewers for >= 10 minutes
+         * and steps push cadence to at least [ZERO_VIEWER_HIBERNATION_INTERVAL_MS] (30s), resuming
+         * normal/power-save cadence immediately once any viewer connects.
+         */
+        fun evaluateZeroViewerHibernation(
+            activeViewers: Int,
+            zeroViewersSinceEpochMs: Long?,
+            nowEpochMs: Long,
+            configuredIntervalMs: Long = 5_000L,
+            isPowerSaveOrLowBattery: Boolean = false,
+            thresholdMs: Long = ZERO_VIEWER_HIBERNATION_THRESHOLD_MS,
+            hibernationIntervalMs: Long = ZERO_VIEWER_HIBERNATION_INTERVAL_MS,
+        ): ZeroViewerHibernationEvaluation {
+            val normalBaseIntervalMs = computeAdaptiveBaseIntervalMs(
+                configuredIntervalMs = maxOf(1_000L, configuredIntervalMs),
+                isPowerSaveOrLowBattery = isPowerSaveOrLowBattery,
+            )
+            if (activeViewers > 0) {
+                return ZeroViewerHibernationEvaluation(
+                    isHibernating = false,
+                    zeroViewersSinceEpochMs = null,
+                    idleDurationMs = 0L,
+                    effectiveIntervalMs = normalBaseIntervalMs,
+                )
+            }
+            val effectiveStartMs = zeroViewersSinceEpochMs ?: nowEpochMs
+            val idleDurationMs = maxOf(0L, nowEpochMs - effectiveStartMs)
+            val isHibernating = idleDurationMs >= maxOf(1_000L, thresholdMs)
+            val effectiveIntervalMs = if (isHibernating) {
+                maxOf(normalBaseIntervalMs, maxOf(1_000L, hibernationIntervalMs))
+            } else {
+                normalBaseIntervalMs
+            }
+            return ZeroViewerHibernationEvaluation(
+                isHibernating = isHibernating,
+                zeroViewersSinceEpochMs = effectiveStartMs,
+                idleDurationMs = idleDurationMs,
+                effectiveIntervalMs = effectiveIntervalMs,
+            )
+        }
+
+        /**
+         * CIE-046: Builds sanitized non-PII telemetry properties for zero-viewer hibernation transitions.
+         */
+        fun buildZeroViewerHibernationTelemetryPayload(
+            sessionId: String,
+            isHibernating: Boolean,
+            idleDurationMs: Long,
+            intervalMs: Long,
+            platform: String = "android",
+        ): Map<String, Any> {
+            return mapOf(
+                "session_id" to sessionId,
+                "sessionId" to sessionId,
+                "is_hibernating" to isHibernating,
+                "idle_seconds" to maxOf(0L, idleDurationMs / 1_000L),
+                "interval_seconds" to maxOf(1L, intervalMs / 1_000L),
+                "platform" to platform,
+            )
+        }
+
+        /**
          * Calculates an adaptive, jittered exponential backoff delay for location pushes during live sharing (CIE-003).
          * Progression:
          * - 0 failures: [baseIntervalMs] (standard broadcast cadence, e.g. 5,000ms)
          * - 1 failure:  base + 1,000ms + jitter
          * - 2 failures: base + 3,000ms + jitter
          * - 3 failures: base + 6,000ms + jitter
-         * - 4+ failures: capped at [maxIntervalMs] (default 15,000ms)
+         * - 4+ failures: capped at maxOf(baseIntervalMs, [maxIntervalMs]) (default 15,000ms)
          */
         fun computePushBackoffDelay(
             consecutiveFailures: Int,
@@ -362,11 +479,12 @@ class LiveShareManager {
             randomProvider: () -> Double = { Math.random() },
         ): Long {
             if (consecutiveFailures <= 0) return baseIntervalMs
+            val effectiveMaxMs = maxOf(baseIntervalMs, maxIntervalMs)
             val stepIncrements = longArrayOf(1_000L, 3_000L, 6_000L, 10_000L)
             val stepIndex = (consecutiveFailures - 1).coerceIn(0, stepIncrements.lastIndex)
             val step = stepIncrements[stepIndex]
             val jitter = (randomProvider() * 500L).toLong()
-            return (baseIntervalMs + step + jitter).coerceAtMost(maxIntervalMs)
+            return (baseIntervalMs + step + jitter).coerceAtMost(effectiveMaxMs)
         }
 
         fun isAuthenticationError(e: Throwable?): Boolean {

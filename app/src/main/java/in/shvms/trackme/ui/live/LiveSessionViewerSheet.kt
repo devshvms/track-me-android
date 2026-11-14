@@ -195,8 +195,10 @@ fun LiveSessionViewerSheet(
         var stopPolling = false
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             if (stopPolling) return@repeatOnLifecycle
-            var tick = 0
             var consecutiveErrors = 0
+            var consecutivePingErrors = 0
+            var lastPingSentEpochMs = 0L
+            var isPingInFlight = false
             // Clear any stale error message upon returning to foreground so fresh fetch displays cleanly (CIE-027)
             errorMessage = null
             while (isActive && !stopPolling) {
@@ -236,9 +238,6 @@ fun LiveSessionViewerSheet(
                             lastTrackedLowBattery = battery
                             AnalyticsManager.trackLiveShareViewerLowBattery(sessionId, battery)
                         }
-                        if (res.snapshot.isActive && tick % 3 == 0) {
-                            launch { repository.sendViewerPing(sessionId, viewerId) }
-                        }
 
                         // CIE-040: Auto-resume follow mode after inactivity timeout (20s) if ride is active
                         if (res.snapshot.isActive && LiveSessionViewerRepository.shouldResumeFollowMode(
@@ -261,6 +260,32 @@ fun LiveSessionViewerSheet(
                             basePollMs = 5_000L,
                             inactivityThresholdMs = 300_000L
                         )
+
+                        // CIE-046: Time-gated presence pinging using computeViewerPingDelay so throttled viewers stay < 40s TTL and ping failures back off
+                        if (res.snapshot.isActive &&
+                            !isPingInFlight &&
+                            !LiveSessionViewerRepository.shouldSkipPresencePing(consecutiveErrors, isOnline = !isOffline)
+                        ) {
+                            val pingNowMs = System.currentTimeMillis()
+                            val requiredPingDelayMs = LiveSessionViewerRepository.computeViewerPingDelay(
+                                consecutivePingFailures = consecutivePingErrors,
+                                isLowDataMode = false,
+                                isBackground = false,
+                                isViewerIdle = throttle.isInactive,
+                            )
+                            if (lastPingSentEpochMs == 0L || pingNowMs - lastPingSentEpochMs >= requiredPingDelayMs) {
+                                lastPingSentEpochMs = pingNowMs
+                                isPingInFlight = true
+                                launch {
+                                    try {
+                                        val ok = repository.sendViewerPing(sessionId, viewerId)
+                                        consecutivePingErrors = if (ok) 0 else consecutivePingErrors + 1
+                                    } finally {
+                                        isPingInFlight = false
+                                    }
+                                }
+                            }
+                        }
 
                         if (!res.snapshot.isActive) {
                             stopPolling = true
@@ -296,7 +321,6 @@ fun LiveSessionViewerSheet(
                         LiveSessionViewerRepository.computeViewerBackoffDelay(consecutiveErrors)
                     }
                 }
-                tick++
                 delay(nextDelay)
             }
         }

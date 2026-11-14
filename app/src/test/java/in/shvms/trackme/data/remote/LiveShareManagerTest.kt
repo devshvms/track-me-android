@@ -125,4 +125,80 @@ class LiveShareManagerTest {
         assertEquals(5000L, LiveShareManager.computeAdaptiveBaseIntervalMs(5000L, isPowerSaveOrLowBattery = false))
         assertEquals(10000L, LiveShareManager.computeAdaptiveBaseIntervalMs(10000L, isPowerSaveOrLowBattery = false))
     }
+
+    @Test
+    fun evaluateZeroViewerHibernationTransitionsAtTenMinutesAndWakesOnViewerConnect_cie046() {
+        val t0 = 1_700_000_000_000L
+
+        // Below 10m with 0 viewers -> stays at configured cadence
+        val beforeThreshold = LiveShareManager.evaluateZeroViewerHibernation(
+            activeViewers = 0,
+            zeroViewersSinceEpochMs = t0,
+            nowEpochMs = t0 + 599_999L,
+            configuredIntervalMs = 5_000L,
+            isPowerSaveOrLowBattery = false,
+        )
+        assertEquals(false, beforeThreshold.isHibernating)
+        assertEquals(t0, beforeThreshold.zeroViewersSinceEpochMs)
+        assertEquals(5_000L, beforeThreshold.effectiveIntervalMs)
+
+        // At >= 10m with 0 viewers -> steps to 30s hibernation interval
+        val hibernating = LiveShareManager.evaluateZeroViewerHibernation(
+            activeViewers = 0,
+            zeroViewersSinceEpochMs = t0,
+            nowEpochMs = t0 + 600_000L,
+            configuredIntervalMs = 5_000L,
+            isPowerSaveOrLowBattery = false,
+        )
+        assertEquals(true, hibernating.isHibernating)
+        assertEquals(600_000L, hibernating.idleDurationMs)
+        assertEquals(30_000L, hibernating.effectiveIntervalMs)
+
+        // Longer configured user interval (60s) is respected even during hibernation
+        val longerConfigured = LiveShareManager.evaluateZeroViewerHibernation(
+            activeViewers = 0,
+            zeroViewersSinceEpochMs = t0,
+            nowEpochMs = t0 + 700_000L,
+            configuredIntervalMs = 60_000L,
+            isPowerSaveOrLowBattery = false,
+        )
+        assertEquals(true, longerConfigured.isHibernating)
+        assertEquals(60_000L, longerConfigured.effectiveIntervalMs)
+
+        // Viewer connecting immediately wakes broadcaster and resets timer
+        val woken = LiveShareManager.evaluateZeroViewerHibernation(
+            activeViewers = 1,
+            zeroViewersSinceEpochMs = t0,
+            nowEpochMs = t0 + 700_000L,
+            configuredIntervalMs = 5_000L,
+            isPowerSaveOrLowBattery = false,
+        )
+        assertEquals(false, woken.isHibernating)
+        assertEquals(null, woken.zeroViewersSinceEpochMs)
+        assertEquals(5_000L, woken.effectiveIntervalMs)
+
+        // Push backoff never clamps below hibernated baseIntervalMs
+        val noJitter = { 0.0 }
+        assertEquals(30_000L, LiveShareManager.computePushBackoffDelay(0, 30_000L, 45_000L, noJitter))
+        assertEquals(31_000L, LiveShareManager.computePushBackoffDelay(1, 30_000L, 45_000L, noJitter))
+        assertEquals(30_000L, LiveShareManager.computePushBackoffDelay(1, 30_000L, 15_000L, noJitter))
+
+        // Sanitized telemetry excludes coordinates, tokens, and PII
+        val telemetry = LiveShareManager.buildZeroViewerHibernationTelemetryPayload(
+            sessionId = "sess-46",
+            isHibernating = true,
+            idleDurationMs = 600_000L,
+            intervalMs = 30_000L,
+            platform = "android",
+        )
+        assertEquals("sess-46", telemetry["session_id"])
+        assertEquals(true, telemetry["is_hibernating"])
+        assertEquals(600L, telemetry["idle_seconds"])
+        assertEquals(30L, telemetry["interval_seconds"])
+        assertEquals("android", telemetry["platform"])
+        assertEquals(false, telemetry.containsKey("lat"))
+        assertEquals(false, telemetry.containsKey("lng"))
+        assertEquals(false, telemetry.containsKey("token"))
+        assertEquals(false, telemetry.containsKey("email"))
+    }
 }

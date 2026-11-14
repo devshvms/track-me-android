@@ -1106,6 +1106,25 @@ object AnalyticsManager {
             properties = mapOf("platform" to "android")
         )
     }
+
+    fun trackLiveShareZeroViewerHibernation(
+        sessionId: String,
+        isHibernating: Boolean,
+        idleSeconds: Long,
+        intervalSeconds: Long,
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "live_share_zero_viewer_hibernation",
+            properties = `in`.shvms.trackme.data.remote.LiveShareManager.buildZeroViewerHibernationTelemetryPayload(
+                sessionId = sessionId,
+                isHibernating = isHibernating,
+                idleDurationMs = idleSeconds * 1000L,
+                intervalMs = intervalSeconds * 1000L,
+                platform = "android",
+            )
+        )
+    }
 }
 
 enum class RideStartAbortMethod(val analyticsValue: String) {
