@@ -1406,6 +1406,93 @@ class LiveSessionViewerRepositoryTest {
         assertNull(LiveSessionViewerRepository.buildDirectionsUrl(Double.NaN, 77.5946))
         assertNull(LiveSessionViewerRepository.buildDirectionsUrl(12.9716, Double.POSITIVE_INFINITY))
     }
+
+    @Test
+    fun `evaluateSpectatorThrottleState handles ended, background, inactive, power-save and normal states`() {
+        val repo = LiveSessionViewerRepository()
+        val now = 1_000_000L
+
+        // 1. Trip ended
+        val ended = repo.evaluateSpectatorThrottleState(
+            isTripEnded = true,
+            isBackground = false,
+            lastInteractionEpochMs = now,
+            nowEpochMs = now
+        )
+        assertFalse(ended.isInactive)
+        assertFalse(ended.isThrottled)
+        assertEquals(5_000L, ended.pollDelayMs)
+        assertFalse(ended.shouldAnimateMap)
+        assertNull(ended.noticeText)
+
+        // 2. Background
+        val background = LiveSessionViewerRepository.evaluateSpectatorThrottleState(
+            isTripEnded = false,
+            isBackground = true,
+            lastInteractionEpochMs = now,
+            nowEpochMs = now
+        )
+        assertFalse(background.isInactive)
+        assertTrue(background.isThrottled)
+        assertEquals(30_000L, background.pollDelayMs)
+        assertFalse(background.shouldAnimateMap)
+        assertNull(background.noticeText)
+
+        // 3. Inactive spectator (>= 5 minutes elapsed)
+        val inactive = LiveSessionViewerRepository.evaluateSpectatorThrottleState(
+            isTripEnded = false,
+            isBackground = false,
+            lastInteractionEpochMs = now - 300_000L,
+            nowEpochMs = now
+        )
+        assertTrue(inactive.isInactive)
+        assertTrue(inactive.isThrottled)
+        assertEquals(15_000L, inactive.pollDelayMs)
+        assertFalse(inactive.shouldAnimateMap)
+        assertEquals("Viewer idle · Updates slowed to save battery", inactive.noticeText)
+
+        // 4. Rider power-save / low battery
+        val powerSave = LiveSessionViewerRepository.evaluateSpectatorThrottleState(
+            isTripEnded = false,
+            isBackground = false,
+            lastInteractionEpochMs = now - 60_000L,
+            nowEpochMs = now,
+            riderPowerSave = true
+        )
+        assertFalse(powerSave.isInactive)
+        assertTrue(powerSave.isThrottled)
+        assertEquals(12_000L, powerSave.pollDelayMs)
+        assertTrue(powerSave.shouldAnimateMap)
+        assertEquals("Power save active · Location updates every ~15s", powerSave.noticeText)
+
+        val lowBattery = LiveSessionViewerRepository.evaluateSpectatorThrottleState(
+            isTripEnded = false,
+            isBackground = false,
+            lastInteractionEpochMs = now - 60_000L,
+            nowEpochMs = now,
+            riderPowerSave = false,
+            riderBatteryLevel = 12
+        )
+        assertFalse(lowBattery.isInactive)
+        assertTrue(lowBattery.isThrottled)
+        assertEquals(12_000L, lowBattery.pollDelayMs)
+        assertTrue(lowBattery.shouldAnimateMap)
+
+        // 5. Normal active recent interaction
+        val normal = LiveSessionViewerRepository.evaluateSpectatorThrottleState(
+            isTripEnded = false,
+            isBackground = false,
+            lastInteractionEpochMs = now - 10_000L,
+            nowEpochMs = now,
+            riderPowerSave = false,
+            riderBatteryLevel = 85
+        )
+        assertFalse(normal.isInactive)
+        assertFalse(normal.isThrottled)
+        assertEquals(5_000L, normal.pollDelayMs)
+        assertTrue(normal.shouldAnimateMap)
+        assertNull(normal.noticeText)
+    }
 }
 
 

@@ -45,6 +45,17 @@ data class ViewerNetworkReconnectionState(
     val showOfflineToast: Boolean,
 )
 
+/**
+ * CIE-044: Spectator idle inactivity and render throttling evaluation.
+ */
+data class SpectatorThrottleEvaluation(
+    val isInactive: Boolean,
+    val isThrottled: Boolean,
+    val pollDelayMs: Long,
+    val shouldAnimateMap: Boolean,
+    val noticeText: String? = null,
+)
+
 data class LiveViewerLastLocation(
     val lat: Double,
     val lng: Double,
@@ -151,6 +162,26 @@ class LiveSessionViewerRepository {
     fun shouldAnnounceLowBattery(previousBattery: Int?, newBattery: Int?): Boolean = Companion.shouldAnnounceLowBattery(previousBattery, newBattery)
     fun computeViewerAdaptivePollDelay(powerSaveMode: Boolean, batteryLevel: Int?, basePollDelay: Long = 5_000L): Long =
         Companion.computeViewerAdaptivePollDelay(powerSaveMode, batteryLevel, basePollDelay)
+
+    fun evaluateSpectatorThrottleState(
+        isTripEnded: Boolean,
+        isBackground: Boolean = false,
+        lastInteractionEpochMs: Long? = null,
+        nowEpochMs: Long = System.currentTimeMillis(),
+        riderPowerSave: Boolean = false,
+        riderBatteryLevel: Int? = null,
+        basePollMs: Long = 5_000L,
+        inactivityThresholdMs: Long = 300_000L,
+    ): SpectatorThrottleEvaluation = Companion.evaluateSpectatorThrottleState(
+        isTripEnded = isTripEnded,
+        isBackground = isBackground,
+        lastInteractionEpochMs = lastInteractionEpochMs,
+        nowEpochMs = nowEpochMs,
+        riderPowerSave = riderPowerSave,
+        riderBatteryLevel = riderBatteryLevel,
+        basePollMs = basePollMs,
+        inactivityThresholdMs = inactivityThresholdMs,
+    )
 
     fun shouldDecimatePolyline(pointCount: Int, minPointsThreshold: Int = 200): Boolean =
         Companion.shouldDecimatePolyline(pointCount, minPointsThreshold)
@@ -473,6 +504,78 @@ class LiveSessionViewerRepository {
             val clampedBat = clampBatteryLevel(batteryLevel)
             val isEffectivePowerSave = powerSaveMode || (clampedBat != null && clampedBat <= 15)
             return if (isEffectivePowerSave) 12_000L else basePollDelay
+        }
+
+        /**
+         * CIE-044: Evaluates spectator idle inactivity and render throttling state across Web & Mobile.
+         */
+        fun evaluateSpectatorThrottleState(
+            isTripEnded: Boolean,
+            isBackground: Boolean = false,
+            lastInteractionEpochMs: Long? = null,
+            nowEpochMs: Long = System.currentTimeMillis(),
+            riderPowerSave: Boolean = false,
+            riderBatteryLevel: Int? = null,
+            basePollMs: Long = 5_000L,
+            inactivityThresholdMs: Long = 300_000L // 5 minutes
+        ): SpectatorThrottleEvaluation {
+            if (isTripEnded) {
+                return SpectatorThrottleEvaluation(
+                    isInactive = false,
+                    isThrottled = false,
+                    pollDelayMs = basePollMs,
+                    shouldAnimateMap = false,
+                    noticeText = null
+                )
+            }
+
+            if (isBackground) {
+                return SpectatorThrottleEvaluation(
+                    isInactive = false,
+                    isThrottled = true,
+                    pollDelayMs = 30_000L,
+                    shouldAnimateMap = false,
+                    noticeText = null
+                )
+            }
+
+            val elapsed = if (lastInteractionEpochMs != null) {
+                maxOf(0L, nowEpochMs - lastInteractionEpochMs)
+            } else {
+                0L
+            }
+
+            val isInactive = lastInteractionEpochMs != null && elapsed >= inactivityThresholdMs
+
+            if (isInactive) {
+                return SpectatorThrottleEvaluation(
+                    isInactive = true,
+                    isThrottled = true,
+                    pollDelayMs = 15_000L,
+                    shouldAnimateMap = false,
+                    noticeText = "Viewer idle · Updates slowed to save battery"
+                )
+            }
+
+            val clampedBat = clampBatteryLevel(riderBatteryLevel)
+            val isEffectivePowerSave = riderPowerSave || (clampedBat != null && clampedBat <= 15)
+            if (isEffectivePowerSave) {
+                return SpectatorThrottleEvaluation(
+                    isInactive = false,
+                    isThrottled = true,
+                    pollDelayMs = 12_000L,
+                    shouldAnimateMap = true,
+                    noticeText = "Power save active · Location updates every ~15s"
+                )
+            }
+
+            return SpectatorThrottleEvaluation(
+                isInactive = false,
+                isThrottled = false,
+                pollDelayMs = basePollMs,
+                shouldAnimateMap = true,
+                noticeText = null
+            )
         }
 
         /**
