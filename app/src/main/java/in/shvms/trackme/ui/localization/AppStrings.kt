@@ -504,6 +504,9 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val liveViewerToggleUnitsA11y: String = s("liveViewerToggleUnitsA11y", "Toggle speed and distance units. Current: %1\$s")
     val liveViewerIdleThrottledNotice: String = s("liveViewerIdleThrottledNotice", "Viewer idle · Updates slowed to save battery")
     val liveViewerPowerSaveThrottledNotice: String = s("liveViewerPowerSaveThrottledNotice", "Power save active · Location updates every ~15s")
+    val liveViewerLowDataModeTitle: String = s("liveViewerLowDataModeTitle", "Low-data mode")
+    val liveViewerLowDataModeA11y: String = s("liveViewerLowDataModeA11y", "Toggle low-data mode. Updates slowed to 30 seconds.")
+    val liveViewerLowDataNotice: String = s("liveViewerLowDataNotice", "Low-data mode active · Polling every 30s")
     val watcherInviteSignInRequired: String = s("watcherInviteSignInRequired", "Sign in to accept this trusted watcher invite.")
     val reminderOff: String = s("reminderOff", "Off")
     val reminderSectionSubtitle: String = s("reminderSectionSubtitle", "Reminders on the days and at the time you choose. Off unless you turn them on.")
@@ -1384,6 +1387,9 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerToggleUnitsA11y" to "Alternar unidades de velocidad y distancia. Actual: %1\$s",
             "liveViewerIdleThrottledNotice" to "Espectador inactivo · Actualizaciones ralentizadas para ahorrar batería",
             "liveViewerPowerSaveThrottledNotice" to "Ahorro de energía activo · Ubicación actualizada cada ~15s",
+            "liveViewerLowDataModeTitle" to "Modo ahorro de datos",
+            "liveViewerLowDataModeA11y" to "Alternar modo de ahorro de datos. Actualizaciones cada 30 segundos.",
+            "liveViewerLowDataNotice" to "Ahorro de datos activo · Actualizaciones cada 30 s",
             "watcherInviteSignInRequired" to "Inicia sesión para aceptar esta invitación de observador.",
             "reminderOff" to "Desactivado",
             "reminderSectionSubtitle" to "Recordatorios los días y a la hora que elijas. Desactivados hasta que los actives.",
@@ -2225,6 +2231,9 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerToggleUnitsA11y" to "Changer les unités de vitesse et de distance. Actuel : %1\$s",
             "liveViewerIdleThrottledNotice" to "Spectateur inactif · Mises à jour ralenties pour économiser la batterie",
             "liveViewerPowerSaveThrottledNotice" to "Économie d'énergie active · Mises à jour de position toutes les ~15 s",
+            "liveViewerLowDataModeTitle" to "Mode économie de données",
+            "liveViewerLowDataModeA11y" to "Activer/désactiver le mode économie de données. Mises à jour toutes les 30 secondes.",
+            "liveViewerLowDataNotice" to "Mode économie de données actif · Actualisation toutes les 30 s",
             "watcherInviteSignInRequired" to "Connectez-vous pour accepter cette invitation de contact de confiance.",
             "reminderOff" to "Désactivé",
             "reminderSectionSubtitle" to "Des rappels aux jours et à l’heure de votre choix. Désactivés tant que vous ne les activez pas.",
@@ -3066,6 +3075,9 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerToggleUnitsA11y" to "Einheiten für Geschwindigkeit und Entfernung umschalten. Aktuell: %1\$s",
             "liveViewerIdleThrottledNotice" to "Zuschauer inaktiv · Aktualisierungen verlangsamt, um Akku zu sparen",
             "liveViewerPowerSaveThrottledNotice" to "Energiesparmodus aktiv · Standortaktualisierungen alle ~15 s",
+            "liveViewerLowDataModeTitle" to "Datensparmodus",
+            "liveViewerLowDataModeA11y" to "Datensparmodus umschalten. Aktualisierungen auf 30 Sekunden verlangsamt.",
+            "liveViewerLowDataNotice" to "Datensparmodus aktiv · Aktualisierung alle 30s",
             "watcherInviteSignInRequired" to "Melde dich an, um diese Einladung anzunehmen.",
             "reminderOff" to "Aus",
             "reminderSectionSubtitle" to "Erinnerungen an den gewählten Tagen und zur gewählten Uhrzeit. Aus, bis du sie einschaltest.",
@@ -3907,6 +3919,9 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerToggleUnitsA11y" to "गति और दूरी इकाइयाँ बदलें। वर्तमान: %1\$s",
             "liveViewerIdleThrottledNotice" to "दर्शक निष्क्रिय · बैटरी बचाने के लिए अपडेट धीमे किए गए",
             "liveViewerPowerSaveThrottledNotice" to "पावर सेव सक्रिय · स्थान अपडेट लगभग हर 15 सेकंड में",
+            "liveViewerLowDataModeTitle" to "डेटा बचत मोड",
+            "liveViewerLowDataModeA11y" to "डेटा बचत मोड बदलें। अपडेट हर 30 सेकंड में धीमे किए गए।",
+            "liveViewerLowDataNotice" to "डेटा बचत मोड सक्रिय · हर 30 सेकंड में अपडेट",
             "watcherInviteSignInRequired" to "भरोसेमंद वॉचर आमंत्रण स्वीकार करने के लिए साइन इन करें।",
             "reminderOff" to "बंद",
             "reminderSectionSubtitle" to "आपके चुने दिनों और समय पर अनुस्मारक। चालू करने तक बंद रहेंगे।",
@@ -4748,6 +4763,9 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerToggleUnitsA11y" to "速度と距離の単位を切り替えます。現在: %1\$s",
             "liveViewerIdleThrottledNotice" to "閲覧者アイドル · バッテリー節約のため更新頻度を低下",
             "liveViewerPowerSaveThrottledNotice" to "省電力モード有効 · 約15秒ごとに位置情報を更新",
+            "liveViewerLowDataModeTitle" to "データ節約モード",
+            "liveViewerLowDataModeA11y" to "データ節約モードを切り替えます。更新間隔が30秒になります。",
+            "liveViewerLowDataNotice" to "データ節約モード有効 · 30秒ごとに更新",
             "watcherInviteSignInRequired" to "信頼できるウォッチャーの招待を承諾するにはサインインしてください。",
             "reminderOff" to "オフ",
             "reminderSectionSubtitle" to "選んだ曜日と時間にリマインドします。オンにするまでは無効です。",
@@ -5589,6 +5607,9 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerToggleUnitsA11y" to "切换速度和距离单位。当前：%1\$s",
             "liveViewerIdleThrottledNotice" to "观众空闲 · 降低更新频率以节省电量",
             "liveViewerPowerSaveThrottledNotice" to "省电模式开启 · 约每15秒更新一次位置",
+            "liveViewerLowDataModeTitle" to "低流量模式",
+            "liveViewerLowDataModeA11y" to "切换低流量模式。更新间隔放慢至30秒。",
+            "liveViewerLowDataNotice" to "低流量模式开启 · 每30秒更新一次",
             "watcherInviteSignInRequired" to "请先登录以接受受信任查看者邀请。",
             "reminderOff" to "关闭",
             "reminderSectionSubtitle" to "在你选择的日期和时间提醒。开启后才会发送。",
