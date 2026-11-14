@@ -251,15 +251,22 @@ fun LiveSessionViewerSheet(
                             isFollowingRider = true
                         }
 
+                        val throttle = LiveSessionViewerRepository.evaluateSpectatorThrottleState(
+                            isTripEnded = !res.snapshot.isActive,
+                            isBackground = false,
+                            lastInteractionEpochMs = lastUserInteractionEpochMs,
+                            nowEpochMs = nowEpochMillis,
+                            riderPowerSave = res.snapshot.lastLocation?.powerSaveMode == true,
+                            riderBatteryLevel = res.snapshot.lastLocation?.batteryLevel,
+                            basePollMs = 5_000L,
+                            inactivityThresholdMs = 300_000L
+                        )
+
                         if (!res.snapshot.isActive) {
                             stopPolling = true
                             break
                         }
-                        LiveSessionViewerRepository.computeViewerAdaptivePollDelay(
-                            powerSaveMode = res.snapshot.lastLocation?.powerSaveMode == true,
-                            batteryLevel = res.snapshot.lastLocation?.batteryLevel,
-                            basePollDelay = 5_000L
-                        )
+                        throttle.pollDelayMs
                     }
                     LiveSessionFetchResult.NotFoundOrExpired -> {
                         if (consecutiveErrors == 0) {
@@ -325,12 +332,16 @@ fun LiveSessionViewerSheet(
         if (shouldMove) {
             lastCameraTarget = target
             val zoom = cameraPositionState.position.zoom.coerceAtLeast(15.5f)
-            if (isReducedMotion) {
-                cameraPositionState.moveSafely {
+            val lastInteraction = lastUserInteractionEpochMs
+            val isSpectatorIdle = lastInteraction != null &&
+                (System.currentTimeMillis() - lastInteraction) >= 300_000L
+            val shouldAnimate = !isReducedMotion && !isSpectatorIdle
+            if (shouldAnimate) {
+                cameraPositionState.animateSafely {
                     CameraUpdateFactory.newLatLngZoom(target, zoom)
                 }
             } else {
-                cameraPositionState.animateSafely {
+                cameraPositionState.moveSafely {
                     CameraUpdateFactory.newLatLngZoom(target, zoom)
                 }
             }
