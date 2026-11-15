@@ -445,7 +445,7 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf(5, 10, 15).forEach { mins ->
+                        listOf(5, 10, 15, 30).forEach { mins ->
                             FilterChip(
                                 selected = autoEndDwellMinutes == mins,
                                 onClick = { preferencesManager.setAutoEndDwellMinutes(mins) },
@@ -453,6 +453,7 @@ fun SettingsScreen(
                                     Text(
                                         "$mins min",
                                         style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1,
                                         modifier = Modifier.fillMaxWidth(),
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                     )
@@ -492,7 +493,7 @@ fun SettingsScreen(
 
         // Live Location Sharing Card
         var liveShareFrequency by remember { 
-            mutableStateOf(prefs.getInt("live_share_frequency_sec", 5)) 
+            mutableStateOf(prefs.getInt("live_share_frequency_sec", 15)) 
         }
         var showLiveShareInfo by remember { mutableStateOf(false) }
 
@@ -516,25 +517,38 @@ fun SettingsScreen(
                 val frequencyOptions = listOf(
                     5 to "5s",
                     10 to "10s",
+                    15 to "15s",
                     30 to "30s",
                     60 to "1m",
                     300 to "5m"
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    frequencyOptions.forEach { (sec, label) ->
-                        val isSelected = liveShareFrequency == sec
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = {
-                                liveShareFrequency = sec
-                                prefs.edit().putInt("live_share_frequency_sec", sec).apply()
-                            },
-                            label = { Text(label, style = MaterialTheme.typography.labelSmall, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
-                            modifier = Modifier.weight(1f)
-                        )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    frequencyOptions.chunked(3).forEach { rowOptions ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            rowOptions.forEach { (sec, label) ->
+                                val isSelected = liveShareFrequency == sec
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        liveShareFrequency = sec
+                                        prefs.edit().putInt("live_share_frequency_sec", sec).apply()
+                                    },
+                                    label = {
+                                        Text(
+                                            label,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            maxLines = 1,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
                     }
                 }
             }

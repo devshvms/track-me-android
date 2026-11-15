@@ -658,7 +658,7 @@ class TrackingService : Service() {
         val effectivePowerSave = LiveShareManager.isEffectivePowerSave(isPowerSave, batteryLevel)
 
         val prefs = getSharedPreferences("trackme_prefs", Context.MODE_PRIVATE)
-        val freqSec = prefs.getInt("live_share_frequency_sec", 5)
+        val freqSec = prefs.getInt("live_share_frequency_sec", 15)
         val configuredIntervalMs = freqSec * 1000L
         val now = System.currentTimeMillis()
         val hibernation = LiveShareManager.evaluateZeroViewerHibernation(
@@ -709,7 +709,7 @@ class TrackingService : Service() {
             baseIntervalMs = hibernation.effectiveIntervalMs,
             maxIntervalMs = maxPushDelayMs,
         )
-        val requiredDelayMs = if (isPaused) maxOf(baseRequiredDelayMs, 15_000L) else baseRequiredDelayMs
+        val requiredDelayMs = if (isPaused) maxOf(baseRequiredDelayMs, 45_000L) else baseRequiredDelayMs
         val pauseTransition = lastLiveSharePausedState != null && lastLiveSharePausedState != isPaused
 
         if (!forceImmediate && !pauseTransition && now - lastLiveShareTimeMs < requiredDelayMs) return
@@ -747,7 +747,7 @@ class TrackingService : Service() {
         if (liveSharePausedKeepaliveJob?.isActive == true) return
         liveSharePausedKeepaliveJob = serviceScope.launch {
             while (isActive) {
-                delay(15_000L)
+                delay(45_000L)
                 withContext(Dispatchers.Main.immediate) {
                     if (liveShareManager.state.value.status != LiveShareStatus.ACTIVE) {
                         liveSharePausedKeepaliveJob?.cancel()
