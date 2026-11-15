@@ -7,8 +7,6 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -72,6 +70,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -442,84 +441,14 @@ fun LiveSessionViewerSheet(
             topBar = {
                 TopAppBar(
                     title = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            val titleText = snapshot?.username?.let { rider ->
-                                String.format(Locale.getDefault(), strings.liveViewerTitle, rider)
-                            } ?: strings.liveViewerLoading
-                            Text(
-                                text = titleText,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false),
-                            )
-                            val active = snapshot?.isActive == true
-                            if (snapshot != null || isExpiredOrMissing) {
-                                Surface(
-                                    shape = RoundedCornerShape(50),
-                                    color = if (active) {
-                                        Color(0xFF06B6D4).copy(alpha = 0.18f)
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                    },
-                                    modifier = Modifier.semantics(mergeDescendants = true) {},
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Sensors,
-                                            contentDescription = null,
-                                            tint = if (active) Color(0xFF06B6D4) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(13.dp),
-                                        )
-                                        Text(
-                                            text = if (active) strings.liveViewerActiveBadge else strings.liveViewerEndedBadge,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (active) Color(0xFF06B6D4) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                }
-                            }
-                            if (isStaleSignal) {
-                                Surface(
-                                    shape = RoundedCornerShape(50),
-                                    color = Color(0xFFEF4444).copy(alpha = 0.2f),
-                                    modifier = Modifier.semantics {
-                                        contentDescription = strings.liveViewerSignalPausedA11y
-                                    },
-                                ) {
-                                    Text(
-                                        text = strings.liveViewerSignalPausedBadge,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFFEF4444),
-                                    )
-                                }
-                            } else if (isDelayedUpdate) {
-                                Surface(
-                                    shape = RoundedCornerShape(50),
-                                    color = Color(0xFFF59E0B).copy(alpha = 0.2f),
-                                    modifier = Modifier.semantics {
-                                        contentDescription = strings.liveViewerDelayedBadgeA11y
-                                    },
-                                ) {
-                                    Text(
-                                        text = strings.liveViewerDelayedBadge,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFFF59E0B),
-                                    )
-                                }
-                            }
-                        }
+                        val titleText = snapshot?.username?.let { rider ->
+                            String.format(Locale.getDefault(), strings.liveViewerTitle, rider)
+                        } ?: strings.liveViewerLoading
+                        Text(
+                            text = titleText,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     },
                     navigationIcon = {
                         IconButton(onClick = onDismiss) {
@@ -528,38 +457,6 @@ fun LiveSessionViewerSheet(
                     },
                     actions = {
                         val currentSnapshot = snapshot
-                        val currentLocation = currentSnapshot?.lastLocation
-                        if (currentLocation != null) {
-                            IconButton(
-                                onClick = {
-                                    AnalyticsManager.trackLiveShareDirectionsClicked(sessionId, "google_maps")
-                                    val directionsUrl = LiveSessionViewerRepository.buildDirectionsUrl(currentLocation.lat, currentLocation.lng, "google_maps")
-                                    if (directionsUrl != null) {
-                                        val gmmIntentUri = Uri.parse("google.navigation:q=${currentLocation.lat},${currentLocation.lng}")
-                                        val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri).apply {
-                                            setPackage("com.google.android.apps.maps")
-                                        }
-                                        runCatching {
-                                            context.startActivity(mapIntent)
-                                        }.onFailure {
-                                            runCatching {
-                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(directionsUrl)))
-                                            }
-                                        }
-                                    }
-                                },
-                                modifier = Modifier.semantics {
-                                    contentDescription = strings.liveViewerDirectionsA11y
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Navigation,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                        }
-
                         IconButton(
                             onClick = {
                                 val riderName = currentSnapshot?.username?.trim()?.takeIf { it.isNotBlank() }
@@ -1104,71 +1001,148 @@ fun LiveSessionViewerSheet(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         val currentSnapshot = snapshot
+                        val active = currentSnapshot?.isActive == true
                         val destinationText = currentSnapshot?.destination?.takeIf { it.isNotBlank() }
-                        val deadlineStatus = if (currentSnapshot?.isActive == true) currentSnapshot.deadlineStatus(nowEpochMillis) else null
-                        val showHeaderMeta = destinationText != null || ageSeconds != null || deadlineStatus != null
-                        if (showHeaderMeta) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                        val deadlineStatus = if (active) currentSnapshot?.deadlineStatus(nowEpochMillis) else null
+                        val currentUnitText = if (isImperial) "mph" else "km/h"
+
+                        // Row 1: Status pills (Live / Ended + Signal paused / Delayed) + Updated freshness
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f, fill = false),
                             ) {
-                                if (destinationText != null || ageSeconds != null) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        if (destinationText != null) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .weight(1f, fill = false)
-                                                    .semantics(mergeDescendants = true) {
-                                                        contentDescription = String.format(Locale.getDefault(), strings.liveViewerDestinationA11y, destinationText)
-                                                    },
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Flag,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(14.dp),
-                                                    tint = Color(0xFF06B6D4),
-                                                )
-                                                Text(
-                                                    text = destinationText,
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                )
-                                            }
+                                if (currentSnapshot != null || isExpiredOrMissing) {
+                                    Surface(
+                                        shape = RoundedCornerShape(50),
+                                        color = if (active) {
+                                            Color(0xFF06B6D4).copy(alpha = 0.16f)
                                         } else {
-                                            Spacer(modifier = Modifier.width(1.dp))
-                                        }
-                                        if (ageSeconds != null) {
-                                            val ageLabel = if (ageSeconds < 60) "${ageSeconds}s" else "${ageSeconds / 60}m"
-                                            Row(
-                                                modifier = Modifier.semantics(mergeDescendants = true) {},
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Schedule,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(13.dp),
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                                Text(
-                                                    text = String.format(Locale.getDefault(), strings.liveViewerUpdatedAgo, ageLabel),
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                            }
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                        },
+                                        modifier = Modifier.semantics(mergeDescendants = true) {},
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Sensors,
+                                                contentDescription = null,
+                                                tint = if (active) Color(0xFF06B6D4) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(13.dp),
+                                            )
+                                            Text(
+                                                text = if (active) strings.liveViewerActiveBadge else strings.liveViewerEndedBadge,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = if (active) Color(0xFF06B6D4) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                            )
                                         }
                                     }
+                                }
+                                if (isStaleSignal) {
+                                    Surface(
+                                        shape = RoundedCornerShape(50),
+                                        color = Color(0xFFEF4444).copy(alpha = 0.16f),
+                                        modifier = Modifier.semantics {
+                                            contentDescription = strings.liveViewerSignalPausedA11y
+                                        },
+                                    ) {
+                                        Text(
+                                            text = strings.liveViewerSignalPausedBadge,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color(0xFFEF4444),
+                                            maxLines = 1,
+                                        )
+                                    }
+                                } else if (isDelayedUpdate) {
+                                    Surface(
+                                        shape = RoundedCornerShape(50),
+                                        color = Color(0xFFF59E0B).copy(alpha = 0.16f),
+                                        modifier = Modifier.semantics {
+                                            contentDescription = strings.liveViewerDelayedBadgeA11y
+                                        },
+                                    ) {
+                                        Text(
+                                            text = strings.liveViewerDelayedBadge,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color(0xFFD97706),
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
+                            }
+                            if (ageSeconds != null) {
+                                val ageLabel = if (ageSeconds < 60) "${ageSeconds}s" else "${ageSeconds / 60}m"
+                                Row(
+                                    modifier = Modifier.semantics(mergeDescendants = true) {},
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Schedule,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(13.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        text = String.format(Locale.getDefault(), strings.liveViewerUpdatedAgo, ageLabel),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
+                        }
+
+                        // Optional Route Context Line: Destination + Deadline/ETA pill
+                        if (destinationText != null || deadlineStatus != null) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (destinationText != null) {
+                                    Row(
+                                        modifier = Modifier
+                                            .weight(1f, fill = false)
+                                            .semantics(mergeDescendants = true) {
+                                                contentDescription = String.format(Locale.getDefault(), strings.liveViewerDestinationA11y, destinationText)
+                                            },
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Flag,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = Color(0xFF06B6D4),
+                                        )
+                                        Text(
+                                            text = destinationText,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                } else {
+                                    Spacer(modifier = Modifier.width(1.dp))
                                 }
                                 deadlineStatus?.let { deadline ->
                                     val deadlineColor = if (deadline.isOverdue) Color(0xFFD97706) else Color(0xFF4338CA)
@@ -1209,199 +1183,200 @@ fun LiveSessionViewerSheet(
                             }
                         }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .horizontalScroll(rememberScrollState()),
+                        // Row 2: Full-width unclipped telemetry metrics (no buttons competing in the same row)
+                        val isEnded = currentSnapshot?.isActive == false
+                        val avgSpeedStr = concludedSummary?.avgSpeedStr
+                        val speedDisplay = if (isEnded && avgSpeedStr != null) {
+                            "${strings.avgSpeed} $avgSpeedStr"
+                        } else {
+                            speedStatus.displayText
+                        }
+                        val speedA11y = if (isEnded && avgSpeedStr != null) {
+                            "${strings.avgSpeed}: $avgSpeedStr. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
+                        } else {
+                            "${speedStatus.a11yText}. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
+                        }
+                        val durationText = currentSnapshot?.formatDuration(nowEpochMillis) ?: "0m"
+                        val totalDistance = currentSnapshot?.totalDistanceMeters ?: 0.0
+                        val distanceText = currentSnapshot?.formatDistance(useMiles = isImperial)
+                            ?: UnitFormatter.rideDistance(totalDistance, isImperial)
+                        val batteryLevelClamped = lastLoc?.batteryLevel?.let { LiveSessionViewerRepository.clampBatteryLevel(it) }
+                        val cellBg = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.55f)
+
+                        val durationA11y = String.format(Locale.getDefault(), strings.liveViewerDurationLabel, durationText)
+                        val distanceA11y = "${String.format(Locale.getDefault(), strings.liveViewerDistanceLabel, distanceText)}. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
+                        val toggleUnits = { isImperial = !isImperial }
+
+                        if (batteryLevelClamped != null) {
+                            val isLowBattery = batteryLevelClamped <= 15
+                            val batteryColor = if (isLowBattery) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                            val batteryA11y = if (isLowBattery) {
+                                String.format(Locale.getDefault(), strings.liveViewerBatteryLowA11y, batteryLevelClamped)
+                            } else {
+                                String.format(Locale.getDefault(), strings.liveViewerBatteryA11y, batteryLevelClamped)
+                            }
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                val isEnded = snapshot?.isActive == false
-                                val avgSpeedStr = concludedSummary?.avgSpeedStr
-                                val currentUnitText = if (isImperial) "mph" else "km/h"
-                                val speedDisplay = if (isEnded && avgSpeedStr != null) {
-                                    "${strings.avgSpeed} $avgSpeedStr"
-                                } else {
-                                    speedStatus.displayText
-                                }
-                                val speedA11y = if (isEnded && avgSpeedStr != null) {
-                                    "${strings.avgSpeed}: $avgSpeedStr. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
-                                } else {
-                                    "${speedStatus.a11yText}. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    TelemetryMetricChip(
+                                        icon = Icons.Default.Speed,
+                                        label = speedDisplay,
+                                        a11yDescription = speedA11y,
+                                        cellColor = cellBg,
+                                        iconTint = Color(0xFF06B6D4),
+                                        fontWeight = FontWeight.Bold,
+                                        onClick = toggleUnits,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    TelemetryMetricChip(
+                                        icon = Icons.Default.Timer,
+                                        label = durationText,
+                                        a11yDescription = durationA11y,
+                                        cellColor = cellBg,
+                                        iconTint = Color(0xFF06B6D4),
+                                        modifier = Modifier.weight(1f),
+                                    )
                                 }
                                 Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    TelemetryMetricChip(
+                                        icon = Icons.Default.Route,
+                                        label = distanceText,
+                                        a11yDescription = distanceA11y,
+                                        cellColor = cellBg,
+                                        iconTint = MaterialTheme.colorScheme.primary,
+                                        onClick = toggleUnits,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    TelemetryMetricChip(
+                                        icon = if (isLowBattery) Icons.Default.BatteryAlert else Icons.Default.BatteryStd,
+                                        label = "$batteryLevelClamped%",
+                                        a11yDescription = batteryA11y,
+                                        cellColor = cellBg,
+                                        iconTint = if (isLowBattery) batteryColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textColor = batteryColor,
+                                        fontWeight = if (isLowBattery) FontWeight.Bold else FontWeight.SemiBold,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                TelemetryMetricChip(
+                                    icon = Icons.Default.Speed,
+                                    label = speedDisplay,
+                                    a11yDescription = speedA11y,
+                                    cellColor = cellBg,
+                                    iconTint = Color(0xFF06B6D4),
+                                    fontWeight = FontWeight.Bold,
+                                    onClick = toggleUnits,
+                                    modifier = Modifier.weight(1.25f),
+                                )
+                                TelemetryMetricChip(
+                                    icon = Icons.Default.Timer,
+                                    label = durationText,
+                                    a11yDescription = durationA11y,
+                                    cellColor = cellBg,
+                                    iconTint = Color(0xFF06B6D4),
+                                    modifier = Modifier.weight(0.9f),
+                                )
+                                TelemetryMetricChip(
+                                    icon = Icons.Default.Route,
+                                    label = distanceText,
+                                    a11yDescription = distanceA11y,
+                                    cellColor = cellBg,
+                                    iconTint = MaterialTheme.colorScheme.primary,
+                                    onClick = toggleUnits,
+                                    modifier = Modifier.weight(0.95f),
+                                )
+                            }
+                        }
+
+                        // Row 3: Full-width viewer actions (Directions + Open in browser; Share stays once in TopAppBar)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            val currentLocation = currentSnapshot?.lastLocation
+                            if (currentLocation != null) {
+                                FilledTonalButton(
+                                    onClick = {
+                                        AnalyticsManager.trackLiveShareDirectionsClicked(sessionId, "google_maps")
+                                        val directionsUrl = LiveSessionViewerRepository.buildDirectionsUrl(currentLocation.lat, currentLocation.lng, "google_maps")
+                                        if (directionsUrl != null) {
+                                            val gmmIntentUri = Uri.parse("google.navigation:q=${currentLocation.lat},${currentLocation.lng}")
+                                            val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri).apply {
+                                                setPackage("com.google.android.apps.maps")
+                                            }
+                                            runCatching {
+                                                context.startActivity(mapIntent)
+                                            }.onFailure {
+                                                runCatching {
+                                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(directionsUrl)))
+                                                }
+                                            }
+                                        }
+                                    },
                                     modifier = Modifier
-                                        .clickable { isImperial = !isImperial }
-                                        .semantics(mergeDescendants = true) {
+                                        .weight(1f)
+                                        .semantics {
                                             role = Role.Button
-                                            contentDescription = speedA11y
+                                            contentDescription = strings.liveViewerDirectionsA11y
                                         },
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Speed,
+                                        imageVector = Icons.Default.Navigation,
                                         contentDescription = null,
                                         modifier = Modifier.size(16.dp),
-                                        tint = Color(0xFF06B6D4),
                                     )
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = speedDisplay,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
+                                        text = strings.groupDirections,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
-                                }
-
-                                lastLoc?.batteryLevel?.let { rawBattery ->
-                                    val battery = LiveSessionViewerRepository.clampBatteryLevel(rawBattery) ?: return@let
-                                    // CIE-008: Visual alert & accessibility announcement when rider battery <= 15%
-                                    val isLowBattery = battery <= 15
-                                    val batteryColor = if (isLowBattery) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                                    val batteryA11y = if (isLowBattery) {
-                                        String.format(Locale.getDefault(), strings.liveViewerBatteryLowA11y, battery)
-                                    } else {
-                                        String.format(Locale.getDefault(), strings.liveViewerBatteryA11y, battery)
-                                    }
-                                    Row(
-                                        modifier = Modifier.semantics(mergeDescendants = true) {
-                                            contentDescription = batteryA11y
-                                        },
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isLowBattery) Icons.Default.BatteryAlert else Icons.Default.BatteryStd,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = batteryColor,
-                                        )
-                                        Text(
-                                            text = "$battery%",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = if (isLowBattery) FontWeight.SemiBold else FontWeight.Normal,
-                                            color = batteryColor,
-                                        )
-                                    }
-                                }
-
-                                val durationText = snapshot?.formatDuration(nowEpochMillis)
-                                durationText?.let { duration ->
-                                    Row(
-                                        modifier = Modifier.semantics(mergeDescendants = true) {
-                                            contentDescription = String.format(Locale.getDefault(), strings.liveViewerDurationLabel, duration)
-                                        },
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Timer,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = Color(0xFF06B6D4),
-                                        )
-                                        Text(
-                                            text = duration,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                        )
-                                    }
-                                }
-
-                                val totalDistance = snapshot?.totalDistanceMeters ?: 0.0
-                                if (totalDistance > 0.0) {
-                                    val distanceText = snapshot?.formatDistance(useMiles = isImperial)
-                                        ?: UnitFormatter.rideDistance(totalDistance, isImperial)
-                                    Row(
-                                        modifier = Modifier
-                                            .clickable { isImperial = !isImperial }
-                                            .semantics(mergeDescendants = true) {
-                                                role = Role.Button
-                                                contentDescription = "${String.format(Locale.getDefault(), strings.liveViewerDistanceLabel, distanceText)}. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
-                                            },
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Route,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = MaterialTheme.colorScheme.primary,
-                                        )
-                                        Text(
-                                            text = distanceText,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                        )
-                                    }
                                 }
                             }
 
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                FilledTonalButton(
-                                    onClick = {
-                                        val riderName = currentSnapshot?.username?.trim()?.takeIf { it.isNotBlank() }
-                                        val browserUrl = LiveSessionViewerRepository.buildShareUrl(AppConfig.LIVE_SHARE_BASE_URL, sessionId, riderName)
-                                        val shareMessage = LiveSessionViewerRepository.formatLiveShareMessage(
-                                            username = riderName,
-                                            shareUrl = browserUrl,
-                                            nameTemplate = strings.liveViewerShareMessageWithName,
-                                            fallbackTemplate = strings.liveViewerShareMessageFallback
-                                        )
-                                        AnalyticsManager.trackLiveShareViewerShareClicked(sessionId)
-                                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "text/plain"
-                                            putExtra(Intent.EXTRA_SUBJECT, strings.liveViewerShareRideSubject)
-                                            putExtra(Intent.EXTRA_TEXT, shareMessage)
-                                        }
-                                        runCatching {
-                                            context.startActivity(Intent.createChooser(sendIntent, strings.liveViewerShareRide))
-                                        }
-                                    },
-                                    modifier = Modifier.semantics {
-                                        role = Role.Button
-                                        contentDescription = strings.liveViewerShareRideA11y
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Share,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(strings.liveViewerShareRide)
-                                }
-
-                                OutlinedButton(
-                                    onClick = {
-                                        val riderName = currentSnapshot?.username?.trim()?.takeIf { it.isNotBlank() }
-                                        val browserUrl = LiveSessionViewerRepository.buildShareUrl(AppConfig.LIVE_SHARE_BASE_URL, sessionId, riderName)
-                                        runCatching {
-                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(browserUrl)))
-                                        }
-                                    },
-                                    modifier = Modifier.semantics {
+                            OutlinedButton(
+                                onClick = {
+                                    val riderName = currentSnapshot?.username?.trim()?.takeIf { it.isNotBlank() }
+                                    val browserUrl = LiveSessionViewerRepository.buildShareUrl(AppConfig.LIVE_SHARE_BASE_URL, sessionId, riderName)
+                                    runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(browserUrl)))
+                                    }
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .semantics {
                                         role = Role.Button
                                         contentDescription = strings.liveViewerOpenInBrowserA11y
                                     },
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(strings.liveViewerOpenInBrowser)
-                                }
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = strings.liveViewerOpenInBrowser,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             }
                         }
                     }
@@ -1492,3 +1467,56 @@ private fun createStationaryDotMarkerBitmap(): BitmapDescriptor {
 
     return BitmapDescriptorFactory.fromBitmap(bitmap)
 }
+
+@Composable
+private fun TelemetryMetricChip(
+    icon: ImageVector,
+    label: String,
+    a11yDescription: String,
+    cellColor: Color,
+    iconTint: Color,
+    modifier: Modifier = Modifier,
+    textColor: Color = Color.Unspecified,
+    fontWeight: FontWeight = FontWeight.SemiBold,
+    onClick: (() -> Unit)? = null,
+) {
+    val semanticModifier = if (onClick != null) {
+        modifier
+            .clickable(onClick = onClick)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = a11yDescription
+            }
+    } else {
+        modifier.semantics(mergeDescendants = true) {
+            contentDescription = a11yDescription
+        }
+    }
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = cellColor,
+        modifier = semanticModifier,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = iconTint,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = fontWeight,
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+

@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
@@ -309,7 +310,7 @@ fun InteractiveShareLocationButton(
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
                     shadowElevation = 8.dp,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
-                    modifier = Modifier.width(185.dp)
+                    modifier = Modifier.width(196.dp)
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -317,6 +318,39 @@ fun InteractiveShareLocationButton(
                         modifier = Modifier.padding(8.dp)
                     ) {
                         if (isActive) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.70f))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(if (liveShareState.activeViewers > 0) SuccessGreen else CyanBright)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (liveShareState.activeViewers > 0) {
+                                        String.format(
+                                            java.util.Locale.getDefault(),
+                                            strings.liveShareViewersWatching,
+                                            liveShareState.activeViewers
+                                        )
+                                    } else {
+                                        strings.liveShareNoViewersYet
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                             DrawerOptionPillButton(
                                 icon = Icons.AutoMirrored.Filled.Send,
                                 label = strings.shareLink,
