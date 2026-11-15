@@ -1586,6 +1586,69 @@ class LiveSessionViewerRepositoryTest {
         assertEquals(20_999L, LiveSessionViewerRepository.computeViewerPingDelay(1, randomProvider = fullJitter))
         assertEquals(60_000L, LiveSessionViewerRepository.computeViewerPingDelay(4, randomProvider = fullJitter))
     }
+
+    @Test
+    fun `parseSnapshot parses rider auto-pause and manual pause and clears on stop`() {
+        val autoPausedJson = """
+            {
+              "status": "active",
+              "isPaused": true,
+              "pauseReason": "auto",
+              "lastLocation": {
+                "lat": 12.9716,
+                "lng": 77.5946,
+                "speed": 0,
+                "heading": null,
+                "isPaused": true,
+                "pauseReason": "auto",
+                "timestamp": "2026-11-15T04:00:00Z"
+              }
+            }
+        """.trimIndent()
+        val autoSnap = LiveSessionViewerRepository.parseSnapshot("sess-pause-auto", autoPausedJson)
+        assertNotNull(autoSnap)
+        assertTrue(autoSnap!!.isActive)
+        assertTrue(autoSnap.isRiderPaused)
+        assertEquals("auto", autoSnap.effectivePauseReason)
+
+        val pausedStatusJson = """
+            {
+              "status": "paused",
+              "lastLocation": {
+                "lat": 12.9716,
+                "lng": 77.5946,
+                "speed": 0,
+                "pauseReason": "manual",
+                "timestamp": "2026-11-15T04:00:00Z"
+              }
+            }
+        """.trimIndent()
+        val manualSnap = LiveSessionViewerRepository.parseSnapshot("sess-pause-manual", pausedStatusJson)
+        assertNotNull(manualSnap)
+        assertTrue(manualSnap!!.isActive)
+        assertTrue(manualSnap.isRiderPaused)
+        assertEquals("manual", manualSnap.effectivePauseReason)
+
+        val stoppedJson = """
+            {
+              "status": "stopped",
+              "isPaused": true,
+              "pauseReason": "auto",
+              "lastLocation": {
+                "lat": 12.9716,
+                "lng": 77.5946,
+                "isPaused": true,
+                "pauseReason": "auto",
+                "timestamp": "2026-11-15T04:00:00Z"
+              }
+            }
+        """.trimIndent()
+        val stoppedSnap = LiveSessionViewerRepository.parseSnapshot("sess-stopped", stoppedJson)
+        assertNotNull(stoppedSnap)
+        assertFalse(stoppedSnap!!.isActive)
+        assertFalse(stoppedSnap.isRiderPaused)
+        assertNull(stoppedSnap.effectivePauseReason)
+    }
 }
 
 

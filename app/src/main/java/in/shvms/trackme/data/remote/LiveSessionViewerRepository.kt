@@ -65,6 +65,8 @@ data class LiveViewerLastLocation(
     val batteryLevel: Int?,
     val powerSaveMode: Boolean,
     val timestampIso: String?,
+    val isPaused: Boolean = false,
+    val pauseReason: String? = null,
 ) {
     val speedMps: Float?
         get() = speedKmh?.let { kotlin.math.max(0f, it) / 3.6f }
@@ -82,9 +84,24 @@ data class LiveSessionSnapshot(
     val deadlineAt: String?,
     val lastLocation: LiveViewerLastLocation?,
     val path: List<LiveViewerPoint>,
+    val isPaused: Boolean = false,
+    val pauseReason: String? = null,
 ) {
     val isActive: Boolean
-        get() = status.equals("active", ignoreCase = true)
+        get() = status.equals("active", ignoreCase = true) || status.equals("paused", ignoreCase = true)
+
+    val isRiderPaused: Boolean
+        get() = isActive && (isPaused || lastLocation?.isPaused == true || status.equals("paused", ignoreCase = true))
+
+    val effectivePauseReason: String?
+        get() = if (isRiderPaused) {
+            (pauseReason ?: lastLocation?.pauseReason)
+                ?.trim()
+                ?.lowercase()
+                ?.takeIf { it == "auto" || it == "manual" }
+        } else {
+            null
+        }
 
     fun formatDuration(nowEpochMillis: Long = System.currentTimeMillis()): String? {
         return LiveSessionViewerRepository.formatDuration(startedAt, endedAt, nowEpochMillis)
@@ -772,6 +789,12 @@ class LiveSessionViewerRepository {
                         batteryLevel = if (loc.has("batteryLevel") && !loc.isNull("batteryLevel")) loc.optInt("batteryLevel") else null,
                         powerSaveMode = loc.optBoolean("powerSaveMode", false),
                         timestampIso = loc.optString("timestamp").trim().takeIf { it.isNotEmpty() },
+                        isPaused = loc.optBoolean("isPaused", false) || loc.optBoolean("paused", false),
+                        pauseReason = if (loc.has("pauseReason") && !loc.isNull("pauseReason")) {
+                            loc.optString("pauseReason").trim().takeIf { it.isNotEmpty() }
+                        } else {
+                            null
+                        },
                     )
                 }
 
@@ -804,6 +827,23 @@ class LiveSessionViewerRepository {
                     path.add(LiveViewerPoint(lastLocation.lat, lastLocation.lng))
                 }
 
+                val topLevelPaused = json.optBoolean("isPaused", false) ||
+                    json.optBoolean("paused", false) ||
+                    status.equals("paused", ignoreCase = true)
+                val snapshotPaused = topLevelPaused || (lastLocation?.isPaused == true)
+                val topLevelPauseReason = if (json.has("pauseReason") && !json.isNull("pauseReason")) {
+                    json.optString("pauseReason").trim().takeIf { it.isNotEmpty() }
+                } else {
+                    null
+                }
+                val snapshotPauseReason = if (snapshotPaused) {
+                    (topLevelPauseReason ?: lastLocation?.pauseReason)
+                        ?.lowercase()
+                        ?.takeIf { it == "auto" || it == "manual" }
+                } else {
+                    null
+                }
+
                 LiveSessionSnapshot(
                     sessionId = sessionId,
                     username = username,
@@ -816,6 +856,8 @@ class LiveSessionViewerRepository {
                     deadlineAt = deadlineAt,
                     lastLocation = lastLocation,
                     path = path,
+                    isPaused = snapshotPaused,
+                    pauseReason = snapshotPauseReason,
                 )
             }.getOrNull()
         }

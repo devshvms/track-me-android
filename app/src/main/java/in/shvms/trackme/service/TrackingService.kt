@@ -131,6 +131,10 @@ class TrackingService : Service() {
     private val isLiveSharePushInProgress = java.util.concurrent.atomic.AtomicBoolean(false)
     private var liveShareConsecutiveFailures = 0
     private var lastReportedZeroViewerHibernating: Boolean? = null
+    private var lastLiveSharePausedState: Boolean? = null
+    private var liveSharePausedAnchorLatLng: Pair<Double, Double>? = null
+    private var lastLiveShareKnownLatLng: Pair<Double, Double>? = null
+    private var liveSharePausedKeepaliveJob: Job? = null
     private val liveShareIntervals = mutableListOf<`in`.shvms.trackme.domain.live.LiveShareInterval>()
     private var openLiveShareIntervalStartMs: Long? = null
     private var liveShareIntervalObserverJob: Job? = null
@@ -402,9 +406,19 @@ class TrackingService : Service() {
                     }
                 }
                 
+                val liveSharePaused = isPointPaused ||
+                    currentState == TrackingState.PAUSED ||
+                    currentState == TrackingState.STORAGE_LOW
+                val liveSharePauseReason = when {
+                    currentState == TrackingState.PAUSED || currentState == TrackingState.STORAGE_LOW -> "manual"
+                    isPointPaused -> "auto"
+                    else -> null
+                }
                 maybePushLiveShareLocation(
                     location = location,
                     speedKmh = if (location.hasSpeed()) (location.speed * 3.6f).coerceAtLeast(0f) else null,
+                    isPaused = liveSharePaused,
+                    pauseReason = liveSharePauseReason,
                 )
             }
         }
@@ -560,20 +574,82 @@ class TrackingService : Service() {
             maybePushLiveShareLocation(
                 location = location,
                 speedKmh = (snapshot.currentSpeedMetersPerSecond * 3.6f).coerceAtLeast(0f),
+                isPaused = v2Session.isAutoPaused,
+                pauseReason = if (v2Session.isAutoPaused) "auto" else null,
+                anchorLat = displayPoint.latitude,
+                anchorLon = displayPoint.longitude,
             )
         }
     }
 
-    private fun maybePushLiveShareLocation(location: Location, speedKmh: Float?) {
+    private fun maybePushLiveShareLocation(
+        location: Location,
+        speedKmh: Float?,
+        isPaused: Boolean = false,
+        pauseReason: String? = null,
+        anchorLat: Double? = null,
+        anchorLon: Double? = null,
+    ) {
+        pushLiveShareSnapshot(
+            lat = anchorLat ?: location.latitude,
+            lon = anchorLon ?: location.longitude,
+            speedKmh = if (isPaused) 0f else speedKmh,
+            heading = if (!isPaused && location.hasBearing()) location.bearing else null,
+            isPaused = isPaused,
+            pauseReason = pauseReason,
+            anchorLat = anchorLat,
+            anchorLon = anchorLon,
+        )
+    }
+
+    private fun pushLiveShareSnapshot(
+        lat: Double,
+        lon: Double,
+        speedKmh: Float?,
+        heading: Float?,
+        isPaused: Boolean,
+        pauseReason: String?,
+        anchorLat: Double? = null,
+        anchorLon: Double? = null,
+        forceImmediate: Boolean = false,
+    ) {
         val liveShareState = liveShareManager.state.value
-        if (liveShareState.status != LiveShareStatus.ACTIVE) return
+        if (liveShareState.status != LiveShareStatus.ACTIVE) {
+            liveSharePausedKeepaliveJob?.cancel()
+            liveSharePausedKeepaliveJob = null
+            return
+        }
 
         if (liveShareState.sessionId != lastLiveShareSessionId) {
             lastLiveShareSessionId = liveShareState.sessionId
             lastLiveShareTimeMs = 0L
             liveShareConsecutiveFailures = 0
             lastReportedZeroViewerHibernating = null
+            lastLiveSharePausedState = null
+            liveSharePausedAnchorLatLng = null
+            lastLiveShareKnownLatLng = null
+            liveSharePausedKeepaliveJob?.cancel()
+            liveSharePausedKeepaliveJob = null
             isLiveSharePushInProgress.set(false)
+        }
+
+        val targetCoords: Pair<Double, Double> = if (isPaused) {
+            val anchor = liveSharePausedAnchorLatLng
+                ?: (if (anchorLat != null && anchorLon != null) (anchorLat to anchorLon) else null)
+                ?: lastLiveShareKnownLatLng
+                ?: (lat to lon)
+            liveSharePausedAnchorLatLng = anchor
+            anchor
+        } else {
+            liveSharePausedAnchorLatLng = null
+            (lat to lon).also { lastLiveShareKnownLatLng = it }
+        }
+
+        if (isPaused) {
+            startPausedKeepaliveLoop(pauseReason)
+        } else {
+            liveSharePausedKeepaliveJob?.cancel()
+            liveSharePausedKeepaliveJob = null
         }
 
         val manager = getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
@@ -628,27 +704,31 @@ class TrackingService : Service() {
             15_000L,
             hibernation.effectiveIntervalMs + if (hibernation.isHibernating) 15_000L else 0L
         )
-        val requiredDelayMs = LiveShareManager.computePushBackoffDelay(
+        val baseRequiredDelayMs = LiveShareManager.computePushBackoffDelay(
             consecutiveFailures = liveShareConsecutiveFailures,
             baseIntervalMs = hibernation.effectiveIntervalMs,
             maxIntervalMs = maxPushDelayMs,
         )
+        val requiredDelayMs = if (isPaused) maxOf(baseRequiredDelayMs, 15_000L) else baseRequiredDelayMs
+        val pauseTransition = lastLiveSharePausedState != null && lastLiveSharePausedState != isPaused
 
-        if (now - lastLiveShareTimeMs < requiredDelayMs) return
+        if (!forceImmediate && !pauseTransition && now - lastLiveShareTimeMs < requiredDelayMs) return
         if (!isLiveSharePushInProgress.compareAndSet(false, true)) return
 
         lastLiveShareTimeMs = now
-        val heading = if (location.hasBearing()) location.bearing else null
+        lastLiveSharePausedState = isPaused
 
         serviceScope.launch {
             try {
                 val res = liveShareManager.pushLocation(
-                    lat = location.latitude,
-                    lon = location.longitude,
+                    lat = targetCoords.first,
+                    lon = targetCoords.second,
                     batteryLevel = batteryLevel,
-                    speed = speedKmh,
-                    heading = heading,
-                    powerSaveMode = effectivePowerSave
+                    speed = if (isPaused) 0f else speedKmh,
+                    heading = if (isPaused) null else heading,
+                    powerSaveMode = effectivePowerSave,
+                    isPaused = isPaused,
+                    pauseReason = if (isPaused) pauseReason else null,
                 )
                 if (res.isSuccess) {
                     liveShareConsecutiveFailures = 0
@@ -661,6 +741,67 @@ class TrackingService : Service() {
                 isLiveSharePushInProgress.set(false)
             }
         }
+    }
+
+    private fun startPausedKeepaliveLoop(initialReason: String?) {
+        if (liveSharePausedKeepaliveJob?.isActive == true) return
+        liveSharePausedKeepaliveJob = serviceScope.launch {
+            while (isActive) {
+                delay(15_000L)
+                withContext(Dispatchers.Main.immediate) {
+                    if (liveShareManager.state.value.status != LiveShareStatus.ACTIVE) {
+                        liveSharePausedKeepaliveJob?.cancel()
+                        liveSharePausedKeepaliveJob = null
+                        return@withContext
+                    }
+                    val manuallyPaused = currentState == TrackingState.PAUSED || currentState == TrackingState.STORAGE_LOW
+                    val autoPaused = currentState == TrackingState.TRACKING && trackingManager.isAutoPaused.value
+                    if (!manuallyPaused && !autoPaused) {
+                        liveSharePausedKeepaliveJob?.cancel()
+                        liveSharePausedKeepaliveJob = null
+                        return@withContext
+                    }
+                    val anchor = liveSharePausedAnchorLatLng ?: lastLiveShareKnownLatLng ?: return@withContext
+                    val reason = if (manuallyPaused) "manual" else (initialReason ?: "auto")
+                    pushLiveShareSnapshot(
+                        lat = anchor.first,
+                        lon = anchor.second,
+                        speedKmh = 0f,
+                        heading = null,
+                        isPaused = true,
+                        pauseReason = reason,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun pushManualPauseLiveShareIfActive() {
+        val anchor = liveSharePausedAnchorLatLng
+            ?: lastLiveShareKnownLatLng
+            ?: lastV2DisplayPoint?.let { it.latitude to it.longitude }
+            ?: lastLocation?.let { it.latitude to it.longitude }
+        anchor?.let {
+            pushLiveShareSnapshot(
+                lat = it.first,
+                lon = it.second,
+                speedKmh = 0f,
+                heading = null,
+                isPaused = true,
+                pauseReason = "manual",
+                anchorLat = it.first,
+                anchorLon = it.second,
+                forceImmediate = true,
+            )
+        }
+    }
+
+    private fun clearLiveSharePauseTracking() {
+        liveSharePausedKeepaliveJob?.cancel()
+        liveSharePausedKeepaliveJob = null
+        liveSharePausedAnchorLatLng = null
+        lastLiveShareKnownLatLng = null
+        lastLiveSharePausedState = null
     }
 
     private fun trackingV2PowerMode(): TrackingV2PowerMode {
@@ -820,6 +961,7 @@ class TrackingService : Service() {
 
     override fun onDestroy() {
         isRunning = false
+        clearLiveSharePauseTracking()
         standbyTimeoutJob?.cancel()
         standbyTimeoutJob = null
         trackingManager.setStandbyActive(false)
@@ -1160,6 +1302,7 @@ class TrackingService : Service() {
         // rider was when they pressed pause. `isPaused` then excludes the segment from distance
         // exactly as it already does for auto-pause, with no new rule and no schema change.
         markPauseBoundary()
+        pushManualPauseLiveShareIfActive()
         v2Session.pause()
         updateState(TrackingState.PAUSED)
         isTimerEnabled = false
@@ -1211,6 +1354,9 @@ class TrackingService : Service() {
             return
         }
         storageWarningShown = false
+        liveSharePausedKeepaliveJob?.cancel()
+        liveSharePausedKeepaliveJob = null
+        liveSharePausedAnchorLatLng = null
         v2Session.resume()
         // TASK-257: no marker on resume, deliberately. `pauseTracking` clears `lastLocation`, so
         // there is no truthful position to write here anyway -- and one marker is enough. The
@@ -1364,6 +1510,7 @@ class TrackingService : Service() {
     ) {
         standbyTimeoutJob?.cancel()
         standbyTimeoutJob = null
+        clearLiveSharePauseTracking()
         trackingManager.setStandbyActive(false)
         isTimerEnabled = false
         motionSensorManager.stopListening()
@@ -1492,6 +1639,7 @@ class TrackingService : Service() {
         pruneAfterTimestampEpochMs: Long? = null,
     ) {
         val rideId = currentRideId ?: return
+        clearLiveSharePauseTracking()
         isTimerEnabled = false
         motionSensorManager.stopListening()
         stopMotionThrottleWatcher()
@@ -1762,6 +1910,7 @@ class TrackingService : Service() {
 
     private fun enterStorageLowState() {
         if (currentState == TrackingState.STORAGE_LOW && storageWarningShown) return
+        pushManualPauseLiveShareIfActive()
         storageWarningShown = true
         updateState(TrackingState.STORAGE_LOW)
         v2Session.pause()

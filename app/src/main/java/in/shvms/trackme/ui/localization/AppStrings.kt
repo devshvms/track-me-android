@@ -490,6 +490,12 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val liveViewerSignalPausedBadge: String = s("liveViewerSignalPausedBadge", "Signal paused")
     val liveViewerSignalPausedA11y: String = s("liveViewerSignalPausedA11y", "GPS signal paused, waiting for rider location")
     val liveViewerSignalPausedBanner: String = s("liveViewerSignalPausedBanner", "Signal paused · Waiting for rider GPS")
+    val liveViewerRiderAutoPausedBadge: String = s("liveViewerRiderAutoPausedBadge", "Auto-paused")
+    val liveViewerRiderPausedBadge: String = s("liveViewerRiderPausedBadge", "Ride paused")
+    val liveViewerRiderAutoPausedBanner: String = s("liveViewerRiderAutoPausedBanner", "Rider is auto-paused while stationary · Route resumes on movement")
+    val liveViewerRiderPausedBanner: String = s("liveViewerRiderPausedBanner", "Rider paused live tracking")
+    val liveViewerRiderAutoPausedA11y: String = s("liveViewerRiderAutoPausedA11y", "Rider auto-paused while stationary")
+    val liveViewerRiderPausedA11y: String = s("liveViewerRiderPausedA11y", "Rider paused live tracking")
     val liveViewerDurationLabel: String = s("liveViewerDurationLabel", "Duration: %1\$s")
     val liveViewerDistanceLabel: String = s("liveViewerDistanceLabel", "Distance: %1\$s")
     val liveViewerExpectedBy: String = s("liveViewerExpectedBy", "Expected by %1\$s")
@@ -1378,6 +1384,12 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSignalPausedBadge" to "Señal en pausa",
             "liveViewerSignalPausedA11y" to "Señal GPS en pausa, esperando ubicación del usuario",
             "liveViewerSignalPausedBanner" to "Señal en pausa · Esperando GPS del usuario",
+            "liveViewerRiderAutoPausedBadge" to "Pausa automática",
+            "liveViewerRiderPausedBadge" to "Recorrido en pausa",
+            "liveViewerRiderAutoPausedBanner" to "El usuario está en pausa automática al detenerse · La ruta se reanudará al moverse",
+            "liveViewerRiderPausedBanner" to "El usuario pausó el seguimiento en vivo",
+            "liveViewerRiderAutoPausedA11y" to "Usuario en pausa automática mientras está detenido",
+            "liveViewerRiderPausedA11y" to "El usuario pausó el seguimiento en vivo",
             "liveViewerDurationLabel" to "Duración: %1\$s",
             "liveViewerDistanceLabel" to "Distancia: %1\$s",
             "liveViewerExpectedBy" to "Llegada prevista: %1\$s",
@@ -2228,6 +2240,12 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSignalPausedBadge" to "Signal en pause",
             "liveViewerSignalPausedA11y" to "Signal GPS en pause, en attente de la position du cycliste",
             "liveViewerSignalPausedBanner" to "Signal en pause · En attente du GPS du cycliste",
+            "liveViewerRiderAutoPausedBadge" to "Pause auto",
+            "liveViewerRiderPausedBadge" to "Trajet en pause",
+            "liveViewerRiderAutoPausedBanner" to "Le cycliste est en pause automatique à l'arrêt · Le trajet reprendra dès qu'il repart",
+            "liveViewerRiderPausedBanner" to "Le cycliste a mis en pause le suivi en direct",
+            "liveViewerRiderAutoPausedA11y" to "Cycliste en pause automatique à l'arrêt",
+            "liveViewerRiderPausedA11y" to "Le cycliste a mis le suivi en direct en pause",
             "liveViewerDurationLabel" to "Durée : %1\$s",
             "liveViewerDistanceLabel" to "Distance : %1\$s",
             "liveViewerExpectedBy" to "Arrivée prévue à %1\$s",
@@ -3078,6 +3096,12 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSignalPausedBadge" to "Signal pausiert",
             "liveViewerSignalPausedA11y" to "GPS-Signal pausiert, warte auf Standort des Fahrers",
             "liveViewerSignalPausedBanner" to "Signal pausiert · Warte auf GPS des Fahrers",
+            "liveViewerRiderAutoPausedBadge" to "Auto-Pause",
+            "liveViewerRiderPausedBadge" to "Fahrt pausiert",
+            "liveViewerRiderAutoPausedBanner" to "Fahrer ist im Stand automatisch pausiert · Route wird bei Bewegung fortgesetzt",
+            "liveViewerRiderPausedBanner" to "Fahrer hat Live-Tracking pausiert",
+            "liveViewerRiderAutoPausedA11y" to "Fahrer im Stand automatisch pausiert",
+            "liveViewerRiderPausedA11y" to "Fahrer hat Live-Tracking pausiert",
             "liveViewerDurationLabel" to "Dauer: %1\$s",
             "liveViewerDistanceLabel" to "Distanz: %1\$s",
             "liveViewerExpectedBy" to "Erwartet um %1\$s",
@@ -3928,6 +3952,12 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSignalPausedBadge" to "सिग्नल रुका हुआ",
             "liveViewerSignalPausedA11y" to "जीपीएस सिग्नल रुका हुआ, राइडर के स्थान की प्रतीक्षा है",
             "liveViewerSignalPausedBanner" to "सिग्नल रुका हुआ · राइडर के जीपीएस की प्रतीक्षा है",
+            "liveViewerRiderAutoPausedBadge" to "ऑटो-रुका",
+            "liveViewerRiderPausedBadge" to "राइड रुकी हुई",
+            "liveViewerRiderAutoPausedBanner" to "स्थिर रहने पर राइडर ऑटो-पॉज़ है · चलने पर मार्ग फिर शुरू होगा",
+            "liveViewerRiderPausedBanner" to "राइडर ने लाइव ट्रैकिंग रोकी है",
+            "liveViewerRiderAutoPausedA11y" to "स्थिर रहने पर राइडर ऑटो-पॉज़ है",
+            "liveViewerRiderPausedA11y" to "राइडर ने लाइव ट्रैकिंग रोकी है",
             "liveViewerDurationLabel" to "अवधि: %1\$s",
             "liveViewerDistanceLabel" to "दूरी: %1\$s",
             "liveViewerExpectedBy" to "अपेक्षित समय %1\$s",
@@ -4778,6 +4808,12 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSignalPausedBadge" to "一時停止中",
             "liveViewerSignalPausedA11y" to "GPS信号が一時停止中、ライダーの位置情報を待機しています",
             "liveViewerSignalPausedBanner" to "信号一時停止中 · ライダーのGPSを待機しています",
+            "liveViewerRiderAutoPausedBadge" to "自動一時停止",
+            "liveViewerRiderPausedBadge" to "ライド一時停止中",
+            "liveViewerRiderAutoPausedBanner" to "停止中のため自動一時停止しています · 移動するとルートを再開します",
+            "liveViewerRiderPausedBanner" to "ライダーがライブ追跡を一時停止しました",
+            "liveViewerRiderAutoPausedA11y" to "ライダーは停止中のため自動一時停止しています",
+            "liveViewerRiderPausedA11y" to "ライダーがライブ追跡を一時停止しました",
             "liveViewerDurationLabel" to "経過時間: %1\$s",
             "liveViewerDistanceLabel" to "距離: %1\$s",
             "liveViewerExpectedBy" to "到着予定: %1\$s",
@@ -5628,6 +5664,12 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "liveViewerSignalPausedBadge" to "信号暂停",
             "liveViewerSignalPausedA11y" to "GPS信号已暂停，正在等待骑手位置",
             "liveViewerSignalPausedBanner" to "信号暂停 · 正在等待骑手GPS",
+            "liveViewerRiderAutoPausedBadge" to "自动暂停",
+            "liveViewerRiderPausedBadge" to "骑行已暂停",
+            "liveViewerRiderAutoPausedBanner" to "骑手静止时已自动暂停 · 移动后将继续记录路线",
+            "liveViewerRiderPausedBanner" to "骑手已暂停实时跟踪",
+            "liveViewerRiderAutoPausedA11y" to "骑手静止时自动暂停",
+            "liveViewerRiderPausedA11y" to "骑手暂停了实时跟踪",
             "liveViewerDurationLabel" to "时长：%1\$s",
             "liveViewerDistanceLabel" to "距离：%1\$s",
             "liveViewerExpectedBy" to "预计到达时间：%1\$s",

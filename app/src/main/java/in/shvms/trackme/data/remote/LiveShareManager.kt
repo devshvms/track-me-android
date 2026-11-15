@@ -141,7 +141,9 @@ class LiveShareManager {
         batteryLevel: Int?,
         speed: Float?,
         heading: Float?,
-        powerSaveMode: Boolean = false
+        powerSaveMode: Boolean = false,
+        isPaused: Boolean = false,
+        pauseReason: String? = null,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val currentState = _state.value
         val activeSessionId = currentState.sessionId
@@ -157,15 +159,16 @@ class LiveShareManager {
         val effectivePowerSave = isEffectivePowerSave(powerSaveMode, batteryLevel)
 
         try {
-            val requestBody = JSONObject().apply {
-                put("lat", lat)
-                put("lng", lon)
-                if (batteryLevel != null) put("batteryLevel", batteryLevel)
-                if (speed != null) put("speed", speed)
-                if (heading != null) put("heading", heading)
-                put("powerSaveMode", effectivePowerSave)
-                put("timestamp", DateTimeFormatter.ISO_INSTANT.format(Instant.now()))
-            }.toString()
+            val requestBody = buildPushLocationBody(
+                lat = lat,
+                lon = lon,
+                batteryLevel = batteryLevel,
+                speed = speed,
+                heading = heading,
+                effectivePowerSave = effectivePowerSave,
+                isPaused = isPaused,
+                pauseReason = pauseReason,
+            ).toString()
 
             val endpoint = String.format(AppConfig.LIVE_SHARE_LOCATION_ENDPOINT_TEMPLATE, activeSessionId)
             val fullUrl = AppConfig.LIVE_SHARE_BASE_URL + endpoint
@@ -334,6 +337,41 @@ class LiveShareManager {
                 if (cleanedWatchers.isNotEmpty()) {
                     put("watcherUids", JSONArray(cleanedWatchers))
                 }
+            }
+        }
+
+        internal fun buildPushLocationBody(
+            lat: Double,
+            lon: Double,
+            batteryLevel: Int?,
+            speed: Float?,
+            heading: Float?,
+            effectivePowerSave: Boolean,
+            isPaused: Boolean = false,
+            pauseReason: String? = null,
+            timestampIso: String = DateTimeFormatter.ISO_INSTANT.format(Instant.now()),
+        ): JSONObject {
+            val sanitizedSpeed = if (isPaused) 0f else speed
+            val sanitizedHeading = if (isPaused) null else heading
+            val normalizedReason = if (isPaused) {
+                when (pauseReason?.trim()?.lowercase()) {
+                    "auto" -> "auto"
+                    "manual" -> "manual"
+                    else -> null
+                }
+            } else {
+                null
+            }
+            return JSONObject().apply {
+                put("lat", lat)
+                put("lng", lon)
+                if (batteryLevel != null) put("batteryLevel", batteryLevel)
+                if (sanitizedSpeed != null) put("speed", sanitizedSpeed)
+                if (sanitizedHeading != null) put("heading", sanitizedHeading)
+                put("powerSaveMode", effectivePowerSave)
+                put("isPaused", isPaused)
+                if (normalizedReason != null) put("pauseReason", normalizedReason)
+                put("timestamp", timestampIso)
             }
         }
 

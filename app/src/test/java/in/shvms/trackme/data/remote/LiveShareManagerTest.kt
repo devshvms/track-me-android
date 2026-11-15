@@ -201,4 +201,40 @@ class LiveShareManagerTest {
         assertEquals(false, telemetry.containsKey("token"))
         assertEquals(false, telemetry.containsKey("email"))
     }
+
+    @Test
+    fun buildPushLocationBodySanitizesSpeedAndHeadingWhilePaused() {
+        val pausedPayload = LiveShareManager.buildPushLocationBody(
+            lat = 12.9716,
+            lon = 77.5946,
+            batteryLevel = 82,
+            speed = 18.4f,
+            heading = 135f,
+            effectivePowerSave = false,
+            isPaused = true,
+            pauseReason = "AUTO",
+            timestampIso = "2026-11-15T04:00:00Z",
+        )
+        assertEquals(true, pausedPayload.getBoolean("isPaused"))
+        assertEquals("auto", pausedPayload.getString("pauseReason"))
+        assertEquals(0.0, pausedPayload.getDouble("speed"), 0.0001)
+        assertEquals(false, pausedPayload.has("heading"))
+        assertEquals(82, pausedPayload.getInt("batteryLevel"))
+
+        val activePayload = LiveShareManager.buildPushLocationBody(
+            lat = 12.9722,
+            lon = 77.5951,
+            batteryLevel = 81,
+            speed = 24.5f,
+            heading = 92f,
+            effectivePowerSave = false,
+            isPaused = false,
+            pauseReason = "manual",
+            timestampIso = "2026-11-15T04:00:10Z",
+        )
+        assertEquals(false, activePayload.getBoolean("isPaused"))
+        assertEquals(false, activePayload.has("pauseReason"))
+        assertEquals(24.5, activePayload.getDouble("speed"), 0.01)
+        assertEquals(92.0, activePayload.getDouble("heading"), 0.01)
+    }
 }

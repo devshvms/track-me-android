@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Schedule
@@ -376,16 +377,18 @@ fun LiveSessionViewerSheet(
     val finishIcon = remember { runCatching { ExportMarkers.finish(ExportMarkerStyle.StartFinish, 44) }.getOrNull() }
     val headingIcon = remember { runCatching { createHeadingConeMarkerBitmap() }.getOrNull() }
     val stationaryDotIcon = remember { runCatching { createStationaryDotMarkerBitmap() }.getOrNull() }
+    val pausedDotIcon = remember { runCatching { createPausedDotMarkerBitmap() }.getOrNull() }
 
     val lastLoc = snapshot?.lastLocation
+    val isRiderPaused = snapshot?.isRiderPaused == true
     val ageSeconds = remember(lastLoc?.timestampIso, nowEpochMillis) {
         LiveSessionViewerRepository.ageSeconds(lastLoc?.timestampIso, nowEpochMillis)
     }
     val isStaleSignal = remember(snapshot?.isActive, lastLoc?.timestampIso, nowEpochMillis) {
         snapshot?.isStaleSignal(nowEpochMillis) == true
     }
-    val isDelayedUpdate = remember(snapshot?.isActive, lastLoc?.powerSaveMode, lastLoc?.timestampIso, isStaleSignal, nowEpochMillis) {
-        snapshot?.isActive == true && !isStaleSignal && LiveSessionViewerRepository.isDelayedUpdate(
+    val isDelayedUpdate = remember(snapshot?.isActive, isRiderPaused, lastLoc?.powerSaveMode, lastLoc?.timestampIso, isStaleSignal, nowEpochMillis) {
+        snapshot?.isActive == true && !isRiderPaused && !isStaleSignal && LiveSessionViewerRepository.isDelayedUpdate(
             powerSaveMode = lastLoc?.powerSaveMode == true,
             timestampIso = lastLoc?.timestampIso,
             nowEpochMillis = nowEpochMillis,
@@ -423,7 +426,8 @@ fun LiveSessionViewerSheet(
         }
     }
 
-    LaunchedEffect(snapshot?.lastLocation?.headingDeg, speedStatus.isStationary) {
+    LaunchedEffect(snapshot?.lastLocation?.headingDeg, speedStatus.isStationary, isRiderPaused) {
+        if (isRiderPaused) return@LaunchedEffect
         val target = snapshot?.lastLocation?.headingDeg ?: return@LaunchedEffect
         if (!hasInitializedBearing) {
             continuousBearing = target
@@ -550,14 +554,14 @@ fun LiveSessionViewerSheet(
                         }
                         currentLatLng?.let { livePoint ->
                             val isEnded = snapshot?.isActive == false
+                            val isPausedMarker = isRiderPaused && !isEnded
                             val isStationary = speedStatus.isStationary
-                            val hasHeading = lastLoc?.headingDeg != null && !isEnded && !isStationary
-                            val markerIcon = if (isEnded) {
-                                finishIcon ?: (stationaryDotIcon ?: headingIcon)
-                            } else if (hasHeading) {
-                                headingIcon
-                            } else {
-                                stationaryDotIcon ?: headingIcon
+                            val hasHeading = lastLoc?.headingDeg != null && !isEnded && !isStationary && !isPausedMarker
+                            val markerIcon = when {
+                                isEnded -> finishIcon ?: (stationaryDotIcon ?: headingIcon)
+                                isPausedMarker -> pausedDotIcon ?: (stationaryDotIcon ?: headingIcon)
+                                hasHeading -> headingIcon
+                                else -> stationaryDotIcon ?: headingIcon
                             }
                             Marker(
                                 state = MarkerState(position = livePoint),
@@ -842,6 +846,41 @@ fun LiveSessionViewerSheet(
                                 }
                             }
 
+                            if (isRiderPaused && !isStaleSignal && currentLatLng != null) {
+                                val isAutoPause = snapshot?.effectivePauseReason == "auto"
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                                    border = BorderStroke(1.dp, Color(0xFF94A3B8).copy(alpha = 0.55f)),
+                                    tonalElevation = 4.dp,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .semantics { liveRegion = LiveRegionMode.Polite },
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PauseCircle,
+                                            contentDescription = null,
+                                            tint = Color(0xFF64748B),
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                        Text(
+                                            text = if (isAutoPause) {
+                                                strings.liveViewerRiderAutoPausedBanner
+                                            } else {
+                                                strings.liveViewerRiderPausedBanner
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+                                }
+                            }
+
                             // CIE-022 / CIE-037: Low battery warning banner (<15%) with TalkBack liveRegion announcement
                             val battery = LiveSessionViewerRepository.clampBatteryLevel(lastLoc?.batteryLevel)
                             val isLowBattery = battery != null && battery <= 15 && snapshot?.isActive == true
@@ -1010,26 +1049,50 @@ fun LiveSessionViewerSheet(
                         val deadlineStatus = if (active) currentSnapshot?.deadlineStatus(nowEpochMillis) else null
                         val currentUnitText = if (isImperial) "mph" else "km/h"
 
-                        // Row 1: Status pills (Live / Ended + Signal paused / Delayed) + Updated freshness
+                        // Row 1: Status pills (Live / Paused / Ended + Signal paused / Delayed) + Updated freshness
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            val rowRiderPaused = active && currentSnapshot?.isRiderPaused == true && !isStaleSignal
+                            val rowPauseReason = currentSnapshot?.effectivePauseReason
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.weight(1f, fill = false),
                             ) {
                                 if (currentSnapshot != null || isExpiredOrMissing) {
+                                    val primaryBg = when {
+                                        rowRiderPaused -> Color(0xFF94A3B8).copy(alpha = 0.20f)
+                                        active -> Color(0xFF06B6D4).copy(alpha = 0.16f)
+                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                    }
+                                    val primaryFg = when {
+                                        rowRiderPaused -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        active -> Color(0xFF06B6D4)
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                    val primaryIcon = if (rowRiderPaused) Icons.Default.PauseCircle else Icons.Default.Sensors
+                                    val primaryLabel = when {
+                                        rowRiderPaused && rowPauseReason == "auto" -> strings.liveViewerRiderAutoPausedBadge
+                                        rowRiderPaused -> strings.liveViewerRiderPausedBadge
+                                        active -> strings.liveViewerActiveBadge
+                                        else -> strings.liveViewerEndedBadge
+                                    }
+                                    val primaryA11y = when {
+                                        rowRiderPaused && rowPauseReason == "auto" -> strings.liveViewerRiderAutoPausedA11y
+                                        rowRiderPaused -> strings.liveViewerRiderPausedA11y
+                                        else -> ""
+                                    }
                                     Surface(
                                         shape = RoundedCornerShape(50),
-                                        color = if (active) {
-                                            Color(0xFF06B6D4).copy(alpha = 0.16f)
-                                        } else {
-                                            MaterialTheme.colorScheme.surfaceVariant
+                                        color = primaryBg,
+                                        modifier = Modifier.semantics(mergeDescendants = true) {
+                                            if (primaryA11y.isNotEmpty()) {
+                                                contentDescription = primaryA11y
+                                            }
                                         },
-                                        modifier = Modifier.semantics(mergeDescendants = true) {},
                                     ) {
                                         Row(
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -1037,16 +1100,16 @@ fun LiveSessionViewerSheet(
                                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Sensors,
+                                                imageVector = primaryIcon,
                                                 contentDescription = null,
-                                                tint = if (active) Color(0xFF06B6D4) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                tint = primaryFg,
                                                 modifier = Modifier.size(13.dp),
                                             )
                                             Text(
-                                                text = if (active) strings.liveViewerActiveBadge else strings.liveViewerEndedBadge,
+                                                text = primaryLabel,
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.SemiBold,
-                                                color = if (active) Color(0xFF06B6D4) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                color = primaryFg,
                                                 maxLines = 1,
                                             )
                                         }
@@ -1069,7 +1132,7 @@ fun LiveSessionViewerSheet(
                                             maxLines = 1,
                                         )
                                     }
-                                } else if (isDelayedUpdate) {
+                                } else if (!rowRiderPaused && isDelayedUpdate) {
                                     Surface(
                                         shape = RoundedCornerShape(50),
                                         color = Color(0xFFF59E0B).copy(alpha = 0.16f),
@@ -1185,17 +1248,32 @@ fun LiveSessionViewerSheet(
 
                         // Row 2: Full-width unclipped telemetry metrics (no buttons competing in the same row)
                         val isEnded = currentSnapshot?.isActive == false
+                        val isPausedRider = currentSnapshot?.isRiderPaused == true && !isEnded
+                        val pauseReason = currentSnapshot?.effectivePauseReason
                         val avgSpeedStr = concludedSummary?.avgSpeedStr
-                        val speedDisplay = if (isEnded && avgSpeedStr != null) {
-                            "${strings.avgSpeed} $avgSpeedStr"
+                        val pausedSpeedLabel = if (pauseReason == "auto") {
+                            strings.liveViewerRiderAutoPausedBadge
                         } else {
-                            speedStatus.displayText
+                            strings.liveViewerRiderPausedBadge
                         }
-                        val speedA11y = if (isEnded && avgSpeedStr != null) {
-                            "${strings.avgSpeed}: $avgSpeedStr. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
+                        val pausedSpeedA11y = if (pauseReason == "auto") {
+                            strings.liveViewerRiderAutoPausedA11y
                         } else {
-                            "${speedStatus.a11yText}. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
+                            strings.liveViewerRiderPausedA11y
                         }
+                        val speedDisplay = when {
+                            isEnded && avgSpeedStr != null -> "${strings.avgSpeed} $avgSpeedStr"
+                            isPausedRider -> pausedSpeedLabel
+                            else -> speedStatus.displayText
+                        }
+                        val speedA11y = when {
+                            isEnded && avgSpeedStr != null ->
+                                "${strings.avgSpeed}: $avgSpeedStr. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
+                            isPausedRider -> pausedSpeedA11y
+                            else ->
+                                "${speedStatus.a11yText}. ${String.format(Locale.getDefault(), strings.liveViewerToggleUnitsA11y, currentUnitText)}"
+                        }
+                        val speedIconTint = if (isPausedRider) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF06B6D4)
                         val durationText = currentSnapshot?.formatDuration(nowEpochMillis) ?: "0m"
                         val totalDistance = currentSnapshot?.totalDistanceMeters ?: 0.0
                         val distanceText = currentSnapshot?.formatDistance(useMiles = isImperial)
@@ -1228,7 +1306,7 @@ fun LiveSessionViewerSheet(
                                         label = speedDisplay,
                                         a11yDescription = speedA11y,
                                         cellColor = cellBg,
-                                        iconTint = Color(0xFF06B6D4),
+                                        iconTint = speedIconTint,
                                         fontWeight = FontWeight.Bold,
                                         onClick = toggleUnits,
                                         modifier = Modifier.weight(1f),
@@ -1277,7 +1355,7 @@ fun LiveSessionViewerSheet(
                                     label = speedDisplay,
                                     a11yDescription = speedA11y,
                                     cellColor = cellBg,
-                                    iconTint = Color(0xFF06B6D4),
+                                    iconTint = speedIconTint,
                                     fontWeight = FontWeight.Bold,
                                     onClick = toggleUnits,
                                     modifier = Modifier.weight(1.25f),
@@ -1384,6 +1462,34 @@ fun LiveSessionViewerSheet(
             }
         }
     }
+}
+
+private fun createPausedDotMarkerBitmap(): BitmapDescriptor {
+    val size = 72
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val cx = size / 2f
+    val cy = size / 2f
+
+    val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.argb(72, 148, 163, 184)
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(cx, cy, 24f, haloPaint)
+
+    val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.rgb(71, 85, 105)
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(cx, cy, 17f, borderPaint)
+
+    val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.rgb(148, 163, 184)
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(cx, cy, 13f, fillPaint)
+
+    return BitmapDescriptorFactory.fromBitmap(bitmap)
 }
 
 private fun createHeadingConeMarkerBitmap(): BitmapDescriptor {
