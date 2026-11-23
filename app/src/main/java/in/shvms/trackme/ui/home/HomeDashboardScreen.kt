@@ -785,6 +785,28 @@ private fun TrustedWatchersShortcutRow(
     }
 }
 
+/**
+ * TASK-378: Tapping the primary CTA on the Home Live Sharing card must route through
+ * [in.shvms.trackme.ui.home.components.LiveShareSetupSheet] so the rider sees the collapsed
+ * "Sharing time limit · 30 min" row (and can tap Change) before starting a session.
+ */
+internal enum class HomeLiveSharingTapAction {
+    OPEN_SETUP_SHEET,
+    SHOW_GROUP_ACTIVE_BLOCKED,
+}
+
+internal fun resolveHomeLiveSharingTapAction(
+    liveSharingActive: Boolean,
+    groupActive: Boolean,
+    @Suppress("UNUSED_PARAMETER") isAuthenticated: Boolean,
+): HomeLiveSharingTapAction {
+    return if (!liveSharingActive && groupActive) {
+        HomeLiveSharingTapAction.SHOW_GROUP_ACTIVE_BLOCKED
+    } else {
+        HomeLiveSharingTapAction.OPEN_SETUP_SHEET
+    }
+}
+
 @Composable
 private fun InsightCard(insight: HomeInsight, imperial: Boolean, strings: AppStrings) {
     val text = when (insight) {

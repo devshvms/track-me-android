@@ -282,4 +282,161 @@ class Task377And378ComposeTest {
         composeRule.onNodeWithTag("live_share_expiry_explanation").assertTextEquals(expected)
         assertFalse(expected.lowercase().contains("pause"))
     }
+
+    @Test
+    fun homeShareLiveLocationOpensSetupSheetWithoutStartingThenSelect1HourStartsWith60() {
+        val strings = AppStrings()
+        val startedDurations = mutableListOf<Int>()
+        var showHomeSharing by androidx.compose.runtime.mutableStateOf(false)
+
+        composeRule.setContent {
+            MaterialTheme {
+                CompositionLocalProvider(LocalAppStrings provides strings) {
+                    Box {
+                        HomeDashboardScreen(
+                            summary = HomeDashboardSummary.empty(0L),
+                            routePoints = emptyList(),
+                            isSummaryResolved = true,
+                            isReconciling = false,
+                            groupActive = false,
+                            groupMemberCount = 0,
+                            syncNeedsAction = false,
+                            isOffline = false,
+                            locationPermissionRevoked = false,
+                            imperial = false,
+                            onOpenRecent = { _, _ -> },
+                            onOpenHistory = {},
+                            onOpenCommunity = {},
+                            onOpenProgress = {},
+                            onOpenGroupMap = {},
+                            onCreateGroup = {},
+                            onJoinGroup = {},
+                            onOpenSettings = {},
+                            onDismissPermissionNotice = {},
+                            onOpenLiveSharing = {
+                                when (
+                                    `in`.shvms.trackme.ui.home.resolveHomeLiveSharingTapAction(
+                                        liveSharingActive = false,
+                                        groupActive = false,
+                                        isAuthenticated = true,
+                                    )
+                                ) {
+                                    `in`.shvms.trackme.ui.home.HomeLiveSharingTapAction.SHOW_GROUP_ACTIVE_BLOCKED -> Unit
+                                    `in`.shvms.trackme.ui.home.HomeLiveSharingTapAction.OPEN_SETUP_SHEET -> {
+                                        showHomeSharing = true
+                                    }
+                                }
+                            },
+                        )
+
+                        if (showHomeSharing) {
+                            LiveShareSetupSheetContent(
+                                liveShareState = LiveShareState(),
+                                isAuthenticated = true,
+                                groupActive = false,
+                                trustedWatchers = emptyList(),
+                                stopsWithRide = true,
+                                onDismiss = { showHomeSharing = false },
+                                onStartDirectShare = { startedDurations.add(it) },
+                                onStopShare = {},
+                                onShareLink = {},
+                                onCopyLink = {},
+                                onInviteWatcher = {},
+                                onToggleWatcherAutoNotify = { _, _ -> },
+                                onRemoveWatcher = {},
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 1. Enter through Home: tap "Share Live Location" on the Home card.
+        composeRule.onNodeWithTag("home_live_sharing_cta").performClick()
+        composeRule.waitForIdle()
+
+        // 2. Confirm that opening the sheet starts NO session and defaults to 30 min.
+        assertTrue("Home tap must open LiveShareSetupSheet", showHomeSharing)
+        assertTrue("Opening the setup sheet must start no session", startedDurations.isEmpty())
+        composeRule.onNodeWithTag("live_share_time_limit_summary")
+            .assertTextEquals("Sharing time limit · 30 min")
+
+        // 3. Tap Change, select 1 hour (60 min), confirm summary updates, then press Start.
+        composeRule.onNodeWithTag("live_share_time_limit_change").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("live_share_duration_60").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("live_share_time_limit_summary")
+            .assertTextEquals("Sharing time limit · 1 hr")
+        assertTrue("Selecting duration must still not start a session before Start", startedDurations.isEmpty())
+
+        composeRule.onNodeWithTag("live_share_start_cta").performClick()
+        composeRule.runOnIdle {
+            assertEquals(listOf(60), startedDurations)
+            assertFalse(showHomeSharing)
+        }
+    }
+
+    @Test
+    fun homeSharingCardsStackAndAlignCleanlyAtLargeTextSizes() {
+        val strings = AppStrings()
+        composeRule.setContent {
+            val baseDensity = LocalDensity.current
+            MaterialTheme {
+                CompositionLocalProvider(
+                    LocalAppStrings provides strings,
+                    LocalDensity provides Density(baseDensity.density, fontScale = 1.5f),
+                ) {
+                    HomeDashboardScreen(
+                        summary = HomeDashboardSummary.empty(0L),
+                        routePoints = emptyList(),
+                        isSummaryResolved = true,
+                        isReconciling = false,
+                        groupActive = false,
+                        groupMemberCount = 0,
+                        syncNeedsAction = false,
+                        isOffline = false,
+                        locationPermissionRevoked = false,
+                        imperial = false,
+                        onOpenRecent = { _, _ -> },
+                        onOpenHistory = {},
+                        onOpenCommunity = {},
+                        onOpenProgress = {},
+                        onOpenGroupMap = {},
+                        onCreateGroup = {},
+                        onJoinGroup = {},
+                        onOpenSettings = {},
+                        onDismissPermissionNotice = {},
+                        trustedWatcherCount = 2,
+                    )
+                }
+            }
+        }
+
+        val groupBounds = composeRule.onNodeWithTag("home_group_ride_card").getUnclippedBoundsInRoot()
+        val liveBounds = composeRule.onNodeWithTag("home_live_sharing_card").getUnclippedBoundsInRoot()
+        val watchersBounds = composeRule.onNodeWithTag("home_trusted_watchers_shortcut").getUnclippedBoundsInRoot()
+        val groupCtaBounds = composeRule.onNodeWithTag("home_group_ride_cta").getUnclippedBoundsInRoot()
+        val liveCtaBounds = composeRule.onNodeWithTag("home_live_sharing_cta").getUnclippedBoundsInRoot()
+
+        assertTrue(
+            "Stacked cards at large text must share aligned left edges and equal widths",
+            abs(groupBounds.left.value - liveBounds.left.value) <= 1.5f &&
+                abs(groupBounds.width.value - liveBounds.width.value) <= 1.5f &&
+                abs(groupBounds.width.value - watchersBounds.width.value) <= 1.5f,
+        )
+        assertTrue(
+            "Live Sharing card must stack cleanly below Ride Together at fontScale = 1.5f",
+            liveBounds.top >= groupBounds.bottom,
+        )
+        assertTrue(
+            "Trusted Watchers row must remain below stacked sharing cards at fontScale = 1.5f",
+            watchersBounds.top >= liveBounds.bottom,
+        )
+        assertTrue(
+            "Primary buttons and watchers row must keep >= 48dp targets at large text",
+            groupCtaBounds.height >= 48.dp && liveCtaBounds.height >= 48.dp && watchersBounds.height >= 48.dp,
+        )
+    }
 }
