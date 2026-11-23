@@ -84,13 +84,14 @@ object HandsFreeReliabilityPolicy {
 
     /**
      * Invariant 4: Immediately restore 1Hz high-accuracy GPS polling when the hardware motion
-     * sensor transitions from stationary to moving.
+     * sensor has an active sample and transitions from stationary to moving.
      */
     fun shouldUnthrottleOnMotionWake(
         isGpsThrottled: Boolean,
         isMotionStationary: Boolean,
+        hasMotionSample: Boolean = true,
     ): Boolean {
-        return isGpsThrottled && !isMotionStationary
+        return isGpsThrottled && hasMotionSample && !isMotionStationary
     }
 
     /**

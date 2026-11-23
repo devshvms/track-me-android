@@ -1429,7 +1429,7 @@ class TrackingService : Service() {
      *   would otherwise look like 45 minutes of stillness compressed into a second, and the rider
      *   would be asked about a ride they are actively on.
      */
-    private fun updateStillness(isStill: Boolean, fixTimeMillis: Long) {
+    private fun updateStillness(isStill: Boolean, fixTimeMillis: Long, allowThrottle: Boolean = true) {
         if (!isStill) {
             // Moving again. Reset the clock but keep [forgottenRideAsked]: the policy is once per
             // ride, and a rider who moves, stops again and gets asked a second time is being
@@ -1448,7 +1448,9 @@ class TrackingService : Service() {
         if (stillnessMillis < 0) return
 
         // TASK-351 (BATT-01): Step down GPS polling interval when stationary > 3 minutes
-        if (AdaptiveGpsThrottlePolicy.shouldThrottle(isStationary = true, stillnessDurationMs = stillnessMillis)) {
+        if (allowThrottle &&
+            AdaptiveGpsThrottlePolicy.shouldThrottle(isStationary = true, stillnessDurationMs = stillnessMillis)
+        ) {
             if (!locationHelper.isThrottled()) {
                 locationHelper.setStationaryThrottled(true, locationCallback)
             }
@@ -2126,18 +2128,21 @@ class TrackingService : Service() {
                         val timeSinceLastGps = nowWallMs - lastGpsTimeMs
                         trackingManager.updateTimeSinceLastGps(timeSinceLastGps)
 
+                        val hasMotionSample = motionSensorManager.currentMotionEnergy() != null
                         val isMotionStationary = motionSensorManager.isDeviceStationary()
+                        val isHardwareMoving = hasMotionSample && !isMotionStationary
                         // TASK-373: Restore 1Hz high-accuracy polling immediately on hardware motion wake
                         if (HandsFreeReliabilityPolicy.shouldUnthrottleOnMotionWake(
                                 isGpsThrottled = locationHelper.isThrottled(),
                                 isMotionStationary = isMotionStationary,
+                                hasMotionSample = hasMotionSample,
                             )
                         ) {
                             locationHelper.setStationaryThrottled(false, locationCallback)
                         }
 
                         val isStationary = trackingManager.isAutoPaused.value || isMotionStationary
-                        updateStillness(isStationary, nowWallMs)
+                        updateStillness(isStationary, nowWallMs, allowThrottle = !isHardwareMoving)
 
                         // TASK-372: Evaluate DwellDetector on the 1Hz timer while stationary/throttled
                         // so 5/10/15/30-min Auto-End fires deterministically even without OS GPS callbacks.

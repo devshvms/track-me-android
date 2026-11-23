@@ -194,6 +194,13 @@ class HandsFreeReliabilityPolicyTest {
                 isMotionStationary = false,
             )
         )
+        assertFalse(
+            HandsFreeReliabilityPolicy.shouldUnthrottleOnMotionWake(
+                isGpsThrottled = true,
+                isMotionStationary = false,
+                hasMotionSample = false,
+            )
+        )
     }
 
     @Test
