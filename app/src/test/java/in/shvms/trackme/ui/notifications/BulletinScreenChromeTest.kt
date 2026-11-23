@@ -2,7 +2,7 @@ package `in`.shvms.trackme.ui.notifications
 
 import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import `in`.shvms.trackme.testing.createRobolectricComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -40,7 +40,7 @@ import org.robolectric.annotation.Config
 class BulletinScreenChromeTest {
 
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule = createRobolectricComposeRule()
 
     private val strings = AppStrings()
 

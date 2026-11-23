@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.test.junit4.createComposeRule
+import `in`.shvms.trackme.testing.createRobolectricComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
@@ -35,7 +35,7 @@ import org.robolectric.annotation.GraphicsMode
 class TemplateStripLabelFitTest {
 
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule = createRobolectricComposeRule()
 
     private val languages = listOf("en", "es", "fr", "de", "hi", "ja", "zh")
 

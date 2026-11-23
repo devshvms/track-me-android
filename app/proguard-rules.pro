@@ -71,3 +71,9 @@
     public <init>(android.content.Context, androidx.work.WorkerParameters);
 }
 -dontwarn androidx.work.**
+
+# AndroidX EdgeToEdge Keep Rules (Play Console Android 15 / SDK 35 Vitals compliance)
+# Keeps androidx.activity.EdgeToEdgeApi21/23/26/29 & SystemBarStyle un-obfuscated so
+# Play Console static DEX analysis recognizes enableEdgeToEdge() and AndroidX compat shims.
+-keep class androidx.activity.EdgeToEdge* { *; }
+-keep class androidx.activity.SystemBarStyle* { *; }

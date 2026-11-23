@@ -5,7 +5,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
-import androidx.compose.ui.test.junit4.createComposeRule
+import `in`.shvms.trackme.testing.createRobolectricComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performSemanticsAction
 import `in`.shvms.trackme.ui.localization.AppStrings
@@ -25,7 +25,7 @@ import org.robolectric.annotation.Config
 )
 class RideControlAccessibilityComposeTest {
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule = createRobolectricComposeRule()
 
     @Test
     fun pauseSemanticsActionIsOperableExactlyOnce() {

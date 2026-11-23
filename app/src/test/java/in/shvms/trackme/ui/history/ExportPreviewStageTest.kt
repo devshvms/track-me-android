@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.junit4.createComposeRule
+import `in`.shvms.trackme.testing.createRobolectricComposeRule
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -27,7 +27,7 @@ import org.robolectric.annotation.Config
 class ExportPreviewStageTest {
 
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule = createRobolectricComposeRule()
 
     @Test
     fun boundedPreviewSizeRejectsNonPositiveBounds() {

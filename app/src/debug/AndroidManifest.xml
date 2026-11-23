@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- TASK-274 only: release manifests do not request activity recognition. -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
+    <application>
+        <!-- Compose's Robolectric/debug test rule launches this activity as its host (kept out of release manifest). -->
+        <activity
+            android:name="androidx.activity.ComponentActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar"
+            tools:replace="android:exported" />
+    </application>
 </manifest>
