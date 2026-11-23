@@ -1,19 +1,23 @@
 package `in`.shvms.trackme.ui.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,8 +35,10 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.PeopleOutline
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Star
@@ -213,73 +219,63 @@ internal fun HomeDashboardScreen(
             item {
                 BoxWithConstraints {
                     val stacked = LocalDensity.current.fontScale > 1.3f || maxWidth < 300.dp
-                    val tileWidth = if (stacked) maxWidth else (maxWidth - 12.dp) / 2
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp), maxItemsInEachRow = 2) {
-                    Box(Modifier.width(tileWidth)) { GroupRideCard(
-                    groupActive = groupActive,
-                    groupMemberCount = groupMemberCount,
-                    strings = strings,
-                    onOpenCommunity = onOpenCommunity,
-                    onOpenGroupMap = onOpenGroupMap,
-                    ) }
-                    Card(modifier = Modifier.width(tileWidth),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                        Column(Modifier.fillMaxWidth().heightIn(min = 180.dp).padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                // A location mark, not a route: this tile shares *where you are*,
-                                // and the route glyph belongs to the ride tiles below. iOS uses
-                                // `location.circle` here, and MyLocation is its Material twin.
-                                Icon(Icons.Default.MyLocation, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
-                                Spacer(Modifier.weight(1f))
-                                // Mirrors the group tile: hidden while sharing is active, so the
-                                // pair stays symmetrical in the state a rider sees most often.
-                                if (!liveSharingActive) {
-                                    CardInfoButton(
-                                        label = strings.dashboardLiveSharingHowItWorksLabel,
-                                        body = strings.dashboardLiveSharingHowItWorks,
-                                    )
-                                }
-                            }
-                            Text(strings.homeLiveSharing, style = MaterialTheme.typography.titleMedium)
-                            FilledTonalButton(
-                                onClick = onOpenLiveSharing,
-                                // The visible text is a bare verb; the control still needs a name
-                                // that means something read on its own, without the tile's title.
-                                modifier = Modifier.semantics {
-                                    contentDescription = if (liveSharingActive) {
-                                        strings.homeManageSharingLabel
-                                    } else {
-                                        strings.homeShareLiveLocation
-                                    }
-                                },
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        if (stacked) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                Text(
-                                    if (liveSharingActive) strings.homeManageSharing else strings.homeShareLiveLocation,
-                                    // A label that still outgrows the tile in some language should
-                                    // shorten, not reflow the button into two lines.
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
+                                GroupRideCard(
+                                    groupActive = groupActive,
+                                    groupMemberCount = groupMemberCount,
+                                    strings = strings,
+                                    onOpenCommunity = onOpenCommunity,
+                                    onOpenGroupMap = onOpenGroupMap,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                LiveSharingCard(
+                                    liveSharingActive = liveSharingActive,
+                                    strings = strings,
+                                    onOpenLiveSharing = onOpenLiveSharing,
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             }
-                            TextButton(
-                                onClick = onManageWatchers,
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(IntrinsicSize.Max),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                Text(
-                                    text = String.format(
-                                        Locale.getDefault(),
-                                        strings.trustedWatchersButton,
-                                        trustedWatcherCount,
-                                    ),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
+                                GroupRideCard(
+                                    groupActive = groupActive,
+                                    groupMemberCount = groupMemberCount,
+                                    strings = strings,
+                                    onOpenCommunity = onOpenCommunity,
+                                    onOpenGroupMap = onOpenGroupMap,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight(),
+                                )
+                                LiveSharingCard(
+                                    liveSharingActive = liveSharingActive,
+                                    strings = strings,
+                                    onOpenLiveSharing = onOpenLiveSharing,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight(),
                                 )
                             }
                         }
-                    }
+
+                        TrustedWatchersShortcutRow(
+                            trustedWatcherCount = trustedWatcherCount,
+                            strings = strings,
+                            onManageWatchers = onManageWatchers,
+                        )
                     }
                 }
             }
@@ -597,15 +593,29 @@ private fun GroupRideCard(
     strings: AppStrings,
     onOpenCommunity: () -> Unit,
     onOpenGroupMap: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Card(
+        modifier = modifier.testTag("home_group_ride_card"),
         colors = CardDefaults.cardColors(
             containerColor = if (groupActive) MaterialTheme.colorScheme.surfaceContainerHigh
             else MaterialTheme.colorScheme.surfaceContainerLow
         )
     ) {
-        Column(Modifier.fillMaxWidth().heightIn(min = 180.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .heightIn(min = 180.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Icon(Icons.Default.Groups, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.weight(1f))
                 if (!groupActive) {
@@ -620,16 +630,157 @@ private fun GroupRideCard(
                 text = if (groupActive) "${strings.dashboardGroupActive} • " +
                     String.format(Locale.getDefault(), strings.dashboardGroupMembers, groupMemberCount)
                     else strings.dashboardGroupHeading,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
 
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (groupActive) {
-                    FilledTonalButton(onClick = onOpenGroupMap) { Text(strings.dashboardViewLiveMap) }
-                } else {
-                    FilledTonalButton(onClick = onOpenCommunity) { Text(strings.homeOpenGroups) }
+            Spacer(Modifier.weight(1f))
+
+            FilledTonalButton(
+                onClick = if (groupActive) onOpenGroupMap else onOpenCommunity,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .testTag("home_group_ride_cta"),
+            ) {
+                Text(
+                    text = if (groupActive) strings.dashboardViewLiveMap else strings.homeOpenGroups,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveSharingCard(
+    liveSharingActive: Boolean,
+    strings: AppStrings,
+    onOpenLiveSharing: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.testTag("home_live_sharing_card"),
+        colors = CardDefaults.cardColors(
+            containerColor = if (liveSharingActive) MaterialTheme.colorScheme.surfaceContainerHigh
+            else MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .heightIn(min = 180.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // A location mark, not a route: this tile shares *where you are*,
+                // and the route glyph belongs to the ride tiles below. iOS uses
+                // `location.circle` here, and MyLocation is its Material twin.
+                Icon(Icons.Default.MyLocation, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.weight(1f))
+                // Mirrors the group tile: hidden while sharing is active, so the
+                // pair stays symmetrical in the state a rider sees most often.
+                if (!liveSharingActive) {
+                    CardInfoButton(
+                        label = strings.dashboardLiveSharingHowItWorksLabel,
+                        body = strings.dashboardLiveSharingHowItWorks,
+                    )
                 }
             }
+
+            Text(
+                text = strings.homeLiveSharing,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            Spacer(Modifier.weight(1f))
+
+            FilledTonalButton(
+                onClick = onOpenLiveSharing,
+                // The visible text is a bare verb; the control still needs a name
+                // that means something read on its own, without the tile's title.
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .testTag("home_live_sharing_cta")
+                    .semantics {
+                        contentDescription = if (liveSharingActive) {
+                            strings.homeManageSharingLabel
+                        } else {
+                            strings.homeShareLiveLocation
+                        }
+                    },
+            ) {
+                Text(
+                    text = if (liveSharingActive) strings.homeManageSharing else strings.homeShareLiveLocation,
+                    // A label that still outgrows the tile in some language should
+                    // shorten, not reflow the button into two lines.
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrustedWatchersShortcutRow(
+    trustedWatcherCount: Int,
+    strings: AppStrings,
+    onManageWatchers: () -> Unit,
+) {
+    val labelText = String.format(
+        Locale.getDefault(),
+        strings.trustedWatchersButton,
+        trustedWatcherCount,
+    )
+    Surface(
+        onClick = onManageWatchers,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .testTag("home_trusted_watchers_shortcut")
+            .semantics {
+                contentDescription = labelText
+            },
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.PeopleOutline,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text = labelText,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }

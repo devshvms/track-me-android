@@ -503,9 +503,14 @@ fun SettingsScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Live Location Sharing Card
-        var liveShareFrequency by remember { 
-            mutableStateOf(prefs.getInt("live_share_frequency_sec", 15)) 
+        // Live Location Sharing Card (TASK-377: 6-step battery-aware native slider)
+        var liveShareFrequency by remember {
+            mutableIntStateOf(
+                prefs.getInt(
+                    `in`.shvms.trackme.domain.live.LiveShareFrequencySliderPolicy.PREF_KEY,
+                    `in`.shvms.trackme.domain.live.LiveShareFrequencySliderPolicy.DEFAULT_SECONDS,
+                )
+            )
         }
         var showLiveShareInfo by remember { mutableStateOf(false) }
 
@@ -517,53 +522,17 @@ fun SettingsScreen(
                 }
             },
         ) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                val freqLabel = when (liveShareFrequency) {
-                    60 -> strings.minute1
-                    300 -> strings.minutes5
-                    else -> "$liveShareFrequency ${strings.seconds}"
-                }
-                Text("${strings.pushFrequency}: $freqLabel", style = MaterialTheme.typography.bodyLarge)
-                Spacer(modifier = Modifier.height(8.dp))
-
-                val frequencyOptions = listOf(
-                    5 to "5s",
-                    10 to "10s",
-                    15 to "15s",
-                    30 to "30s",
-                    60 to "1m",
-                    300 to "5m"
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    frequencyOptions.chunked(3).forEach { rowOptions ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            rowOptions.forEach { (sec, label) ->
-                                val isSelected = liveShareFrequency == sec
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = {
-                                        liveShareFrequency = sec
-                                        prefs.edit().putInt("live_share_frequency_sec", sec).apply()
-                                    },
-                                    label = {
-                                        Text(
-                                            label,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            maxLines = 1,
-                                            modifier = Modifier.fillMaxWidth(),
-                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                        )
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            LiveShareFrequencySliderSection(
+                committedSeconds = liveShareFrequency,
+                onCommitSeconds = { seconds ->
+                    liveShareFrequency = seconds
+                    prefs.edit()
+                        .putInt(`in`.shvms.trackme.domain.live.LiveShareFrequencySliderPolicy.PREF_KEY, seconds)
+                        .apply()
+                },
+                strings = strings,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            )
         }
 
         if (showLiveShareInfo) {
