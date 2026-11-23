@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.ui.home.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -47,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,18 +58,68 @@ import `in`.shvms.trackme.data.remote.LiveShareState
 import `in`.shvms.trackme.data.remote.LiveShareStatus
 import `in`.shvms.trackme.data.remote.TrustedWatcher
 import `in`.shvms.trackme.theme.TrackMeRed
+import `in`.shvms.trackme.ui.localization.AppStrings
 import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import java.util.Locale
 
-private val LIVE_SHARE_DURATION_OPTIONS = listOf(30, 60, 120, 1440)
+internal val LIVE_SHARE_DURATION_OPTIONS = listOf(30, 60, 120, 1440)
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+internal fun formatLiveShareDurationShort(minutes: Int, strings: AppStrings): String {
+    return if (minutes >= 60 && minutes % 60 == 0) {
+        String.format(Locale.getDefault(), strings.liveShareDurationHoursShort, minutes / 60)
+    } else {
+        String.format(Locale.getDefault(), strings.liveShareIntervalMinutesShort, minutes)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LiveShareSetupSheet(
     liveShareState: LiveShareState,
     isAuthenticated: Boolean,
     groupActive: Boolean,
     trustedWatchers: List<TrustedWatcher>,
+    stopsWithRide: Boolean = true,
+    onDismiss: () -> Unit,
+    onStartDirectShare: (durationMinutes: Int) -> Unit,
+    onStopShare: () -> Unit,
+    onShareLink: () -> Unit,
+    onCopyLink: () -> Unit,
+    onInviteWatcher: () -> Unit,
+    onToggleWatcherAutoNotify: (uid: String, enabled: Boolean) -> Unit,
+    onRemoveWatcher: (uid: String) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        LiveShareSetupSheetContent(
+            liveShareState = liveShareState,
+            isAuthenticated = isAuthenticated,
+            groupActive = groupActive,
+            trustedWatchers = trustedWatchers,
+            stopsWithRide = stopsWithRide,
+            onDismiss = onDismiss,
+            onStartDirectShare = onStartDirectShare,
+            onStopShare = onStopShare,
+            onShareLink = onShareLink,
+            onCopyLink = onCopyLink,
+            onInviteWatcher = onInviteWatcher,
+            onToggleWatcherAutoNotify = onToggleWatcherAutoNotify,
+            onRemoveWatcher = onRemoveWatcher,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun LiveShareSetupSheetContent(
+    liveShareState: LiveShareState,
+    isAuthenticated: Boolean,
+    groupActive: Boolean,
+    trustedWatchers: List<TrustedWatcher>,
+    stopsWithRide: Boolean = true,
     onDismiss: () -> Unit,
     onStartDirectShare: (durationMinutes: Int) -> Unit,
     onStopShare: () -> Unit,
@@ -77,110 +130,152 @@ fun LiveShareSetupSheet(
     onRemoveWatcher: (uid: String) -> Unit,
 ) {
     val strings = LocalAppStrings.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedDurationMinutes by rememberSaveable { mutableIntStateOf(30) }
+    var isEditingDuration by rememberSaveable { mutableStateOf(false) }
     var watcherToRemove by remember { mutableStateOf<TrustedWatcher?>(null) }
     val isActive = liveShareState.status == LiveShareStatus.ACTIVE
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
+            .navigationBarsPadding()
+            .padding(bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .navigationBarsPadding()
-                .padding(bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            Icon(
+                imageVector = Icons.Default.Sensors,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = strings.homeLiveSharing,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+
+        if (groupActive) {
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
             ) {
-                Icon(
-                    imageVector = Icons.Default.Sensors,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
                 Text(
-                    text = strings.homeLiveSharing,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
+                    text = strings.groupLiveShareBlocked,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
                 )
             }
+        } else {
+            Text(
+                text = strings.liveSharePrivacySummary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
-            if (groupActive) {
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                ) {
-                    Text(
-                        text = strings.groupLiveShareBlocked,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    )
-                }
-            } else {
+        if (!isAuthenticated) {
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
                 Text(
-                    text = strings.homeSharingExplanation,
+                    text = strings.liveShareAuthRequired,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
                 )
             }
+        }
 
-            if (!isAuthenticated) {
+        if (!isActive) {
+            val selectedLabel = formatLiveShareDurationShort(selectedDurationMinutes, strings)
+            val summaryText = String.format(
+                Locale.getDefault(),
+                strings.liveShareTimeLimitSummary,
+                selectedLabel,
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Surface(
                     shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
                 ) {
-                    Text(
-                        text = strings.liveShareAuthRequired,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    )
-                }
-            }
-
-            if (!isActive) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = strings.liveShareDurationLabel,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        LIVE_SHARE_DURATION_OPTIONS.forEach { minutes ->
-                            val label = when (minutes) {
-                                30 -> "30 min"
-                                60 -> "1 hr"
-                                120 -> "2 hr"
-                                else -> "24 hr"
-                            }
-                            FilterChip(
-                                selected = selectedDurationMinutes == minutes,
-                                onClick = { selectedDurationMinutes = minutes },
-                                label = { Text(label) },
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = summaryText,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("live_share_time_limit_summary"),
                             )
+                            TextButton(
+                                onClick = { isEditingDuration = !isEditingDuration },
+                                modifier = Modifier
+                                    .heightIn(min = 48.dp)
+                                    .testTag("live_share_time_limit_change"),
+                            ) {
+                                Text(if (isEditingDuration) strings.done else strings.changeAction)
+                            }
+                        }
+
+                        AnimatedVisibility(visible = isEditingDuration) {
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                LIVE_SHARE_DURATION_OPTIONS.forEach { minutes ->
+                                    val label = formatLiveShareDurationShort(minutes, strings)
+                                    FilterChip(
+                                        selected = selectedDurationMinutes == minutes,
+                                        onClick = { selectedDurationMinutes = minutes },
+                                        label = { Text(label) },
+                                        modifier = Modifier.testTag("live_share_duration_$minutes"),
+                                    )
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            HorizontalDivider()
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val expiryCopy = if (stopsWithRide) {
+                    "${strings.liveShareExpiryExplanation} ${strings.liveShareRideEndExplanation}"
+                } else {
+                    strings.liveShareExpiryExplanation
+                }
                 Text(
-                    text = strings.trustedWatchersTitle,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    text = expiryCopy,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("live_share_expiry_explanation"),
                 )
+            }
+        }
+
+        HorizontalDivider()
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = strings.trustedWatchersTitle,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
                 Text(
                     text = strings.trustedWatchersSubtitle,
                     style = MaterialTheme.typography.bodySmall,
@@ -345,7 +440,6 @@ fun LiveShareSetupSheet(
 
             Spacer(Modifier.height(4.dp))
         }
-    }
 
     watcherToRemove?.let { watcher ->
         AlertDialog(
