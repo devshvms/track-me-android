@@ -4,7 +4,7 @@ import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.tween
+import `in`.shvms.trackme.theme.LocalTrackMeMotion
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -73,6 +73,7 @@ internal fun LiveShareFrequencySliderSection(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    val motion = LocalTrackMeMotion.current
     val reduceMotion = remember(context) {
         runCatching {
             Settings.Global.getFloat(
@@ -111,8 +112,8 @@ internal fun LiveShareFrequencySliderSection(
                     if (reduceMotion) {
                         EnterTransition.None togetherWith ExitTransition.None
                     } else {
-                        (fadeIn(tween(150)) + slideInVertically(tween(150)) { it / 4 }) togetherWith
-                            (fadeOut(tween(110)) + slideOutVertically(tween(110)) { -it / 4 })
+                        (fadeIn(motion.effectsFast.spec()) + slideInVertically(motion.spatialFast.spec()) { it / 4 }) togetherWith
+                            (fadeOut(motion.effectsFast.spec()) + slideOutVertically(motion.spatialFast.spec()) { -it / 4 })
                     }
                 },
                 label = "live_share_interval_label",

@@ -191,6 +191,8 @@ class AppStringsLocaleCoverageTest {
         val identical = localizedLanguages.flatMap { language ->
             getAppStrings(language).overrides
                 .filter { (key, value) -> value == english[key] }
+                // The abbreviated minute unit is "min" in Spanish, French and English.
+                .filterNot { (key, _) -> key == "liveShareIntervalMinutesShort" && language in setOf("es", "fr") }
                 .keys.map { "$language:$it" }
         }.sorted()
 
