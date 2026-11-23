@@ -2,7 +2,7 @@ package `in`.shvms.trackme.ui.home.components
 
 import android.app.Application
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.test.junit4.createComposeRule
+import `in`.shvms.trackme.testing.createRobolectricComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import `in`.shvms.trackme.domain.model.RidePersona
@@ -30,7 +30,7 @@ import org.robolectric.annotation.Config
 )
 class TouchLockGuardTest {
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule = createRobolectricComposeRule()
 
     @Test
     fun touchLockPillLocksControlsOnTap() {

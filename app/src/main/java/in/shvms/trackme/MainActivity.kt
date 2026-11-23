@@ -78,6 +78,7 @@ class MainActivity : AppCompatActivity() {
     // The first call hands the legacy TrackMe preference to AndroidX before AppCompat attaches
     // its resources. The second imports a choice made from Android's App language settings.
     app.preferencesManager.prepareApplicationLocale()
+    enableEdgeToEdge()
     super.onCreate(savedInstanceState)
     app.preferencesManager.reconcileApplicationLocale()
     handleGroupInvite(intent)
@@ -96,7 +97,6 @@ class MainActivity : AppCompatActivity() {
       pipMode = isInPictureInPictureMode
     }
 
-    enableEdgeToEdge()
     setContent {
       if (pipMode) {
         val state by pipDashboardStateSource.state.collectAsState()

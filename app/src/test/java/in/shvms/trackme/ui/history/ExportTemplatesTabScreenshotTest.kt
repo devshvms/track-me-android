@@ -6,7 +6,7 @@ import android.graphics.Typeface
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.junit4.createComposeRule
+import `in`.shvms.trackme.testing.createRobolectricComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
@@ -54,7 +54,7 @@ import kotlin.math.sin
 class ExportTemplatesTabScreenshotTest {
 
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule = createRobolectricComposeRule()
 
     private val typeface: Typeface by lazy {
         runCatching { ResourcesCompat.getFont(ApplicationProvider.getApplicationContext(), R.font.inter_variable) }
