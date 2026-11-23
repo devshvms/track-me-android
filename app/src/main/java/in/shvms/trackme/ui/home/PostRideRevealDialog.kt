@@ -76,7 +76,9 @@ fun PostRideRevealDialog(
     onDismiss: () -> Unit,
     onShareCard: () -> Unit = onDismiss,
     onViewDetails: () -> Unit = onDismiss,
-    imperial: Boolean = false
+    imperial: Boolean = false,
+    autoTripChainingEnabled: Boolean = true,
+    onEnableHandsFree: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as TrackMeApp
@@ -87,6 +89,14 @@ fun PostRideRevealDialog(
 
     var routePolyline by remember { mutableStateOf<String?>(null) }
     var pointCount by remember { mutableIntStateOf(0) }
+    var handsFreeOptedInHere by remember(reveal.rideId) { mutableStateOf(false) }
+    val showHandsFreeChip = onEnableHandsFree != null && (!autoTripChainingEnabled || handsFreeOptedInHere)
+
+    LaunchedEffect(reveal.rideId, autoTripChainingEnabled) {
+        if (onEnableHandsFree != null && !autoTripChainingEnabled && !handsFreeOptedInHere) {
+            `in`.shvms.trackme.analytics.AnalyticsManager.trackHandsFreeOfferShown("post_ride_reveal")
+        }
+    }
 
     LaunchedEffect(reveal.rideId) {
         withContext(Dispatchers.IO) {
@@ -140,79 +150,140 @@ fun PostRideRevealDialog(
         },
         text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clearAndSetSemantics { contentDescription = "$title. $body" },
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    text = body,
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Route thumbnail preview card
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(125.dp)
+                        .clearAndSetSemantics { contentDescription = "$title. $body" },
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if (pointCount >= 2 && !routePolyline.isNullOrEmpty()) {
-                        RoutePreviewThumbnail(
-                            routePolyline = routePolyline,
-                            pointCount = pointCount,
-                            distanceMeters = reveal.distanceMeters,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(8.dp)
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Route,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                modifier = Modifier.size(36.dp)
+                    Text(
+                        text = body,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Route thumbnail preview card
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(125.dp)
+                    ) {
+                        if (pointCount >= 2 && !routePolyline.isNullOrEmpty()) {
+                            RoutePreviewThumbnail(
+                                routePolyline = routePolyline,
+                                pointCount = pointCount,
+                                distanceMeters = reveal.distanceMeters,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(8.dp)
                             )
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Route,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Key metrics strip
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RevealStatChip(
+                            label = strings.distance,
+                            value = formatKm(reveal.distanceMeters, imperial)
+                        )
+                        RevealStatChip(
+                            label = strings.duration,
+                            value = formatDuration(reveal.durationMillis)
+                        )
+                        val avgSpeedMps = if (reveal.durationMillis > 0) {
+                            reveal.distanceMeters / (reveal.durationMillis / 1000.0)
+                        } else 0.0
+                        RevealStatChip(
+                            label = strings.avgSpeed,
+                            value = UnitFormatter.speed(avgSpeedMps, imperial)
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Key metrics strip
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RevealStatChip(
-                        label = strings.distance,
-                        value = formatKm(reveal.distanceMeters, imperial)
-                    )
-                    RevealStatChip(
-                        label = strings.duration,
-                        value = formatDuration(reveal.durationMillis)
-                    )
-                    val avgSpeedMps = if (reveal.durationMillis > 0) {
-                        reveal.distanceMeters / (reveal.durationMillis / 1000.0)
-                    } else 0.0
-                    RevealStatChip(
-                        label = strings.avgSpeed,
-                        value = UnitFormatter.speed(avgSpeedMps, imperial)
-                    )
+                if (showHandsFreeChip) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        onClick = {
+                            if (!handsFreeOptedInHere) {
+                                handsFreeOptedInHere = true
+                                onEnableHandsFree?.invoke()
+                            }
+                        },
+                        enabled = !handsFreeOptedInHere,
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (handsFreeOptedInHere) {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                        },
+                        border = BorderStroke(
+                            1.dp,
+                            if (handsFreeOptedInHere) MaterialTheme.colorScheme.secondary
+                            else MaterialTheme.colorScheme.outlineVariant
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (handsFreeOptedInHere) Icons.Default.CheckCircle else Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Text(
+                                text = if (handsFreeOptedInHere) strings.handsFreeEnabledConfirmation else strings.postRideHandsFreeChip,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (!handsFreeOptedInHere) {
+                                Text(
+                                    text = strings.handsFreeTipEnable,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         },

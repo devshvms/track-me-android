@@ -110,8 +110,15 @@ class TrackingManager {
     private val _isStandbyActive = MutableStateFlow(false)
     val isStandbyActive: StateFlow<Boolean> = _isStandbyActive.asStateFlow()
 
+    private val _isCurrentRideAutoStarted = MutableStateFlow(false)
+    val isCurrentRideAutoStarted: StateFlow<Boolean> = _isCurrentRideAutoStarted.asStateFlow()
+
     fun setStandbyActive(active: Boolean) {
         _isStandbyActive.value = active
+    }
+
+    fun setCurrentRideAutoStarted(autoStarted: Boolean) {
+        _isCurrentRideAutoStarted.value = autoStarted
     }
 
     fun updateState(state: TrackingState) {
@@ -192,5 +199,6 @@ class TrackingManager {
         _trackingState.value = TrackingState.IDLE
         _selectedPersona.value = `in`.shvms.trackme.domain.model.RidePersona.AUTO
         _isStandbyActive.value = false
+        _isCurrentRideAutoStarted.value = false
     }
 }

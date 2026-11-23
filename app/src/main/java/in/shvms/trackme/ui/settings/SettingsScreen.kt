@@ -427,7 +427,19 @@ fun SettingsScreen(
                 title = strings.autoTripChainingTitle,
                 supportingText = strings.autoTripChainingSubtitle,
                 checked = autoTripChainingEnabled,
-                onCheckedChange = preferencesManager::setAutoTripChainingEnabled,
+                onCheckedChange = { enabled ->
+                    preferencesManager.setAutoTripChainingEnabled(enabled)
+                    if (enabled) {
+                        `in`.shvms.trackme.analytics.AnalyticsManager.trackHandsFreeEnabled(
+                            surface = "settings",
+                            dwellMinutes = autoEndDwellMinutes,
+                        )
+                    } else {
+                        `in`.shvms.trackme.analytics.AnalyticsManager.trackHandsFreeDisabled(
+                            surface = "settings",
+                        )
+                    }
+                },
             )
             if (autoTripChainingEnabled) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {

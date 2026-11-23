@@ -1125,6 +1125,40 @@ object AnalyticsManager {
             )
         )
     }
+
+    // TASK-371..373 (v1.9.4): Privacy-safe Hands-Free Auto-Start/Auto-Stop funnel & harm indicators
+    private fun captureHandsFree(event: `in`.shvms.trackme.domain.tracking.HandsFreeTelemetryEvent) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(event.name, properties = event.properties)
+    }
+
+    fun trackHandsFreeOfferShown(surface: String) {
+        captureHandsFree(`in`.shvms.trackme.domain.tracking.HandsFreeTelemetryContract.offerShown(surface))
+    }
+
+    fun trackHandsFreeEnabled(surface: String, dwellMinutes: Int) {
+        captureHandsFree(`in`.shvms.trackme.domain.tracking.HandsFreeTelemetryContract.enabled(surface, dwellMinutes))
+    }
+
+    fun trackHandsFreeDisabled(surface: String) {
+        captureHandsFree(`in`.shvms.trackme.domain.tracking.HandsFreeTelemetryContract.disabled(surface))
+    }
+
+    fun trackHandsFreeStandbyArmed(trigger: String, timeoutMinutes: Int = 120) {
+        captureHandsFree(`in`.shvms.trackme.domain.tracking.HandsFreeTelemetryContract.standbyArmed(trigger, timeoutMinutes))
+    }
+
+    fun trackHandsFreeRideAutoStarted(standbyWaitSeconds: Int, activityType: String) {
+        captureHandsFree(`in`.shvms.trackme.domain.tracking.HandsFreeTelemetryContract.rideAutoStarted(standbyWaitSeconds, activityType))
+    }
+
+    fun trackHandsFreeRideAutoEnded(dwellMinutes: Int, croppedPoints: Int, wasGpsThrottled: Boolean) {
+        captureHandsFree(`in`.shvms.trackme.domain.tracking.HandsFreeTelemetryContract.rideAutoEnded(dwellMinutes, croppedPoints, wasGpsThrottled))
+    }
+
+    fun trackHandsFreeFalseStartAborted(elapsedSeconds: Int, distanceMeters: Int) {
+        captureHandsFree(`in`.shvms.trackme.domain.tracking.HandsFreeTelemetryContract.falseStartAborted(elapsedSeconds, distanceMeters))
+    }
 }
 
 enum class RideStartAbortMethod(val analyticsValue: String) {
