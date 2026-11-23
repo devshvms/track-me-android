@@ -649,6 +649,15 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val standbyBannerTitle: String = s("standbyBannerTitle", "Auto-trip standby active")
     val standbyBannerSubtitle: String = s("standbyBannerSubtitle", "Waiting for your next ride to auto-start (stops automatically after 2 hours).")
     val stopStandby: String = s("stopStandby", "Stop standby")
+    val discardRideHandsFreeMessage: String = s("discardRideHandsFreeMessage", "No movement detected (<50m). Testing indoors? Discard this test and turn on Hands-Free Auto-Start so TrackMe records automatically when you head out.")
+    val discardAndAutoStartNextTrip: String = s("discardAndAutoStartNextTrip", "Discard & Auto-Start Next Trip")
+    val justDiscard: String = s("justDiscard", "Just Discard")
+    val handsFreeTipTitle: String = s("handsFreeTipTitle", "Hands-free mode")
+    val handsFreeTipSubtitle: String = s("handsFreeTipSubtitle", "Auto-stop trips indoors & auto-start when you head out")
+    val handsFreeTipEnable: String = s("handsFreeTipEnable", "Enable")
+    val dismissHandsFreeTip: String = s("dismissHandsFreeTip", "Dismiss hands-free tip")
+    val postRideHandsFreeChip: String = s("postRideHandsFreeChip", "Auto-start & auto-stop future trips hands-free")
+    val handsFreeEnabledConfirmation: String = s("handsFreeEnabledConfirmation", "Hands-free enabled")
     val notifStandbyTitle: String = s("notifStandbyTitle", "TrackMe Auto-Trip Standby")
     val notifStandbyBody: String = s("notifStandbyBody", "Waiting for your next ride. Tap Stop standby to disable background GPS.")
     val debugModeEnabledMessage: String = s("debugModeEnabledMessage", "Debug mode is enabled")
@@ -1914,6 +1923,15 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "standbyBannerTitle" to "Modo de espera automático activo",
             "standbyBannerSubtitle" to "Esperando tu próxima ruta para iniciar automáticamente (se detiene tras 2 horas).",
             "stopStandby" to "Detener espera",
+            "discardRideHandsFreeMessage" to "No se detectó movimiento (<50 m). ¿Probando en interiores? Descarta esta prueba y activa el inicio automático manos libres para que TrackMe grabe al salir.",
+            "discardAndAutoStartNextTrip" to "Descartar y auto-iniciar",
+            "justDiscard" to "Solo descartar",
+            "handsFreeTipTitle" to "Modo manos libres",
+            "handsFreeTipSubtitle" to "Detiene viajes en interiores y los inicia automáticamente al salir",
+            "handsFreeTipEnable" to "Activar",
+            "dismissHandsFreeTip" to "Descartar aviso de manos libres",
+            "postRideHandsFreeChip" to "Iniciar y detener futuros viajes en manos libres",
+            "handsFreeEnabledConfirmation" to "Manos libres activado",
             "notifStandbyTitle" to "TrackMe en espera automática",
             "notifStandbyBody" to "Esperando tu próxima ruta. Toca Detener espera para desactivar el GPS en segundo plano.",
             "debugModeEnabledMessage" to "El modo de depuración está activado",
@@ -2770,6 +2788,15 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "standbyBannerTitle" to "Veille de trajet automatique active",
             "standbyBannerSubtitle" to "En attente du prochain trajet à démarrer automatiquement (arrêt automatique après 2 heures).",
             "stopStandby" to "Arrêter la veille",
+            "discardRideHandsFreeMessage" to "Aucun mouvement détecté (<50 m). Test en intérieur ? Supprimez ce test et activez le démarrage auto mains libres pour enregistrer dès que vous sortez.",
+            "discardAndAutoStartNextTrip" to "Supprimer et auto-démarrer",
+            "justDiscard" to "Supprimer seulement",
+            "handsFreeTipTitle" to "Mode mains libres",
+            "handsFreeTipSubtitle" to "Arrêt auto en intérieur et démarrage auto dès votre départ",
+            "handsFreeTipEnable" to "Activer",
+            "dismissHandsFreeTip" to "Fermer l'astuce mains libres",
+            "postRideHandsFreeChip" to "Démarrer et arrêter les prochains trajets en mains libres",
+            "handsFreeEnabledConfirmation" to "Mains libres activé",
             "notifStandbyTitle" to "TrackMe en veille automatique",
             "notifStandbyBody" to "En attente du prochain trajet. Appuyez sur Arrêter la veille pour couper le GPS en arrière-plan.",
             "debugModeEnabledMessage" to "Le mode débogage est activé",
@@ -3626,6 +3653,15 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "standbyBannerTitle" to "Auto-Trip-Standby aktiv",
             "standbyBannerSubtitle" to "Wartet auf deine nächste Fahrt zum automatischen Starten (stoppt automatisch nach 2 Stunden).",
             "stopStandby" to "Standby stoppen",
+            "discardRideHandsFreeMessage" to "Keine Bewegung erkannt (<50 m). Test in Innenräumen? Verwirf diesen Test und aktiviere Freihand-Autostart, damit TrackMe automatisch aufzeichnet, sobald du losgehst.",
+            "discardAndAutoStartNextTrip" to "Verwerfen & Autostart",
+            "justDiscard" to "Nur verwerfen",
+            "handsFreeTipTitle" to "Freihand-Modus",
+            "handsFreeTipSubtitle" to "Stoppt Fahrten drinnen automatisch und startet, wenn du losgehst",
+            "handsFreeTipEnable" to "Aktivieren",
+            "dismissHandsFreeTip" to "Freihand-Hinweis schließen",
+            "postRideHandsFreeChip" to "Künftige Fahrten automatisch starten & stoppen",
+            "handsFreeEnabledConfirmation" to "Freihand aktiviert",
             "notifStandbyTitle" to "TrackMe Auto-Trip-Standby",
             "notifStandbyBody" to "Wartet auf deine nächste Fahrt. Tippe auf Standby stoppen, um Hintergrund-GPS zu deaktivieren.",
             "debugModeEnabledMessage" to "Der Debug-Modus ist aktiviert",
@@ -4482,6 +4518,15 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "standbyBannerTitle" to "ऑटो-ट्रिप स्टैंडबाय सक्रिय है",
             "standbyBannerSubtitle" to "अगली यात्रा स्वतः शुरू होने की प्रतीक्षा में (2 घंटे बाद अपने-आप बंद हो जाता है)।",
             "stopStandby" to "स्टैंडबाय बंद करें",
+            "discardRideHandsFreeMessage" to "कोई हलचल नहीं मिली (<50 मी)। घर के अंदर टेस्ट कर रहे हैं? इसे हटाएं और हैंड्स-फ़्री ऑटो-स्टार्ट चालू करें ताकि बाहर निकलते ही TrackMe अपने-आप रिकॉर्ड करे।",
+            "discardAndAutoStartNextTrip" to "हटाएं और ऑटो-स्टार्ट करें",
+            "justDiscard" to "सिर्फ़ हटाएं",
+            "handsFreeTipTitle" to "हैंड्स-फ़्री मोड",
+            "handsFreeTipSubtitle" to "अंदर रुकने पर अपने-आप समाप्त और निकलते ही ऑटो-स्टार्ट",
+            "handsFreeTipEnable" to "चालू करें",
+            "dismissHandsFreeTip" to "हैंड्स-फ़्री सुझाव बंद करें",
+            "postRideHandsFreeChip" to "आने वाली यात्राएं अपने-आप शुरू और बंद करें",
+            "handsFreeEnabledConfirmation" to "हैंड्स-फ़्री चालू है",
             "notifStandbyTitle" to "TrackMe ऑटो-ट्रिप स्टैंडबाय",
             "notifStandbyBody" to "अगली यात्रा की प्रतीक्षा में। बैकग्राउंड GPS बंद करने के लिए स्टैंडबाय बंद करें पर टैप करें।",
             "debugModeEnabledMessage" to "डीबग मोड चालू है",
@@ -5338,6 +5383,15 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "standbyBannerTitle" to "自動トリップ待機中",
             "standbyBannerSubtitle" to "次の乗車の自動開始を待機しています（2時間後に自動停止します）。",
             "stopStandby" to "待機を停止",
+            "discardRideHandsFreeMessage" to "移動が検出されませんでした（50m未満）。室内テスト中ですか？このテストを破棄してハンズフリー自動開始をオンにすると、外出時に自動で記録を開始します。",
+            "discardAndAutoStartNextTrip" to "破棄して次回を自動開始",
+            "justDiscard" to "破棄のみ",
+            "handsFreeTipTitle" to "ハンズフリーモード",
+            "handsFreeTipSubtitle" to "室内で自動終了し、出発時に自動で記録開始",
+            "handsFreeTipEnable" to "有効にする",
+            "dismissHandsFreeTip" to "ハンズフリーのヒントを閉じる",
+            "postRideHandsFreeChip" to "今後の移動をハンズフリーで自動開始・自動終了",
+            "handsFreeEnabledConfirmation" to "ハンズフリーを有効にしました",
             "notifStandbyTitle" to "TrackMe 自動トリップ待機中",
             "notifStandbyBody" to "次の乗車を待機中です。「待機を停止」をタップするとバックグラウンドGPSを無効にします。",
             "debugModeEnabledMessage" to "デバッグモードが有効になりました",
@@ -6194,6 +6248,15 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "standbyBannerTitle" to "自动行程待机中",
             "standbyBannerSubtitle" to "正在等待下一段行程自动开始（2小时后自动停止）。",
             "stopStandby" to "停止待机",
+            "discardRideHandsFreeMessage" to "未检测到移动（<50米）。正在室内测试？丢弃此次测试并开启免提自动开始，出发时 TrackMe 将自动记录行程。",
+            "discardAndAutoStartNextTrip" to "丢弃并自动开始下次行程",
+            "justDiscard" to "仅丢弃",
+            "handsFreeTipTitle" to "免提模式",
+            "handsFreeTipSubtitle" to "室内自动结束行程，出门后自动开始记录",
+            "handsFreeTipEnable" to "开启",
+            "dismissHandsFreeTip" to "关闭免提提示",
+            "postRideHandsFreeChip" to "未来行程免提自动开始与自动结束",
+            "handsFreeEnabledConfirmation" to "已开启免提模式",
             "notifStandbyTitle" to "TrackMe 自动行程待机",
             "notifStandbyBody" to "正在等待下一段行程。点按“停止待机”以关闭后台 GPS。",
             "debugModeEnabledMessage" to "调试模式已启用",

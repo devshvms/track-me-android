@@ -51,9 +51,11 @@ object ForgottenRideNotice {
         stillnessMillis: Long,
         alreadyAsked: Boolean,
         isTracking: Boolean,
+        autoTripChainingEnabled: Boolean = false,
     ): Boolean {
         if (!isTracking) return false
         if (alreadyAsked) return false
+        if (autoTripChainingEnabled) return false
         return stillnessMillis >= STILLNESS_BEFORE_NOTICE_MILLIS
     }
 }

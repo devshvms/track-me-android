@@ -84,6 +84,10 @@ data class HomeUiState(
     val trustedWatchers: List<TrustedWatcher> = emptyList(),
     val watcherInboxInvite: WatcherInboxInvite? = null,
     val isStandbyActive: Boolean = false,
+    val isCurrentRideAutoStarted: Boolean = false,
+    val autoTripChainingEnabled: Boolean = false,
+    val autoEndDwellMinutes: Int = 10,
+    val autoTripChainingTipDismissed: Boolean = false,
 )
 
 class HomeViewModel(
@@ -189,21 +193,45 @@ class HomeViewModel(
         DurationSpeedTuple(duration, speed, timeSinceLastGps, elapsed)
     }
 
+    private data class PersonaAutoStartTuple(
+        val isAutoPaused: Boolean,
+        val inferredActivityType: `in`.shvms.trackme.domain.processor.InferredActivityType,
+        val selectedPersona: `in`.shvms.trackme.domain.model.RidePersona,
+        val isCurrentRideAutoStarted: Boolean,
+    )
+
     private val trackingStatsGroup3 = combine(
         trackingManager.isAutoPaused,
         trackingManager.inferredActivityType,
-        trackingManager.selectedPersona
-    ) { isAutoPaused, inferredActivityType, selectedPersona ->
-        Triple(isAutoPaused, inferredActivityType, selectedPersona)
+        trackingManager.selectedPersona,
+        trackingManager.isCurrentRideAutoStarted,
+    ) { isAutoPaused, inferredActivityType, selectedPersona, isAutoStarted ->
+        PersonaAutoStartTuple(isAutoPaused, inferredActivityType, selectedPersona, isAutoStarted)
+    }
+
+    private data class HandsFreePrefTuple(
+        val unitSystem: String,
+        val autoTripChainingEnabled: Boolean,
+        val autoEndDwellMinutes: Int,
+        val autoTripChainingTipDismissed: Boolean,
+    )
+
+    private val handsFreePrefs = combine(
+        preferencesManager.unitSystem,
+        preferencesManager.autoTripChainingEnabled,
+        preferencesManager.autoEndDwellMinutes,
+        preferencesManager.autoTripChainingTipDismissed,
+    ) { unitSystem, chainingEnabled, dwellMins, tipDismissed ->
+        HandsFreePrefTuple(unitSystem, chainingEnabled, dwellMins, tipDismissed)
     }
 
     private val trackingStats = combine(
         trackingStatsGroup1,
         trackingStatsGroup2,
         trackingStatsGroup3,
-        preferencesManager.unitSystem
-    ) { g1, g2, g3, unitSystem ->
-        val imperial = unitSystem == "imperial"
+        handsFreePrefs,
+    ) { g1, g2, g3, prefsTuple ->
+        val imperial = prefsTuple.unitSystem == "imperial"
         HomeUiState(
             trackingState = g1.state,
             pathPoints = g1.points,
@@ -217,11 +245,15 @@ class HomeViewModel(
             speedText = formatSpeed(g2.speedMps, imperial),
             paceText = formatPace(g2.speedMps),
             timeSinceLastGps = g2.timeSinceLastGps,
-            isAutoPaused = g3.first,
-            inferredActivityType = g3.second,
-            selectedPersona = g3.third,
+            isAutoPaused = g3.isAutoPaused,
+            inferredActivityType = g3.inferredActivityType,
+            selectedPersona = g3.selectedPersona,
             debugTrackingV2 = g1.debugV2,
             isStandbyActive = g1.isStandbyActive,
+            isCurrentRideAutoStarted = g3.isCurrentRideAutoStarted,
+            autoTripChainingEnabled = prefsTuple.autoTripChainingEnabled,
+            autoEndDwellMinutes = prefsTuple.autoEndDwellMinutes,
+            autoTripChainingTipDismissed = prefsTuple.autoTripChainingTipDismissed,
         )
     }
 
@@ -320,7 +352,40 @@ class HomeViewModel(
         )
     }
 
+    fun discardAndArmStandby() {
+        preferencesManager.setAutoTripChainingEnabled(true)
+        AnalyticsManager.trackHandsFreeEnabled(
+            surface = "discard_dialog",
+            dwellMinutes = preferencesManager.autoEndDwellMinutes.value,
+        )
+        sendCommandToService(TrackingService.ACTION_DISCARD_AND_ARM_STANDBY)
+    }
+
+    fun enableHandsFreeFromHome(canArmStandbyNow: Boolean) {
+        preferencesManager.setAutoTripChainingEnabled(true)
+        AnalyticsManager.trackHandsFreeEnabled(
+            surface = "home_top_slot",
+            dwellMinutes = preferencesManager.autoEndDwellMinutes.value,
+        )
+        if (canArmStandbyNow) {
+            sendCommandToService(TrackingService.ACTION_ARM_STANDBY_FROM_HOME)
+        }
+    }
+
+    fun dismissHandsFreeTip() {
+        preferencesManager.setAutoTripChainingTipDismissed(true)
+    }
+
+    fun enableHandsFreeFromPostRideReveal() {
+        preferencesManager.setAutoTripChainingEnabled(true)
+        AnalyticsManager.trackHandsFreeEnabled(
+            surface = "post_ride_reveal",
+            dwellMinutes = preferencesManager.autoEndDwellMinutes.value,
+        )
+    }
+
     fun stopStandby() {
+        AnalyticsManager.trackHandsFreeDisabled(surface = "standby_banner")
         sendCommandToService(TrackingService.ACTION_STOP_STANDBY)
     }
 

@@ -793,6 +793,8 @@ fun HomeScreen(
         PostRideRevealDialog(
             reveal = reveal,
             imperial = imperialUnits == "imperial",
+            autoTripChainingEnabled = uiState.autoTripChainingEnabled,
+            onEnableHandsFree = viewModel::enableHandsFreeFromPostRideReveal,
             onDismiss = {
                 app.pendingRevealStore.consume(reveal.rideId)
                 // B4: dismissing a good-ride reveal is a peak moment — ask an eligible, happy
@@ -1596,6 +1598,12 @@ fun HomeScreen(
                                     AnalyticsManager.trackRideStartAborted(
                                         RideStartAbortMethod.POST_COMMIT_UNDO
                                     )
+                                    if (uiState.isCurrentRideAutoStarted) {
+                                        AnalyticsManager.trackHandsFreeFalseStartAborted(
+                                            elapsedSeconds = (uiState.elapsedDurationMillis / 1000L).toInt(),
+                                            distanceMeters = uiState.distanceMeters.toInt(),
+                                        )
+                                    }
                                     viewModel.stopTracking(discardNearEmptyRide = true)
                                 }
                             },
@@ -1633,8 +1641,13 @@ fun HomeScreen(
                             onSendShare = { shareLiveShareLink() },
                             onStopShareAndRide = {
                                 AnalyticsManager.trackLiveShareStoppedRide()
-                                if (uiState.distanceMeters < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DISTANCE_METERS &&
-                                    uiState.durationMillis < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DURATION_MILLIS
+                                if (`in`.shvms.trackme.domain.tracking.HandsFreeReliabilityPolicy.isShortIndoorTest(
+                                        elapsedDurationMillis = uiState.elapsedDurationMillis,
+                                        movingDurationMillis = uiState.durationMillis,
+                                        distanceMeters = uiState.distanceMeters.toDouble(),
+                                        maxDistanceMeters = `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DISTANCE_METERS,
+                                        maxDurationMillis = `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DURATION_MILLIS,
+                                    )
                                 ) {
                                     showDiscardRideDialog = true
                                 } else {
@@ -1678,8 +1691,13 @@ fun HomeScreen(
                                 }
                             },
                             onStopRide = {
-                                if (uiState.distanceMeters < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DISTANCE_METERS &&
-                                    uiState.durationMillis < `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DURATION_MILLIS
+                                if (`in`.shvms.trackme.domain.tracking.HandsFreeReliabilityPolicy.isShortIndoorTest(
+                                        elapsedDurationMillis = uiState.elapsedDurationMillis,
+                                        movingDurationMillis = uiState.durationMillis,
+                                        distanceMeters = uiState.distanceMeters.toDouble(),
+                                        maxDistanceMeters = `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DISTANCE_METERS,
+                                        maxDurationMillis = `in`.shvms.trackme.service.TrackingService.SHORT_TEST_DURATION_MILLIS,
+                                    )
                                 ) {
                                     showDiscardRideDialog = true
                                 } else {
@@ -1722,6 +1740,18 @@ fun HomeScreen(
                     }
                 }
             }
+
+            val storedBroadcasts by app.broadcastStore.broadcasts.collectAsState()
+            val lastSeenBroadcast by app.broadcastStore.lastSeenCreatedAt.collectAsState()
+            val hasUnreadBroadcast = storedBroadcasts.any {
+                it.isUnread(lastSeenBroadcast) && it.appliesTo(`in`.shvms.trackme.BuildConfig.VERSION_NAME)
+            }
+            val showHandsFreeTip = `in`.shvms.trackme.domain.tracking.HandsFreeReliabilityPolicy.shouldShowHomeHandsFreeTip(
+                isStandbyActive = uiState.isStandbyActive,
+                autoTripChainingEnabled = uiState.autoTripChainingEnabled,
+                tipDismissed = uiState.autoTripChainingTipDismissed,
+                hasUnreadBroadcast = hasUnreadBroadcast,
+            )
 
             val dashboardVisible = presentationMode == HomePresentationMode.IDLE_DASHBOARD
             AnimatedVisibility(
@@ -1798,6 +1828,18 @@ fun HomeScreen(
                     onManageWatchers = { showHomeSharing = true },
                     isStandbyActive = uiState.isStandbyActive,
                     onStopStandby = viewModel::stopStandby,
+                    showHandsFreeTip = showHandsFreeTip,
+                    onEnableHandsFree = {
+                        val canArm = hasLocationPermission &&
+                            uiState.trackingState == TrackingState.IDLE &&
+                            uiState.liveShareState.status != LiveShareStatus.ACTIVE &&
+                            uiState.liveShareState.status != LiveShareStatus.STARTING
+                        viewModel.enableHandsFreeFromHome(canArmStandbyNow = canArm)
+                        if (!canArm) {
+                            messenger.show(strings.handsFreeEnabledConfirmation)
+                        }
+                    },
+                    onDismissHandsFreeTip = viewModel::dismissHandsFreeTip,
                 )
             }
 
@@ -1859,31 +1901,113 @@ fun HomeScreen(
             }
 
             if (showDiscardRideDialog) {
+                val offerHandsFreeInDiscard = !uiState.autoTripChainingEnabled
+                LaunchedEffect(offerHandsFreeInDiscard) {
+                    if (offerHandsFreeInDiscard) {
+                        AnalyticsManager.trackHandsFreeOfferShown("discard_dialog")
+                    }
+                }
                 AlertDialog(
                     // Blocking dialog: an outside tap or back press must not silently close this
                     // without picking a side. Neither stopTracking() branch would run, leaving the
                     // stop action frozen mid-flight since the ride was never actually stopped.
                     onDismissRequest = { /* Blocking dialog, do nothing */ },
                     title = { Text(strings.discardRideTitle) },
-                    text = { Text(strings.discardRideMessage) },
+                    text = {
+                        Text(
+                            if (offerHandsFreeInDiscard) strings.discardRideHandsFreeMessage
+                            else strings.discardRideMessage
+                        )
+                    },
                     confirmButton = {
-                        TextButton(onClick = {
-                            showDiscardRideDialog = false
-                            AnalyticsManager.trackRideStartAborted(RideStartAbortMethod.SHORT_INDOOR_TEST)
-                            viewModel.stopTracking(discardNearEmptyRide = true)
-                        }) {
-                            Text(strings.discardRide)
+                        if (offerHandsFreeInDiscard) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                horizontalAlignment = Alignment.End,
+                            ) {
+                                Button(
+                                    onClick = {
+                                        showDiscardRideDialog = false
+                                        AnalyticsManager.trackRideStartAborted(RideStartAbortMethod.SHORT_INDOOR_TEST)
+                                        if (uiState.isCurrentRideAutoStarted) {
+                                            AnalyticsManager.trackHandsFreeFalseStartAborted(
+                                                elapsedSeconds = (uiState.elapsedDurationMillis / 1000L).toInt(),
+                                                distanceMeters = uiState.distanceMeters.toInt(),
+                                            )
+                                        }
+                                        viewModel.discardAndArmStandby()
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp),
+                                ) {
+                                    Text(strings.discardAndAutoStartNextTrip)
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    TextButton(
+                                        onClick = {
+                                            showDiscardRideDialog = false
+                                            viewModel.stopTracking()
+                                        },
+                                        modifier = Modifier.heightIn(min = 48.dp),
+                                    ) {
+                                        Text(strings.saveAnyway)
+                                    }
+                                    TextButton(
+                                        onClick = {
+                                            showDiscardRideDialog = false
+                                            AnalyticsManager.trackRideStartAborted(RideStartAbortMethod.SHORT_INDOOR_TEST)
+                                            if (uiState.isCurrentRideAutoStarted) {
+                                                AnalyticsManager.trackHandsFreeFalseStartAborted(
+                                                    elapsedSeconds = (uiState.elapsedDurationMillis / 1000L).toInt(),
+                                                    distanceMeters = uiState.distanceMeters.toInt(),
+                                                )
+                                            }
+                                            viewModel.stopTracking(discardNearEmptyRide = true)
+                                        },
+                                        modifier = Modifier.heightIn(min = 48.dp),
+                                    ) {
+                                        Text(strings.justDiscard)
+                                    }
+                                }
+                            }
+                        } else {
+                            TextButton(
+                                onClick = {
+                                    showDiscardRideDialog = false
+                                    AnalyticsManager.trackRideStartAborted(RideStartAbortMethod.SHORT_INDOOR_TEST)
+                                    if (uiState.isCurrentRideAutoStarted) {
+                                        AnalyticsManager.trackHandsFreeFalseStartAborted(
+                                            elapsedSeconds = (uiState.elapsedDurationMillis / 1000L).toInt(),
+                                            distanceMeters = uiState.distanceMeters.toInt(),
+                                        )
+                                    }
+                                    viewModel.stopTracking(discardNearEmptyRide = true)
+                                },
+                                modifier = Modifier.heightIn(min = 48.dp),
+                            ) {
+                                Text(strings.discardRide)
+                            }
                         }
                     },
-                    dismissButton = {
-                        TextButton(onClick = {
-                            showDiscardRideDialog = false
-                            // No optimistic "Saving ride…" here. Only the service knows whether the
-                            // ride survives, and announcing an intent that the outcome then
-                            // contradicts is what produced two stacked, opposing messages.
-                            viewModel.stopTracking()
-                        }) {
-                            Text(strings.saveAnyway)
+                    dismissButton = if (offerHandsFreeInDiscard) null else {
+                        {
+                            TextButton(
+                                onClick = {
+                                    showDiscardRideDialog = false
+                                    // No optimistic "Saving ride…" here. Only the service knows whether the
+                                    // ride survives, and announcing an intent that the outcome then
+                                    // contradicts is what produced two stacked, opposing messages.
+                                    viewModel.stopTracking()
+                                },
+                                modifier = Modifier.heightIn(min = 48.dp),
+                            ) {
+                                Text(strings.saveAnyway)
+                            }
                         }
                     }
                 )

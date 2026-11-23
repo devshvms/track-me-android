@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Insights
@@ -127,6 +128,9 @@ internal fun HomeDashboardScreen(
     onManageWatchers: () -> Unit = {},
     isStandbyActive: Boolean = false,
     onStopStandby: () -> Unit = {},
+    showHandsFreeTip: Boolean = false,
+    onEnableHandsFree: () -> Unit = {},
+    onDismissHandsFreeTip: () -> Unit = {},
 ) {
     val strings = LocalAppStrings.current
     // A first Room emission can still be an empty projection while legacy metadata is being
@@ -158,6 +162,17 @@ internal fun HomeDashboardScreen(
                     StandbyModeBannerCard(
                         strings = strings,
                         onStop = onStopStandby,
+                    )
+                }
+            } else if (showHandsFreeTip) {
+                item {
+                    LaunchedEffect(Unit) {
+                        `in`.shvms.trackme.analytics.AnalyticsManager.trackHandsFreeOfferShown("home_top_slot")
+                    }
+                    HandsFreeOptInBannerCard(
+                        strings = strings,
+                        onEnable = onEnableHandsFree,
+                        onDismiss = onDismissHandsFreeTip,
                     )
                 }
             }
@@ -896,8 +911,70 @@ private fun StandbyModeBannerCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            FilledTonalButton(onClick = onStop) {
+            FilledTonalButton(
+                onClick = onStop,
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
                 Text(strings.stopStandby, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HandsFreeOptInBannerCard(
+    strings: AppStrings,
+    onEnable: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.MyLocation,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = strings.handsFreeTipTitle,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = strings.handsFreeTipSubtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            FilledTonalButton(
+                onClick = onEnable,
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text(strings.handsFreeTipEnable, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.size(48.dp),
+            ) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Close,
+                    contentDescription = strings.dismissHandsFreeTip,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

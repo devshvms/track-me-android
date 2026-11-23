@@ -62,6 +62,10 @@ class AppPreferencesManager(private val context: Context) {
     private val _autoEndCropDwellEnabled = MutableStateFlow(prefs.getBoolean("auto_end_crop_dwell_enabled", true))
     val autoEndCropDwellEnabled: StateFlow<Boolean> = _autoEndCropDwellEnabled.asStateFlow()
 
+    // TASK-372: Dismissal flag for the Home top-slot Hands-Free discovery card
+    private val _autoTripChainingTipDismissed = MutableStateFlow(prefs.getBoolean("auto_trip_chaining_tip_dismissed", false))
+    val autoTripChainingTipDismissed: StateFlow<Boolean> = _autoTripChainingTipDismissed.asStateFlow()
+
     private val _cloudLifetimeTotals = MutableStateFlow(
         CloudLifetimeTotals(
             activeDurationMillis = prefs.getLong(CLOUD_LIFETIME_DURATION_KEY, 0L),
@@ -87,6 +91,11 @@ class AppPreferencesManager(private val context: Context) {
     fun setAutoEndCropDwellEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("auto_end_crop_dwell_enabled", enabled).apply()
         _autoEndCropDwellEnabled.value = enabled
+    }
+
+    fun setAutoTripChainingTipDismissed(dismissed: Boolean) {
+        prefs.edit().putBoolean("auto_trip_chaining_tip_dismissed", dismissed).apply()
+        _autoTripChainingTipDismissed.value = dismissed
     }
 
     fun setThemeMode(mode: Int) {
