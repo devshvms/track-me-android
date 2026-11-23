@@ -1807,15 +1807,17 @@ fun HomeScreen(
                     onDismissPermissionNotice = app::dismissLocationPermissionRevokedNoticeForSession,
                     scrollToTopRequest = scrollToTopRequest,
                     onOpenLiveSharing = {
-                        if (uiState.liveShareState.status == LiveShareStatus.ACTIVE) {
-                            showHomeSharing = true
-                        } else if (groupSession.isActive) {
-                            messenger.show(strings.groupLiveShareBlocked, duration = SnackbarDuration.Long)
-                        } else if (!uiState.isAuthenticated) {
-                            showHomeSharing = true
-                        } else {
-                            AnalyticsManager.trackLiveShareTappedHome()
-                            launchDirectLiveShare(30)
+                        when (
+                            resolveHomeLiveSharingTapAction(
+                                liveSharingActive = uiState.liveShareState.status == LiveShareStatus.ACTIVE,
+                                groupActive = groupSession.isActive,
+                                isAuthenticated = uiState.isAuthenticated,
+                            )
+                        ) {
+                            HomeLiveSharingTapAction.SHOW_GROUP_ACTIVE_BLOCKED ->
+                                messenger.show(strings.groupLiveShareBlocked, duration = SnackbarDuration.Long)
+                            HomeLiveSharingTapAction.OPEN_SETUP_SHEET ->
+                                showHomeSharing = true
                         }
                     },
                     liveSharingActive = uiState.liveShareState.status == LiveShareStatus.ACTIVE,

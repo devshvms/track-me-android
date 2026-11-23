@@ -429,7 +429,9 @@ internal fun LiveShareSetupSheetContent(
                             onDismiss()
                         },
                         enabled = isAuthenticated && !groupActive,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("live_share_start_cta"),
                     ) {
                         Icon(Icons.Default.Sensors, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
