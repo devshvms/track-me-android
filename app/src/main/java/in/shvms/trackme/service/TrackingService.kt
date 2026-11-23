@@ -1481,20 +1481,25 @@ class TrackingService : Service() {
 
     /**
      * TASK-351 (BATT-01) / TASK-373: Proactively observes hardware accelerometer updates.
-     * When stationary throttling is active and physical motion is detected,
-     * immediately restores high-accuracy 1s polling without waiting for the next throttled GPS tick.
+     * Routes through [HandsFreeReliabilityPolicy.shouldUnthrottleOnMotionWake] with the active
+     * hardware-sample gate so sensorless devices or initial StateFlow emissions never un-throttle.
      */
     private fun startMotionThrottleWatcher() {
         motionThrottleJob?.cancel()
         motionThrottleJob = serviceScope.launch {
             motionSensorManager.motionEnergy.collect {
-                if ((currentState == TrackingState.TRACKING || currentState == TrackingState.GPS_LOST) &&
-                    locationHelper.isThrottled()
-                ) {
-                    if (!motionSensorManager.isDeviceStationary()) {
-                        withContext(Dispatchers.Main) {
-                            locationHelper.setStationaryThrottled(false, locationCallback)
-                        }
+                val hasMotionSample = motionSensorManager.currentMotionEnergy() != null
+                val isMotionStationary = motionSensorManager.isDeviceStationary()
+                if (!hasMotionSample || isMotionStationary) return@collect
+                withContext(Dispatchers.Main.immediate) {
+                    if ((currentState == TrackingState.TRACKING || currentState == TrackingState.GPS_LOST) &&
+                        HandsFreeReliabilityPolicy.shouldUnthrottleOnMotionWake(
+                            isGpsThrottled = locationHelper.isThrottled(),
+                            isMotionStationary = isMotionStationary,
+                            hasMotionSample = hasMotionSample,
+                        )
+                    ) {
+                        locationHelper.setStationaryThrottled(false, locationCallback)
                     }
                 }
             }
