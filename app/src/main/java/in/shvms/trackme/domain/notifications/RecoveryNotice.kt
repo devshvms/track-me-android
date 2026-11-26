@@ -53,6 +53,17 @@ object RecoveryNotice {
         }
     }
 
+    /**
+     * TASK-383 (v1.9.5): Offer a 1-tap Battery Optimization Settings action strictly when at least
+     * one real interrupted ride was recovered ([recoveredCount] > 0) AND TrackMe is NOT yet exempt
+     * from battery optimization (![isIgnoringBatteryOptimizations]). Empty discarded records and
+     * already-unrestricted devices never see the prompt.
+     */
+    fun shouldOfferBatterySettings(
+        recoveredCount: Int,
+        isIgnoringBatteryOptimizations: Boolean,
+    ): Boolean = recoveredCount > 0 && !isIgnoringBatteryOptimizations
+
     sealed interface Notice {
         /** A single recovered ride, with its facts when they are available. */
         data class One(val endedAtLabel: String?, val distanceLabel: String?) : Notice

@@ -211,3 +211,29 @@ object HandsFreeTelemetryContract {
         falseStartAborted(elapsedSeconds = 25, distanceMeters = 12),
     )
 }
+
+/**
+ * TASK-383 (v1.9.5): Session-scoped surface deduplicator for `hands_free_offer_shown`.
+ *
+ * Prevents `LazyColumn` scroll recompositions or tab switches from emitting duplicate impressions
+ * for the same [surface] within a single app process session, while allowing distinct surfaces
+ * (`home_top_slot`, `discard_dialog`, `post_ride_reveal`) to each emit once and avoiding burning a
+ * surface slot before telemetry consent is enabled.
+ */
+class HandsFreeOfferSessionGate {
+    private val emittedSurfaces = mutableSetOf<String>()
+
+    @Synchronized
+    fun shouldEmit(surface: String, isTelemetryEnabled: Boolean): Boolean {
+        require(surface in HandsFreeTelemetryContract.OFFER_SURFACES) {
+            "Unsupported hands_free_offer_shown surface: $surface"
+        }
+        if (!isTelemetryEnabled) return false
+        return emittedSurfaces.add(surface)
+    }
+
+    @Synchronized
+    fun reset() {
+        emittedSurfaces.clear()
+    }
+}

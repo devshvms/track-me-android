@@ -164,14 +164,14 @@ internal fun HomeDashboardScreen(
     ) {
         if (deckResolved) {
             if (isStandbyActive) {
-                item {
+                item(key = "standby_mode_banner") {
                     StandbyModeBannerCard(
                         strings = strings,
                         onStop = onStopStandby,
                     )
                 }
             } else if (showHandsFreeTip) {
-                item {
+                item(key = "hands_free_opt_in") {
                     LaunchedEffect(Unit) {
                         `in`.shvms.trackme.analytics.AnalyticsManager.trackHandsFreeOfferShown("home_top_slot")
                     }
@@ -184,7 +184,7 @@ internal fun HomeDashboardScreen(
             }
 
             if (watcherInboxInvite != null) {
-                item {
+                item(key = "watcher_inbox_banner") {
                     WatcherInboxBannerCard(
                         invite = watcherInboxInvite,
                         strings = strings,
@@ -194,7 +194,7 @@ internal fun HomeDashboardScreen(
             }
 
             if (locationPermissionRevoked) {
-                item {
+                item(key = "permission_revoked_card") {
                     PermissionRevokedCard(
                         strings = strings,
                         onOpenSettings = onOpenSettings,

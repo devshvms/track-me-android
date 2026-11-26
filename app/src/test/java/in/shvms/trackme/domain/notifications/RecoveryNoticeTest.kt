@@ -75,4 +75,29 @@ class RecoveryNoticeTest {
         ))
         assertEquals(false, NotificationBudget.Klass.CONSEQUENTIAL.spendsProactiveBudget)
     }
+
+    @Test
+    fun `battery settings action is offered strictly when a ride was recovered and battery optimization is active`() {
+        assertEquals(
+            true,
+            RecoveryNotice.shouldOfferBatterySettings(
+                recoveredCount = 1,
+                isIgnoringBatteryOptimizations = false,
+            ),
+        )
+        assertEquals(
+            false,
+            RecoveryNotice.shouldOfferBatterySettings(
+                recoveredCount = 1,
+                isIgnoringBatteryOptimizations = true,
+            ),
+        )
+        assertEquals(
+            false,
+            RecoveryNotice.shouldOfferBatterySettings(
+                recoveredCount = 0,
+                isIgnoringBatteryOptimizations = false,
+            ),
+        )
+    }
 }

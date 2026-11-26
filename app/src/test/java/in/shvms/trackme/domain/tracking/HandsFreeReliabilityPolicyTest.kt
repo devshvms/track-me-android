@@ -345,4 +345,27 @@ class HandsFreeReliabilityPolicyTest {
             }
         }
     }
+
+    @Test
+    fun `HandsFreeOfferSessionGate deduplicates duplicate surface emissions while preserving distinct surfaces and pre-consent slots`() {
+        val gate = HandsFreeOfferSessionGate()
+
+        // Calling before telemetry consent is enabled does NOT burn the session slot
+        assertFalse(gate.shouldEmit("home_top_slot", isTelemetryEnabled = false))
+
+        // First enabled impression on home_top_slot emits; repeated LazyColumn scroll impressions are suppressed
+        assertTrue(gate.shouldEmit("home_top_slot", isTelemetryEnabled = true))
+        assertFalse(gate.shouldEmit("home_top_slot", isTelemetryEnabled = true))
+        assertFalse(gate.shouldEmit("home_top_slot", isTelemetryEnabled = true))
+
+        // Distinct surfaces in the same session still emit once each
+        assertTrue(gate.shouldEmit("discard_dialog", isTelemetryEnabled = true))
+        assertFalse(gate.shouldEmit("discard_dialog", isTelemetryEnabled = true))
+        assertTrue(gate.shouldEmit("post_ride_reveal", isTelemetryEnabled = true))
+        assertFalse(gate.shouldEmit("post_ride_reveal", isTelemetryEnabled = true))
+
+        // Reset restores fresh session state
+        gate.reset()
+        assertTrue(gate.shouldEmit("home_top_slot", isTelemetryEnabled = true))
+    }
 }

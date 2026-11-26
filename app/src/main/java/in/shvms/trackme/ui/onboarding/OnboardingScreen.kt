@@ -678,25 +678,8 @@ private fun defaultAnalytics(context: Context): Boolean {
 }
 
 /**
- * Opens the battery-optimisation list. Deliberately the *settings* action rather than
- * `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, which needs a restricted permission and a Play
- * declaration; this just shows the list and lets the user decide.
+ * Opens the battery-optimisation list via canonical [in.shvms.trackme.utils.BatteryOptimizationSettings].
  */
 private fun openBatterySettings(context: Context) {
-    val opened = runCatching {
-        context.startActivity(
-            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
-    }.isSuccess
-    if (!opened) {
-        runCatching {
-            context.startActivity(
-                Intent(
-                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.fromParts("package", context.packageName, null),
-                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-        }
-    }
+    `in`.shvms.trackme.utils.BatteryOptimizationSettings.open(context)
 }

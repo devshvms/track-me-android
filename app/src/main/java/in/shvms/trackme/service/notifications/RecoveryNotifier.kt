@@ -81,7 +81,7 @@ object RecoveryNotifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val notification = NotificationCompat.Builder(context, NotificationChannels.DATA)
+        val builder = NotificationCompat.Builder(context, NotificationChannels.DATA)
             .setSmallIcon(R.drawable.ic_trackme_logo_transparent)
             .setContentTitle(title)
             .setContentText(body)
@@ -92,7 +92,22 @@ object RecoveryNotifier {
             // DEFAULT, not HIGH. The news is good and the ride is not going anywhere — this should
             // be waiting when the phone is next picked up, not interrupt whatever is happening now.
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .build()
+
+        val offerBatterySettings = RecoveryNotice.shouldOfferBatterySettings(
+            recoveredCount = summary.recoveredCount,
+            isIgnoringBatteryOptimizations = `in`.shvms.trackme.utils.BatteryOptimizationSettings.isIgnoringBatteryOptimizations(context),
+        )
+        if (offerBatterySettings) {
+            `in`.shvms.trackme.utils.BatteryOptimizationSettings.pendingIntentOrNull(
+                context = context,
+                requestCode = NOTIFICATION_ID + 1,
+            )?.let { batteryIntent ->
+                builder.addAction(0, strings.helpOpenBatterySettings, batteryIntent)
+                `in`.shvms.trackme.analytics.AnalyticsManager.trackRecoveryBatteryGuardShown("notification")
+            }
+        }
+
+        val notification = builder.build()
 
         runCatching {
             context.getSystemService(NotificationManager::class.java)

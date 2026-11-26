@@ -15,6 +15,9 @@ package `in`.shvms.trackme.analytics
  */
 object RecoveryTelemetry {
     const val EVENT = "ride_recovered"
+    const val GUARD_SHOWN_EVENT = "recovery_battery_guard_shown"
+    const val GUARD_OPENED_EVENT = "recovery_battery_settings_opened"
+    val GUARD_SURFACES = setOf("snackbar", "notification")
 
     fun distanceBucket(totalMeters: Double): String = when {
         totalMeters < 1_000.0 -> "lt_1km"
@@ -23,11 +26,24 @@ object RecoveryTelemetry {
         else -> "gte_20km"
     }
 
-    fun properties(recoveredCount: Int, discardedCount: Int, totalMeters: Double): Map<String, Any> = mapOf(
-        "recovered_count" to recoveredCount,
-        "discarded_count" to discardedCount,
-        "distance_bucket" to distanceBucket(totalMeters),
-    )
+    fun properties(
+        recoveredCount: Int,
+        discardedCount: Int,
+        totalMeters: Double,
+        batteryOptimized: Boolean? = null,
+    ): Map<String, Any> = buildMap {
+        put("recovered_count", recoveredCount)
+        put("discarded_count", discardedCount)
+        put("distance_bucket", distanceBucket(totalMeters))
+        if (batteryOptimized != null) {
+            put("battery_optimized", batteryOptimized)
+        }
+    }
+
+    fun guardProperties(surface: String): Map<String, Any> {
+        require(surface in GUARD_SURFACES) { "Unsupported recovery battery guard surface: $surface" }
+        return mapOf("surface" to surface)
+    }
 
     /** Nothing to report unless recovery actually changed something. */
     fun shouldReport(recoveredCount: Int, discardedCount: Int): Boolean =

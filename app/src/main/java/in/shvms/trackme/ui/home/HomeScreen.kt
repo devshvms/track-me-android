@@ -330,7 +330,22 @@ fun HomeScreen(
                     summary.discardedCount
                 )
         }
-        snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Long)
+        val offerBatterySettings = `in`.shvms.trackme.domain.notifications.RecoveryNotice.shouldOfferBatterySettings(
+            recoveredCount = summary.recoveredCount,
+            isIgnoringBatteryOptimizations = `in`.shvms.trackme.utils.BatteryOptimizationSettings.isIgnoringBatteryOptimizations(context),
+        )
+        if (offerBatterySettings) {
+            AnalyticsManager.trackRecoveryBatteryGuardShown("snackbar")
+        }
+        val result = snackbarHostState.showSnackbar(
+            message = message,
+            actionLabel = if (offerBatterySettings) strings.helpOpenBatterySettings else null,
+            duration = SnackbarDuration.Long,
+        )
+        if (offerBatterySettings && result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+            AnalyticsManager.trackRecoveryBatterySettingsOpened("snackbar")
+            `in`.shvms.trackme.utils.BatteryOptimizationSettings.open(context)
+        }
         app.consumeRecoveryNotice()
     }
 

@@ -42,4 +42,17 @@ class RecoveryTelemetryTest {
         assertTrue(RecoveryTelemetry.shouldReport(1, 0))
         assertTrue(RecoveryTelemetry.shouldReport(0, 3))
     }
+
+    @Test
+    fun `optional battery_optimized flag and guard surface properties stay coarse and privacy-safe`() {
+        val withBattery = RecoveryTelemetry.properties(1, 0, 2_500.0, batteryOptimized = true)
+        assertEquals(true, withBattery["battery_optimized"])
+        assertEquals(setOf("recovered_count", "discarded_count", "distance_bucket", "battery_optimized"), withBattery.keys)
+
+        assertEquals(mapOf("surface" to "snackbar"), RecoveryTelemetry.guardProperties("snackbar"))
+        assertEquals(mapOf("surface" to "notification"), RecoveryTelemetry.guardProperties("notification"))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            RecoveryTelemetry.guardProperties("onboarding")
+        }
+    }
 }

@@ -233,13 +233,39 @@ object AnalyticsManager {
         PostHog.capture("support_contact_started", properties = mapOf("faq_expanded_count" to faqExpandedCount))
     }
 
-    /** TASK-356: orphaned-ride recovery ran and changed something. Coarse properties only. */
-    fun trackRideRecovered(recoveredCount: Int, discardedCount: Int, totalMeters: Double) {
+    /** TASK-356 / TASK-383: orphaned-ride recovery ran and changed something. Coarse properties only. */
+    fun trackRideRecovered(
+        recoveredCount: Int,
+        discardedCount: Int,
+        totalMeters: Double,
+        batteryOptimized: Boolean? = null,
+    ) {
         if (!_isTelemetryEnabled.value) return
         if (!RecoveryTelemetry.shouldReport(recoveredCount, discardedCount)) return
         PostHog.capture(
             RecoveryTelemetry.EVENT,
-            properties = RecoveryTelemetry.properties(recoveredCount, discardedCount, totalMeters),
+            properties = RecoveryTelemetry.properties(
+                recoveredCount = recoveredCount,
+                discardedCount = discardedCount,
+                totalMeters = totalMeters,
+                batteryOptimized = batteryOptimized,
+            ),
+        )
+    }
+
+    fun trackRecoveryBatteryGuardShown(surface: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            RecoveryTelemetry.GUARD_SHOWN_EVENT,
+            properties = RecoveryTelemetry.guardProperties(surface),
+        )
+    }
+
+    fun trackRecoveryBatterySettingsOpened(surface: String) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            RecoveryTelemetry.GUARD_OPENED_EVENT,
+            properties = RecoveryTelemetry.guardProperties(surface),
         )
     }
 
@@ -1126,13 +1152,16 @@ object AnalyticsManager {
         )
     }
 
-    // TASK-371..373 (v1.9.4): Privacy-safe Hands-Free Auto-Start/Auto-Stop funnel & harm indicators
+    // TASK-371..373 (v1.9.4) / TASK-383 (v1.9.5): Privacy-safe Hands-Free funnel & session-deduped offer impressions
+    internal val handsFreeOfferSessionGate = `in`.shvms.trackme.domain.tracking.HandsFreeOfferSessionGate()
+
     private fun captureHandsFree(event: `in`.shvms.trackme.domain.tracking.HandsFreeTelemetryEvent) {
         if (!_isTelemetryEnabled.value) return
         PostHog.capture(event.name, properties = event.properties)
     }
 
     fun trackHandsFreeOfferShown(surface: String) {
+        if (!handsFreeOfferSessionGate.shouldEmit(surface, _isTelemetryEnabled.value)) return
         captureHandsFree(`in`.shvms.trackme.domain.tracking.HandsFreeTelemetryContract.offerShown(surface))
     }
 
