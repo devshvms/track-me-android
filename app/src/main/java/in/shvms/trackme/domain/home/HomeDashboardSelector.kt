@@ -91,7 +91,17 @@ object HomeDashboardSelector {
         today: LocalDate,
         zoneId: ZoneId,
     ): HomeInsight? {
-        if (rides.size < 3) return null
+        if (rides.isEmpty()) return null
+        if (rides.size < 3) {
+            val latest = rides.first()
+            return HomeInsight.EarlyJourney(
+                rideCount = rides.size,
+                totalDistanceMeters = rides.sumOf { it.distanceMeters },
+                latestPersona = personaOf(latest.personaRaw),
+                latestLocalId = latest.localId,
+                latestHasRoute = latest.hasRoute,
+            )
+        }
         returnAfterInactivity(rides, zoneId)?.let { return it }
         previousActiveWeekComparison(grouped, activeWeekStarts, currentWeekStart, today, zoneId)
             ?.let { return it }

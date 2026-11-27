@@ -681,7 +681,7 @@ object AnalyticsManager {
 
     fun trackHomeInsightShown(insightType: String) {
         if (!_isTelemetryEnabled.value) return
-        require(insightType in setOf("return", "period_comparison", "dominant_persona"))
+        require(insightType in setOf("return", "period_comparison", "dominant_persona", "early_journey_1", "early_journey_2"))
         PostHog.capture("home_insight_shown", properties = mapOf("insight_type" to insightType))
     }
 

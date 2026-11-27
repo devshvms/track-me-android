@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.PeopleOutline
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
@@ -137,6 +138,7 @@ internal fun HomeDashboardScreen(
     showHandsFreeTip: Boolean = false,
     onEnableHandsFree: () -> Unit = {},
     onDismissHandsFreeTip: () -> Unit = {},
+    onShareEarlyRoute: (Long) -> Unit = {},
 ) {
     val strings = LocalAppStrings.current
     // A first Room emission can still be an empty projection while legacy metadata is being
@@ -298,7 +300,7 @@ internal fun HomeDashboardScreen(
             }
 
             summary.insight?.let { insight ->
-                item { InsightCard(insight, imperial, strings) }
+                item { InsightCard(insight, imperial, strings, onShareEarlyRoute = onShareEarlyRoute) }
             }
 
             item {
@@ -808,7 +810,12 @@ internal fun resolveHomeLiveSharingTapAction(
 }
 
 @Composable
-private fun InsightCard(insight: HomeInsight, imperial: Boolean, strings: AppStrings) {
+private fun InsightCard(
+    insight: HomeInsight,
+    imperial: Boolean,
+    strings: AppStrings,
+    onShareEarlyRoute: (Long) -> Unit = {},
+) {
     val text = when (insight) {
         is HomeInsight.Return -> String.format(
             Locale.getDefault(), strings.dashboardInsightReturn,
@@ -831,12 +838,35 @@ private fun InsightCard(insight: HomeInsight, imperial: Boolean, strings: AppStr
         is HomeInsight.DominantPersona -> String.format(
             Locale.getDefault(), strings.dashboardInsightDominant, strings.personaLabel(insight.persona)
         )
+        is HomeInsight.EarlyJourney -> {
+            val distance = `in`.shvms.trackme.domain.UnitFormatter.rideDistance(insight.totalDistanceMeters, imperial)
+            if (insight.rideCount <= 1) {
+                String.format(
+                    Locale.getDefault(),
+                    strings.dashboardInsightEarlyOne,
+                    strings.personaLabel(insight.latestPersona),
+                    distance,
+                )
+            } else {
+                String.format(
+                    Locale.getDefault(),
+                    strings.dashboardInsightEarlyTwo,
+                    distance,
+                )
+            }
+        }
     }
-    val basis = if (insight is HomeInsight.PeriodComparison) {
-        "${strings.dashboardInsightBasisWeeks}: " +
+    val basis = when (insight) {
+        is HomeInsight.PeriodComparison -> "${strings.dashboardInsightBasisWeeks}: " +
             "${formatInsightPeriod(insight.currentPeriod.startEpochDay, insight.currentPeriod.endEpochDay)} · " +
             formatInsightPeriod(insight.comparisonPeriod.startEpochDay, insight.comparisonPeriod.endEpochDay)
-    } else strings.dashboardInsightBasisHistory
+        is HomeInsight.EarlyJourney -> String.format(
+            Locale.getDefault(),
+            strings.dashboardInsightBasisEarly,
+            insight.rideCount.coerceIn(1, 2),
+        )
+        else -> strings.dashboardInsightBasisHistory
+    }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -846,6 +876,16 @@ private fun InsightCard(insight: HomeInsight, imperial: Boolean, strings: AppStr
             }
             Text(text, style = MaterialTheme.typography.bodyLarge)
             Text(basis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (insight is HomeInsight.EarlyJourney && insight.rideCount == 1 && insight.latestHasRoute) {
+                FilledTonalButton(
+                    onClick = { onShareEarlyRoute(insight.latestLocalId) },
+                    modifier = Modifier.padding(top = 4.dp).heightIn(min = 48.dp),
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(strings.dashboardShareRouteCard)
+                }
+            }
         }
     }
 }

@@ -77,6 +77,10 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val dashboardInsightStable: String = s("dashboardInsightStable", "Your recent distance was steady.")
     val dashboardInsightLower: String = s("dashboardInsightLower", "A lighter recent period.")
     val dashboardInsightDominant: String = s("dashboardInsightDominant", "%1\$s led your recent activities.")
+    val dashboardInsightEarlyOne: String = s("dashboardInsightEarlyOne", "First %1\$s saved (%2\$s). 2 more trips unlock your weekly distance and pace trends.")
+    val dashboardInsightEarlyTwo: String = s("dashboardInsightEarlyTwo", "2 trips saved (%1\$s total). 1 more trip unlocks your personal trends and insights.")
+    val dashboardInsightBasisEarly: String = s("dashboardInsightBasisEarly", "%1\$d of 3 trips toward weekly insights")
+    val dashboardShareRouteCard: String = s("dashboardShareRouteCard", "Share Route Card")
     val dashboardInsightBasisHistory: String = s("dashboardInsightBasisHistory", "Based on your qualifying activity history")
     val dashboardInsightBasisWeeks: String = s("dashboardInsightBasisWeeks", "Based on comparable active weeks")
     val dashboardRecentActivity: String = s("dashboardRecentActivity", "Recent activity")
@@ -1137,6 +1141,10 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardInsightStable" to "Tu distancia reciente se mantuvo estable.",
             "dashboardInsightLower" to "Un período reciente más ligero.",
             "dashboardInsightDominant" to "%1\$s fue tu actividad más frecuente recientemente.",
+            "dashboardInsightEarlyOne" to "Primer %1\$s guardado (%2\$s). 2 viajes más desbloquean tus tendencias semanales de distancia y ritmo.",
+            "dashboardInsightEarlyTwo" to "2 viajes guardados (%1\$s en total). 1 viaje más desbloquea tus tendencias e información personal.",
+            "dashboardInsightBasisEarly" to "%1\$d de 3 viajes para desbloquear tendencias semanales",
+            "dashboardShareRouteCard" to "Compartir tarjeta de ruta",
             "dashboardInsightBasisHistory" to "Basado en tu historial de actividades válidas",
             "dashboardInsightBasisWeeks" to "Basado en semanas activas comparables",
             "dashboardRecentActivity" to "Actividad reciente",
@@ -2014,6 +2022,10 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardInsightStable" to "Votre distance récente est restée stable.",
             "dashboardInsightLower" to "Une période récente plus légère.",
             "dashboardInsightDominant" to "%1\$s a dominé vos activités récentes.",
+            "dashboardInsightEarlyOne" to "Premier %1\$s enregistré (%2\$s). Plus que 2 trajets pour débloquer vos tendances hebdomadaires.",
+            "dashboardInsightEarlyTwo" to "2 trajets enregistrés (%1\$s au total). Plus qu’1 trajet pour débloquer vos tendances personnelles.",
+            "dashboardInsightBasisEarly" to "%1\$d trajet sur 3 vers les tendances hebdomadaires",
+            "dashboardShareRouteCard" to "Partager la carte du trajet",
             "dashboardInsightBasisHistory" to "D’après votre historique d’activités admissibles",
             "dashboardInsightBasisWeeks" to "D’après des semaines actives comparables",
             "dashboardRecentActivity" to "Activité récente",
@@ -2891,6 +2903,10 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardInsightStable" to "Deine letzte Distanz blieb stabil.",
             "dashboardInsightLower" to "Ein ruhigerer letzter Zeitraum.",
             "dashboardInsightDominant" to "%1\$s war zuletzt deine häufigste Aktivität.",
+            "dashboardInsightEarlyOne" to "Erste Aktivität (%1\$s, %2\$s) gespeichert. Noch 2 Fahrten bis zu deinen Wochentrends.",
+            "dashboardInsightEarlyTwo" to "2 Fahrten gespeichert (gesamt %1\$s). Noch 1 Fahrt bis zu deinen persönlichen Einblicken.",
+            "dashboardInsightBasisEarly" to "%1\$d von 3 Fahrten bis zu den Wochentrends",
+            "dashboardShareRouteCard" to "Routenkarte teilen",
             "dashboardInsightBasisHistory" to "Basierend auf deinem gültigen Aktivitätsverlauf",
             "dashboardInsightBasisWeeks" to "Basierend auf vergleichbaren aktiven Wochen",
             "dashboardRecentActivity" to "Letzte Aktivität",
@@ -3768,6 +3784,10 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardInsightStable" to "आपकी हाल की दूरी स्थिर रही।",
             "dashboardInsightLower" to "हाल की अवधि थोड़ी हल्की रही।",
             "dashboardInsightDominant" to "हाल की गतिविधियों में %1\$s सबसे अधिक रही।",
+            "dashboardInsightEarlyOne" to "पहली %1\$s सहेजी गई (%2\$s)। साप्ताहिक दूरी और गति ट्रेंड अनलॉक करने के लिए 2 और ट्रिप करें।",
+            "dashboardInsightEarlyTwo" to "2 ट्रिप सहेजी गईं (कुल %1\$s)। व्यक्तिगत ट्रेंड अनलॉक करने के लिए 1 और ट्रिप करें।",
+            "dashboardInsightBasisEarly" to "साप्ताहिक ट्रेंड के लिए 3 में से %1\$d ट्रिप",
+            "dashboardShareRouteCard" to "रूट कार्ड साझा करें",
             "dashboardInsightBasisHistory" to "आपकी योग्य गतिविधियों के इतिहास पर आधारित",
             "dashboardInsightBasisWeeks" to "तुलनीय सक्रिय सप्ताहों पर आधारित",
             "dashboardRecentActivity" to "हाल की गतिविधि",
@@ -4645,6 +4665,10 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardInsightStable" to "直近の距離は安定していました。",
             "dashboardInsightLower" to "直近は軽めの期間でした。",
             "dashboardInsightDominant" to "最近は%1\$sが最も多いアクティビティでした。",
+            "dashboardInsightEarlyOne" to "最初の%1\$sを保存しました（%2\$s）。あと2回記録すると週間トレンドが開放されます。",
+            "dashboardInsightEarlyTwo" to "2回の移動を保存（合計 %1\$s）。あと1回でパーソナルインサイトが開放されます。",
+            "dashboardInsightBasisEarly" to "週間インサイト開放まで 3回中 %1\$d回",
+            "dashboardShareRouteCard" to "ルートカードを共有",
             "dashboardInsightBasisHistory" to "対象となるアクティビティ履歴に基づく情報",
             "dashboardInsightBasisWeeks" to "比較可能なアクティブ週に基づく情報",
             "dashboardRecentActivity" to "最近のアクティビティ",
@@ -5522,6 +5546,10 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "dashboardInsightStable" to "你最近的距离保持稳定。",
             "dashboardInsightLower" to "最近是一段较轻松的时期。",
             "dashboardInsightDominant" to "%1\$s是你近期最多的活动。",
+            "dashboardInsightEarlyOne" to "已保存首次 %1\$s（%2\$s）。再记录 2 次行程即可解锁每周趋势。",
+            "dashboardInsightEarlyTwo" to "已保存 2 次行程（共 %1\$s）。再记录 1 次即可解锁个人趋势洞察。",
+            "dashboardInsightBasisEarly" to "距离解锁每周洞察已完成 %1\$d/3 次行程",
+            "dashboardShareRouteCard" to "分享路线卡片",
             "dashboardInsightBasisHistory" to "依据符合条件的活动历史",
             "dashboardInsightBasisWeeks" to "依据可比较的活跃周",
             "dashboardRecentActivity" to "最近活动",

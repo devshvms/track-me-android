@@ -1785,6 +1785,7 @@ fun HomeScreen(
                         AnalyticsManager.trackHomeRecentActivityOpened(persona)
                         onOpenRideDetail(localId)
                     },
+                    onShareEarlyRoute = onOpenRideDetailWithExport,
                     onOpenHistory = onOpenHistory,
                     onOpenCommunity = onOpenCommunity,
                     onOpenProgress = onOpenProgress,

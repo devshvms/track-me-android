@@ -54,11 +54,25 @@ class HomeDashboardSelectorTest {
     }
 
     @Test
-    fun `one and two activities remain early without comparisons`() {
-        val one = ride(1, "2026-08-25T10:00:00Z")
-        assertEquals("early", select(one).historyBucket)
-        assertNull(select(one).insight)
-        assertNull(select(one, ride(2, "2026-08-18T10:00:00Z", RidePersona.WALK)).insight)
+    fun `one and two activities surface early journey bridge instead of comparative insights`() {
+        val one = ride(1, "2026-08-25T10:00:00Z", RidePersona.CYCLING, distance = 4_200.0)
+        val summaryOne = select(one)
+        assertEquals("early", summaryOne.historyBucket)
+        val insightOne = summaryOne.insight as HomeInsight.EarlyJourney
+        assertEquals(1, insightOne.rideCount)
+        assertEquals(4_200.0, insightOne.totalDistanceMeters, 0.0)
+        assertEquals(RidePersona.CYCLING, insightOne.latestPersona)
+        assertEquals(1L, insightOne.latestLocalId)
+        assertTrue(insightOne.latestHasRoute)
+        assertEquals("early_journey_1", insightOne.analyticsValue)
+
+        val two = ride(2, "2026-08-18T10:00:00Z", RidePersona.WALK, distance = 1_800.0)
+        val summaryTwo = select(one, two)
+        assertEquals("early", summaryTwo.historyBucket)
+        val insightTwo = summaryTwo.insight as HomeInsight.EarlyJourney
+        assertEquals(2, insightTwo.rideCount)
+        assertEquals(6_000.0, insightTwo.totalDistanceMeters, 0.0)
+        assertEquals("early_journey_2", insightTwo.analyticsValue)
     }
 
     @Test

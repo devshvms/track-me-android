@@ -71,6 +71,18 @@ sealed interface HomeInsight {
     ) : HomeInsight {
         override val analyticsValue: String = "dominant_persona"
     }
+
+    /** TASK-380 (v1.9.5): Bridges the 1-to-3 ride cliff by surfacing factual progress + 1-tap export. */
+    data class EarlyJourney(
+        val rideCount: Int,
+        val totalDistanceMeters: Double,
+        val latestPersona: RidePersona,
+        val latestLocalId: Long,
+        val latestHasRoute: Boolean,
+    ) : HomeInsight {
+        override val analyticsValue: String =
+            if (rideCount <= 1) "early_journey_1" else "early_journey_2"
+    }
 }
 
 data class HomeDashboardSummary(
