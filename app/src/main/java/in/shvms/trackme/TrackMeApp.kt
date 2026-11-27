@@ -340,6 +340,18 @@ class TrackMeApp : Application() {
                             ),
                             imperialUnits = preferencesManager.unitSystem.value == "imperial",
                         )
+                        `in`.shvms.trackme.domain.recovery.OrphanedRideRecoveryManager.creditRecoveredRides(
+                            summary = summary,
+                            rideStatsStore = rideStatsStore,
+                            pendingRevealStore = pendingRevealStore,
+                            rideDao = database.rideDao(),
+                            onFirstRideOfWeek = { streakWeeks, froze ->
+                                `in`.shvms.trackme.analytics.AnalyticsManager.trackWeeklyStreakUpdated(
+                                    streakWeeks = streakWeeks,
+                                    froze = froze,
+                                )
+                            },
+                        )
                     }
                 }
             } catch (e: Exception) {
