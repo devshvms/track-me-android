@@ -36,8 +36,9 @@ import `in`.shvms.trackme.ui.localization.getAppStrings
 class TrackMeMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
-        if (message.data["type"] == "live_share_started") {
-            handleLiveShareStartedPush(message)
+        val msgType = message.data["type"]
+        if (msgType == "live_share_started" || msgType == "live_share_ended") {
+            handleLiveShareWatcherPush(message, msgType)
             return
         }
 
@@ -75,7 +76,7 @@ class TrackMeMessagingService : FirebaseMessagingService() {
         app?.trustedWatchersRepository?.syncFcmToken(token)
     }
 
-    private fun handleLiveShareStartedPush(message: RemoteMessage) {
+    private fun handleLiveShareWatcherPush(message: RemoteMessage, msgType: String) {
         val sessionId = message.data["sessionId"]?.trim().orEmpty()
         if (sessionId.isEmpty()) return
         val riderName = message.data["riderName"]?.trim()?.takeIf { it.isNotEmpty() } ?: "TrackMe"
@@ -92,23 +93,29 @@ class TrackMeMessagingService : FirebaseMessagingService() {
 
         val openIntent = Intent(applicationContext, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            putExtra("type", "live_share_started")
+            putExtra("type", msgType)
             putExtra("sessionId", sessionId)
             putExtra("shareUrl", shareUrl)
             putExtra("riderName", riderName)
         }
         val pendingIntent = PendingIntent.getActivity(
             applicationContext,
-            sessionId.hashCode(),
+            (sessionId + ":" + msgType).hashCode(),
             openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val title = String.format(java.util.Locale.getDefault(), strings.watcherLivePushTitle, riderName)
+        val isEnded = msgType == "live_share_ended"
+        val title = String.format(
+            java.util.Locale.getDefault(),
+            if (isEnded) strings.watcherLiveEndedPushTitle else strings.watcherLivePushTitle,
+            riderName,
+        )
+        val body = if (isEnded) strings.watcherLiveEndedPushBody else strings.watcherLivePushBody
         val notification = NotificationCompat.Builder(applicationContext, NotificationChannels.LIVE_SHARE)
             .setSmallIcon(R.drawable.ic_trackme_logo_transparent)
             .setContentTitle(title)
-            .setContentText(strings.watcherLivePushBody)
+            .setContentText(body)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_SOCIAL)

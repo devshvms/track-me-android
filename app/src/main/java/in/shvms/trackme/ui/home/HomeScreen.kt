@@ -187,6 +187,7 @@ fun HomeScreen(
     val context = LocalContext.current
     var showHomeSharing by rememberSaveable { mutableStateOf(false) }
     var pendingDirectLiveShareDuration by remember { mutableStateOf<Int?>(null) }
+    var pendingDirectLiveShareNotifyOnEnd by remember { mutableStateOf(true) }
     var showFullRideHudForPrimaryShare by rememberSaveable { mutableStateOf(false) }
     var openSharesheetOnLiveShareReady by remember { mutableStateOf(false) }
     val messenger = rememberMessenger()
@@ -481,7 +482,10 @@ fun HomeScreen(
 
     var pendingStartPersona by remember { mutableStateOf<RidePersona?>(null) }
 
-    fun launchDirectLiveShare(durationMinutes: Int) {
+    fun launchDirectLiveShare(
+        durationMinutes: Int,
+        notifyWatchersOnEnd: Boolean = true,
+    ) {
         if (groupSession.isActive) {
             messenger.show(strings.groupLiveShareBlocked, duration = SnackbarDuration.Long)
             return
@@ -492,6 +496,7 @@ fun HomeScreen(
         }
         if (!hasLocationPermission) {
             pendingDirectLiveShareDuration = durationMinutes
+            pendingDirectLiveShareNotifyOnEnd = notifyWatchersOnEnd
             pendingStartPersona = RidePersona.AUTO
             return
         }
@@ -510,6 +515,7 @@ fun HomeScreen(
             watcherUids = autoWatchers.map { it.uid },
             isLiveSharePrimary = true,
             sharedWatcherNames = autoWatchers.map { it.displayName },
+            notifyWatchersOnEnd = notifyWatchersOnEnd,
         )
     }
 
@@ -520,10 +526,11 @@ fun HomeScreen(
             hasLocationPermission = granted
             val persona = pendingStartPersona
             val directShareDuration = pendingDirectLiveShareDuration
+            val directShareNotifyOnEnd = pendingDirectLiveShareNotifyOnEnd
             pendingStartPersona = null
             pendingDirectLiveShareDuration = null
             if (granted && directShareDuration != null) {
-                launchDirectLiveShare(directShareDuration)
+                launchDirectLiveShare(directShareDuration, directShareNotifyOnEnd)
             } else if (granted && persona != null) {
                 if (requestNotificationPermissionIfNeeded()) {
                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -776,7 +783,10 @@ fun HomeScreen(
             while (true) {
                 val duration = Duration.between(Instant.now(), uiState.liveShareState.expiresAt)
                 if (duration.isNegative || duration.isZero) {
-                    viewModel.stopLiveShare("Max ride duration reached, stopping.")
+                    viewModel.stopLiveShare(
+                        reason = "Max ride duration reached, stopping.",
+                        stopKind = `in`.shvms.trackme.data.remote.LiveShareStopKind.EXPIRED,
+                    )
                     break
                 }
                 delay(1000)
@@ -1043,6 +1053,10 @@ fun HomeScreen(
             onStartDirectShare = { durationMinutes ->
                 AnalyticsManager.trackLiveShareTappedHome()
                 launchDirectLiveShare(durationMinutes)
+            },
+            onStartDirectShareWithAssurance = { durationMinutes, notifyWatchersOnEnd ->
+                AnalyticsManager.trackLiveShareTappedHome()
+                launchDirectLiveShare(durationMinutes, notifyWatchersOnEnd)
             },
             onStopShare = { viewModel.stopLiveShare() },
             onShareLink = { shareLiveShareLink() },

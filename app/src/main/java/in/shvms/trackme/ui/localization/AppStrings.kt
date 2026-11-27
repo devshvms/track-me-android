@@ -435,6 +435,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val channelLiveShareDescription: String = s("channelLiveShareDescription", "Alerts when trusted riders start sharing their live location with you.")
     val watcherLivePushTitle: String = s("watcherLivePushTitle", "%1\$s is sharing live location")
     val watcherLivePushBody: String = s("watcherLivePushBody", "Tap to follow their live route on TrackMe.")
+    val watcherLiveEndedPushTitle: String = s("watcherLiveEndedPushTitle", "%1\$s ended their shared trip")
+    val watcherLiveEndedPushBody: String = s("watcherLiveEndedPushBody", "Tap to view the concluded route on TrackMe.")
     val homeShareLiveLocation: String = s("homeShareLiveLocation", "Share Live Location")
     val trustedWatchersButton: String = s("trustedWatchersButton", "Trusted watchers (%1\$d)")
     val trustedWatchersTitle: String = s("trustedWatchersTitle", "Trusted watchers")
@@ -443,6 +445,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val trustedWatchersEmpty: String = s("trustedWatchersEmpty", "No trusted watchers yet. Send an invite link so they get an alert whenever you share live location.")
     val trustedWatchersMaxNote: String = s("trustedWatchersMaxNote", "Up to 5 trusted watchers can be notified automatically.")
     val trustedWatchersAutoNotify: String = s("trustedWatchersAutoNotify", "Auto-notify")
+    val trustedWatchersNotifyOnEndTitle: String = s("trustedWatchersNotifyOnEndTitle", "Notify selected watchers when I end this trip")
+    val trustedWatchersNotifyOnEndSubtitle: String = s("trustedWatchersNotifyOnEndSubtitle", "Sends a trip-ended update only when you manually stop sharing.")
     val trustedWatchersRemove: String = s("trustedWatchersRemove", "Remove watcher")
     val trustedWatchersRemoveConfirmTitle: String = s("trustedWatchersRemoveConfirmTitle", "Remove trusted watcher?")
     val trustedWatchersRemoveConfirmMessage: String = s("trustedWatchersRemoveConfirmMessage", "Remove %1\$s from trusted watchers? They will no longer receive live ride alerts automatically.")
@@ -1350,6 +1354,8 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "channelLiveShareDescription" to "Alertas cuando ciclistas de confianza comparten su ubicación en vivo contigo.",
             "watcherLivePushTitle" to "%1\$s está compartiendo su ubicación en vivo",
             "watcherLivePushBody" to "Toca para seguir su ruta en vivo en TrackMe.",
+            "watcherLiveEndedPushTitle" to "%1\$s finalizó su viaje compartido",
+            "watcherLiveEndedPushBody" to "Toca para ver la ruta finalizada en TrackMe.",
             "homeShareLiveLocation" to "Compartir ubicación en vivo",
             "trustedWatchersButton" to "Observadores de confianza (%1\$d)",
             "trustedWatchersTitle" to "Observadores de confianza",
@@ -1358,6 +1364,8 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "trustedWatchersEmpty" to "Aún no tienes observadores de confianza. Envía un enlace de invitación para avisarles al compartir en vivo.",
             "trustedWatchersMaxNote" to "Se puede notificar automáticamente hasta a 5 observadores de confianza.",
             "trustedWatchersAutoNotify" to "Auto-avisar",
+            "trustedWatchersNotifyOnEndTitle" to "Avisar a los observadores elegidos al finalizar este viaje",
+            "trustedWatchersNotifyOnEndSubtitle" to "Envía un aviso de viaje finalizado solo cuando detienes el uso compartido manualmente.",
             "trustedWatchersRemove" to "Eliminar observador",
             "trustedWatchersRemoveConfirmTitle" to "¿Eliminar observador de confianza?",
             "trustedWatchersRemoveConfirmMessage" to "¿Eliminar a %1\$s de los observadores de confianza? Ya no recibirá alertas de viaje en vivo automáticamente.",
@@ -2227,6 +2235,8 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "channelLiveShareDescription" to "Alertes lorsque des proches commencent à partager leur position en direct avec vous.",
             "watcherLivePushTitle" to "%1\$s partage sa position en direct",
             "watcherLivePushBody" to "Touchez pour suivre son trajet en direct sur TrackMe.",
+            "watcherLiveEndedPushTitle" to "%1\$s a terminé son trajet partagé",
+            "watcherLiveEndedPushBody" to "Touchez pour voir le trajet terminé sur TrackMe.",
             "homeShareLiveLocation" to "Partager sa position en direct",
             "trustedWatchersButton" to "Contacts de confiance (%1\$d)",
             "trustedWatchersTitle" to "Contacts de confiance",
@@ -2234,6 +2244,8 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "trustedWatchersAddCta" to "Inviter un proche",
             "trustedWatchersEmpty" to "Aucun contact de confiance pour l’instant. Envoyez un lien d’invitation pour qu’ils soient alertés automatiquement.",
             "trustedWatchersMaxNote" to "Jusqu’à 5 contacts de confiance peuvent être avertis automatiquement.",
+            "trustedWatchersNotifyOnEndTitle" to "Prévenir les contacts choisis quand je termine ce trajet",
+            "trustedWatchersNotifyOnEndSubtitle" to "Envoie une notification de fin uniquement lorsque vous arrêtez le partage manuellement.",
             "trustedWatchersAutoNotify" to "Alerte auto",
             "trustedWatchersRemove" to "Retirer le contact",
             "trustedWatchersRemoveConfirmTitle" to "Supprimer le contact de confiance ?",
@@ -3104,6 +3116,8 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "channelLiveShareDescription" to "Benachrichtigungen, wenn vertrauenswürdige Fahrer ihren Live-Standort mit dir teilen.",
             "watcherLivePushTitle" to "%1\$s teilt den Live-Standort",
             "watcherLivePushBody" to "Tippen, um die Live-Route in TrackMe zu verfolgen.",
+            "watcherLiveEndedPushTitle" to "%1\$s hat die geteilte Fahrt beendet",
+            "watcherLiveEndedPushBody" to "Tippen, um die beendete Route in TrackMe anzusehen.",
             "homeShareLiveLocation" to "Live-Standort teilen",
             "trustedWatchersButton" to "Vertraute Beobachter (%1\$d)",
             "trustedWatchersTitle" to "Vertraute Beobachter",
@@ -3111,6 +3125,8 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "trustedWatchersAddCta" to "Beobachter einladen",
             "trustedWatchersEmpty" to "Noch keine vertrauten Beobachter. Sende einen Einladungslink, damit sie beim Live-Teilen benachrichtigt werden.",
             "trustedWatchersMaxNote" to "Bis zu 5 vertraute Beobachter können automatisch benachrichtigt werden.",
+            "trustedWatchersNotifyOnEndTitle" to "Ausgewählte Beobachter beim Beenden benachrichtigen",
+            "trustedWatchersNotifyOnEndSubtitle" to "Sendet ein Fahrt-beendet-Update nur, wenn du das Teilen manuell stoppst.",
             "trustedWatchersAutoNotify" to "Auto-Hinweis",
             "trustedWatchersRemove" to "Beobachter entfernen",
             "trustedWatchersRemoveConfirmTitle" to "Vertrauten Beobachter entfernen?",
@@ -3981,6 +3997,8 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "channelLiveShareDescription" to "जब भरोसेमंद राइडर आपके साथ अपनी लाइव लोकेशन साझा करना शुरू करें तो अलर्ट।",
             "watcherLivePushTitle" to "%1\$s लाइव लोकेशन साझा कर रहे हैं",
             "watcherLivePushBody" to "TrackMe पर उनका लाइव रूट देखने के लिए टैप करें।",
+            "watcherLiveEndedPushTitle" to "%1\$s ने अपनी साझा ट्रिप समाप्त कर दी",
+            "watcherLiveEndedPushBody" to "TrackMe पर समाप्त रूट देखने के लिए टैप करें।",
             "homeShareLiveLocation" to "लाइव लोकेशन साझा करें",
             "trustedWatchersButton" to "भरोसेमंद वॉचर (%1\$d)",
             "trustedWatchersTitle" to "भरोसेमंद वॉचर",
@@ -3988,6 +4006,8 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "trustedWatchersAddCta" to "भरोसेमंद वॉचर आमंत्रित करें",
             "trustedWatchersEmpty" to "अभी कोई भरोसेमंद वॉचर नहीं है। आमंत्रण लिंक भेजें ताकि लाइव शेयरिंग पर उन्हें सूचना मिले।",
             "trustedWatchersMaxNote" to "अधिकतम 5 भरोसेमंद वॉचर्स को स्वतः सूचित किया जा सकता है।",
+            "trustedWatchersNotifyOnEndTitle" to "ट्रिप समाप्त करने पर चुने गए वॉचर्स को सूचित करें",
+            "trustedWatchersNotifyOnEndSubtitle" to "केवल तब ट्रिप समाप्ति अपडेट भेजता है जब आप शेयरिंग स्वयं रोकते हैं।",
             "trustedWatchersAutoNotify" to "स्वतः सूचना",
             "trustedWatchersRemove" to "वॉचर हटाएँ",
             "trustedWatchersRemoveConfirmTitle" to "भरोसेमंद वॉचर हटाएँ?",
@@ -4858,6 +4878,8 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "channelLiveShareDescription" to "信頼できるライダーがライブ位置情報の共有を開始したときに通知します。",
             "watcherLivePushTitle" to "%1\$s さんがライブ位置情報を共有しています",
             "watcherLivePushBody" to "タップして TrackMe でライブ経路を確認します。",
+            "watcherLiveEndedPushTitle" to "%1\$s さんが共有ライドを終了しました",
+            "watcherLiveEndedPushBody" to "タップして TrackMe で終了したルートを確認します。",
             "homeShareLiveLocation" to "ライブ位置を共有",
             "trustedWatchersButton" to "信頼できるウォッチャー (%1\$d)",
             "trustedWatchersTitle" to "信頼できるウォッチャー",
@@ -4865,6 +4887,8 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "trustedWatchersAddCta" to "ウォッチャーを招待",
             "trustedWatchersEmpty" to "信頼できるウォッチャーはまだいません。招待リンクを送ると、ライブ共有時に自動で通知されます。",
             "trustedWatchersMaxNote" to "最大5人まで自動的に通知できます。",
+            "trustedWatchersNotifyOnEndTitle" to "ライド終了時に選択したウォッチャーへ通知",
+            "trustedWatchersNotifyOnEndSubtitle" to "手動で共有を停止したときのみ終了通知を送信します。",
             "trustedWatchersAutoNotify" to "自動通知",
             "trustedWatchersRemove" to "ウォッチャーを削除",
             "trustedWatchersRemoveConfirmTitle" to "信頼できるウォッチャーを削除しますか？",
@@ -5735,6 +5759,8 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "channelLiveShareDescription" to "当受信任的骑行者向你开启实时位置共享时发送提醒。",
             "watcherLivePushTitle" to "%1\$s 正在共享实时位置",
             "watcherLivePushBody" to "轻触即可在 TrackMe 上跟随他们的实时路线。",
+            "watcherLiveEndedPushTitle" to "%1\$s 已结束其共享行程",
+            "watcherLiveEndedPushBody" to "轻触即可在 TrackMe 上查看已结束的路线。",
             "homeShareLiveLocation" to "共享实时位置",
             "trustedWatchersButton" to "受信任的查看者 (%1\$d)",
             "trustedWatchersTitle" to "受信任的查看者",
@@ -5742,6 +5768,8 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "trustedWatchersAddCta" to "邀请受信任的查看者",
             "trustedWatchersEmpty" to "暂无受信任的查看者。发送邀请链接后，当你共享实时位置时他们会收到提醒。",
             "trustedWatchersMaxNote" to "最多可自动通知 5 位受信任的查看者。",
+            "trustedWatchersNotifyOnEndTitle" to "在我结束本次行程时通知所选查看者",
+            "trustedWatchersNotifyOnEndSubtitle" to "仅在你手动停止共享时发送行程结束通知。",
             "trustedWatchersAutoNotify" to "自动通知",
             "trustedWatchersRemove" to "移除查看者",
             "trustedWatchersRemoveConfirmTitle" to "移除受信任的查看者？",

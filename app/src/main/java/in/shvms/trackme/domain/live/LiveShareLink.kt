@@ -37,7 +37,7 @@ object LiveShareLink {
             }
         }
 
-        if (extraType == "live_share_started") {
+        if (extraType == "live_share_started" || extraType == "live_share_ended") {
             val fromExtra = extraSessionId?.trim()?.takeIf { validSessionIdRegex.matches(it) }
             if (fromExtra != null) {
                 return LiveShareDeepLink.Session(fromExtra)

@@ -266,7 +266,8 @@ class MainActivity : AppCompatActivity() {
               intent?.data = null
           }
           is `in`.shvms.trackme.domain.live.LiveShareDeepLink.Session -> {
-              if (intent?.getStringExtra("type") == "live_share_started") {
+              val pushType = intent?.getStringExtra("type")
+              if (pushType == "live_share_started" || pushType == "live_share_ended") {
                   AnalyticsManager.trackWatcherPushOpened()
               }
               app.openLiveSessionViewer(parsed.sessionId)

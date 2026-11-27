@@ -744,6 +744,37 @@ object AnalyticsManager {
         )
     }
 
+    /** TASK-382: Bucketed trusted watcher count so exact social graph sizes never enter analytics. */
+    fun bucketWatcherCount(count: Int): String = when {
+        count <= 0 -> "0"
+        count == 1 -> "1"
+        count <= 3 -> "2_3"
+        else -> "4_5"
+    }
+
+    /** TASK-382: Fired when a rider starts sharing with trip-ended watcher assurance enabled. */
+    fun trackTripAssuranceEnabled(watcherCount: Int) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "trip_assurance_enabled",
+            properties = mapOf(
+                "watcher_count_bucket" to bucketWatcherCount(watcherCount),
+            )
+        )
+    }
+
+    /** TASK-382: Fired when rider-confirmed stop dispatches trip-ended watcher assurance. */
+    fun trackTripAssuranceEndSent(stopKind: String, watcherCount: Int) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "trip_assurance_end_sent",
+            properties = mapOf(
+                "stop_kind" to stopKind,
+                "watcher_count_bucket" to bucketWatcherCount(watcherCount),
+            )
+        )
+    }
+
     // Screen tracking
     fun trackScreenViewed(screenName: String, durationSeconds: Long) {
         if (!_isTelemetryEnabled.value) return

@@ -24,6 +24,12 @@ enum class LiveShareStatus {
     ERROR
 }
 
+enum class LiveShareStopKind(val wireValue: String) {
+    RIDER_CONFIRMED("rider_confirmed"),
+    AUTO_DWELL_ENDED("auto_dwell_ended"),
+    EXPIRED("expired"),
+}
+
 data class LiveShareState(
     val status: LiveShareStatus = LiveShareStatus.IDLE,
     val sessionId: String? = null,
@@ -31,6 +37,7 @@ data class LiveShareState(
     val expiresAt: Instant? = null,
     val startedAt: Instant? = null,
     val stopOnRideEnd: Boolean = false,
+    val notifyWatchersOnEnd: Boolean = true,
     val activeViewers: Int = 0,
     val isLiveSharePrimary: Boolean = false,
     val notifiedWatchersCount: Int = 0,
@@ -73,13 +80,14 @@ class LiveShareManager {
         watcherUids: List<String> = emptyList(),
         isLiveSharePrimary: Boolean = false,
         sharedWatcherNames: List<String> = emptyList(),
+        notifyWatchersOnEnd: Boolean = true,
     ): Result<LiveShareState> = withContext(Dispatchers.IO) {
         _state.value = _state.value.copy(
             status = LiveShareStatus.STARTING,
             isLiveSharePrimary = isLiveSharePrimary,
         )
         try {
-            val requestBody = buildStartRequestBody(durationMinutes, username, watcherUids)
+            val requestBody = buildStartRequestBody(durationMinutes, username, watcherUids, notifyWatchersOnEnd)
             var token = firebaseIdToken(forceRefresh = false)
             var (statusCode, body) = executePost(
                 url = AppConfig.LIVE_SHARE_BASE_URL + AppConfig.LIVE_SHARE_START_ENDPOINT,
@@ -107,6 +115,7 @@ class LiveShareManager {
                     expiresAt = parsed.expiresAt,
                     startedAt = nowInstant,
                     stopOnRideEnd = stopOnRideEnd,
+                    notifyWatchersOnEnd = notifyWatchersOnEnd,
                     activeViewers = 0,
                     isLiveSharePrimary = isLiveSharePrimary,
                     notifiedWatchersCount = parsed.notifiedWatchersCount,
@@ -117,6 +126,9 @@ class LiveShareManager {
                 _state.value = newState
 
                 `in`.shvms.trackme.analytics.AnalyticsManager.trackLiveShareStarted(parsed.sessionId, 0)
+                if (notifyWatchersOnEnd && parsed.notifiedWatchersCount > 0) {
+                    `in`.shvms.trackme.analytics.AnalyticsManager.trackTripAssuranceEnabled(parsed.notifiedWatchersCount)
+                }
 
                 Result.success(newState)
             } else {
@@ -256,21 +268,30 @@ class LiveShareManager {
         }
     }
 
-    suspend fun stopSession(reason: String? = null): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun stopSession(
+        reason: String? = null,
+        stopKind: LiveShareStopKind = LiveShareStopKind.RIDER_CONFIRMED,
+        notifyWatchersOnEndOverride: Boolean? = null,
+        distanceKm: Double? = null,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         val currentState = _state.value
         if (currentState.status != LiveShareStatus.ACTIVE || currentState.sessionId == null) {
             _state.value = LiveShareState(status = LiveShareStatus.IDLE)
             return@withContext Result.success(Unit)
         }
 
+        val effectiveNotifyOnEnd = (notifyWatchersOnEndOverride ?: currentState.notifyWatchersOnEnd) &&
+            stopKind == LiveShareStopKind.RIDER_CONFIRMED
+
         try {
             val token = firebaseIdToken(forceRefresh = false)
             val endpoint = String.format(AppConfig.LIVE_SHARE_STOP_ENDPOINT_TEMPLATE, currentState.sessionId)
-            val requestBody = JSONObject().apply {
-                if (reason != null) {
-                    put("stopReason", reason)
-                }
-            }.toString()
+            val requestBody = buildStopRequestBody(
+                reason = reason,
+                stopKind = stopKind,
+                notifyWatchersOnEnd = effectiveNotifyOnEnd,
+                distanceKm = distanceKm,
+            ).toString()
             val (statusCode, _) = executePost(AppConfig.LIVE_SHARE_BASE_URL + endpoint, token, requestBody)
 
             val durationSecs = currentState.startedAt?.let {
@@ -278,6 +299,12 @@ class LiveShareManager {
             } ?: 0L
 
             `in`.shvms.trackme.analytics.AnalyticsManager.trackLiveShareEnded(currentState.sessionId, durationSecs)
+            if (effectiveNotifyOnEnd && currentState.notifiedWatchersCount > 0) {
+                `in`.shvms.trackme.analytics.AnalyticsManager.trackTripAssuranceEndSent(
+                    stopKind = stopKind.wireValue,
+                    watcherCount = currentState.notifiedWatchersCount,
+                )
+            }
 
             // Regardless of backend response, we stop it locally
             _state.value = LiveShareState(status = LiveShareStatus.IDLE)
@@ -323,6 +350,7 @@ class LiveShareManager {
             durationMinutes: Int,
             username: String?,
             watcherUids: List<String>,
+            notifyWatchersOnEnd: Boolean = true,
         ): JSONObject {
             val cleanedWatchers = watcherUids
                 .map { it.trim() }
@@ -336,6 +364,26 @@ class LiveShareManager {
                 }
                 if (cleanedWatchers.isNotEmpty()) {
                     put("watcherUids", JSONArray(cleanedWatchers))
+                    put("notifyWatchersOnEnd", notifyWatchersOnEnd)
+                }
+            }
+        }
+
+        internal fun buildStopRequestBody(
+            reason: String?,
+            stopKind: LiveShareStopKind = LiveShareStopKind.RIDER_CONFIRMED,
+            notifyWatchersOnEnd: Boolean = true,
+            distanceKm: Double? = null,
+        ): JSONObject {
+            val gatedNotify = notifyWatchersOnEnd && stopKind == LiveShareStopKind.RIDER_CONFIRMED
+            return JSONObject().apply {
+                if (reason != null) {
+                    put("stopReason", reason)
+                }
+                put("stopKind", stopKind.wireValue)
+                put("notifyWatchersOnEnd", gatedNotify)
+                if (distanceKm != null && distanceKm.isFinite() && distanceKm >= 0.0) {
+                    put("distanceKm", distanceKm)
                 }
             }
         }

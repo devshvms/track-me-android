@@ -234,7 +234,64 @@ class LiveShareManagerTest {
         )
         assertEquals(false, activePayload.getBoolean("isPaused"))
         assertEquals(false, activePayload.has("pauseReason"))
+        assertEquals(true, activePayload.getDouble("speed") > 0)
         assertEquals(24.5, activePayload.getDouble("speed"), 0.01)
         assertEquals(92.0, activePayload.getDouble("heading"), 0.01)
+    }
+
+    @Test
+    fun task382_startAndStopPayloadsEnforceRiderConfirmedAssuranceGate() {
+        val startEnabled = LiveShareManager.buildStartRequestBody(
+            durationMinutes = 30,
+            username = "Rider",
+            watcherUids = listOf("w1", "w2"),
+            notifyWatchersOnEnd = true,
+        )
+        assertEquals(true, startEnabled.getBoolean("notifyWatchersOnEnd"))
+
+        val startDisabled = LiveShareManager.buildStartRequestBody(
+            durationMinutes = 30,
+            username = "Rider",
+            watcherUids = listOf("w1"),
+            notifyWatchersOnEnd = false,
+        )
+        assertEquals(false, startDisabled.getBoolean("notifyWatchersOnEnd"))
+
+        // No watchers selected -> omit notifyWatchersOnEnd
+        val startNoWatchers = LiveShareManager.buildStartRequestBody(
+            durationMinutes = 30,
+            username = "Rider",
+            watcherUids = emptyList(),
+            notifyWatchersOnEnd = true,
+        )
+        assertEquals(false, startNoWatchers.has("notifyWatchersOnEnd"))
+
+        // Rider confirmed with opt-in keeps notifyWatchersOnEnd = true and propagates stopKind + distanceKm
+        val confirmedStop = LiveShareManager.buildStopRequestBody(
+            reason = "Ride ended by user.",
+            stopKind = LiveShareStopKind.RIDER_CONFIRMED,
+            notifyWatchersOnEnd = true,
+            distanceKm = 12.4,
+        )
+        assertEquals("rider_confirmed", confirmedStop.getString("stopKind"))
+        assertEquals(true, confirmedStop.getBoolean("notifyWatchersOnEnd"))
+        assertEquals(12.4, confirmedStop.getDouble("distanceKm"), 0.001)
+
+        // Auto dwell and expired MUST force notifyWatchersOnEnd = false
+        val dwellStop = LiveShareManager.buildStopRequestBody(
+            reason = "Ride auto-ended.",
+            stopKind = LiveShareStopKind.AUTO_DWELL_ENDED,
+            notifyWatchersOnEnd = true,
+        )
+        assertEquals("auto_dwell_ended", dwellStop.getString("stopKind"))
+        assertEquals(false, dwellStop.getBoolean("notifyWatchersOnEnd"))
+
+        val expiredStop = LiveShareManager.buildStopRequestBody(
+            reason = "Max ride duration reached, stopping.",
+            stopKind = LiveShareStopKind.EXPIRED,
+            notifyWatchersOnEnd = true,
+        )
+        assertEquals("expired", expiredStop.getString("stopKind"))
+        assertEquals(false, expiredStop.getBoolean("notifyWatchersOnEnd"))
     }
 }

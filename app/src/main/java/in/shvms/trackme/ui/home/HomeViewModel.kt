@@ -399,6 +399,7 @@ class HomeViewModel(
         watcherUids: List<String> = emptyList(),
         isLiveSharePrimary: Boolean = false,
         sharedWatcherNames: List<String> = emptyList(),
+        notifyWatchersOnEnd: Boolean = true,
     ) {
         viewModelScope.launch {
             if (authManager.currentUser.value == null) {
@@ -413,6 +414,7 @@ class HomeViewModel(
                 watcherUids = watcherUids,
                 isLiveSharePrimary = isLiveSharePrimary,
                 sharedWatcherNames = sharedWatcherNames,
+                notifyWatchersOnEnd = notifyWatchersOnEnd,
             )
             val started = result.getOrNull()
             if (started != null) {
@@ -429,9 +431,12 @@ class HomeViewModel(
         }
     }
 
-    fun stopLiveShare(reason: String = "Live sharing stopped manually by user.") {
+    fun stopLiveShare(
+        reason: String = "Live sharing stopped manually by user.",
+        stopKind: `in`.shvms.trackme.data.remote.LiveShareStopKind = `in`.shvms.trackme.data.remote.LiveShareStopKind.RIDER_CONFIRMED,
+    ) {
         viewModelScope.launch {
-            val result = liveShareManager.stopSession(reason = reason)
+            val result = liveShareManager.stopSession(reason = reason, stopKind = stopKind)
             if (result.isSuccess) {
                 _uiEvent.emit(UiEvent.LiveShareStopped)
             } else {

@@ -1,5 +1,6 @@
 package `in`.shvms.trackme.analytics
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -78,5 +79,23 @@ class LiveShareTelemetryParityTest {
             "live_share_stopped_ride event name must be emitted",
             source.contains("\"live_share_stopped_ride\""),
         )
+    }
+
+    @Test
+    fun `task382 trip assurance telemetry buckets watcher counts without PII and matches iOS contract`() {
+        assertEquals("0", AnalyticsManager.bucketWatcherCount(0))
+        assertEquals("1", AnalyticsManager.bucketWatcherCount(1))
+        assertEquals("2_3", AnalyticsManager.bucketWatcherCount(2))
+        assertEquals("2_3", AnalyticsManager.bucketWatcherCount(3))
+        assertEquals("4_5", AnalyticsManager.bucketWatcherCount(4))
+        assertEquals("4_5", AnalyticsManager.bucketWatcherCount(5))
+
+        val source = File(sourcePath()).readText()
+        assertTrue(source.contains("\"trip_assurance_enabled\""))
+        assertTrue(source.contains("\"trip_assurance_end_sent\""))
+        assertTrue(source.contains("\"watcher_count_bucket\""))
+        assertTrue(source.contains("\"stop_kind\""))
+        assertFalse(source.contains("\"watcher_uids\""))
+        assertFalse(source.contains("\"rider_name\""))
     }
 }

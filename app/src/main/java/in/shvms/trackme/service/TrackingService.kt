@@ -31,6 +31,7 @@ import `in`.shvms.trackme.data.local.entity.presentationLatitude
 import `in`.shvms.trackme.data.local.entity.presentationLongitude
 import `in`.shvms.trackme.data.remote.LiveShareManager
 import `in`.shvms.trackme.data.remote.LiveShareStatus
+import `in`.shvms.trackme.data.remote.LiveShareStopKind
 import `in`.shvms.trackme.analytics.AnalyticsManager
 import `in`.shvms.trackme.utils.RideUtils
 import `in`.shvms.trackme.utils.StorageHealthMonitor
@@ -1600,7 +1601,11 @@ class TrackingService : Service() {
             // this ride before reading it back for final metrics, route metadata, and sync.
             pointWriteChain.awaitPending()
             if (liveShareManager.state.value.status == LiveShareStatus.ACTIVE || liveShareManager.state.value.stopOnRideEnd) {
-                liveShareManager.stopSession("Ride ended by user.")
+                liveShareManager.stopSession(
+                    reason = "Ride ended by user.",
+                    stopKind = LiveShareStopKind.RIDER_CONFIRMED,
+                    distanceKm = if (finalDistance > 0.0) finalDistance / 1000.0 else null,
+                )
             }
             if (!preserveRideForRecovery) {
                 rideToProcess?.let { rideId ->
@@ -1713,7 +1718,11 @@ class TrackingService : Service() {
                 liveShareManager.state.value.status == LiveShareStatus.STARTING ||
                 liveShareManager.state.value.stopOnRideEnd
             ) {
-                liveShareManager.stopSession("Indoor test discarded to arm hands-free auto-start.")
+                liveShareManager.stopSession(
+                    reason = "Indoor test discarded to arm hands-free auto-start.",
+                    stopKind = LiveShareStopKind.RIDER_CONFIRMED,
+                    notifyWatchersOnEndOverride = false,
+                )
             }
             rideDao.deletePointsForRide(rideId)
             rideDao.deleteRide(rideId)
@@ -1810,7 +1819,11 @@ class TrackingService : Service() {
         serviceScope.launch {
             pointWriteChain.awaitPending()
             if (liveShareManager.state.value.status == LiveShareStatus.ACTIVE || liveShareManager.state.value.stopOnRideEnd) {
-                liveShareManager.stopSession("Ride auto-ended.")
+                liveShareManager.stopSession(
+                    reason = "Ride auto-ended.",
+                    stopKind = LiveShareStopKind.AUTO_DWELL_ENDED,
+                    distanceKm = if (finalDistance > 0.0) finalDistance / 1000.0 else null,
+                )
             }
             finalizeRide(
                 rideId = rideId,

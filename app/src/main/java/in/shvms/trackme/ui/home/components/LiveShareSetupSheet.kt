@@ -88,6 +88,7 @@ fun LiveShareSetupSheet(
     onInviteWatcher: () -> Unit,
     onToggleWatcherAutoNotify: (uid: String, enabled: Boolean) -> Unit,
     onRemoveWatcher: (uid: String) -> Unit,
+    onStartDirectShareWithAssurance: ((durationMinutes: Int, notifyWatchersOnEnd: Boolean) -> Unit)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -108,6 +109,7 @@ fun LiveShareSetupSheet(
             onInviteWatcher = onInviteWatcher,
             onToggleWatcherAutoNotify = onToggleWatcherAutoNotify,
             onRemoveWatcher = onRemoveWatcher,
+            onStartDirectShareWithAssurance = onStartDirectShareWithAssurance,
         )
     }
 }
@@ -128,12 +130,15 @@ internal fun LiveShareSetupSheetContent(
     onInviteWatcher: () -> Unit,
     onToggleWatcherAutoNotify: (uid: String, enabled: Boolean) -> Unit,
     onRemoveWatcher: (uid: String) -> Unit,
+    onStartDirectShareWithAssurance: ((durationMinutes: Int, notifyWatchersOnEnd: Boolean) -> Unit)? = null,
 ) {
     val strings = LocalAppStrings.current
     var selectedDurationMinutes by rememberSaveable { mutableIntStateOf(30) }
     var isEditingDuration by rememberSaveable { mutableStateOf(false) }
+    var notifyWatchersOnEnd by rememberSaveable { mutableStateOf(true) }
     var watcherToRemove by remember { mutableStateOf<TrustedWatcher?>(null) }
     val isActive = liveShareState.status == LiveShareStatus.ACTIVE
+    val hasSelectedAutoWatchers = trustedWatchers.any { it.autoNotify }
 
     Column(
         modifier = Modifier
@@ -360,6 +365,39 @@ internal fun LiveShareSetupSheetContent(
                         Text(strings.trustedWatchersAddCta, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
+
+                if (!isActive && hasSelectedAutoWatchers) {
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = strings.trustedWatchersNotifyOnEndTitle,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    text = strings.trustedWatchersNotifyOnEndSubtitle,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Switch(
+                                checked = notifyWatchersOnEnd,
+                                onCheckedChange = { notifyWatchersOnEnd = it },
+                                modifier = Modifier.testTag("live_share_notify_watchers_on_end_switch"),
+                            )
+                        }
+                    }
+                }
             }
 
             HorizontalDivider()
@@ -425,7 +463,12 @@ internal fun LiveShareSetupSheetContent(
                     }
                     Button(
                         onClick = {
-                            onStartDirectShare(selectedDurationMinutes)
+                            val startWithAssurance = onStartDirectShareWithAssurance
+                            if (startWithAssurance != null) {
+                                startWithAssurance(selectedDurationMinutes, notifyWatchersOnEnd)
+                            } else {
+                                onStartDirectShare(selectedDurationMinutes)
+                            }
                             onDismiss()
                         },
                         enabled = isAuthenticated && !groupActive,
