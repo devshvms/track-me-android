@@ -53,6 +53,14 @@ object NotificationBudget {
      */
     const val RETURN_NOTICE_MIN_ABSENCE_DAYS: Int = 21
 
+    /**
+     * TASK-379 (v1.9.5): Minimum delay after onboarding completion before the single Day-1
+     * first-trip nudge may fire (20 hours), and maximum window (7 days) so dormant installs are
+     * never surprised weeks later.
+     */
+    const val FIRST_TRIP_NUDGE_MIN_DELAY_MILLIS: Long = 20L * 60 * 60 * 1000
+    const val FIRST_TRIP_NUDGE_MAX_WINDOW_MILLIS: Long = 7L * 24 * 60 * 60 * 1000
+
     enum class Klass {
         CONSEQUENTIAL,
         REQUESTED,
@@ -80,6 +88,13 @@ object NotificationBudget {
          * fact reaches the user without an interruption of its own.
          */
         WEEKLY_RECAP,
+
+        /**
+         * TASK-379 (v1.9.5): One-time Day-1 first-trip nudge for fresh installs who finished
+         * onboarding 20h–7d ago with 0 completed rides. Disjoint from [RETURN_AFTER_ABSENCE] and
+         * [WEEKLY_RECAP] (both require >= 1 completed ride), and strictly once per install lifetime.
+         */
+        FIRST_TRIP_NUDGE,
     }
 
     /**
@@ -165,5 +180,31 @@ object NotificationBudget {
         val sent = lastReturnNoticeAtMillis ?: return true
         val describedActivity = lastReturnNoticeActivityAtMillis ?: sent
         return activity > describedActivity
+    }
+
+    /**
+     * TASK-379 (v1.9.5): Pure gate for the one-time Day-1 first-trip local nudge.
+     *
+     * Strictly requires:
+     *  - [completedRidesCount] == 0 (never fires once a rider has completed >= 1 real ride)
+     *  - ![isTrackingOrStandbyActive] (never fires mid-ride or while 2h standby is armed)
+     *  - [firstTripNudgeSentAtMillis] == null (lifetime once-only latch per install)
+     *  - [onboardingCompletedAtMillis] != null (legacy upgraders without an onboarding timestamp never get it)
+     *  - elapsed time in [FIRST_TRIP_NUDGE_MIN_DELAY_MILLIS]..[FIRST_TRIP_NUDGE_MAX_WINDOW_MILLIS] (20h..7d)
+     */
+    fun allowsFirstTripNudge(
+        nowMillis: Long,
+        onboardingCompletedAtMillis: Long?,
+        firstTripNudgeSentAtMillis: Long?,
+        completedRidesCount: Int,
+        isTrackingOrStandbyActive: Boolean = false,
+    ): Boolean {
+        if (completedRidesCount > 0) return false
+        if (isTrackingOrStandbyActive) return false
+        if (firstTripNudgeSentAtMillis != null) return false
+        val completedAt = onboardingCompletedAtMillis ?: return false
+        if (nowMillis < completedAt) return false
+        val elapsed = nowMillis - completedAt
+        return elapsed in FIRST_TRIP_NUDGE_MIN_DELAY_MILLIS..FIRST_TRIP_NUDGE_MAX_WINDOW_MILLIS
     }
 }

@@ -220,4 +220,89 @@ class NotificationBudgetVectorsTest {
         assertNull(ledger)
         assertTrue(NotificationBudget.allows(NotificationBudget.Klass.PROACTIVE, 5_000L, ledger))
     }
+
+    @Test
+    fun `first-trip nudge fires once between 20h and 7d only when zero rides completed and idle`() {
+        val onboardingAt = 10_000_000L
+        val minDelay = NotificationBudget.FIRST_TRIP_NUDGE_MIN_DELAY_MILLIS
+        val maxWindow = NotificationBudget.FIRST_TRIP_NUDGE_MAX_WINDOW_MILLIS
+
+        // Too early (< 20h)
+        assertEquals(
+            false,
+            NotificationBudget.allowsFirstTripNudge(
+                nowMillis = onboardingAt + minDelay - 1L,
+                onboardingCompletedAtMillis = onboardingAt,
+                firstTripNudgeSentAtMillis = null,
+                completedRidesCount = 0,
+                isTrackingOrStandbyActive = false,
+            ),
+        )
+        // Eligible at 20h and 7d boundary
+        assertTrue(
+            NotificationBudget.allowsFirstTripNudge(
+                nowMillis = onboardingAt + minDelay,
+                onboardingCompletedAtMillis = onboardingAt,
+                firstTripNudgeSentAtMillis = null,
+                completedRidesCount = 0,
+                isTrackingOrStandbyActive = false,
+            )
+        )
+        assertTrue(
+            NotificationBudget.allowsFirstTripNudge(
+                nowMillis = onboardingAt + maxWindow,
+                onboardingCompletedAtMillis = onboardingAt,
+                firstTripNudgeSentAtMillis = null,
+                completedRidesCount = 0,
+                isTrackingOrStandbyActive = false,
+            )
+        )
+        // Blocked when expired (> 7d), already completed >= 1 ride, already sent, missing onboarding timestamp, or tracking/standby active
+        assertEquals(
+            false,
+            NotificationBudget.allowsFirstTripNudge(
+                nowMillis = onboardingAt + maxWindow + 1L,
+                onboardingCompletedAtMillis = onboardingAt,
+                firstTripNudgeSentAtMillis = null,
+                completedRidesCount = 0,
+            ),
+        )
+        assertEquals(
+            false,
+            NotificationBudget.allowsFirstTripNudge(
+                nowMillis = onboardingAt + minDelay,
+                onboardingCompletedAtMillis = onboardingAt,
+                firstTripNudgeSentAtMillis = null,
+                completedRidesCount = 1,
+            ),
+        )
+        assertEquals(
+            false,
+            NotificationBudget.allowsFirstTripNudge(
+                nowMillis = onboardingAt + minDelay,
+                onboardingCompletedAtMillis = onboardingAt,
+                firstTripNudgeSentAtMillis = onboardingAt + minDelay,
+                completedRidesCount = 0,
+            ),
+        )
+        assertEquals(
+            false,
+            NotificationBudget.allowsFirstTripNudge(
+                nowMillis = onboardingAt + minDelay,
+                onboardingCompletedAtMillis = null,
+                firstTripNudgeSentAtMillis = null,
+                completedRidesCount = 0,
+            ),
+        )
+        assertEquals(
+            false,
+            NotificationBudget.allowsFirstTripNudge(
+                nowMillis = onboardingAt + minDelay,
+                onboardingCompletedAtMillis = onboardingAt,
+                firstTripNudgeSentAtMillis = null,
+                completedRidesCount = 0,
+                isTrackingOrStandbyActive = true,
+            ),
+        )
+    }
 }

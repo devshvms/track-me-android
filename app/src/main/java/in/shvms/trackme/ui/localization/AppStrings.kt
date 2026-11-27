@@ -392,6 +392,8 @@ open class AppStrings(internal val overrides: Map<String, String> = emptyMap()) 
     val returnNoticeTitle: String = s("returnNoticeTitle", "Your rides are still here")
     val returnNoticeBody: String = s("returnNoticeBody", "Your last recorded activity was %1\$d days ago. Everything you recorded is still on your phone.")
     val returnNoticeStop: String = s("returnNoticeStop", "Stop these")
+    val firstTripNudgeTitle: String = s("firstTripNudgeTitle", "Ready for your first trip?")
+    val firstTripNudgeBody: String = s("firstTripNudgeBody", "Next time you head out for a walk, ride, or drive, tap Start — routes stay private on your phone and work offline.")
 
     // §6.1.1 #4 — the forgotten ride. A question, never an instruction, and never an announcement
     // that the app has done something: it must not auto-stop, so the copy must not imply it might.
@@ -1326,6 +1328,8 @@ private fun createEsAppStrings(): AppStrings = AppStrings(mapOf(
             "returnNoticeTitle" to "Tus rutas siguen aquí",
             "returnNoticeBody" to "Tu última actividad registrada fue hace %1\$d días. Todo lo que grabaste sigue en tu teléfono.",
             "returnNoticeStop" to "Detener estos avisos",
+            "firstTripNudgeTitle" to "¿Listo para tu primer trayecto?",
+            "firstTripNudgeBody" to "La próxima vez que salgas a caminar, rodar o conducir, toca Iniciar: tus rutas quedan privadas en tu teléfono y funcionan sin conexión.",
             "forgottenRideTitle" to "Grabando todavía",
             "forgottenRideBody" to "%1\$d min grabados. Sin movimiento desde las %2\$s.",
             "forgottenRideBodyNoTime" to "%1\$d min grabados, sin movimiento desde hace un rato.",
@@ -2203,6 +2207,8 @@ private fun createFrAppStrings(): AppStrings = AppStrings(mapOf(
             "returnNoticeTitle" to "Vos sorties sont toujours là",
             "returnNoticeBody" to "Votre dernière activité enregistrée date de %1\$d jours. Tout ce que vous avez enregistré est toujours sur votre téléphone.",
             "returnNoticeStop" to "Arrêter ces rappels",
+            "firstTripNudgeTitle" to "Prêt pour votre premier trajet ?",
+            "firstTripNudgeBody" to "Lors de votre prochaine marche, sortie à vélo ou trajet en voiture, appuyez sur Démarrer : vos itinéraires restent privés sur votre téléphone et hors ligne.",
             "forgottenRideTitle" to "Enregistrement en cours",
             "forgottenRideBody" to "%1\$d min enregistrées. Aucun mouvement depuis %2\$s.",
             "forgottenRideBodyNoTime" to "%1\$d min enregistrées, sans mouvement depuis un moment.",
@@ -3080,6 +3086,8 @@ private fun createDeAppStrings(): AppStrings = AppStrings(mapOf(
             "returnNoticeTitle" to "Ihre Fahrten sind noch da",
             "returnNoticeBody" to "Ihre letzte aufgezeichnete Aktivität war vor %1\$d Tagen. Alles Aufgezeichnete ist weiterhin auf Ihrem Telefon.",
             "returnNoticeStop" to "Diese Hinweise stoppen",
+            "firstTripNudgeTitle" to "Bereit für deine erste Fahrt?",
+            "firstTripNudgeBody" to "Wenn du das nächste Mal zu Fuß, mit dem Rad oder im Auto losfährst, tippe auf Start – deine Routen bleiben privat auf deinem Telefon und funktionieren offline.",
             "forgottenRideTitle" to "Nimmt weiter auf",
             "forgottenRideBody" to "%1\$d Min aufgezeichnet. Keine Bewegung seit %2\$s.",
             "forgottenRideBodyNoTime" to "%1\$d Min aufgezeichnet, seit einer Weile ohne Bewegung.",
@@ -3957,6 +3965,8 @@ private fun createHiAppStrings(): AppStrings = AppStrings(mapOf(
             "returnNoticeTitle" to "आपकी राइड्स यहीं हैं",
             "returnNoticeBody" to "आपकी आखिरी दर्ज गतिविधि %1\$d दिन पहले थी। आपका दर्ज किया सब कुछ अब भी आपके फ़ोन में है।",
             "returnNoticeStop" to "ये सूचनाएँ बंद करें",
+            "firstTripNudgeTitle" to "अपनी पहली यात्रा के लिए तैयार हैं?",
+            "firstTripNudgeBody" to "अगली बार जब आप पैदल, बाइक या कार से निकलें, तो स्टार्ट दबाएँ — आपके रूट फ़ोन पर निजी रहते हैं और ऑफ़लाइन काम करते हैं।",
             "forgottenRideTitle" to "अभी भी रिकॉर्ड हो रहा है",
             "forgottenRideBody" to "%1\$d मिनट रिकॉर्ड हुए। %2\$s से कोई हलचल नहीं।",
             "forgottenRideBodyNoTime" to "%1\$d मिनट रिकॉर्ड हुए, कुछ समय से कोई हलचल नहीं।",
@@ -4834,6 +4844,8 @@ private fun createJaAppStrings(): AppStrings = AppStrings(mapOf(
             "returnNoticeTitle" to "記録はそのまま残っています",
             "returnNoticeBody" to "最後に記録したアクティビティは %1\$d 日前です。記録した内容はすべて端末に残っています。",
             "returnNoticeStop" to "この通知を停止",
+            "firstTripNudgeTitle" to "最初の移動を記録してみませんか？",
+            "firstTripNudgeBody" to "次に散歩や自転車、ドライブに出かけるときは「開始」をタップしてください。ルートは端末内に非公開で保存され、オフラインでも動作します。",
             "forgottenRideTitle" to "記録を継続中",
             "forgottenRideBody" to "%1\$d分を記録。%2\$sから動きがありません。",
             "forgottenRideBodyNoTime" to "%1\$d分を記録。しばらく動きがありません。",
@@ -5711,6 +5723,8 @@ private fun createZhAppStrings(): AppStrings = AppStrings(mapOf(
             "returnNoticeTitle" to "你的记录都还在",
             "returnNoticeBody" to "上次记录的活动是在 %1\$d 天前。你记录的一切仍保存在手机上。",
             "returnNoticeStop" to "停止此类通知",
+            "firstTripNudgeTitle" to "准备好记录第一次行程了吗？",
+            "firstTripNudgeBody" to "下次出门步行、骑行或驾车时，轻点“开始”即可——路线私密保存在手机本地，离线也能记录。",
             "forgottenRideTitle" to "仍在记录",
             "forgottenRideBody" to "已记录 %1\$d 分钟。自 %2\$s 起没有移动。",
             "forgottenRideBodyNoTime" to "已记录 %1\$d 分钟，有一段时间没有移动。",

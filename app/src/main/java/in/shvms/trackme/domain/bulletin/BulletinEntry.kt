@@ -130,7 +130,12 @@ enum class BulletinKind {
      * because "when was I visible, and to which group" is a question someone may want to answer
      * later, and a swiped notification answers nothing.
      */
-    GROUP_STILL_LIVE;
+    GROUP_STILL_LIVE,
+
+    /**
+     * TASK-379 (v1.9.5) — single Day-1 first-trip nudge for installs with 0 completed rides.
+     */
+    FIRST_TRIP_NUDGE;
 
     companion object {
         /** Exact match only, for the same reason `BroadcastTag.parse` is strict. */

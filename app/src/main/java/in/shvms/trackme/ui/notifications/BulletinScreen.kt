@@ -265,4 +265,6 @@ internal class AppStringsBulletinCopy(private val s: AppStrings) : BulletinCopy.
     override fun groupStillLiveBody(groupName: String) =
         String.format(Locale.getDefault(), s.groupStillLiveBody, groupName)
     override val groupStillLiveBodyNoName get() = s.groupStillLiveBodyNoName
+    override val firstTripNudgeTitle get() = s.firstTripNudgeTitle
+    override val firstTripNudgeBody get() = s.firstTripNudgeBody
 }

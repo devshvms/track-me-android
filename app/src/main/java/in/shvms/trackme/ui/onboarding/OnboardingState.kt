@@ -94,9 +94,19 @@ object OnboardingGate {
         return resolved
     }
 
-    fun markDone(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString(KEY, OnboardingState.DONE.stored).apply()
+    fun markDone(context: Context, nowMillis: Long = System.currentTimeMillis()) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val editor = prefs.edit().putString(KEY, OnboardingState.DONE.stored)
+        if (!prefs.contains(KEY_COMPLETED_AT)) {
+            editor.putLong(KEY_COMPLETED_AT, nowMillis)
+        }
+        editor.apply()
+    }
+
+    fun completedAtMillis(context: Context): Long? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (!prefs.contains(KEY_COMPLETED_AT)) return null
+        return prefs.getLong(KEY_COMPLETED_AT, 0L).takeIf { it > 0L }
     }
 
     /**
@@ -116,6 +126,7 @@ object OnboardingGate {
     }
 
     private const val KEY_ATTEMPTS = "onboarding_attempts"
+    private const val KEY_COMPLETED_AT = "onboarding_completed_at_millis"
 }
 
 /**

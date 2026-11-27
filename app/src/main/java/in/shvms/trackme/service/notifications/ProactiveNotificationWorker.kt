@@ -78,12 +78,26 @@ class ProactiveNotificationWorker(
         val now = System.currentTimeMillis()
         val recap = app.rideStatsStore.pendingWeeklyRecap()
 
+        val completedRidesCount = app.rideStatsStore.stats.value.totalRides
+        val onboardingCompletedAt = `in`.shvms.trackme.ui.onboarding.OnboardingGate.completedAtMillis(applicationContext)
+        val isFirstTripEligible = NotificationBudget.allowsFirstTripNudge(
+            nowMillis = now,
+            onboardingCompletedAtMillis = onboardingCompletedAt,
+            firstTripNudgeSentAtMillis = ledger.firstTripNudgeSentAtMillis,
+            completedRidesCount = completedRidesCount,
+            isTrackingOrStandbyActive = `in`.shvms.trackme.service.TrackingService.isRunning,
+        )
+
         // §6.1.7: the fact reaches the feed whether or not it earns an interruption. A recap the
         // budget refuses used to appear nowhere at all — which made "the bulletin is what lets the
         // cap be a trade rather than a loss" untrue for the one case it was written about. The
         // notification is a separate decision below; this is unconditional.
         recap?.takeIf { it.rideCount > 0 }?.let {
             app.bulletinStore.add(`in`.shvms.trackme.data.local.BulletinAdapters.from(it))
+        }
+        if (isFirstTripEligible && !ledger.firstTripBulletinAdded) {
+            app.bulletinStore.add(`in`.shvms.trackme.data.local.BulletinAdapters.firstTripNudge(now))
+            ledger.recordFirstTripBulletinAdded()
         }
 
         // The bulletin is useful specifically when notification permission is off. Keep the OS
@@ -117,6 +131,12 @@ class ProactiveNotificationWorker(
                     daysSinceLastActivity = daysAway,
                 )
             ) add(NotificationBudget.ProactiveKind.RETURN_AFTER_ABSENCE)
+
+            if (isFirstTripEligible &&
+                NotificationBudget.allows(
+                    NotificationBudget.Klass.PROACTIVE, now, ledger.lastProactiveSentAtMillis
+                )
+            ) add(NotificationBudget.ProactiveKind.FIRST_TRIP_NUDGE)
         }
 
         when (NotificationBudget.choose(eligible)) {
@@ -124,6 +144,8 @@ class ProactiveNotificationWorker(
                 deliverReturnNotice(app, ledger, now)
             NotificationBudget.ProactiveKind.WEEKLY_RECAP ->
                 recap?.let { deliverWeeklyRecap(app, ledger, now, it) }
+            NotificationBudget.ProactiveKind.FIRST_TRIP_NUDGE ->
+                deliverFirstTripNudge(app, ledger, now)
             null -> Unit
         }
     }
@@ -252,6 +274,45 @@ class ProactiveNotificationWorker(
         }
     }
 
+    /**
+     * TASK-379 (v1.9.5): One-time Day-1 first-trip local nudge (`PRIORITY_LOW`, `PROGRESS` channel).
+     * Fires at most once in the lifetime of the install when `completedRidesCount == 0` 20h–7d after
+     * onboarding completion, closing both the weekly Class C budget and the lifetime latch.
+     */
+    private fun deliverFirstTripNudge(app: TrackMeApp, ledger: ProactiveLedger, now: Long) {
+        val strings = getAppStrings(app.preferencesManager.appLanguage.value)
+        NotificationChannels.ensure(applicationContext, strings)
+
+        val openIntent = Intent(applicationContext, MainActivity::class.java)
+            .setAction(MainActivity.ACTION_OPEN_FIRST_TRIP_NUDGE)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val open = PendingIntent.getActivity(
+            applicationContext,
+            FIRST_TRIP_NUDGE_NOTIFICATION_ID,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(applicationContext, NotificationChannels.PROGRESS)
+            .setSmallIcon(R.drawable.ic_trackme_logo_transparent)
+            .setContentTitle(strings.firstTripNudgeTitle)
+            .setContentText(strings.firstTripNudgeBody)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(strings.firstTripNudgeBody))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+
+        runCatching {
+            applicationContext.getSystemService(NotificationManager::class.java)
+                ?.notify(FIRST_TRIP_NUDGE_NOTIFICATION_ID, notification)
+        }.onSuccess {
+            ledger.recordProactiveSent(now)
+            ledger.recordFirstTripNudgeSent(now)
+            AnalyticsManager.trackFirstTripNudgeSent()
+        }
+    }
+
     private fun progressNotificationSettingsIntent(): PendingIntent {
         val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
@@ -273,6 +334,7 @@ class ProactiveNotificationWorker(
         private const val NOTIFICATION_ID = 4302
         private const val RETURN_NOTIFICATION_ID = 4304
         private const val RETURN_SETTINGS_REQUEST_CODE = 4305
+        private const val FIRST_TRIP_NUDGE_NOTIFICATION_ID = 4309
         const val WORK_NAME = "TrackMeProactiveNotifications"
 
         /**

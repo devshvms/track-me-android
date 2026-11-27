@@ -68,5 +68,13 @@ object BulletinAdapters {
             )
         }
 
+    fun firstTripNudge(createdAtMillis: Long): BulletinEntry = BulletinEntry(
+        // Stable singleton id so in-app fallback and notification delivery never duplicate the row.
+        id = "first-trip-nudge",
+        kind = BulletinKind.FIRST_TRIP_NUDGE,
+        createdAtMillis = createdAtMillis,
+        facts = emptyMap(),
+    )
+
     private const val MILLIS_PER_DAY = 86_400_000L
 }

@@ -41,6 +41,8 @@ class BulletinCopyTest {
         override val groupStillLiveTitle = "Still sharing"
         override fun groupStillLiveBody(groupName: String) = "Still visible in $groupName."
         override val groupStillLiveBodyNoName = "Still visible in a live group."
+        override val firstTripNudgeTitle = "Ready for your first trip?"
+        override val firstTripNudgeBody = "Next time you head out, tap Start."
     }
 
     private fun entry(kind: BulletinKind, facts: Map<String, String>) =
@@ -226,8 +228,17 @@ class BulletinCopyTest {
             listOf(
                 "BROADCAST", "RIDE_SAVED", "SYNC_PROBLEM", "WEEKLY_RECAP", "LEVEL_REACHED",
                 "MILESTONE", "VERSION_NOTE", "RETURN_NOTICE", "FORGOTTEN_RIDE", "GROUP_STILL_LIVE",
+                "FIRST_TRIP_NUDGE",
             ),
             BulletinKind.entries.map { it.name },
+        )
+    }
+
+    @Test
+    fun `a first-trip nudge row renders its title and body`() {
+        assertEquals(
+            BulletinCopy.Row("Ready for your first trip?", "Next time you head out, tap Start."),
+            BulletinCopy.render(entry(BulletinKind.FIRST_TRIP_NUDGE, emptyMap()), FakeStrings),
         )
     }
 

@@ -115,6 +115,11 @@ object BulletinCopy {
                     Row(strings.groupStillLiveTitle, strings.groupStillLiveBodyNoName)
                 }
             }
+
+            BulletinKind.FIRST_TRIP_NUDGE -> Row(
+                strings.firstTripNudgeTitle,
+                strings.firstTripNudgeBody,
+            )
         }
     }
 
@@ -161,5 +166,7 @@ object BulletinCopy {
         val groupStillLiveTitle: String
         fun groupStillLiveBody(groupName: String): String
         val groupStillLiveBodyNoName: String
+        val firstTripNudgeTitle: String
+        val firstTripNudgeBody: String
     }
 }

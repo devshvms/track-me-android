@@ -814,6 +814,18 @@ object AnalyticsManager {
         )
     }
 
+    /** TASK-379 (v1.9.5): One-time Day-1 first-trip local nudge delivered (zero PII). */
+    fun trackFirstTripNudgeSent() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("first_trip_nudge_sent", properties = mapOf("platform" to "android"))
+    }
+
+    /** TASK-379 (v1.9.5): One-time Day-1 first-trip local nudge tapped to open Home (zero PII). */
+    fun trackFirstTripNudgeOpened() {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture("first_trip_nudge_opened", properties = mapOf("platform" to "android"))
+    }
+
     /** TASK-358: Weekly recap card shared to external destination. */
     fun trackRecapShared(weekKey: String, rideCount: Int, distanceKm: Double) {
         if (!_isTelemetryEnabled.value) return

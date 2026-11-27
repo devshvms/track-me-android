@@ -84,6 +84,7 @@ class MainActivity : AppCompatActivity() {
     handleGroupInvite(intent)
     handleQuickStart(intent)
     handleWeeklyRecap(intent)
+    handleFirstTripNudge(intent)
     handleLiveShareDeepLink(intent)
 
     pipDashboardStateSource = PiPDashboardStateSource(
@@ -248,6 +249,7 @@ class MainActivity : AppCompatActivity() {
       handleGroupInvite(intent)
       handleQuickStart(intent)
       handleWeeklyRecap(intent)
+      handleFirstTripNudge(intent)
       handleLiveShareDeepLink(intent)
   }
 
@@ -291,6 +293,12 @@ class MainActivity : AppCompatActivity() {
           markRecapOpenedFromNotification()
           checkWeeklyRecap()
       }
+      intent.action = null
+  }
+
+  private fun handleFirstTripNudge(intent: android.content.Intent?) {
+      if (intent?.action != ACTION_OPEN_FIRST_TRIP_NUDGE) return
+      AnalyticsManager.trackFirstTripNudgeOpened()
       intent.action = null
   }
 
@@ -474,6 +482,7 @@ class MainActivity : AppCompatActivity() {
 
   companion object {
       const val ACTION_OPEN_WEEKLY_RECAP = "in.shvms.trackme.action.OPEN_WEEKLY_RECAP"
+      const val ACTION_OPEN_FIRST_TRIP_NUDGE = "in.shvms.trackme.action.OPEN_FIRST_TRIP_NUDGE"
       const val EXTRA_WEEK_KEY = "extra_week_key"
       const val EXTRA_RIDE_COUNT = "extra_ride_count"
       const val EXTRA_DISTANCE_KM = "extra_distance_km"

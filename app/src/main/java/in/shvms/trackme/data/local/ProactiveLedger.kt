@@ -38,6 +38,14 @@ class ProactiveLedger(context: Context) {
     val lastRecapWeekStartEpochDay: Long?
         get() = if (prefs.contains(KEY_LAST_RECAP_WEEK)) prefs.getLong(KEY_LAST_RECAP_WEEK, 0L) else null
 
+    /** TASK-379: Lifetime once-only timestamp for the Day-1 first-trip nudge, or null if never sent. */
+    val firstTripNudgeSentAtMillis: Long?
+        get() = if (prefs.contains(KEY_FIRST_TRIP_NUDGE_SENT)) prefs.getLong(KEY_FIRST_TRIP_NUDGE_SENT, 0L) else null
+
+    /** TASK-379: Ensures the in-app Bulletin fallback row is added at most once per install. */
+    val firstTripBulletinAdded: Boolean
+        get() = prefs.getBoolean(KEY_FIRST_TRIP_BULLETIN_ADDED, false)
+
     /**
      * Records a delivered Class C notification. Routed through `NotificationBudget.recordSent` so
      * the "never moves backwards" rule lives in the tested pure object rather than being restated
@@ -63,11 +71,21 @@ class ProactiveLedger(context: Context) {
         prefs.edit().putLong(KEY_LAST_RECAP_WEEK, weekStartEpochDay).apply()
     }
 
+    fun recordFirstTripNudgeSent(sentAtMillis: Long) {
+        prefs.edit().putLong(KEY_FIRST_TRIP_NUDGE_SENT, sentAtMillis).apply()
+    }
+
+    fun recordFirstTripBulletinAdded() {
+        prefs.edit().putBoolean(KEY_FIRST_TRIP_BULLETIN_ADDED, true).apply()
+    }
+
     private companion object {
         const val PREFS = "trackme_proactive_ledger"
         const val KEY_LAST_SENT = "last_proactive_sent_at"
         const val KEY_LAST_RETURN = "last_return_notice_at"
         const val KEY_LAST_RETURN_ACTIVITY = "last_return_notice_activity_at"
         const val KEY_LAST_RECAP_WEEK = "last_recap_week_start_epoch_day"
+        const val KEY_FIRST_TRIP_NUDGE_SENT = "first_trip_nudge_sent_at"
+        const val KEY_FIRST_TRIP_BULLETIN_ADDED = "first_trip_bulletin_added"
     }
 }
