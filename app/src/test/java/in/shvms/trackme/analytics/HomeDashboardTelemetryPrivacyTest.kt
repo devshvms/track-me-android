@@ -15,12 +15,14 @@ class HomeDashboardTelemetryPrivacyTest {
         listOf(
             "home_dashboard_viewed",
             "activity_start_cta_tapped",
+            "activity_mode_chip_selected",
             "home_insight_shown",
             "home_recent_activity_opened",
             "home_group_map_opened",
             "history_bucket",
             "insight_type",
             "persona",
+            "previous_persona",
             "method",
         ).forEach { assertTrue("missing $it", section.contains("\"$it\"")) }
 

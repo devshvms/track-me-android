@@ -149,4 +149,22 @@ class RadialStartRideButtonGestureTest {
         assertFalse(reset.didExceedTouchSlop)
         assertNull(reset.pendingLaunch)
     }
+
+    @Test
+    fun `task381 quick activity mode strip covers all personas in order and deduplicates redundant taps`() {
+        assertEquals(
+            listOf(
+                RidePersona.AUTO,
+                RidePersona.CAR_DRIVE,
+                RidePersona.BIKE_DRIVE,
+                RidePersona.WALK,
+                RidePersona.CYCLING,
+                RidePersona.RUN,
+            ),
+            QUICK_ACTIVITY_MODE_ORDER,
+        )
+        assertEquals(RidePersona.entries.toSet(), QUICK_ACTIVITY_MODE_ORDER.toSet())
+        assertEquals(RidePersona.CYCLING, resolveQuickActivityModeTap(RidePersona.AUTO, RidePersona.CYCLING))
+        assertNull(resolveQuickActivityModeTap(RidePersona.CYCLING, RidePersona.CYCLING))
+    }
 }

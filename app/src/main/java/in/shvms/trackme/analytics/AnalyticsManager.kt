@@ -679,6 +679,20 @@ object AnalyticsManager {
         )
     }
 
+    fun trackActivityModeChipSelected(
+        persona: `in`.shvms.trackme.domain.model.RidePersona,
+        previousPersona: `in`.shvms.trackme.domain.model.RidePersona,
+    ) {
+        if (!_isTelemetryEnabled.value) return
+        PostHog.capture(
+            "activity_mode_chip_selected",
+            properties = mapOf(
+                "persona" to persona.name,
+                "previous_persona" to previousPersona.name,
+            ),
+        )
+    }
+
     fun trackHomeInsightShown(insightType: String) {
         if (!_isTelemetryEnabled.value) return
         require(insightType in setOf("return", "period_comparison", "dominant_persona"))

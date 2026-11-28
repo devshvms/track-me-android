@@ -60,7 +60,9 @@ import `in`.shvms.trackme.ui.localization.LocalAppStrings
 import `in`.shvms.trackme.ui.home.components.ActiveRideHudPanel
 import `in`.shvms.trackme.ui.home.components.LiveShareBroadcastHudPanel
 import `in`.shvms.trackme.ui.home.components.LiveShareSetupSheet
+import `in`.shvms.trackme.ui.home.components.QuickActivityModeStrip
 import `in`.shvms.trackme.ui.home.components.RadialStartRideButton
+import `in`.shvms.trackme.ui.home.components.resolveQuickActivityModeTap
 import `in`.shvms.trackme.domain.quickstart.QuickStartRequest
 import `in`.shvms.trackme.ui.components.animateSafely
 import `in`.shvms.trackme.ui.components.rememberIsOffline
@@ -1879,6 +1881,20 @@ fun HomeScreen(
                             modifier = Modifier.padding(bottom = 8.dp),
                         )
                     }
+                    QuickActivityModeStrip(
+                        selectedPersona = uiState.selectedDashboardPersona,
+                        onSelectPersona = { persona ->
+                            resolveQuickActivityModeTap(uiState.selectedDashboardPersona, persona)?.let { next ->
+                                AnalyticsManager.trackActivityModeChipSelected(
+                                    persona = next,
+                                    previousPersona = uiState.selectedDashboardPersona,
+                                )
+                                viewModel.selectDashboardPersona(next)
+                                dashboardSelectionCameFromPicker = true
+                            }
+                        },
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
                     RadialStartRideButton(
                         onOpenAllPersonas = { showDashboardPersonaPicker = true },
                         onStartRide = { persona ->
